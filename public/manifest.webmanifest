@@ -1,0 +1,10 @@
+{
+  "id": "/", "name": "KhypuPyme", "short_name": "KhypuPyme", "lang": "es-BO",
+  "description": "Tu cuaderno digital para el negocio.",
+  "start_url": "/", "scope": "/", "display": "standalone",
+  "theme_color": "#123c35", "background_color": "#f5f4ef",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

@@ -1,0 +1,8 @@
+allowBuilds:
+  '@firebase/util': false
+  protobufjs: false
+  re2: true
+minimumReleaseAgeExclude:
+  - eslint@10.14.0
+overrides:
+  '@grpc/grpc-js': 1.14.7

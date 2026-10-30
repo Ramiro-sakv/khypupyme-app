@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner(businessId) {
+      return request.auth != null && request.auth.uid == businessId;
+    }
+    function validBusiness(data) {
+      return data.keys().hasAll(['name', 'ownerUid', 'currency', 'timeZone', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['name', 'ownerUid', 'currency', 'timeZone', 'createdAt', 'updatedAt'])
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 80
+        && data.name.matches('^[^\\s].*[^\\s]$')
+        && data.ownerUid is string
+        && data.currency == 'BOB' && data.timeZone == 'America/La_Paz'
+        && data.createdAt is timestamp && data.updatedAt is timestamp;
+    }
+    match /businesses/{businessId} {
+      allow get: if isOwner(businessId);
+      allow list, delete: if false;
+      allow create: if isOwner(businessId) && validBusiness(request.resource.data)
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if isOwner(businessId) && resource.data.ownerUid == request.auth.uid
+        && validBusiness(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'updatedAt'])
+        && request.resource.data.updatedAt == request.time;
+    }
+    // Los módulos comerciales permanecen cerrados hasta implementar sus invariantes.
+    match /{document=**} { allow read, write: if false; }
+  }
+}

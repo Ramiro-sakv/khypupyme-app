@@ -1,4 +1,5 @@
-import { expect, test } from '@playwright/test';
+import { navigate } from './navigation';
+import { expect, test } from './fixtures';
 
 test('compra confirmada actualiza costos y puede anularse conservando historial', async ({ page, context }, info) => {
   await page.goto('/registro');
@@ -9,8 +10,8 @@ test('compra confirmada actualiza costos y puede anularse conservando historial'
   await expect(page.getByRole('heading', { name: 'Dale un nombre a tu negocio' })).toBeVisible();
   await page.getByLabel('Nombre del negocio').fill('Tienda de compras');
   await page.getByRole('button', { name: 'Crear mi negocio' }).click();
-  await expect(page.getByRole('status')).toHaveText('Tu negocio se guardó correctamente.');
-  await page.getByRole('link', { name: 'Inventario', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Hola, Tienda de compras' })).toBeVisible();
+  await navigate(page, 'Inventario');
   await page.getByRole('button', { name: 'Nuevo producto', exact: true }).click();
   await page.getByLabel('Nombre del producto').fill('Arroz de prueba');
   await page.getByLabel('Precio de venta (BOB)').fill('10');
@@ -18,7 +19,7 @@ test('compra confirmada actualiza costos y puede anularse conservando historial'
   await page.getByLabel('Costo unitario inicial (BOB)').fill('5');
   await page.getByRole('button', { name: 'Crear producto', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Producto creado correctamente.' })).toBeVisible();
-  await page.getByRole('link', { name: 'Compras', exact: true }).click();
+  await navigate(page, 'Compras');
   await page.getByRole('button', { name: 'Nueva compra', exact: true }).click();
   const selector = page.getByLabel('Producto de la compra');
   await expect(selector).toBeEnabled();
@@ -39,10 +40,10 @@ test('compra confirmada actualiza costos y puede anularse conservando historial'
   await expect(page.getByRole('list', { name: 'Lista de compras' })).toContainText('Recibo ficticio');
   await page.screenshot({ path: `test-results/purchases-${info.project.name}.png`, fullPage: true });
   await expect(page.locator('body')).toHaveJSProperty('scrollWidth', await page.locator('body').evaluate((element) => element.clientWidth));
-  await page.getByRole('link', { name: 'Inventario', exact: true }).click();
+  await navigate(page, 'Inventario');
   await expect(page.getByRole('list', { name: 'Lista de productos' })).toContainText('120,00');
   await expect(page.getByRole('list', { name: 'Lista de productos' })).toContainText('6,00');
-  await page.getByRole('link', { name: 'Compras', exact: true }).click();
+  await navigate(page, 'Compras');
   await page.getByRole('button', { name: 'Anular compra de Arroz de prueba' }).click();
   await page.getByLabel('Motivo de anulación').fill('Registro equivocado');
   await page.getByRole('button', { name: 'Confirmar anulación' }).click();
@@ -51,7 +52,7 @@ test('compra confirmada actualiza costos y puede anularse conservando historial'
   await context.setOffline(true);
   await expect(page.getByRole('button', { name: 'Nueva compra', exact: true })).toBeDisabled();
   await context.setOffline(false);
-  await page.getByRole('link', { name: 'Inventario', exact: true }).click();
+  await navigate(page, 'Inventario');
   await expect(page.getByRole('list', { name: 'Lista de productos' })).toContainText('50,00');
   await expect(page.getByRole('list', { name: 'Lista de productos' })).toContainText('10 unidades');
 });

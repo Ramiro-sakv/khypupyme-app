@@ -43,8 +43,8 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' | 'reset' }) {
   return <section className="auth-grid">
     <div className="intro"><span className="eyebrow">TU CUADERNO DIGITAL</span><h1>{title}</h1>
       <p>Un lugar para llevar las cuentas de tu comercio, paso a paso y sin complicarte.</p>
-      <div className="intro-note"><span aria-hidden="true">✦</span><p>Hoy damos el primer paso:<br /><strong>tu cuenta y tu negocio.</strong></p></div>
-      <p className="muted">Ventas, gastos, productos y fiados llegarán en las siguientes etapas.</p>
+      <div className="intro-note"><span aria-hidden="true">✦</span><p>Desde la primera venta,<br /><strong>hasta entender tus números.</strong></p></div>
+      <p className="muted">Inventario, compras, ventas, servicios y fiados. Una vista clara de tu día a día.</p>
     </div>
     <div className="card auth-card"><h2>{reset ? 'Volver a ingresar' : register ? 'Crea tu cuenta' : 'Bienvenido de nuevo'}</h2>
       <p>{reset ? 'Escribe el correo de tu cuenta.' : 'Usa tu correo para administrar tu negocio.'}</p>

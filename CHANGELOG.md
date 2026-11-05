@@ -1,5 +1,15 @@
 # Cambios
 
+## 0.3.0-beta.1 - 2026-11-05 (local, sin push)
+
+- Núcleo común: ventas de productos/servicios, descuento, contado/QR/transferencia/fiado, comprobantes internos y anulación con evidencia.
+- Gastos, deudas anteriores, cobros completos, clientes, catálogo de servicios y actividad comercio/servicios/mixta.
+- Functions autorizado solo local: transacciones, costos históricos, recuperación manual e idempotencia; escrituras financieras directas denegadas.
+- Tablero e informes con gráficos, tabla accesible, margen bruto, resultado estimado, alertas y CSV protegido contra fórmulas. Flujo registrado excluye compras y no equivale a saldo bancario.
+- Interfaz renovada, navegación móvil y desktop. Proyectos Android/Windows y paquetes internos, sin publicación ni servidor cloud.
+- Tests aislados también por carpeta de build y bloqueo de puertos interactivos desde el navegador de pruebas; límites de memoria para equipos de 8 GB.
+- Rubros especializados, facturación tributaria, abonos parciales, respaldo cloud y lanzamiento con datos reales siguen fuera de esta beta.
+
 ## 0.2.0 - 2026-11-05 (local, pendiente de autorización de subida)
 
 - Compras de un producto, cantidad/costo/fecha/referencia, revisión antes de guardar y filtros paginados.

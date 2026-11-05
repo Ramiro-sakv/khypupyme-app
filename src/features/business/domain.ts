@@ -1,6 +1,7 @@
 export interface Business {
   id: string; ownerUid: string; name: string; currency: 'BOB'; timeZone: 'America/La_Paz';
   createdAt: Date; updatedAt: Date;
+  activity?: 'commerce' | 'services' | 'mixed';
 }
 export interface BusinessRepository {
   get: (uid: string) => Promise<Business | null>;

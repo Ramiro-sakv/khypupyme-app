@@ -15,7 +15,8 @@ service cloud.firestore {
     }
     function validBusiness(data) {
       return data.keys().hasAll(['name','ownerUid','currency','timeZone','createdAt','updatedAt'])
-        && data.keys().hasOnly(['name','ownerUid','currency','timeZone','createdAt','updatedAt'])
+        && data.keys().hasOnly(['name','ownerUid','currency','timeZone','createdAt','updatedAt','activity'])
+        && (!('activity' in data) || data.activity in ['commerce','services','mixed'])
         && line(data.name, 2, 80) && data.ownerUid is string
         && data.currency == 'BOB' && data.timeZone == 'America/La_Paz'
         && data.createdAt is timestamp && data.updatedAt is timestamp;
@@ -183,7 +184,12 @@ service cloud.firestore {
     function reversalPair(m, r) {
       return m.kind == 'purchase-reversal' && m.purchaseId == r.purchaseId && m.reason == r.reason;
     }
-    // Ventas, gastos, fiados y otros módulos siguen cerrados.
+    // Los documentos financieros se escriben exclusivamente mediante el servidor validado.
+    match /businesses/{businessId}/{resource}/{recordId} {
+      allow get: if inventoryOwner(businessId) && resource in ['sales','expenses','receivables','payments','customers','services','cashEvents'];
+      allow list: if inventoryOwner(businessId) && resource in ['sales','expenses','receivables','payments','customers','services','cashEvents'] && request.query.limit > 0 && request.query.limit <= 26;
+      allow write: if false;
+    }
     match /{document=**} { allow read, write: if false; }
   }
 }

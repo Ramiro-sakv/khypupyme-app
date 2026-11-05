@@ -5,6 +5,7 @@ import { FirebaseAuthService } from '../features/auth/FirebaseAuthService';
 import type { BusinessRepository } from '../features/business/domain';
 import { InventoryService } from '../features/inventory/InventoryService';
 import { PurchaseService } from '../features/purchases/PurchaseService';
+import { CommerceService } from '../features/commerce/CommerceRepository';
 import type { createBusinessServices } from './business-services';
 
 export function createServices() {
@@ -39,5 +40,11 @@ export function createServices() {
     reverse: async (...args) => (await load()).purchaseRepository.reverse(...args),
     isReversed: async (...args) => (await load()).purchaseRepository.isReversed(...args),
   });
-  return { authService, businessRepository, inventoryService, purchaseService };
+  const commerceService = new CommerceService({
+    execute: async (...args) => (await load()).commerceRepository.execute(...args),
+    list: async (...args) => (await load()).commerceRepository.list(...args),
+    status: async (...args) => (await load()).commerceRepository.status(...args),
+    report: async (...args) => (await load()).commerceRepository.report(...args),
+  });
+  return { authService, businessRepository, inventoryService, purchaseService, commerceService };
 }

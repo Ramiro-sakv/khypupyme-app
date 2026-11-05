@@ -6,7 +6,7 @@ import type { InventoryService } from './InventoryService';
 import type { InventoryMovement, PageCursor, Product } from './domain';
 import { formatBOB } from './domain';
 
-const labels = { opening: 'Stock inicial', entry: 'Entrada', exit: 'Salida', valuation: 'Valoración inicial', purchase: 'Compra', 'purchase-reversal': 'Anulación de compra' };
+const labels = { opening: 'Stock inicial', entry: 'Entrada', exit: 'Salida', valuation: 'Valoración inicial', purchase: 'Compra', 'purchase-reversal': 'Anulación de compra', sale: 'Venta', 'sale-reversal': 'Anulación de venta' };
 export function InventoryHistory({ uid, product, service, onClose }: {
   uid: string; product: Product; service: InventoryService; onClose: () => void;
 }) {

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "KhypuPyme Beta",
+  "version": "0.3.0-beta.1",
+  "identifier": "com.khypupyme.beta",
+  "build": { "beforeBuildCommand": "pnpm build:windows:web", "frontendDist": "../dist-windows" },
+  "app": {
+    "windows": [{ "title": "KhypuPyme · Beta local", "width": 1280, "height": 850, "minWidth": 360, "minHeight": 620 }],
+    "security": { "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:9099 http://127.0.0.1:8080 http://127.0.0.1:5001; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'self'" }
+  },
+  "bundle": { "active": true, "targets": ["nsis"], "icon": ["icons/icon.ico"], "shortDescription": "Cuaderno digital para negocios · Beta local", "windows": { "nsis": { "displayLanguageSelector": false, "languages": ["Spanish"] } } }
+}

@@ -1,4 +1,5 @@
-import { expect, test } from '@playwright/test';
+import { navigate } from './navigation';
+import { expect, test } from './fixtures';
 
 test('inventario completo: alta, edición, entradas, salidas, historial y archivo', async ({ page, context }, info) => {
   await page.goto('/inventario');
@@ -9,13 +10,13 @@ test('inventario completo: alta, edición, entradas, salidas, historial y archiv
   await page.getByLabel('Contraseña', { exact: true }).fill('una-frase-de-prueba-segura');
   await page.getByRole('button', { name: 'Crear mi cuenta' }).click();
   await expect(page.getByRole('heading', { name: 'Dale un nombre a tu negocio' })).toBeVisible();
-  await page.getByRole('link', { name: 'Inventario', exact: true }).click();
+  await navigate(page, 'Inventario');
   await expect(page.getByRole('heading', { name: 'Primero crea tu negocio' })).toBeVisible();
   await page.getByRole('link', { name: 'Crear mi negocio' }).click();
   await page.getByLabel('Nombre del negocio').fill('Tienda inventario');
   await page.getByRole('button', { name: 'Crear mi negocio' }).click();
-  await expect(page.getByRole('status')).toHaveText('Tu negocio se guardó correctamente.');
-  await page.getByRole('link', { name: 'Inventario', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Perfil de tu negocio' })).toBeVisible();
+  await navigate(page, 'Inventario');
   await expect(page.getByRole('heading', { name: 'Todavía no tienes productos activos' })).toBeVisible();
   await page.getByRole('button', { name: 'Nuevo producto', exact: true }).click();
   await page.getByLabel('Nombre del producto').fill('Arroz');

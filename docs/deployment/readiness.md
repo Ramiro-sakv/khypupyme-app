@@ -15,9 +15,9 @@ Estado: **no apto para datos reales**. No se han creado proyectos cloud, activad
 
 Storage no está instalado ni activado. La documentación oficial de Firebase consultada el 30/10/2026 describe los requisitos del plan Blaze para aprovisionamiento y acceso a buckets: https://firebase.google.com/docs/storage/faqs-storage-changes-announced-sept-2024 . Deben revisarse de nuevo las condiciones, región, almacenamiento, operaciones, transferencia y cuotas **antes de pedir autorización**; no se promete costo cero ni un precio fijo sin carga medida. RNF-05/PB-08 quedan pendientes por ello.
 
-CSV descargable localmente será la primera exportación, sin Storage. Permite revisión externa, pero no cumple por sí solo RNF-05 ni es un respaldo completo. Posponer Storage evita habilitar servicios facturables ahora, con el impacto explícito de que no existen respaldos cloud ni descarga asíncrona almacenada.
+CSV descargable localmente ya está implementado, sin Storage. Permite revisión externa, pero no cumple por sí solo RNF-05 ni es un respaldo completo. Posponer Storage evita habilitar servicios facturables ahora, con el impacto explícito de que no existen respaldos cloud ni descarga asíncrona almacenada.
 
-Si se requiere Functions para garantizar invariantes comerciales, comparar costo de invocaciones/cómputo/red con alternativas confiables. No se ha elegido ni habilitado. El presupuesto se estimará con lecturas/escrituras por flujo, volumen de operaciones y retención por negocio; registrar mediciones, no cifras inventadas.
+Si se requiere Functions para garantizar invariantes comerciales, comparar costo de invocaciones/cómputo/red con alternativas confiables. Functions se eligió y autorizó exclusivamente en emuladores para la beta; no se ha habilitado en cloud. El presupuesto se estimará con lecturas/escrituras por flujo, volumen de operaciones y retención por negocio; registrar mediciones, no cifras inventadas.
 
 ## Respaldo y restauración: estrategia pendiente de ejecutar
 
@@ -28,3 +28,9 @@ Si se requiere Functions para garantizar invariantes comerciales, comparar costo
 - **Baja/exportación:** diseñar descarga completa y tratamiento de solicitudes con política de conservación; no está implementado y bloquea el lanzamiento real.
 
 Checklist previo al piloto: RF/RNF completos o excepciones aprobadas, reglas y concurrencia verificadas, usabilidad cronometrada (<60 s), teléfonos físicos, evaluación WCAG 2.2 AA, HTTPS/PWA, privacidad/términos, recuperación ensayada, costos/monitoreo y autorización explícita para usuarios reales.
+
+## Paquetes internos beta 0.3
+
+Windows usa Tauri/WebView2 y Android Capacitor/SDK 36. Instalador NSIS x64 y APK debug, sin firma comercial. Los binarios se generan localmente y se excluyen de Git. No se instalaron automáticamente ni publicaron. Windows apunta al PC local; Android solo al host 10.0.2.2 del emulador, no a un teléfono físico. El núcleo de servidor sigue siendo local. No se debe ofrecer esta configuración a clientes reales hasta autorizar y preparar un entorno seguro conectado, validar dispositivos y completar privacidad/recuperación/costos.
+
+La exportación Android usa caché privada y la selección de destino del usuario; no requiere permiso general de almacenamiento ni comparte información automáticamente. Windows incluye CSP limitada a recursos empaquetados y servicios de loopback, sin permisos de shell/archivos del host.

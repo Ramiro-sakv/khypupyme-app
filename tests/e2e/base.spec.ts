@@ -1,4 +1,5 @@
-import { expect, test } from '@playwright/test';
+import { navigate } from './navigation';
+import { expect, test } from './fixtures';
 
 test('registro, negocio persistente, edición, cierre e inicio de sesión', async ({ page }, info) => {
   const email = `e2e-${info.project.name}-${Date.now()}@example.invalid`;
@@ -13,16 +14,18 @@ test('registro, negocio persistente, edición, cierre e inicio de sesión', asyn
   await expect(page.getByRole('heading', { name: 'Dale un nombre a tu negocio' })).toBeVisible();
   await page.getByLabel('Nombre del negocio').fill('Tienda de prueba');
   await page.getByRole('button', { name: 'Crear mi negocio' }).click();
-  await expect(page.getByRole('status')).toHaveText('Tu negocio se guardó correctamente.');
+  await expect(page.getByRole('heading', { name: 'Hola, Tienda de prueba' })).toBeVisible();
+  await page.goto('/negocio');
   await page.reload();
   await expect(page.getByLabel('Nombre del negocio')).toHaveValue('Tienda de prueba');
-  await page.getByRole('link', { name: 'Mi negocio', exact: true }).click();
+  await navigate(page, 'Mi negocio');
   await page.getByLabel('Nombre del negocio').fill('Tienda actualizada');
   await page.getByRole('button', { name: 'Guardar cambios' }).click();
   await expect(page.getByRole('status')).toHaveText('Tu negocio se guardó correctamente.');
   await expect(page.locator('body')).toHaveJSProperty('scrollWidth', await page.locator('body').evaluate((el) => el.clientWidth));
   await page.screenshot({ path: `test-results/profile-${info.project.name}.png`, fullPage: true });
-  await page.getByRole('button', { name: 'Salir', exact: true }).click();
+  if (!(await page.getByRole('button', { name: 'Cerrar sesión', exact: true }).isVisible())) await page.getByRole('button', { name: '☰ Menú' }).click();
+  await page.getByRole('button', { name: 'Cerrar sesión', exact: true }).click();
   await expect(page).toHaveURL(/ingresar/);
   await page.getByLabel('Correo electrónico').fill(email);
   await page.getByLabel('Contraseña', { exact: true }).fill(password);

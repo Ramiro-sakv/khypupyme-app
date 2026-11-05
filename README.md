@@ -1,6 +1,6 @@
 # KhypuPyme
 
-Cuaderno digital para micro y pequeños comercios de Bolivia. Versión de prueba **0.2.0**, con cuenta, negocio, inventario, compras y costos locales; **no es una versión comercial ni registra ventas todavía**.
+Cuaderno digital para micro y pequeños comercios de Bolivia. Beta local **0.3.0-beta.1**: cuenta, negocio, inventario, compras, costos, ventas, gastos, fiados, cobros, clientes, servicios, tablero e informes. **No es una versión comercial publicada**.
 
 Funciona con React, TypeScript estricto, Vite, React Router y Firebase Emulator. Registro, ingreso, cierre de sesión, solicitud de recuperación y creación/consulta/edición del negocio usan persistencia real en los emuladores. Moneda BOB y zona America/La_Paz. Los datos de desarrollo son ficticios.
 
@@ -8,7 +8,7 @@ Inventario: productos con precio, existencias enteras, mínimo, costo promedio y
 
 Los productos antiguos conservan sus datos y muestran **Costo pendiente** hasta registrar una valoración inicial explícita en Inventario. No se inventa costo cero ni una compra histórica. Un producto nuevo con existencias exige costo inicial; si no tuvo costo, escribir 0 explícitamente. Los productos vacíos comienzan con valor cero. Una adquisición debe registrarse desde Compras; las entradas manuales son ajustes con motivo y costo declarado.
 
-El propietario requiere una aplicación descargable e instalable. Android y Windows están en preparación; esta base todavía no incluye APK ni instalador de escritorio.
+El propietario requiere una aplicación descargable e instalable. Se incorporan proyectos Android (Capacitor) y Windows (Tauri) para generar paquetes de prueba. Android apunta al PC desde el emulador Android (10.0.2.2); Windows usa 127.0.0.1. No son paquetes conectados a servicios cloud ni destinados todavía a teléfonos físicos.
 
 ## Ejecutar en Windows
 
@@ -17,13 +17,13 @@ Requisitos: Node.js **24 LTS >=24.12**, pnpm **11.25.0**, JDK **21 LTS o superio
 ```powershell
 Set-Location 'ruta\a\khypupyme-app'
 pnpm install --frozen-lockfile
-# Terminal 1: Auth + Firestore + panel local
+# Terminal 1: Auth + Firestore + Functions + panel local
 .\scripts\local.ps1 emulators
 # Terminal 2
 .\scripts\local.ps1 dev
 ```
 
-Abrir http://127.0.0.1:5173. Panel de emuladores: http://127.0.0.1:4000. Los puertos 5173, 8080, 9099 y 4000 deben estar libres. El script local puede usar Node/pnpm incluidos en Codex y el JDK encontrado en `.jdks`, sin cambiar el PATH del sistema. Si PowerShell bloquea scripts, ejecutar los comandos `pnpm dev` y `pnpm emulators` con Node, pnpm y Java disponibles en la terminal; no es necesario reducir la política global de ejecución.
+Abrir http://127.0.0.1:5173. Panel de emuladores: http://127.0.0.1:4000. Los puertos 5173, 8080, 9099, 5001 y 4000 deben estar libres. Si tenías emuladores v0.2 abiertos, deténlos tú con Ctrl+C para exportar tus datos y vuelve a ejecutar el comando de emuladores; así se cargará Functions. El script local puede usar Node/pnpm incluidos en Codex y el JDK encontrado en `.jdks`, sin cambiar el PATH del sistema. Si PowerShell bloquea scripts, ejecutar los comandos `pnpm dev` y `pnpm emulators` con Node, pnpm y Java disponibles en la terminal; no es necesario reducir la política global de ejecución.
 
 La configuración funciona sin `.env.local`. `.env.example` muestra la configuración habitual; esta versión rechaza proyectos sin prefijo `demo-` y no permite desactivar emuladores. Firebase CLI está instalado **dentro del proyecto**, sin instalación global. El primer arranque descarga los componentes de Emulator Suite. Se escucha exclusivamente en loopback; para probar en un teléfono físico hará falta preparar acceso y HTTPS por separado.
 
@@ -44,7 +44,7 @@ pnpm exec playwright install chromium webkit
 .\scripts\local.ps1 test:emulators
 ```
 
-`check` ejecuta lint, typecheck, unitarias/componentes y build. `test:emulators` usa `firebase.test.json`, proyecto efímero `demo-khypupyme-tests`, Auth 19099, Firestore 18080, hub 14400 y preview 4173. Comprueba puertos libres, nunca importa/exporta datos y no reutiliza los emuladores interactivos. Ejecuta integración, Security Rules y E2E; los tests de reglas limpian solo ese proyecto aislado. El lanzador fija `VITE_EMULATOR_PROFILE=test`; el perfil habitual sigue en 9099/8080. Playwright cubre Chromium de escritorio/móvil y WebKit móvil; no reemplaza teléfonos físicos. Evidencias y límites: [docs/testing/validation.md](docs/testing/validation.md).
+`check` ejecuta lint, typecheck, unitarias/componentes y build. `test:emulators` usa `firebase.test.json`, proyecto efímero `demo-khypupyme-tests`, Auth 19099, Firestore 18080, Functions 15001, hub 14400 y preview 4173. Comprueba puertos libres, nunca importa/exporta datos y no reutiliza los emuladores interactivos. Ejecuta integración, Security Rules y E2E; los tests de reglas limpian solo ese proyecto aislado. El lanzador fija `VITE_EMULATOR_PROFILE=test`; el perfil habitual sigue en 9099/8080. Playwright cubre Chromium de escritorio/móvil y WebKit móvil; no reemplaza teléfonos físicos. Evidencias y límites: [docs/testing/validation.md](docs/testing/validation.md).
 
 ## Estructura y alcance
 
@@ -57,7 +57,7 @@ pnpm exec playwright install chromium webkit
 - `public/`: manifest, iconos y service worker sin caché de información comercial. Producción del build se puede revisar localmente con `pnpm build` y `pnpm preview`.
 - `docs/`: auditoría, requisitos, decisiones, modelo, validación y preparación del lanzamiento.
 
-No se implementaron ventas, gastos, fiados, indicadores ni exportaciones. No se muestran cifras inventadas. Sin conexión se deshabilita el guardado, no hay cola comercial offline ni confirmaciones optimistas. La recuperación genera un enlace en la terminal de Auth Emulator; no envía correos reales.
+La beta añade ventas de hasta 30 líneas (productos, servicios o trabajo ocasional), descuento fijo, efectivo/QR/transferencia o fiado; gastos, cobros completos y anulaciones con motivo. Clientes y servicios admiten edición y archivo. Los comprobantes son internos, no facturas. El tablero y los informes usan datos reales, con CSV protegido contra fórmulas. No se muestran cifras inventadas. Sin conexión se deshabilita el guardado, no hay cola comercial offline ni confirmaciones optimistas. La recuperación genera un enlace en la terminal de Auth Emulator; no envía correos reales.
 
 ### Orden para leer inventario
 
@@ -89,6 +89,31 @@ El valor por producto se limita a 1.000.000.000.000 centavos. Compras y ajustes 
 
 Repositorio único: https://github.com/Ramiro-sakv/khypupyme-app. El remoto inicial estaba vacío. El propietario autorizó inventario y la subida de esta primera versión de prueba; no autorizó un despliegue público, recursos cloud ni instaladores. Antes de continuar con ventas, gastos o fiados se requiere revisar [arquitectura](docs/architecture/overview.md), [trazabilidad](docs/requirements/traceability.md) y [decisiones pendientes](docs/decisions/0001-foundation.md).
 
-La v0.1.0 está publicada en ese repositorio. Compras y costos de v0.2 se implementan y verifican localmente; su subida requiere nueva autorización. Se confirmó desarrollo por versiones: núcleo común primero y después perfiles especializados de madera, tiendas, ropa/calzado, electrodomésticos, fabricación y servicios. Un negocio por cuenta, operaciones con internet y futura entrega instalable en Android y Windows; esas adaptaciones aún no están implementadas.
+La v0.1.0 está publicada en ese repositorio. Compras y costos v0.2 y beta común v0.3 se conservan localmente; su subida requiere nueva autorización. Se confirmó desarrollo por versiones: núcleo común primero y después perfiles especializados de madera, tiendas, ropa/calzado, electrodomésticos, fabricación y servicios. Un negocio por cuenta, operaciones con internet y futura entrega instalable en Android y Windows; los rubros especializados aún no están implementados.
 
 El dossier original de 21 páginas, Final V2 del 30/06/2026, es la fuente de requisitos; no se incorpora el PDF a este repositorio público. Su huella y la extracción documentada están en los requisitos. Los respaldos y la restauración real, el entorno Firebase de pruebas, la privacidad, los términos y la validación con usuarios siguen pendientes antes del piloto.
+
+## Núcleo común beta
+
+1. Abre Mi negocio y selecciona comercio, servicios o mixto.
+2. Registra productos con sus costos o crea el catálogo de servicios (precio y costo directo).
+3. Registra una venta y revisa el total antes de confirmar. Fiado crea una deuda, no dinero recibido.
+4. Cobra la deuda completa desde Fiados; una deuda anterior se registra sin duplicar ventas.
+5. Registra gastos operativos y consulta Inicio/Informes por periodo.
+
+Las ventas guardan precios y costos históricos. La anulación devuelve el costo original al inventario y registra un reembolso si hubo cobro. La devolución se fecha hoy, mientras que el resultado del periodo original excluye el registro anulado. No se reescriben importes históricos; corrige con anulación y nuevo registro. Los pagos parciales no están implementados. Los informes distinguen ganancia bruta, gastos, bajas de inventario, resultado operativo estimado y fiados pendientes de todos los periodos. El flujo registrado de ventas/cobros/gastos excluye compras; no representa saldo de caja o banco. Límite: 366 días y 10.000 registros por sección, con error explícito al superarlo. No incluye impuestos, depreciaciones ni costos no declarados.
+
+Orden de lectura: `shared/commerce.ts` → `functions/src/validation.ts` → `src/features/commerce/CommerceRepository.ts` → `functions/src/CommerceService.ts` y `CommerceQueries.ts` → `firestore.rules` y tests → pantallas de `src/features/commerce`. El servidor obtiene el propietario desde Auth; Admin SDK permanece fuera del navegador.
+
+### Paquetes de prueba
+
+```powershell
+# Android Studio + SDK 36 + JDK 21, ANDROID_HOME disponible
+pnpm android:build
+# Visual Studio C++ + Rust + WebView2
+pnpm windows:build
+```
+
+APK: `android/app/build/outputs/apk/debug/app-debug.apk`. Instalador Windows: `src-tauri/target/release/bundle/nsis/`. No instalar automáticamente ni publicar: son artefactos locales sin firma comercial. Las pruebas del navegador no reemplazan la validación en dispositivos reales. El servidor debe seguir ejecutándose en el PC.
+
+En Android el CSV abre la selección de destino con un archivo temporal privado; no envía información sin tu intervención. `pnpm check` limita trabajadores de pruebas; los emuladores efímeros limitan Java a 512 MB. En equipos de 8 GB, ejecutar compilaciones y Android Emulator por separado. Vite usa `dist-test` para pruebas y el navegador bloquea solicitudes a los puertos interactivos.

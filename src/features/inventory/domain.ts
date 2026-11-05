@@ -29,7 +29,7 @@ export interface Product extends ProductDetails {
 export interface InventoryMovement {
   id: string;
   productId: string;
-  kind: 'opening' | 'entry' | 'exit' | 'valuation' | 'purchase' | 'purchase-reversal';
+  kind: 'opening' | 'entry' | 'exit' | 'valuation' | 'purchase' | 'purchase-reversal' | 'sale' | 'sale-reversal';
   delta: number;
   stockBefore: number;
   stockAfter: number;

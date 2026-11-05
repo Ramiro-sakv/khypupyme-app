@@ -149,3 +149,34 @@ Se corrigió durante la implementación la cobertura del nuevo tipo de movimient
 ### Límites de esta entrega
 
 No hay compras con varios productos, crédito a proveedores, impuestos desglosados, ventas, gastos, ganancias ni perfiles especializados. El costo promedio mostrado se aproxima; el valor persistido y los retiros son exactos en centavos. Compras no se convierten en gastos operativos. La migración de costo es explícita por producto y las solicitudes v0.1 incompletas se bloquean para revisión antes de reiniciar su pestaña. No se acredita cloud, índices productivos, teléfonos físicos, APK o instaladores. La nueva subida y cualquier despliegue requieren autorización posterior. Próximo punto de control: revisar v0.2 antes de diseñar ventas.
+
+
+## Beta 0.3.0-beta.1 — 05/11/2026
+
+Verificación local del núcleo común, sin push ni despliegue. Node 24.22.2, pnpm 11.25.0, Java 21.0.13. Servidor Functions autorizado solo en emuladores.
+
+| Verificación | Resultado ejecutado |
+| --- | --- |
+| `pnpm check` | Aprobado: ESLint, TypeScript estricto, 71 unitarias/componentes y builds web/Functions |
+| `pnpm test:emulators` | Aprobado, código 0: 16 integración + 103 reglas + 18 E2E |
+| Total automatizado | **208 pruebas aprobadas** |
+| Concurrencia e idempotencia | Dos ventas no sobrevendan; una solicitud repetida no duplica stock/venta/cobro; mismo ID con otros datos se rechaza |
+| Históricos y correcciones | Precios/costos originales, devolución de stock/costo, fiado cobrado/anulado y reembolsos comprobados |
+| Seguridad | Auth obligatorio, negocio propio, autor/total/costo calculados en servidor; escritura directa y acceso A/B denegados |
+| Interfaz | Venta fiada, cobro QR, gasto, resultado Bs 70, CSV, anulación y bloqueo sin conexión en Chromium escritorio/móvil y WebKit móvil |
+| Visual | Informes de escritorio y móvil revisados; gráfico con tabla accesible y sin desbordamiento horizontal |
+| Auditoría npm de producción | Sin avisos altos/críticos; 2 moderados transitivos (glob/minimatch), no equivale a auditoría completa |
+| Native Windows | NSIS x64 generado; ejecutable abre inicio/registro en WebView2 y navega por rutas empaquetadas; no se crearon cuentas |
+| Native Android | APK debug compilado; arranque de AVD no completado por presión de memoria del equipo; no se acredita ejecución ni exportación en dispositivo real |
+
+### Incidencias y correcciones reales
+
+- Primera revisión de navegador: el nombre accesible del botón incluía un símbolo decorativo y el test no lo encontraba. Se añadió nombre accesible explícito.
+- Una compilación local simultánea reemplazó el build servido por el navegador de pruebas. Tres cuentas ficticias `@example.invalid` de WebKit llegaron a la sesión local. Se identificaron por el prefijo y la fecha exacta de esa ejecución, se verificaron sus nombres de negocio y se eliminaron solo esas tres cuentas y sus 13 documentos. No se borró ni modificó el negocio del propietario. Se corrigió Vite para usar `dist-test` y se añadió un bloqueo de puertos 8080/9099/5001 en las pruebas del navegador. La ejecución final pasó con ambas protecciones.
+- Arrancar AVD junto con compilaciones y navegadores agotó memoria (8 GB de RAM): hubo cierre del navegador y un error de asignación en el compilador. Los paquetes y pruebas se ejecutaron después por separado, con dos trabajadores y Java de pruebas limitado a 512 MB.
+- La preparación de 26 clientes en paralelo abría demasiados procesos locales de Functions; Windows llegó a fallar al leer una dependencia (`UNKNOWN`, `graceful-fs`). Esa preparación de paginación se hizo secuencial; se conservaron las pruebas de concurrencia e idempotencia con operaciones simultáneas. La ejecución final pasó sin reintentos de Playwright ni desactivar aserciones.
+- El primer script nativo intentaba resolver un subpath no exportado de Vite. Se sustituyó por su API pública `build`. ESLint excluye ahora los artefactos generados, conservando la revisión de todos los archivos fuente.
+
+### Límites
+
+Solo emuladores, datos ficticios y un propietario por negocio. Sin cloud, publicación, firma comercial, rubros especializados, abonos parciales, impuestos o respaldos comerciales. La anulación sustituye edición/borrado financiero. El flujo registrado excluye compras y no representa saldo bancario/caja; resultados estimados excluyen costos no declarados. Informes de hasta 366 días, 10.000 registros por sección y acumulados de hasta 10^12 centavos, con error explícito si se exceden. Fiados e inventario actuales se distinguen de las métricas del periodo. No se acredita evaluación de usabilidad con personas, Android real, restauración ni seguridad de un despliegue público.

@@ -21,6 +21,7 @@ export function usePendingOperation(uid: string, inventory: InventoryService, pu
     if (lock.current || !navigator.onLine || recovered.error) return;
     lock.current = true; setBusy(true); setError('');
     try {
+      if (sessionStorage.getItem(`khypupyme:pending-commerce:${uid}`)) throw new Error('Resuelve la operación pendiente en Ventas, Gastos, Fiados, Clientes o Servicios.');
       const existing = readPending(uid);
       if (existing && existing.id !== operation.id) throw new Error('Resuelve primero la solicitud pendiente.');
       savePending(uid, operation); setPending(operation);

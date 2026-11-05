@@ -8,7 +8,7 @@ import { errorMessage } from '../../shared/errors';
 import { Feedback } from '../../shared/components/Feedback';
 import { useOnline } from '../../shared/hooks/useOnline';
 
-export function BusinessPage({ repository, settings = false }: { repository: BusinessRepository; settings?: boolean }) {
+export function BusinessPage({ repository, settings = false, onReady }: { repository: BusinessRepository; settings?: boolean; onReady?: (business: Business) => void }) {
   const { user } = useAuth();
   const online = useOnline();
   const [business, setBusiness] = useState<Business | null>(null);
@@ -37,6 +37,7 @@ export function BusinessPage({ repository, settings = false }: { repository: Bus
     try {
       const result = await (business ? repository.rename(user.uid, name) : repository.create(user.uid, name));
       setBusiness(result); setMessage('Tu negocio se guardó correctamente.');
+      onReady?.(result);
     } catch (cause) { setError(errorMessage(cause)); }
     finally { setBusy(false); }
   }
@@ -54,10 +55,10 @@ export function BusinessPage({ repository, settings = false }: { repository: Bus
           <button className="primary" disabled={busy || !online}>{busy ? 'Guardando…' : business ? 'Guardar cambios' : 'Crear mi negocio'}</button>
         </form>
       </section>
-      <aside className="next-card"><span className="section-label">02 / TUS HERRAMIENTAS</span><h2>Organiza tus productos.</h2><p>El inventario permite registrar productos, entradas y salidas con historial.</p>
+      <aside className="next-card"><span className="section-label">02 / TUS HERRAMIENTAS</span><h2>Tu negocio, conectado.</h2><p>Controla productos, servicios, ventas y cobros desde un mismo lugar.</p>
         {business && <p><Link to="/inventario">Abrir inventario</Link></p>}
-        <ul className="module-list">{['Ventas y gastos', 'Fiados y cobros', 'Resumen y reportes'].map((name) => <li key={name}><span>{name}</span><span className="tag">Próximamente</span></li>)}</ul>
-        <p className="muted">Esta versión de prueba todavía no registra ventas ni cobros.</p>
+        <ul className="module-list">{[['Ventas y gastos', '/ventas'], ['Fiados y cobros', '/fiados'], ['Resumen e informes', '/informes']].map(([name, path]) => <li key={name}><Link to={path!}>{name}</Link><span className="tag">Beta</span></li>)}</ul>
+        <p className="muted">Prueba local: usa únicamente información ficticia.</p>
       </aside>
     </div>
   </>;

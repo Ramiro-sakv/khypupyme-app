@@ -1,5 +1,17 @@
 node_modules/
+functions/lib/
+src-tauri/target/
+android/.gradle/
+android/local.properties
+android/**/build/
+*.jks
+*.keystore
 dist/
+dist-android/
+dist-windows/
+dist-test/
+src-tauri/gen/
+*-run.log
 coverage/
 playwright-report/
 test-results/
@@ -16,3 +28,4 @@ Thumbs.db
 *.pem
 *service-account*.json
 *serviceAccount*.json
+artifacts/

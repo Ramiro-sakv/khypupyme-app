@@ -9,7 +9,7 @@ function decode(snapshot: DocumentSnapshot): Business | null {
   if (typeof data.name !== 'string' || data.ownerUid !== snapshot.id || data.currency !== 'BOB' || data.timeZone !== 'America/La_Paz' || !(data.createdAt instanceof Timestamp) || !(data.updatedAt instanceof Timestamp)) {
     throw new Error('El perfil guardado no tiene un formato válido.');
   }
-  return { id: snapshot.id, ownerUid: data.ownerUid as string, name: data.name, currency: data.currency, timeZone: data.timeZone, createdAt: data.createdAt.toDate(), updatedAt: data.updatedAt.toDate() };
+  return { id: snapshot.id, ownerUid: data.ownerUid as string, name: data.name, currency: data.currency, timeZone: data.timeZone, createdAt: data.createdAt.toDate(), updatedAt: data.updatedAt.toDate(), activity: data.activity === 'services' || data.activity === 'mixed' ? data.activity : 'commerce' };
 }
 
 export class FirestoreBusinessRepository implements BusinessRepository {

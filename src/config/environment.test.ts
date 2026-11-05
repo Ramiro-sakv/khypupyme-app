@@ -10,4 +10,10 @@ describe('aislamiento del entorno', () => {
     expect(() => readEnvironment({ VITE_FIREBASE_PROJECT_ID: 'demo-khypupyme-tests' })).toThrow();
     expect(() => readEnvironment({ VITE_EMULATOR_PROFILE: 'otro' })).toThrow();
   });
+  it('limita el destino nativo a emuladores locales y prohíbe mezclarlo con pruebas web', () => {
+    expect(readEnvironment({ VITE_RUNTIME_TARGET: 'android' })).toMatchObject({ firestoreHost: '10.0.2.2', functionsPort: 5001 });
+    expect(readEnvironment({ VITE_RUNTIME_TARGET: 'windows' }).firestoreHost).toBe('127.0.0.1');
+    expect(() => readEnvironment({ VITE_RUNTIME_TARGET: 'cloud' })).toThrow();
+    expect(() => readEnvironment({ VITE_RUNTIME_TARGET: 'android', VITE_EMULATOR_PROFILE: 'test', VITE_FIREBASE_PROJECT_ID: 'demo-khypupyme-tests' })).toThrow();
+  });
 });

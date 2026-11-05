@@ -28,7 +28,7 @@ export function decodeProduct(snapshot: DocumentSnapshot): Product {
 
 export function decodeMovement(snapshot: DocumentSnapshot): InventoryMovement {
   const data = snapshot.data();
-  if (!data || !['opening', 'entry', 'exit', 'valuation', 'purchase', 'purchase-reversal'].includes(data.kind as string)
+  if (!data || !['opening', 'entry', 'exit', 'valuation', 'purchase', 'purchase-reversal', 'sale', 'sale-reversal'].includes(data.kind as string)
     || typeof data.productId !== 'string' || typeof data.authorUid !== 'string' || typeof data.reason !== 'string') {
     throw new Error('Movimiento almacenado inválido.');
   }

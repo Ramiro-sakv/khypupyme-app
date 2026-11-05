@@ -7,13 +7,13 @@ type Firestore = ReturnType<RulesTestContext['firestore']>;
 
 let env: RulesTestEnvironment;
 const details = { name: 'Producto de prueba', priceMinor: 1230, minimumStock: 2 };
-const product = (stock = 5) => ({ ...details, stock, active: true, lastMovementId: 'p1', createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-const opening = (stock = 5) => ({ productId: 'p1', kind: 'opening', delta: stock, stockBefore: 0, stockAfter: stock, reason: 'Stock inicial', authorUid: 'A', initialProduct: details, createdAt: serverTimestamp() });
+const product = (stock = 5) => ({ ...details, stock, inventoryValueMinor: stock * 100, active: true, lastMovementId: 'p1', createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+const opening = (stock = 5) => ({ productId: 'p1', kind: 'opening', valueBeforeMinor: 0, valueAfterMinor: stock * 100, unitCostMinor: stock === 0 ? 0 : 100, purchaseId: null, delta: stock, stockBefore: 0, stockAfter: stock, reason: 'Stock inicial', authorUid: 'A', initialProduct: details, createdAt: serverTimestamp() });
 const refs = (db: Firestore, uid = 'A', id = 'op1') => ({ product: doc(db, 'businesses', uid, 'products', 'p1'), movement: doc(db, 'businesses', uid, 'inventoryMovements', id) });
 
 beforeAll(async () => {
-  if (process.env.FIRESTORE_EMULATOR_HOST !== '127.0.0.1:8080') throw new Error('Usa pnpm test:emulators.');
-  env = await initializeTestEnvironment({ projectId: 'demo-khypupyme', firestore: { host: '127.0.0.1', port: 8080, rules: readFileSync('firestore.rules', 'utf8') } });
+  if (process.env.FIRESTORE_EMULATOR_HOST !== '127.0.0.1:18080') throw new Error('Usa pnpm test:emulators.');
+  env = await initializeTestEnvironment({ projectId: 'demo-khypupyme-tests', firestore: { host: '127.0.0.1', port: 18080, rules: readFileSync('firestore.rules', 'utf8') } });
 });
 beforeEach(async () => {
   await env.clearFirestore();
@@ -35,8 +35,8 @@ async function create(stock = 5) {
 function movementBatch(db: Firestore, change: Record<string, unknown> = {}, productChange: Record<string, unknown> = {}) {
   const ref = refs(db);
   const batch = writeBatch(db);
-  batch.update(ref.product, { stock: 4, lastMovementId: 'op1', updatedAt: serverTimestamp(), ...productChange });
-  batch.set(ref.movement, { productId: 'p1', kind: 'exit', delta: -1, stockBefore: 5, stockAfter: 4, reason: 'Rotura', authorUid: 'A', initialProduct: null, createdAt: serverTimestamp(), ...change });
+  batch.update(ref.product, { stock: 4, inventoryValueMinor: 400, lastMovementId: 'op1', updatedAt: serverTimestamp(), ...productChange });
+  batch.set(ref.movement, { productId: 'p1', kind: 'exit', valueBeforeMinor: 500, valueAfterMinor: 400, unitCostMinor: null, purchaseId: null, delta: -1, stockBefore: 5, stockAfter: 4, reason: 'Rotura', authorUid: 'A', initialProduct: null, createdAt: serverTimestamp(), ...change });
   return batch;
 }
 
@@ -60,8 +60,8 @@ it('permite salida y entrada atómicas con historial inmutable', async () => {
   await assertSucceeds(movementBatch(db).commit());
   const ref = refs(db, 'A', 'op2');
   const batch = writeBatch(db);
-  batch.update(ref.product, { stock: 6, lastMovementId: 'op2', updatedAt: serverTimestamp() });
-  batch.set(ref.movement, { productId: 'p1', kind: 'entry', delta: 2, stockBefore: 4, stockAfter: 6, reason: 'Compra', authorUid: 'A', initialProduct: null, createdAt: serverTimestamp() });
+  batch.update(ref.product, { stock: 6, inventoryValueMinor: 600, lastMovementId: 'op2', updatedAt: serverTimestamp() });
+  batch.set(ref.movement, { productId: 'p1', kind: 'entry', valueBeforeMinor: 400, valueAfterMinor: 600, unitCostMinor: 100, purchaseId: null, delta: 2, stockBefore: 4, stockAfter: 6, reason: 'Compra', authorUid: 'A', initialProduct: null, createdAt: serverTimestamp() });
   await assertSucceeds(batch.commit());
   await assertFails(updateDoc(ref.movement, { reason: 'Reescrito' }));
   await assertFails(deleteDoc(ref.movement));
@@ -70,7 +70,7 @@ it('impide cambiar stock o inventar movimientos aislados y reutilizar operacione
   const db = await create();
   const ref = refs(db);
   await assertFails(updateDoc(ref.product, { stock: 4, updatedAt: serverTimestamp() }));
-  await assertFails(updateDoc(ref.product, { stock: 4, lastMovementId: 'op1', updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(ref.product, { stock: 4, inventoryValueMinor: 400, lastMovementId: 'op1', updatedAt: serverTimestamp() }));
   await assertFails(setDoc(ref.movement, { ...opening(), kind: 'entry', initialProduct: null }));
   await assertSucceeds(movementBatch(db).commit());
   await assertFails(movementBatch(db).commit());
@@ -150,7 +150,7 @@ it.each([
 it('un solo cambio de stock no acredita dos movimientos y no admite pérdida de campos', async () => {
   const db = await create();
   const batch = movementBatch(db);
-  batch.set(refs(db, 'A', 'op2').movement, { productId: 'p1', kind: 'exit', delta: -1, stockBefore: 5, stockAfter: 4, reason: 'Duplicado', authorUid: 'A', initialProduct: null, createdAt: serverTimestamp() });
+  batch.set(refs(db, 'A', 'op2').movement, { productId: 'p1', kind: 'exit', valueBeforeMinor: 500, valueAfterMinor: 400, unitCostMinor: null, purchaseId: null, delta: -1, stockBefore: 5, stockAfter: 4, reason: 'Duplicado', authorUid: 'A', initialProduct: null, createdAt: serverTimestamp() });
   await assertFails(batch.commit());
   await assertFails(setDoc(refs(db).product, { ...details, stock: 5, updatedAt: serverTimestamp() }));
 });

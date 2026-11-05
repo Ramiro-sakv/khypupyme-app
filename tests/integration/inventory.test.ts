@@ -9,20 +9,20 @@ import { FirestoreInventoryRepository } from '../../src/features/inventory/Fires
 import { InventoryService } from '../../src/features/inventory/InventoryService';
 
 async function session() {
-  if (process.env.FIRESTORE_EMULATOR_HOST !== '127.0.0.1:8080' || process.env.FIREBASE_AUTH_EMULATOR_HOST !== '127.0.0.1:9099') throw new Error('Usa pnpm test:emulators.');
+  if (process.env.FIRESTORE_EMULATOR_HOST !== '127.0.0.1:18080' || process.env.FIREBASE_AUTH_EMULATOR_HOST !== '127.0.0.1:19099') throw new Error('Usa pnpm test:emulators.');
   const id = randomUUID();
-  const app = initializeApp({ projectId: 'demo-khypupyme', apiKey: 'demo-api-key' }, id);
+  const app = initializeApp({ projectId: 'demo-khypupyme-tests', apiKey: 'demo-api-key' }, id);
   const auth = getAuth(app);
   const db = getFirestore(app);
-  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
-  connectFirestoreEmulator(db, '127.0.0.1', 8080);
+  connectAuthEmulator(auth, 'http://127.0.0.1:19099', { disableWarnings: true });
+  connectFirestoreEmulator(db, '127.0.0.1', 18080);
   await new FirebaseAuthService(auth).register(`inventory-${id}@example.invalid`, 'una-frase-de-prueba-segura');
   const uid = auth.currentUser!.uid;
   await new FirestoreBusinessRepository(db).create(uid, 'Negocio inventario');
   return { uid, service: new InventoryService(new FirestoreInventoryRepository(db)), close: async () => { await terminate(db); await deleteApp(app); } };
 }
 
-const initial = { name: 'Arroz', priceMinor: 1250, minimumStock: 2, stock: 5 };
+const initial = { name: 'Arroz', priceMinor: 1250, minimumStock: 2, stock: 5, initialUnitCostMinor: 500 };
 
 it('crea, edita y archiva sin alterar historial; reintenta usando la solicitud original', async () => {
   const { uid, service, close } = await session();
@@ -59,9 +59,9 @@ it('dos salidas concurrentes no sobrepasan el stock y un reintento concurrente s
     const results = await Promise.allSettled([1, 2].map(() => service.move(uid, id, randomUUID(), { kind: 'exit', quantity: 1, reason: 'Salida de prueba' })));
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
     expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
-    await Promise.all([1, 2].map(() => service.move(uid, id, randomUUID(), { kind: 'entry', quantity: 1, reason: 'Compras simultáneas' })));
+    await Promise.all([1, 2].map(() => service.move(uid, id, randomUUID(), { kind: 'entry', unitCostMinor: 100, quantity: 1, reason: 'Compras simultáneas' })));
     const operation = randomUUID();
-    await Promise.all([1, 2].map(() => service.move(uid, id, operation, { kind: 'entry', quantity: 3, reason: 'Compra de prueba' })));
+    await Promise.all([1, 2].map(() => service.move(uid, id, operation, { kind: 'entry', unitCostMinor: 100, quantity: 3, reason: 'Compra de prueba' })));
     expect((await service.list(uid, true)).items[0]?.stock).toBe(5);
     expect((await service.history(uid, id)).items).toHaveLength(5);
   } finally { await close(); }
@@ -80,7 +80,7 @@ it('pagina productos e historial sin perder ni duplicar registros', async () => 
     expect(second.next).toBeNull();
     expect(new Set([...first.items, ...second.items].map((item) => item.id)).size).toBe(27);
     const productId = ids[0]!;
-    for (let i = 0; i < 26; i++) await service.move(uid, productId, randomUUID(), { kind: 'entry', quantity: 1, reason: 'Compra de prueba' });
+    for (let i = 0; i < 26; i++) await service.move(uid, productId, randomUUID(), { kind: 'entry', unitCostMinor: 100, quantity: 1, reason: 'Compra de prueba' });
     const history = await service.history(uid, productId);
     const remaining = await service.history(uid, productId, history.next!);
     expect(history.items).toHaveLength(25);

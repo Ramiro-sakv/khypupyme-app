@@ -7,6 +7,8 @@ import type { AuthService } from '../auth/types';
 import type { BusinessRepository } from '../business/domain';
 import type { InventoryRepository } from './InventoryRepository';
 import { InventoryService } from './InventoryService';
+import { PurchaseService } from '../purchases/PurchaseService';
+import type { PurchaseRepository } from '../purchases/PurchaseRepository';
 import { InventoryPage } from './InventoryPage';
 import { readPending } from './pendingOperation';
 
@@ -15,7 +17,7 @@ const auth: AuthService = { observe: () => () => {}, register: vi.fn(), login: v
 function setup(repository: InventoryRepository) {
   const businessRepository = { get: vi.fn().mockResolvedValue({ id: 'A' }) } as unknown as BusinessRepository;
   return render(<MemoryRouter><AuthContext.Provider value={{ service: auth, user: { uid: 'A', email: 'test@example.invalid' }, status: 'ready', error: '' }}>
-    <InventoryPage businessRepository={businessRepository} service={new InventoryService(repository)} />
+    <InventoryPage businessRepository={businessRepository} service={new InventoryService(repository)} purchases={new PurchaseService({} as PurchaseRepository)} />
   </AuthContext.Provider></MemoryRouter>);
 }
 

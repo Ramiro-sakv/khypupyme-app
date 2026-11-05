@@ -8,26 +8,22 @@ import { useOnline } from '../../shared/hooks/useOnline';
 import { formatBOB, InventoryInputError, stockStatus } from './domain';
 import type { PageCursor, Product, CreateProduct } from './domain';
 import type { InventoryService } from './InventoryService';
-import { clearPending, readPending, savePending } from './pendingOperation';
+import { pendingLabel } from './pendingOperation';
+import { usePendingOperation } from './usePendingOperation';
+import type { PurchaseService } from '../purchases/PurchaseService';
+import { ValuationForm } from './ValuationForm';
 import type { PendingOperation } from './pendingOperation';
 import { ProductForm } from './ProductForm';
 import { MovementForm } from './MovementForm';
 import { InventoryHistory } from './InventoryHistory';
 
-type Selection = { kind: 'new' } | { kind: 'edit' | 'move' | 'history'; product: Product } | null;
+type Selection = { kind: 'new' } | { kind: 'edit' | 'move' | 'history' | 'valuation'; product: Product } | null;
 
-function recovery(uid: string) {
-  try { return { pending: readPending(uid), error: '' }; }
-  catch { return { pending: null, error: 'No se pudo leer la operación pendiente de esta pestaña. No registres otra hasta recuperar su resultado.' }; }
-}
-
-export function InventoryPage({ businessRepository, service }: { businessRepository: BusinessRepository; service: InventoryService }) {
+export function InventoryPage({ businessRepository, service, purchases }: { businessRepository: BusinessRepository; service: InventoryService; purchases: PurchaseService }) {
   const { user } = useAuth();
   // La ruta está protegida y se monta con key=uid para separar estados entre cuentas.
   const uid = user!.uid;
   const online = useOnline();
-  const [initialRecovery] = useState(() => recovery(uid));
-  const [pending, setPending] = useState(initialRecovery.pending);
   const [active, setActive] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
   const [cursor, setCursor] = useState<PageCursor>();
@@ -37,13 +33,16 @@ export function InventoryPage({ businessRepository, service }: { businessReposit
   const [loadError, setLoadError] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [editing, setBusy] = useState(false);
   const [revision, setRevision] = useState(0);
   const [selection, setSelection] = useState<Selection>(null);
   const lock = useRef(false);
   const alive = useRef(true);
   const editor = useRef<HTMLDivElement>(null);
-  const disabled = busy || !online || loading || !!pending || !!initialRecovery.error;
+  const operation = usePendingOperation(uid, service, purchases, (request) => saved(request.kind === 'create' ? 'Producto creado correctamente.' : request.kind === 'valuation' ? 'Costo inicial confirmado correctamente.' : 'Movimiento confirmado correctamente.'));
+  const { pending } = operation;
+  const busy = editing || operation.busy;
+  const disabled = busy || !online || loading || !!pending || !!operation.recoveryError;
 
   useEffect(() => {
     alive.current = true;
@@ -77,21 +76,9 @@ export function InventoryPage({ businessRepository, service }: { businessReposit
     setSelection(null); setCursor(undefined); setMessage(text); refresh();
   }
 
-  async function execute(operation: PendingOperation) {
-    if (lock.current || !online || initialRecovery.error) return;
-    lock.current = true; setBusy(true); setError(''); setMessage('');
-    try {
-      savePending(uid, operation); setPending(operation);
-      if (operation.kind === 'create') await service.create(uid, operation.id, operation.input);
-      else await service.move(uid, operation.productId, operation.id, operation.input);
-      clearPending(uid);
-      if (alive.current) { setPending(null); saved(operation.kind === 'create' ? 'Producto creado correctamente.' : 'Movimiento confirmado correctamente.'); }
-    } catch (cause) {
-      if (cause instanceof InventoryInputError) {
-        clearPending(uid);
-        if (alive.current) { setPending(null); setError(cause.message); }
-      } else if (alive.current) setError(errorMessage(cause));
-    } finally { lock.current = false; if (alive.current) setBusy(false); }
+  function execute(request: PendingOperation) {
+    setError(''); setMessage('');
+    return operation.execute(request);
   }
 
   async function editOrArchive(action: () => Promise<void>, text: string) {
@@ -115,10 +102,10 @@ export function InventoryPage({ businessRepository, service }: { businessReposit
   if (hasBusiness === false) return <section className="card"><h1>Primero crea tu negocio</h1><p>El inventario pertenecerá únicamente a tu cuenta.</p><Link to="/negocio">Crear mi negocio</Link></section>;
   return <>
     <div className="page-heading"><span className="eyebrow">PRODUCTOS Y EXISTENCIAS</span><h1>Inventario</h1><p>Productos, entradas y salidas con un historial que se conserva.</p></div>
-    <Feedback error={initialRecovery.error || error} message={message} />
+    <Feedback error={operation.recoveryError || error || operation.error} message={message} />
     {pending && <section className="feedback" aria-label="Operación pendiente">
       <h2>Confirma la operación pendiente</h2>
-      <p>{pending.kind === 'create' ? `Creación de ${pending.input.name}, con ${pending.input.stock} unidades.` : `${pending.input.kind === 'entry' ? 'Entrada' : 'Salida'} de ${pending.input.quantity} unidades. Motivo: ${pending.input.reason}`}</p>
+      <p>{pendingLabel(pending)}</p>
       <p>Se conserva la misma solicitud para comprobar su resultado sin duplicar existencias. No se enviará automáticamente.</p>
       <button disabled={busy || !online} onClick={() => void execute(pending)}>Consultar y reintentar</button>
     </section>}
@@ -133,6 +120,7 @@ export function InventoryPage({ businessRepository, service }: { businessReposit
     {selection?.kind === 'new' || selection?.kind === 'edit' ? <ProductForm key={selection.kind === 'edit' ? selection.product.id : 'new'} product={selection.kind === 'edit' ? selection.product : null} disabled={disabled} onSave={saveProduct} onCancel={() => setSelection(null)} /> : null}
     {selection?.kind === 'move' && <MovementForm key={selection.product.id} product={selection.product} disabled={disabled} onSave={(input) => { if (!disabled) void execute({ kind: 'move', id: crypto.randomUUID(), productId: selection.product.id, input }); }} onCancel={() => setSelection(null)} />}
     {selection?.kind === 'history' && <InventoryHistory key={selection.product.id} uid={uid} product={selection.product} service={service} onClose={() => setSelection(null)} />}
+    {selection?.kind === 'valuation' && <ValuationForm product={selection.product} disabled={disabled} onSave={(unitCostMinor) => void execute({ kind: 'valuation', id: crypto.randomUUID(), productId: selection.product.id, unitCostMinor })} onCancel={() => setSelection(null)} />}
     </div>
     <Feedback error={loadError} />
     {loading && <p role="status">Consultando productos…</p>}
@@ -141,9 +129,11 @@ export function InventoryPage({ businessRepository, service }: { businessReposit
     {!loading && !loadError && <ul className="inventory-grid" aria-label="Lista de productos">{products.map((product) => <li className="card product-card" key={product.id}>
       <div className="inventory-toolbar"><h2>{product.name}</h2><span className={`stock-badge ${product.stock < product.minimumStock || product.stock === 0 ? 'warning' : ''}`}>{stockStatus(product)}</span></div>
       <dl><div><dt>Precio</dt><dd>{formatBOB(product.priceMinor)}</dd></div><div><dt>Existencia</dt><dd>{product.stock} unidades</dd></div><div><dt>Mínimo</dt><dd>{product.minimumStock} unidades</dd></div></dl>
+      <p>{product.inventoryValueMinor === null ? 'Costo pendiente' : `Valor del inventario: ${formatBOB(product.inventoryValueMinor)} · Costo promedio (aprox.): ${product.stock === 0 ? 'Sin existencias' : formatBOB(product.inventoryValueMinor / product.stock)}`}</p>
       <div className="inventory-actions">
+        {product.active && product.inventoryValueMinor === null && <button disabled={disabled} onClick={() => setSelection({ kind: 'valuation', product })} aria-label={`Registrar costo inicial de ${product.name}`}>Registrar costo inicial</button>}
         <button disabled={disabled} onClick={() => setSelection({ kind: 'edit', product })} aria-label={`Editar ${product.name}`}>Editar</button>
-        {product.active && <button disabled={disabled} onClick={() => setSelection({ kind: 'move', product })} aria-label={`Movimiento de ${product.name}`}>Entrada / salida</button>}
+        {product.active && <button disabled={disabled || product.inventoryValueMinor === null} onClick={() => setSelection({ kind: 'move', product })} aria-label={`Movimiento de ${product.name}`}>Entrada / salida</button>}
         <button disabled={!online || busy} onClick={() => setSelection({ kind: 'history', product })} aria-label={`Historial de ${product.name}`}>Historial</button>
         <button disabled={disabled} onClick={() => void editOrArchive(() => service.setActive(uid, product.id, !product.active), product.active ? 'Producto archivado. Su historial se conserva.' : 'Producto reactivado.')} aria-label={`${product.active ? 'Archivar' : 'Reactivar'} ${product.name}`}>{product.active ? 'Archivar' : 'Reactivar'}</button>
       </div>

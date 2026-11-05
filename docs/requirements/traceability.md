@@ -13,10 +13,16 @@ Documentado = dossier; derivado = necesario para realizar un requisito; propuest
 | RF-07, pp.7–8 | Reportes por rango y CSV o PDF | Should | Reportes / historia reporte, PB-07 | Sin implementación | Pendientes | No implementado | CSV primero; PDF/JSON posteriores |
 | RNF-01, p.8 | Venta/gasto en menos de un minuto | Crítico documental | Flujos rápidos / venta, gasto | Pendiente de módulos | Usabilidad con personas, no ejecutada | No verificado | Seleccionar participantes y protocolo |
 | RNF-02, p.8 | PWA en Chrome Android y Safari iOS | Crítico documental | Aplicación | `public/manifest.webmanifest`, `public/sw.js`, `src/main.tsx` | `tests/e2e/base.spec.ts` | Preparación local; emulación no acredita dispositivos reales | Instalación/HTTPS y pruebas físicas |
-| RNF-03, p.8 | Privacidad y aislamiento entre negocios | Crítico documental | Todos; historia fiado | `firestore.rules`, configuración demo, repositorio | A/B CRUD y ataques en `tests/rules/business.test.ts` | Implementado para perfil; módulos futuros denegados | Ampliar pruebas por cada módulo |
+| RNF-03, p.8 | Privacidad y aislamiento entre negocios | Crítico documental | Todos; historia fiado | `firestore.rules`, configuración demo, repositorios | A/B CRUD y ataques de perfil, inventario y compras | Implementado localmente para perfil/inventario/compras; módulos futuros denegados | Ampliar pruebas por cada módulo |
 | RNF-05, p.8 | Reportes/respaldos asíncronos en nube | Crítico documental; PB-08 Should | Respaldo; relación original con historia gasto | No implementado; `docs/deployment/readiness.md` | No ejecutadas | Diferido explícitamente | Storage, costos, retención, restauración y aprobación |
 | RNF-06, p.8 | Responsive y operación táctil compacta | Crítico documental | UI; historia reporte | `src/styles.css`, formularios accesibles | Componentes y E2E escritorio/móvil | Base responsive; revisión integral pendiente | Pruebas físicas y evaluación WCAG 2.2 AA |
 
 El salto RNF-03 → RNF-05 pertenece al original. No se crea RNF-04. Los identificadores de pruebas o archivos futuros no se atribuyen al dossier.
 
 Seguridad del propietario, configuración demo, validación de tipos y recuperación local son medidas derivadas/propuestas; no constituyen nuevos RF/RNF oficiales. El respaldo cloud pendiente impide declarar cumplimiento completo del dossier o preparación comercial.
+
+## Extensión confirmada por el propietario: v0.2 (05/11/2026)
+
+Compras y costo promedio desde adquisiciones son una ampliación confirmada, no un nuevo RF numerado del dossier. Implementación: `src/features/purchases`, `src/features/inventory/costing.ts`, valoración inicial y reglas de compras/anulaciones. Cubre compra de un producto por operación, cantidad/costo/fecha/referencia, actualización atómica, consultas por producto/periodo, anulación condicionada, redondeo y conservación de datos anteriores. Evidencia en integración, reglas adversarias, componentes y E2E.
+
+La selección futura de rubro, variantes, medidas, series y fabricación es visión confirmada para entregas posteriores, aún no implementada. También se confirmaron un negocio por cuenta, internet y futura distribución conjunta Android/Windows. RF-02/03/05/06/07 no se declaran cumplidos por incorporar compras. No hay métricas de ganancias ni gastos de operación en v0.2.

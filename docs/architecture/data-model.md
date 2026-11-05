@@ -1,6 +1,6 @@
 # Modelo documental
 
-Clasificación: negocio/usuario/producto/venta/gasto/fiado están documentados conceptualmente; los campos, rutas y movimientos siguientes son **propuestos/derivados**. Perfil e inventario están implementados localmente. Unidades enteras y movimientos con motivo fueron confirmados por el propietario; los demás módulos siguen propuestos.
+Clasificación: negocio/usuario/producto/venta/gasto/fiado están documentados conceptualmente; los campos, rutas y movimientos siguientes son **propuestos/derivados**. Perfil, inventario, compras y costos están implementados localmente. Unidades enteras, movimientos con motivo y extensión v0.2 fueron confirmados por el propietario; los demás módulos siguen propuestos.
 
 | Entidad / ruta | Campos y restricciones | Estado |
 | --- | --- | --- |
@@ -23,3 +23,16 @@ La eliminación lógica de producto preservará snapshots históricos. Anular ve
 Inventario actual: el ID de producto coincide con el ID de su apertura. Se guarda la solicitud original en el movimiento inicial para reconocer un reintento incluso después de editar o archivar el producto. Entradas/salidas usan IDs únicos por operación y transacciones que recalculan el stock vigente. Reutilizar un ID con otra solicitud se rechaza. Productos archivados solo admiten metadatos/reactivación, sin cambios de stock.
 
 Consultas de productos: filtro `active`, orden por `createdAt` descendente e ID descendente. Historial: filtro `productId`, mismo orden. Se solicitan 26 documentos para mostrar 25 y detectar la página siguiente. El cursor conserva segundos/nanosegundos originales; convertirlo solo a Date perdería precisión. Índices correspondientes en `firestore.indexes.json`; deben validarse en staging antes de cloud porque el emulador no reproduce su obligatoriedad.
+
+## Extensión confirmada v0.2: compras y costos
+
+- `products.inventoryValueMinor`: entero 0–1.000.000.000.000 centavos. Su ausencia en documentos v0.1 se interpreta en dominio como null/costo pendiente. Nunca se almacena null ni se completa automáticamente. Stock cero implica valor cero. Nombre, precio, mínimo y archivo no pueden cambiar este valor.
+- Movimientos v0.2: incorporan `valueBeforeMinor`, `valueAfterMinor`, `unitCostMinor` y `purchaseId`; tipos `valuation`, `purchase` y `purchase-reversal` además de opening/entry/exit. Se leen los movimientos v0.1 sin inventar valoración; siguen inmutables.
+- `purchases/{operationId}`: producto y nombre histórico, cantidad, costo unitario, total, fecha operativa YYYY-MM-DD, referencia opcional, existencias/valor anteriores y posteriores, autor y timestamp del servidor. Cantidad 1–1.000.000, costo unitario 1–999.999.999 centavos, valor/total dentro del límite de valoración. Un producto por compra, sin crédito a proveedores, impuestos desglosados ni gastos operativos.
+- `purchaseReversals/{purchaseId}`: ID de compra, ID de operación de anulación, motivo, autor y timestamp. Inmutable y único por compra. Solo se crea junto con movimiento inverso y restauración de existencias/valor, cuando `lastMovementId == purchaseId`. La compra original no se modifica ni borra. Editar metadatos no cuenta como movimiento posterior.
+
+El costo promedio es valor/stock y solo se aproxima al mostrarlo. Para retirar q unidades de un stock Q con valor V, se calcula R = floor((2×V×q+Q)/(2×Q)) con BigInt. Las reglas exigen `(2R−1)×Q <= 2×V×q < (2R+1)×Q`; los límites mantienen todos esos productos por debajo de 2×10^18 y dentro de int64. No se usan tolerancias flotantes ni centavos residuales al agotar. Entradas suman cantidad×costo declarado; compras exigen además el documento inmutable vinculado.
+
+La fecha admite días reales entre 2000 y 2099, incluidos bisiestos; la auditoría siempre usa hora del servidor. Las consultas ordenan por fecha operativa descendente, timestamp descendente e ID descendente; el cursor añade fecha a segundos/nanosegundos/ID. Hay índices con y sin filtro por producto. No se editan fechas, costos o cantidades de compras ya confirmadas.
+
+Migración incremental: los productos anteriores se pueden leer, editar en sus metadatos y archivar; no se pueden comprar ni mover hasta valorar explícitamente. La valoración conserva el stock y crea un movimiento, sin reconstruir compras ni modificar movimientos históricos. Un producto nuevo con stock exige costo inicial explícito, incluido cero si el propietario declara adquisición sin costo. Las salidas no pueden hacer negativo stock o valor. Los archivados no admiten compras, valoración ni anulación.

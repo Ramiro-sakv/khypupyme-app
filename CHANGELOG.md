@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.2.0 - 2026-11-05 (local, pendiente de autorización de subida)
+
+- Compras de un producto, cantidad/costo/fecha/referencia, revisión antes de guardar y filtros paginados.
+- Valor total y costo promedio del inventario; centavos enteros, cálculo exacto y redondeo protegido por reglas.
+- Valoración inicial explícita de productos anteriores, sin inventar costos ni compras históricas.
+- Anulación completa con evidencia únicamente sin movimientos posteriores; solicitudes idempotentes y recuperación manual compartida.
+- Pruebas en otro proyecto demo y puertos, conservando la sesión interactiva del propietario.
+- Mantiene fuera ventas, gastos, ganancias, fiados, rubros especializados, instaladores y Firebase real.
+
 ## 0.1.0 - 2026-11-05
 
 - Auditoría del repositorio vacío y análisis completo del dossier Final V2.

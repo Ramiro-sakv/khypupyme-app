@@ -38,6 +38,14 @@ Cada solicitud usa un ID estable. Antes de confirmar un error de red o una carre
 
 Una única solicitud incierta se conserva por cuenta en sessionStorage (ID y formulario, sin credenciales) para sobrevivir a recargas de esa pestaña. No se reenvía automáticamente ni permite iniciar otra modificación hasta resolverla. Esta intención pendiente no es una caché comercial ni una cola offline; al cerrar la pestaña se pierde y debe consultarse el historial antes de repetir manualmente. Dinero en centavos enteros y cantidades de unidades enteras; sin pesos ni costos de compra en esta entrega.
 
+## Compras y costos: v0.2 local
+
+Actualización v0.2, confirmada 05/11/2026: compras y costos se implementan como extensión del núcleo común, sin Functions ni otro servidor. `PurchaseService` valida; `FirestorePurchaseRepository` coordina transacciones compra/producto/movimiento y anulación/producto/movimiento. Las funciones de registro y confirmación reutilizadas por ambos repositorios están en `inventory/firestore-records.ts`. No se exponen SDKs a componentes. Los movimientos de stock actuales incluyen valoración protegida por reglas; los productos antiguos requieren inicialización explícita.
+
+El identificador original también protege referencia y fecha de compra: el documento confirmado se compara con toda la solicitud, incluso después de carreras concurrentes con el mismo ID. Una única solicitud pendiente por cuenta/pestaña se comparte entre Inventario y Compras para creación, movimiento, valoración, compra y anulación; la recuperación sigue siendo manual. El promedio mostrado no sustituye el valor entero almacenado. Ver el algoritmo y los límites en el modelo documental.
+
+Paginación de compras: hasta 26 documentos para mostrar 25, una lectura de negocio y como máximo 25 consultas puntuales de anulación. No se descarga el historial completo para calcular indicadores. No hay indicadores de ganancias en esta versión. Tests separados en `demo-khypupyme-tests` y puertos dedicados; el frontend de pruebas exige ese proyecto y no admite destinos remotos.
+
 ## Operaciones futuras: todavía sin autorización de implementación
 
 - Venta con productos: ID de operación estable, transacción con lectura de stock, venta inmutable con precios históricos, movimientos e inventario atómicos; doble clic, reintento, cancelación y concurrencia probados.

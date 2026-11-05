@@ -4,8 +4,9 @@ import { errorMessage } from '../../shared/errors';
 import { useOnline } from '../../shared/hooks/useOnline';
 import type { InventoryService } from './InventoryService';
 import type { InventoryMovement, PageCursor, Product } from './domain';
+import { formatBOB } from './domain';
 
-const labels = { opening: 'Stock inicial', entry: 'Entrada', exit: 'Salida' };
+const labels = { opening: 'Stock inicial', entry: 'Entrada', exit: 'Salida', valuation: 'Valoración inicial', purchase: 'Compra', 'purchase-reversal': 'Anulación de compra' };
 export function InventoryHistory({ uid, product, service, onClose }: {
   uid: string; product: Product; service: InventoryService; onClose: () => void;
 }) {
@@ -39,6 +40,7 @@ export function InventoryHistory({ uid, product, service, onClose }: {
     <ol className="inventory-history">{items.map((movement) => <li key={movement.id}>
       <strong>{labels[movement.kind]} · {movement.delta > 0 ? '+' : ''}{movement.delta} unidades</strong>
       <span>{movement.reason}</span><span>{movement.stockBefore} → {movement.stockAfter} unidades</span>
+      <span>{movement.valueAfterMinor === null ? 'Movimiento anterior al costeo' : `Valor posterior: ${formatBOB(movement.valueAfterMinor)}`}</span>
       <time dateTime={movement.createdAt.toISOString()}>{movement.createdAt.toLocaleString('es-BO', { timeZone: 'America/La_Paz' })}</time>
     </li>)}</ol>
     {(next || error) && <button onClick={() => void loadMore()} disabled={loading || !online}>{error ? 'Volver a consultar historial' : 'Ver más movimientos'}</button>}

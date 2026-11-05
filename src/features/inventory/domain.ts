@@ -5,6 +5,11 @@ export const PAGE_SIZE = 25;
 // Rechazo conocido antes de escribir; se puede corregir sin dejar una operación incierta.
 export class InventoryInputError extends Error {}
 
+export function identifier(value: string): string {
+  if (!/^[a-zA-Z0-9_-]{1,128}$/.test(value)) throw new InventoryInputError('Identificador inválido.');
+  return value;
+}
+
 export interface ProductDetails {
   name: string;
   priceMinor: number;
@@ -14,6 +19,7 @@ export interface ProductDetails {
 export interface Product extends ProductDetails {
   id: string;
   stock: number;
+  inventoryValueMinor: number | null;
   active: boolean;
   lastMovementId: string;
   createdAt: Date;
@@ -23,7 +29,7 @@ export interface Product extends ProductDetails {
 export interface InventoryMovement {
   id: string;
   productId: string;
-  kind: 'opening' | 'entry' | 'exit';
+  kind: 'opening' | 'entry' | 'exit' | 'valuation' | 'purchase' | 'purchase-reversal';
   delta: number;
   stockBefore: number;
   stockAfter: number;
@@ -31,13 +37,17 @@ export interface InventoryMovement {
   authorUid: string;
   createdAt: Date;
   initialProduct: ProductDetails | null;
+  valueBeforeMinor: number | null;
+  valueAfterMinor: number | null;
+  unitCostMinor: number | null;
+  purchaseId: string | null;
 }
 
 // El cursor pertenece al dominio; ningún componente necesita tipos de Firebase.
 export interface PageCursor { seconds: number; nanoseconds: number; id: string }
 export interface Page<T> { items: T[]; next: PageCursor | null }
-export interface CreateProduct extends ProductDetails { stock: number }
-export interface StockChange { kind: 'entry' | 'exit'; quantity: number; reason: string }
+export interface CreateProduct extends ProductDetails { stock: number; initialUnitCostMinor?: number }
+export interface StockChange { kind: 'entry' | 'exit'; quantity: number; reason: string; unitCostMinor?: number }
 
 export function singleLine(value: string, min: number, max: number, label: string): string {
   const result = value.trim();
@@ -64,11 +74,19 @@ export function productDetails(value: ProductDetails): ProductDetails {
 
 export function stockChange(value: StockChange): StockChange {
   if (value.kind !== 'entry' && value.kind !== 'exit') throw new InventoryInputError('Tipo de movimiento inválido.');
-  return {
+  const result: StockChange = {
     kind: value.kind,
     quantity: integer(value.quantity, 1, MAX_STOCK, 'Cantidad'),
     reason: singleLine(value.reason, 3, 200, 'Motivo'),
   };
+  if (value.kind === 'entry') result.unitCostMinor = integer(value.unitCostMinor ?? Number.NaN, 0, MAX_PRICE_MINOR, 'Costo unitario de entrada');
+  return result;
+}
+
+export function createProduct(value: CreateProduct): CreateProduct {
+  const stock = integer(value.stock, 0, MAX_STOCK, 'Existencia inicial');
+  const cost = stock === 0 ? 0 : integer(value.initialUnitCostMinor ?? Number.NaN, 0, MAX_PRICE_MINOR, 'Costo unitario inicial');
+  return { ...productDetails(value), stock, initialUnitCostMinor: cost };
 }
 
 export function resultingStock(stock: number, change: StockChange): number {
@@ -76,11 +94,11 @@ export function resultingStock(stock: number, change: StockChange): number {
   return integer(next, 0, MAX_STOCK, 'Existencia resultante');
 }
 
-export function parseBOB(value: string): number {
+export function parseBOB(value: string, allowZero = false): number {
   const normalized = value.trim().replace(',', '.');
   if (!/^\d{1,7}(\.\d{1,2})?$/.test(normalized)) throw new InventoryInputError('Precio: usa hasta dos decimales, sin separadores de miles.');
   const [whole, fraction = ''] = normalized.split('.');
-  return integer(Number(whole) * 100 + Number(fraction.padEnd(2, '0')), 1, MAX_PRICE_MINOR, 'Precio en centavos');
+  return integer(Number(whole) * 100 + Number(fraction.padEnd(2, '0')), allowZero ? 0 : 1, MAX_PRICE_MINOR, 'Importe en centavos');
 }
 
 export function formatBOB(value: number): string {

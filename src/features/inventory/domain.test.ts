@@ -12,7 +12,7 @@ describe('inventario: modelo y validaciones', () => {
   });
   it('normaliza nombres y motivos y valida límites', () => {
     expect(productDetails({ name: '  Arroz  ', priceMinor: 1, minimumStock: MAX_STOCK }).name).toBe('Arroz');
-    expect(stockChange({ kind: 'entry', quantity: 1, reason: '  Compra  ' }).reason).toBe('Compra');
+    expect(stockChange({ kind: 'entry', unitCostMinor: 100, quantity: 1, reason: '  Compra  ' }).reason).toBe('Compra');
     expect(() => productDetails({ name: 'a\nb', priceMinor: 10, minimumStock: 0 })).toThrow();
     expect(() => stockChange({ kind: 'exit', quantity: 0, reason: 'Compra' })).toThrow();
     expect(() => stockChange({ kind: 'exit', quantity: 1, reason: '  ' })).toThrow();
@@ -23,7 +23,7 @@ describe('inventario: modelo y validaciones', () => {
   it('impide salidas excesivas y desbordamiento de existencias', () => {
     expect(resultingStock(2, { kind: 'exit', quantity: 2, reason: 'Rotura' })).toBe(0);
     expect(() => resultingStock(1, { kind: 'exit', quantity: 2, reason: 'Rotura' })).toThrow();
-    expect(() => resultingStock(MAX_STOCK, { kind: 'entry', quantity: 1, reason: 'Compra' })).toThrow();
+    expect(() => resultingStock(MAX_STOCK, { kind: 'entry', unitCostMinor: 100, quantity: 1, reason: 'Compra' })).toThrow();
   });
   it('distingue agotado, stock bajo y el límite exacto del mínimo', () => {
     expect(stockStatus({ stock: 0, minimumStock: 0 })).toBe('Agotado');
@@ -35,7 +35,7 @@ describe('inventario: modelo y validaciones', () => {
     const service = new InventoryService({ create } as unknown as InventoryRepository);
     expect(() => service.create('A', 'op', { name: 'Arroz', priceMinor: 100, minimumStock: 0, stock: -1 })).toThrow();
     expect(create).not.toHaveBeenCalled();
-    service.create('A', 'op', { name: ' Arroz ', priceMinor: 100, minimumStock: 0, stock: 1 });
-    expect(create).toHaveBeenCalledWith('A', 'op', { name: 'Arroz', priceMinor: 100, minimumStock: 0, stock: 1 });
+    service.create('A', 'op', { name: ' Arroz ', priceMinor: 100, minimumStock: 0, stock: 1, initialUnitCostMinor: 0 });
+    expect(create).toHaveBeenCalledWith('A', 'op', { name: 'Arroz', priceMinor: 100, minimumStock: 0, stock: 1, initialUnitCostMinor: 0 });
   });
 });

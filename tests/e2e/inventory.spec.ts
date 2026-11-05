@@ -21,6 +21,7 @@ test('inventario completo: alta, edición, entradas, salidas, historial y archiv
   await page.getByLabel('Nombre del producto').fill('Arroz');
   await page.getByLabel('Precio de venta (BOB)').fill('12,50');
   await page.getByLabel('Existencia inicial').fill('5');
+  await page.getByLabel('Costo unitario inicial (BOB)').fill('5');
   await page.getByLabel('Existencia mínima').fill('3');
   await page.getByRole('button', { name: 'Crear producto', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Producto creado correctamente.' })).toBeVisible();
@@ -30,7 +31,8 @@ test('inventario completo: alta, edición, entradas, salidas, historial y archiv
   await expect(page.getByRole('status').filter({ hasText: 'Producto actualizado correctamente.' })).toBeVisible();
   await page.getByRole('button', { name: 'Movimiento de Arroz integral' }).click();
   await page.getByLabel('Cantidad de unidades').fill('2');
-  await page.getByLabel('Motivo', { exact: true }).fill('Compra inicial');
+  await page.getByLabel('Motivo', { exact: true }).fill('Ajuste inicial');
+  await page.getByLabel('Costo unitario de entrada (BOB)').fill('5');
   await page.getByRole('button', { name: 'Guardar movimiento' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Movimiento confirmado correctamente.' })).toBeVisible();
   await page.getByRole('button', { name: 'Movimiento de Arroz integral' }).click();

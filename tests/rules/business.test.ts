@@ -7,8 +7,8 @@ import { collection, deleteDoc, doc, getDoc, getDocs, serverTimestamp, setDoc, u
 let env: RulesTestEnvironment;
 const valid = (uid: string) => ({ name: 'Tienda de prueba', ownerUid: uid, currency: 'BOB', timeZone: 'America/La_Paz', createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
 beforeAll(async () => {
-  if (process.env.FIRESTORE_EMULATOR_HOST !== '127.0.0.1:8080') throw new Error('Ejecuta pnpm test:emulators para probar reglas localmente.');
-  env = await initializeTestEnvironment({ projectId: 'demo-khypupyme', firestore: { host: '127.0.0.1', port: 8080, rules: readFileSync('firestore.rules', 'utf8') } });
+  if (process.env.FIRESTORE_EMULATOR_HOST !== '127.0.0.1:18080') throw new Error('Ejecuta pnpm test:emulators para probar reglas localmente.');
+  env = await initializeTestEnvironment({ projectId: 'demo-khypupyme-tests', firestore: { host: '127.0.0.1', port: 18080, rules: readFileSync('firestore.rules', 'utf8') } });
 });
 beforeEach(() => env.clearFirestore());
 afterAll(async () => { await env?.cleanup(); });

@@ -116,3 +116,36 @@ Entorno: Node 24.22.2, pnpm 11.25.0 y Java 21.0.13. Emuladores demo efímeros ap
 ### Límites y siguiente revisión
 
 RF-04 queda implementado localmente; la parte de inventario de RNF-03 tiene reglas y pruebas adversarias. No se declara preparación comercial completa. RNF-02/06 siguen pendientes de dispositivos físicos y RNF-05 de respaldo real. El emulador no acredita índices, cuotas ni comportamiento cloud; los índices declarados requieren validación futura en staging autorizado. No hay APK ni instalador Windows. La solicitud pendiente en sessionStorage se pierde al cerrar la pestaña: consultar productos/historial antes de repetir en ese caso. Revisar esta entrega antes de comenzar ventas.
+
+## Actualización 05/11/2026: v0.2.0, compras y costos (local)
+
+El propietario autorizó compras y valoración antes de ventas, sin nuevo servidor ni subida automática. No se habilitaron servicios cloud ni perfiles de otros rubros. Versión en package.json: 0.2.0; lockfile y dependencias conservados.
+
+### Verificación final ejecutada
+
+| Comprobación | Resultado |
+| --- | --- |
+| `pnpm check` | Aprobado: ESLint sin avisos, TypeScript estricto, 48 pruebas unitarias/componentes y build |
+| `pnpm test:emulators` | Aprobado: 10 pruebas de integración, 95 de reglas y 15 E2E |
+| Total | 168 pruebas aprobadas, sin retries nuevos ni relajación de validaciones |
+| Navegadores | Chromium escritorio, Chromium móvil Pixel 7 y WebKit móvil iPhone 13 |
+| Revisión visual | Capturas de Compras en escritorio Chromium y móvil WebKit revisadas; aserciones de ausencia de desbordamiento horizontal en los tres navegadores |
+| Proyecto de pruebas | `demo-khypupyme-tests`, Firestore 18080, Auth 19099, websocket 19150, hub 14400, logging 14500 y preview 4173 |
+
+Las pruebas ejecutaron emuladores efímeros con firebase.test.json, sin importación/exportación. Al comenzar se detectó la sesión interactiva en 8080/9099; no se reutilizó, limpió ni detuvo para probar. El lanzador comprueba los puertos de prueba antes de arrancar y el frontend de pruebas usa configuración fija del proyecto separado. Los emuladores de pruebas y el preview se apagaron automáticamente al terminar.
+
+### Evidencia funcional e integridad
+
+- 10 unidades a Bs 5 más compra de 10 a Bs 7: stock 20 y valor Bs 120; salida de 2 retira Bs 12 y deja stock 18/valor Bs 108. Se comprobaron redondeo de mitades, agotamiento y límites con cálculos BigInt y reglas int64.
+- Compra/producto/movimiento atómicos. Las pruebas rechazaron cada documento aislado y cada par incompleto, costos falsos coherentes entre documentos, autores/fechas/referencias manipulados, exceso de stock/valor y compras de archivados.
+- Compras concurrentes distintas se acumulan; solicitudes concurrentes con el mismo ID se aplican una vez. Si comparten ID pero cambian referencia, solo una solicitud se confirma. Cambiar fecha o referencia en reintentos también se rechaza.
+- Anulación completa conserva compra y movimientos, restaura stock/valor y se admite solo sin movimientos posteriores; se rechazaron anulaciones manipuladas y repetidas. Reconsultar una compra ya anulada con su ID original no vuelve a ingresarla.
+- Productos y movimientos v0.1 se leen sin inventar costo. Una valoración explícita preserva cantidades y crea evidencia, no compras históricas. Se impiden compras/salidas previas y una segunda valoración. El movimiento histórico conserva valoración desconocida.
+- Compra con revisión de importe antes de guardar; filtros por producto y periodo, páginas de 25, historial, anulación, guardado bloqueado sin conexión y recuperación manual de solicitudes inciertas comprobados. La solicitud/ID se conserva al remontar la pantalla y no se reenvía automáticamente.
+- Aislamiento A/B en ambas direcciones, denegación de anónimos/cuentas sin negocio, inmutabilidad y límites de consultas comprobados. Las colecciones de ventas/gastos/fiados continúan cerradas.
+
+Se corrigió durante la implementación la cobertura del nuevo tipo de movimiento en el historial, la normalización UTF-8/LF de archivos editados y la validación de referencias de un solo carácter. La verificación final posterior pasó completa; no se desactivaron reglas, lint ni tests para lograrlo.
+
+### Límites de esta entrega
+
+No hay compras con varios productos, crédito a proveedores, impuestos desglosados, ventas, gastos, ganancias ni perfiles especializados. El costo promedio mostrado se aproxima; el valor persistido y los retiros son exactos en centavos. Compras no se convierten en gastos operativos. La migración de costo es explícita por producto y las solicitudes v0.1 incompletas se bloquean para revisión antes de reiniciar su pestaña. No se acredita cloud, índices productivos, teléfonos físicos, APK o instaladores. La nueva subida y cualquier despliegue requieren autorización posterior. Próximo punto de control: revisar v0.2 antes de diseñar ventas.

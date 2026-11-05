@@ -1,108 +1,187 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isOwner(businessId) {
-      return request.auth != null && request.auth.uid == businessId;
+    function isOwner(businessId) { return request.auth != null && request.auth.uid == businessId; }
+    function inventoryOwner(businessId) {
+      return isOwner(businessId) && exists(/databases/$(database)/documents/businesses/$(businessId));
+    }
+    function identifier(value) { return value is string && value.matches('^[a-zA-Z0-9_-]{1,128}$'); }
+    function units(value) { return value is int && value >= 0 && value <= 1000000; }
+    function money(value) { return value is int && value >= 0 && value <= 1000000000000; }
+    function unitCost(value) { return value is int && value >= 0 && value <= 999999999; }
+    function line(value, min, max) {
+      return value is string && value.size() >= min && value.size() <= max
+        && value.matches('^[^\\s](.*[^\\s])?$') && !value.matches('.*[\r\n].*');
     }
     function validBusiness(data) {
-      return data.keys().hasAll(['name', 'ownerUid', 'currency', 'timeZone', 'createdAt', 'updatedAt'])
-        && data.keys().hasOnly(['name', 'ownerUid', 'currency', 'timeZone', 'createdAt', 'updatedAt'])
-        && data.name is string && data.name.size() >= 2 && data.name.size() <= 80
-        && data.name.matches('^[^\\s].*[^\\s]$')
-        && data.ownerUid is string
+      return data.keys().hasAll(['name','ownerUid','currency','timeZone','createdAt','updatedAt'])
+        && data.keys().hasOnly(['name','ownerUid','currency','timeZone','createdAt','updatedAt'])
+        && line(data.name, 2, 80) && data.ownerUid is string
         && data.currency == 'BOB' && data.timeZone == 'America/La_Paz'
         && data.createdAt is timestamp && data.updatedAt is timestamp;
     }
-    function inventoryOwner(businessId) {
-      return isOwner(businessId)
-        && exists(/databases/$(database)/documents/businesses/$(businessId));
-    }
-    function identifier(value) {
-      return value is string && value.matches('^[a-zA-Z0-9_-]{1,128}$');
-    }
-    function units(value) { return value is int && value >= 0 && value <= 1000000; }
-    function line(value, min, max) {
-      return value is string && value.size() >= min && value.size() <= max
-        && value.matches('^[^\\s].*[^\\s]$') && !value.matches('.*[\r\n].*');
-    }
     function details(data) {
-      return line(data.name, 2, 80)
-        && data.priceMinor is int && data.priceMinor >= 1 && data.priceMinor <= 999999999
+      return line(data.name, 2, 80) && data.priceMinor is int && data.priceMinor >= 1 && data.priceMinor <= 999999999
         && units(data.minimumStock);
     }
-    function validProduct(data) {
-      return data.keys().hasAll(['name', 'priceMinor', 'minimumStock', 'stock', 'active', 'lastMovementId', 'createdAt', 'updatedAt'])
-        && data.keys().hasOnly(['name', 'priceMinor', 'minimumStock', 'stock', 'active', 'lastMovementId', 'createdAt', 'updatedAt'])
+    function productShape(data) {
+      return data.keys().hasAll(['name','priceMinor','minimumStock','stock','active','lastMovementId','createdAt','updatedAt'])
+        && data.keys().hasOnly(['name','priceMinor','minimumStock','stock','active','lastMovementId','createdAt','updatedAt','inventoryValueMinor'])
         && details(data) && units(data.stock) && data.active is bool && identifier(data.lastMovementId)
-        && data.createdAt is timestamp && data.updatedAt == request.time;
+        && data.createdAt is timestamp && data.updatedAt == request.time
+        && (!('inventoryValueMinor' in data) || money(data.inventoryValueMinor))
+        && (data.stock != 0 || data.get('inventoryValueMinor', 0) == 0);
     }
     function validMovement(data, businessId) {
-      return data.keys().hasAll(['productId', 'kind', 'delta', 'stockBefore', 'stockAfter', 'reason', 'authorUid', 'initialProduct', 'createdAt'])
-        && data.keys().hasOnly(['productId', 'kind', 'delta', 'stockBefore', 'stockAfter', 'reason', 'authorUid', 'initialProduct', 'createdAt'])
-        && identifier(data.productId) && data.authorUid == businessId
+      return data.keys().hasAll(['productId','kind','delta','stockBefore','stockAfter','reason','authorUid','initialProduct','createdAt','valueBeforeMinor','valueAfterMinor','unitCostMinor','purchaseId'])
+        && data.keys().hasOnly(['productId','kind','delta','stockBefore','stockAfter','reason','authorUid','initialProduct','createdAt','valueBeforeMinor','valueAfterMinor','unitCostMinor','purchaseId'])
+        && identifier(data.productId) && data.authorUid == businessId && data.createdAt == request.time
         && data.delta is int && units(data.stockBefore) && units(data.stockAfter)
-        && data.stockAfter == data.stockBefore + data.delta
-        && line(data.reason, 3, 200) && data.createdAt == request.time;
+        && data.stockAfter == data.stockBefore + data.delta && line(data.reason, 3, 200)
+        && (data.valueBeforeMinor == null || money(data.valueBeforeMinor)) && money(data.valueAfterMinor)
+        && (data.unitCostMinor == null || unitCost(data.unitCostMinor))
+        && (data.purchaseId == null || identifier(data.purchaseId));
     }
-    function linkedMovement(businessId, productId, operationId, before, after, opening) {
-      let path = /databases/$(database)/documents/businesses/$(businessId)/inventoryMovements/$(operationId);
-      let movement = getAfter(path).data;
-      return !exists(path) && validMovement(movement, businessId)
-        && movement.productId == productId && movement.stockBefore == before && movement.stockAfter == after
-        && (opening ? movement.kind == 'opening' : movement.kind in ['entry', 'exit']);
+    function linkedMovement(businessId, productId, before, after) {
+      let id = after.lastMovementId;
+      let path = /databases/$(database)/documents/businesses/$(businessId)/inventoryMovements/$(id);
+      let m = getAfter(path).data;
+      return !exists(path) && validMovement(m, businessId) && m.productId == productId
+        && m.stockBefore == before.stock && m.stockAfter == after.stock
+        && m.valueBeforeMinor == before.get('inventoryValueMinor', null) && m.valueAfterMinor == after.inventoryValueMinor;
+    }
+    function opening(m, productId, operationId, after) {
+      return m.kind == 'opening' && operationId == productId && m.stockBefore == 0 && m.delta >= 0
+        && m.valueBeforeMinor == 0 && unitCost(m.unitCostMinor) && m.valueAfterMinor == m.stockAfter * m.unitCostMinor
+        && (m.stockAfter != 0 || m.unitCostMinor == 0) && m.purchaseId == null && m.reason == 'Stock inicial'
+        && m.initialProduct is map && m.initialProduct.keys().hasAll(['name','priceMinor','minimumStock'])
+        && m.initialProduct.keys().hasOnly(['name','priceMinor','minimumStock'])
+        && m.initialProduct.name == after.name && m.initialProduct.priceMinor == after.priceMinor
+        && m.initialProduct.minimumStock == after.minimumStock;
+    }
+    function regularCost(m) {
+      return m.purchaseId == null
+        && ((m.kind == 'valuation' && m.valueBeforeMinor == null && m.delta == 0 && unitCost(m.unitCostMinor)
+              && m.valueAfterMinor == m.stockAfter * m.unitCostMinor && m.reason == 'Valoración inicial')
+          || (money(m.valueBeforeMinor) && m.kind == 'entry' && m.delta > 0 && unitCost(m.unitCostMinor)
+              && m.valueAfterMinor == m.valueBeforeMinor + m.delta * m.unitCostMinor)
+          || (money(m.valueBeforeMinor) && m.kind == 'exit' && m.delta < 0 && m.unitCostMinor == null
+              && roundedExit(m)));
+    }
+    function roundedExit(m) {
+      let removed = m.valueBeforeMinor - m.valueAfterMinor;
+      let twiceExact = 2 * m.valueBeforeMinor * (-m.delta);
+      // Con valor <= 10^12 y stock <= 10^6, todos los productos caben en int64.
+      // round(A/B)=R si (2R-1)B <= 2A < (2R+1)B; mitades hacia arriba.
+      return m.stockBefore > 0 && removed >= 0
+        && (2 * removed - 1) * m.stockBefore <= twiceExact
+        && twiceExact < (2 * removed + 1) * m.stockBefore;
+    }
+    function validDate(value) {
+      return value is string && value.matches('^(20[0-9]{2}-((01|03|05|07|08|10|12)-(0[1-9]|[12][0-9]|3[01])|(04|06|09|11)-(0[1-9]|[12][0-9]|30)|02-(0[1-9]|1[0-9]|2[0-8]))|20(0[048]|[2468][048]|[13579][26])-02-29)$');
+    }
+    function validPurchase(p, businessId) {
+      return p.keys().hasAll(['productId','productName','quantity','unitCostMinor','totalMinor','date','reference','stockBefore','stockAfter','valueBeforeMinor','valueAfterMinor','authorUid','createdAt'])
+        && p.keys().hasOnly(['productId','productName','quantity','unitCostMinor','totalMinor','date','reference','stockBefore','stockAfter','valueBeforeMinor','valueAfterMinor','authorUid','createdAt'])
+        && identifier(p.productId) && line(p.productName, 2, 80)
+        && units(p.quantity) && p.quantity > 0 && unitCost(p.unitCostMinor) && p.unitCostMinor > 0
+        && money(p.totalMinor) && p.totalMinor == p.quantity * p.unitCostMinor
+        && validDate(p.date) && (p.reference == '' || line(p.reference, 1, 100))
+        && units(p.stockBefore) && units(p.stockAfter) && p.stockAfter == p.stockBefore + p.quantity
+        && money(p.valueBeforeMinor) && money(p.valueAfterMinor) && p.valueAfterMinor == p.valueBeforeMinor + p.totalMinor
+        && p.authorUid == businessId && p.createdAt == request.time;
+    }
+    function purchasePair(m, p, purchaseId) {
+      return m.kind == 'purchase' && m.purchaseId == purchaseId && m.productId == p.productId
+        && m.delta == p.quantity && m.unitCostMinor == p.unitCostMinor && m.reason == 'Compra'
+        && m.stockBefore == p.stockBefore && m.stockAfter == p.stockAfter
+        && m.valueBeforeMinor == p.valueBeforeMinor && m.valueAfterMinor == p.valueAfterMinor;
+    }
+    function purchasedMovement(businessId, operationId, m, before) {
+      let path = /databases/$(database)/documents/businesses/$(businessId)/purchases/$(operationId);
+      let p = getAfter(path).data;
+      return !exists(path) && validPurchase(p, businessId) && p.productName == before.name && purchasePair(m, p, operationId);
+    }
+    function validReversal(r, businessId, purchaseId) {
+      return r.keys().hasAll(['purchaseId','operationId','reason','authorUid','createdAt'])
+        && r.keys().hasOnly(['purchaseId','operationId','reason','authorUid','createdAt'])
+        && r.purchaseId == purchaseId && identifier(r.operationId) && line(r.reason, 3, 200)
+        && r.authorUid == businessId && r.createdAt == request.time;
+    }
+    function reversedMovement(businessId, operationId, m, before) {
+      let purchasePath = /databases/$(database)/documents/businesses/$(businessId)/purchases/$(m.purchaseId);
+      let reversalPath = /databases/$(database)/documents/businesses/$(businessId)/purchaseReversals/$(m.purchaseId);
+      let p = get(purchasePath).data;
+      let r = getAfter(reversalPath).data;
+      return m.kind == 'purchase-reversal' && identifier(m.purchaseId) && !exists(reversalPath)
+        && validReversal(r, businessId, m.purchaseId) && r.operationId == operationId && r.reason == m.reason
+        && before.lastMovementId == m.purchaseId && m.productId == p.productId
+        && m.stockBefore == p.stockAfter && m.stockAfter == p.stockBefore && m.delta == -p.quantity
+        && m.valueBeforeMinor == p.valueAfterMinor && m.valueAfterMinor == p.valueBeforeMinor && m.unitCostMinor == null;
+    }
+    function movementMatchesProduct(businessId, operationId) {
+      let m = request.resource.data;
+      let path = /databases/$(database)/documents/businesses/$(businessId)/products/$(m.productId);
+      let after = getAfter(path).data;
+      return after.lastMovementId == operationId && after.stock == m.stockAfter && after.inventoryValueMinor == m.valueAfterMinor
+        && after.updatedAt == request.time
+        && ((!exists(path) && opening(m, m.productId, operationId, after))
+          || (exists(path) && existingMovement(businessId, operationId, m, get(path).data)));
+    }
+    function existingMovement(businessId, operationId, m, before) {
+      return before.active == true && before.lastMovementId != operationId && m.stockBefore == before.stock
+        && m.valueBeforeMinor == before.get('inventoryValueMinor', null) && m.initialProduct == null
+        && (regularCost(m)
+          || (money(m.valueBeforeMinor) && m.kind == 'purchase' && purchasedMovement(businessId, operationId, m, before))
+          || (money(m.valueBeforeMinor) && m.kind == 'purchase-reversal' && reversedMovement(businessId, operationId, m, before)));
     }
     match /businesses/{businessId} {
       allow get: if isOwner(businessId);
       allow list, delete: if false;
       allow create: if isOwner(businessId) && validBusiness(request.resource.data)
         && request.resource.data.ownerUid == request.auth.uid
-        && request.resource.data.createdAt == request.time
-        && request.resource.data.updatedAt == request.time;
-      allow update: if isOwner(businessId) && resource.data.ownerUid == request.auth.uid
-        && validBusiness(request.resource.data)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'updatedAt'])
-        && request.resource.data.updatedAt == request.time;
-
+        && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
+      allow update: if isOwner(businessId) && resource.data.ownerUid == request.auth.uid && validBusiness(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','updatedAt']) && request.resource.data.updatedAt == request.time;
       match /products/{productId} {
         allow get: if inventoryOwner(businessId);
         allow list: if inventoryOwner(businessId) && request.query.limit > 0 && request.query.limit <= 26;
-        allow create: if inventoryOwner(businessId) && identifier(productId) && validProduct(request.resource.data)
-          && request.resource.data.active == true && request.resource.data.createdAt == request.time
-          && request.resource.data.lastMovementId == productId
-          && linkedMovement(businessId, productId, productId, 0, request.resource.data.stock, true);
-        allow update: if inventoryOwner(businessId) && validProduct(request.resource.data)
-          && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'priceMinor', 'minimumStock', 'active', 'updatedAt'])
-            || (resource.data.active == true && request.resource.data.stock != resource.data.stock
-              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock', 'lastMovementId', 'updatedAt'])
-              && request.resource.data.lastMovementId != resource.data.lastMovementId
-              && linkedMovement(businessId, productId, request.resource.data.lastMovementId, resource.data.stock, request.resource.data.stock, false)));
+        allow create: if inventoryOwner(businessId) && identifier(productId) && productShape(request.resource.data)
+          && money(request.resource.data.inventoryValueMinor) && request.resource.data.active == true
+          && request.resource.data.createdAt == request.time && request.resource.data.lastMovementId == productId
+          && linkedMovement(businessId, productId, {'stock': 0, 'inventoryValueMinor': 0}, request.resource.data);
+        allow update: if inventoryOwner(businessId) && productShape(request.resource.data)
+          && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','priceMinor','minimumStock','active','updatedAt'])
+            || (resource.data.active == true && request.resource.data.lastMovementId != resource.data.lastMovementId
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock','inventoryValueMinor','lastMovementId','updatedAt'])
+              && linkedMovement(businessId, productId, resource.data, request.resource.data)));
         allow delete: if false;
       }
       match /inventoryMovements/{operationId} {
         allow get: if inventoryOwner(businessId);
         allow list: if inventoryOwner(businessId) && request.query.limit > 0 && request.query.limit <= 26;
-        allow create: if inventoryOwner(businessId) && identifier(operationId)
-          && validMovement(request.resource.data, businessId) && movementMatchesProduct(businessId, operationId);
+        allow create: if inventoryOwner(businessId) && identifier(operationId) && validMovement(request.resource.data, businessId)
+          && movementMatchesProduct(businessId, operationId);
         allow update, delete: if false;
       }
+      match /purchases/{purchaseId} {
+        allow get: if inventoryOwner(businessId);
+        allow list: if inventoryOwner(businessId) && request.query.limit > 0 && request.query.limit <= 26;
+        allow create: if inventoryOwner(businessId) && identifier(purchaseId) && validPurchase(request.resource.data, businessId)
+          && !exists(/databases/$(database)/documents/businesses/$(businessId)/inventoryMovements/$(purchaseId))
+          && purchasePair(getAfter(/databases/$(database)/documents/businesses/$(businessId)/inventoryMovements/$(purchaseId)).data, request.resource.data, purchaseId);
+        allow update, delete: if false;
+      }
+      match /purchaseReversals/{purchaseId} {
+        allow get: if inventoryOwner(businessId);
+        allow create: if inventoryOwner(businessId) && validReversal(request.resource.data, businessId, purchaseId)
+          && !exists(/databases/$(database)/documents/businesses/$(businessId)/inventoryMovements/$(request.resource.data.operationId))
+          && reversalPair(getAfter(/databases/$(database)/documents/businesses/$(businessId)/inventoryMovements/$(request.resource.data.operationId)).data, request.resource.data);
+        allow list, update, delete: if false;
+      }
     }
-    function movementMatchesProduct(businessId, operationId) {
-      let movement = request.resource.data;
-      let path = /databases/$(database)/documents/businesses/$(businessId)/products/$(movement.productId);
-      let after = getAfter(path).data;
-      return after.lastMovementId == operationId && after.stock == movement.stockAfter
-        && after.updatedAt == request.time
-        && ((movement.kind == 'opening' && !exists(path) && movement.productId == operationId
-            && movement.stockBefore == 0 && movement.delta >= 0 && movement.reason == 'Stock inicial'
-            && movement.initialProduct is map
-            && movement.initialProduct.keys().hasAll(['name', 'priceMinor', 'minimumStock'])
-            && movement.initialProduct.keys().hasOnly(['name', 'priceMinor', 'minimumStock'])
-            && movement.initialProduct.name == after.name && movement.initialProduct.priceMinor == after.priceMinor
-            && movement.initialProduct.minimumStock == after.minimumStock)
-          || (movement.kind in ['entry', 'exit'] && exists(path) && get(path).data.active == true
-            && movement.initialProduct == null && get(path).data.stock == movement.stockBefore
-            && get(path).data.lastMovementId != operationId
-            && ((movement.kind == 'entry' && movement.delta > 0) || (movement.kind == 'exit' && movement.delta < 0))));
+    function reversalPair(m, r) {
+      return m.kind == 'purchase-reversal' && m.purchaseId == r.purchaseId && m.reason == r.reason;
     }
     // Ventas, gastos, fiados y otros módulos siguen cerrados.
     match /{document=**} { allow read, write: if false; }

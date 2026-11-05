@@ -14,9 +14,11 @@ export function ProductForm({ product, disabled, onSave, onCancel }: {
     if (disabled) return;
     const data = new FormData(event.currentTarget);
     try {
+      const stock = product?.stock ?? integer(Number(data.get('stock')), 0, MAX_STOCK, 'Existencia inicial');
       const input = {
         ...productDetails({ name: String(data.get('productName')), priceMinor: parseBOB(String(data.get('price'))), minimumStock: Number(data.get('minimum')) }),
-        stock: product?.stock ?? integer(Number(data.get('stock')), 0, MAX_STOCK, 'Existencia inicial'),
+        stock,
+        ...(!product ? { initialUnitCostMinor: stock === 0 && !data.get('initialCost') ? 0 : parseBOB(String(data.get('initialCost')), true) } : {}),
       };
       setError(''); onSave(input);
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Revisa los datos.'); }
@@ -31,6 +33,7 @@ export function ProductForm({ product, disabled, onSave, onCancel }: {
         <input id="price" name="price" inputMode="decimal" defaultValue={product ? (product.priceMinor / 100).toFixed(2) : ''} required aria-describedby="price-help" />
         <small id="price-help">Hasta dos decimales. Ejemplo: 12,50. Sin separadores de miles.</small>
         {!product && <><label htmlFor="stock">Existencia inicial</label><input id="stock" name="stock" type="number" defaultValue="0" required min={0} max={MAX_STOCK} step={1} /></>}
+        {!product && <><label htmlFor="initialCost">Costo unitario inicial (BOB)</label><input id="initialCost" name="initialCost" inputMode="decimal" /><small>Obligatorio si hay existencias. Escribe 0 si las recibiste sin costo. Este importe valora el stock; no registra una compra histórica.</small></>}
         <label htmlFor="minimum">Existencia mínima</label>
         <input id="minimum" name="minimum" type="number" defaultValue={product?.minimumStock ?? 0} required min={0} max={MAX_STOCK} step={1} />
         <Feedback error={error} />

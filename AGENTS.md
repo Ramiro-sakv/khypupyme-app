@@ -4,9 +4,13 @@
 
 Cuaderno digital para micro y pequeños negocios de Bolivia; español, BOB, America/La_Paz. Fuente: dossier Final V2 de 21 páginas del 30/06/2026, analizado en `docs/requirements`. Solo están autorizadas Fase 0 y base Fase 1. **Detenerse para revisión del propietario antes de implementar masivamente ventas, inventario, gastos y fiados.** No presentar esta base como MVP comercial completo.
 
+El propietario añadió el requisito de aplicación descargable e instalable; se están preparando Android y Windows. Los instaladores del producto todavía no están implementados. GitHub permanece pendiente: no hacer push.
+
 ## Arquitectura
 
 React + TypeScript estricto + Vite + React Router, por funcionalidades. `src/features` contiene dominio, interfaz y repositorios; `src/infrastructure` adapta Firebase; `src/shared` contiene piezas comunes. Mantener componentes sin acceso directo a Firestore. No añadir backend, Admin SDK en navegador, dependencias o abstracciones sin necesidad. No inventar datos para el tablero.
+
+Organizar los adaptadores con clases de responsabilidad única: `FirebaseAuthService` implementa `AuthService` y `FirestoreBusinessRepository` implementa `BusinessRepository`. Usar interfaces e inyección de dependencias por constructor/composición; los componentes reciben contratos. Conservar componentes funcionales de React y funciones puras donde no existe estado que encapsular. Aplicar Repository/Adapter sin agregar patrones ni clases vacías por formalidad.
 
 ## Seguridad
 
@@ -19,6 +23,8 @@ Reutilizar exclusivamente `Ramiro-sakv/khypupyme-app`. Inspeccionar status/diff 
 ## Privacidad, costos y operación
 
 Nunca guardar secretos, cuentas de servicio, `.env.local`, datos de emuladores ni registros personales en Git. Los únicos valores Firebase actuales son identificadores demo sin credenciales reales. No activar facturación, Functions, Storage, recursos cloud ni integraciones sensibles sin autorización. Storage/RNF-05 está diferido. No bancos, facturación tributaria, suscripciones cobradas, IA predictiva ni abonos parciales. No datos reales en tests. No prometer offline comercial. Cambios monetarios, de propietario, zona/moneda históricas y baja de datos requieren diseño explícito.
+
+Las herramientas de desarrollo son de uso general para todos los proyectos del propietario. Los accesos del escritorio deben corresponder a aplicaciones; no crear accesos a carpetas, scripts, URLs ni recursos de KhypuPyme salvo solicitud específica. No restaurar accesos que el propietario haya borrado.
 
 ## Validación y documentación
 

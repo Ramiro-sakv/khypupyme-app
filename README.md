@@ -4,6 +4,8 @@ Cuaderno digital para micro y pequeños comercios de Bolivia. Base local de las 
 
 Funciona con React, TypeScript estricto, Vite, React Router y Firebase Emulator. Registro, ingreso, cierre de sesión, solicitud de recuperación y creación/consulta/edición del negocio usan persistencia real en los emuladores. Moneda BOB y zona America/La_Paz. Los datos de desarrollo son ficticios.
 
+El propietario requiere una aplicación descargable e instalable. Android y Windows están en preparación; esta base todavía no incluye APK ni instalador de escritorio.
+
 ## Ejecutar en Windows
 
 Requisitos: Node.js **24 LTS >=24.12**, pnpm **11.25.0**, JDK **21 LTS o superior** para Firestore. Las versiones están fijadas en `package.json` y `pnpm-lock.yaml`. No se requiere Firebase Console, login de Firebase, facturación ni credenciales privadas.
@@ -42,8 +44,8 @@ pnpm exec playwright install chromium webkit
 
 ## Estructura y alcance
 
-- `src/features/auth`: interfaz y servicio de sesión; Firebase no está acoplado al formulario.
-- `src/features/business`: dominio, repositorio Firestore e interfaz del negocio.
+- `src/features/auth`: contrato `AuthService`, clase adaptadora `FirebaseAuthService` e interfaz de sesión; Firebase no está acoplado al formulario.
+- `src/features/business`: dominio, contrato `BusinessRepository`, clase `FirestoreBusinessRepository` e interfaz del negocio.
 - `src/config`, `src/infrastructure`, `src/shared`, `src/app`: configuración, adaptadores, componentes y navegación.
 - `firestore.rules`, `tests/`: autorización, integración, componentes y recorridos de navegador.
 - `public/`: manifest, iconos y service worker sin caché de información comercial. Producción del build se puede revisar localmente con `pnpm build` y `pnpm preview`.

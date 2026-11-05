@@ -80,3 +80,9 @@ Rama de trabajo `chore/project-setup`; origin apunta al repositorio confirmado. 
 ## 9. Siguiente etapa
 
 Revisión conjunta de arquitectura/modelo/seguridad y estado de Firebase antes del núcleo comercial. Validar definiciones de saldo/cobros, unidades de inventario, anulación y necesidad de operación confiable de servidor. No se inicia Fase 2 hasta esa revisión, según el punto de control del propietario. Firebase real, Storage, presupuesto y publicación requieren autorización posterior.
+
+## Actualización 05/11/2026: organización en clases
+
+Se extrajeron `FirebaseAuthService` y `FirestoreBusinessRepository`, que implementan los contratos existentes y reciben sus dependencias por constructor. El repositorio antes estaba en `src/features/business/repository.ts`; ahora está en `FirestoreBusinessRepository.ts`. La composición sigue en infraestructura y mantiene la carga diferida de Firestore. La prueba de integración utiliza ambas clases reales. No se modificaron reglas, esquema de datos ni dependencias.
+
+Verificación posterior: `pnpm check` aprobado (lint, TypeScript, 16 pruebas y build); `pnpm test:emulators` aprobado (1 integración, 15 reglas y 9 E2E). Total: 41 pruebas aprobadas. Entorno: Node 24.22.2 y Java 21.0.13. Sin pruebas remotas, push ni despliegue.

@@ -16,7 +16,9 @@
 | CSS propio, sin Tailwind ni biblioteca UI | Propuesto | Base pequeña, menos dependencias; formularios semánticos, foco y controles táctiles |
 | PWA sin caché de respuestas ni cola offline | Derivado | No prometer consistencia sin conexión; fallback de navegación explica la limitación |
 
-Flujo actual: React → contrato AuthService/BusinessRepository → SDK Firebase web → emuladores Auth/Firestore → Security Rules. No Admin SDK, servidor propio, Functions ni Storage. El SDK nunca se importa desde los componentes.
+Flujo actual: React → contrato AuthService/BusinessRepository → clase FirebaseAuthService/FirestoreBusinessRepository → SDK Firebase web → emuladores Auth/Firestore → Security Rules. No Admin SDK, servidor propio, Functions ni Storage. El SDK nunca se importa desde los componentes.
+
+Actualización 05/11/2026, a solicitud del propietario: las clases concretas encapsulan los adaptadores de autenticación y persistencia, con responsabilidad única y dependencias por constructor. Repository y Adapter separan Firebase de la interfaz; la composición en `src/infrastructure` inyecta los contratos y conserva la carga diferida de Firestore. Los datos sin comportamiento siguen siendo tipos y las validaciones puras siguen siendo funciones; React conserva componentes funcionales. La distribución descargable Android/Windows es un requisito posterior del propietario, aún sin instaladores implementados; se conserva la tecnología base.
 
 ## Seguridad e integridad
 

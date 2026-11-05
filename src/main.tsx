@@ -9,7 +9,7 @@ import './styles.css';
 const root = createRoot(document.getElementById('root')!);
 try {
   const services = createServices();
-  root.render(<StrictMode><BrowserRouter><AuthProvider service={services.authService}><App repository={services.businessRepository} /></AuthProvider></BrowserRouter></StrictMode>);
+    root.render(<StrictMode><BrowserRouter><AuthProvider service={services.authService}><App repository={services.businessRepository} inventory={services.inventoryService} /></AuthProvider></BrowserRouter></StrictMode>);
 } catch {
   root.render(<main><h1>Revisa la configuración local</h1><p role="alert">Esta versión solo funciona con Firebase Emulator. Consulta el README y revisa .env.local.</p></main>);
 }

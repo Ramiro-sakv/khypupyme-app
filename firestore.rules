@@ -13,6 +13,44 @@ service cloud.firestore {
         && data.currency == 'BOB' && data.timeZone == 'America/La_Paz'
         && data.createdAt is timestamp && data.updatedAt is timestamp;
     }
+    function inventoryOwner(businessId) {
+      return isOwner(businessId)
+        && exists(/databases/$(database)/documents/businesses/$(businessId));
+    }
+    function identifier(value) {
+      return value is string && value.matches('^[a-zA-Z0-9_-]{1,128}$');
+    }
+    function units(value) { return value is int && value >= 0 && value <= 1000000; }
+    function line(value, min, max) {
+      return value is string && value.size() >= min && value.size() <= max
+        && value.matches('^[^\\s].*[^\\s]$') && !value.matches('.*[\r\n].*');
+    }
+    function details(data) {
+      return line(data.name, 2, 80)
+        && data.priceMinor is int && data.priceMinor >= 1 && data.priceMinor <= 999999999
+        && units(data.minimumStock);
+    }
+    function validProduct(data) {
+      return data.keys().hasAll(['name', 'priceMinor', 'minimumStock', 'stock', 'active', 'lastMovementId', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['name', 'priceMinor', 'minimumStock', 'stock', 'active', 'lastMovementId', 'createdAt', 'updatedAt'])
+        && details(data) && units(data.stock) && data.active is bool && identifier(data.lastMovementId)
+        && data.createdAt is timestamp && data.updatedAt == request.time;
+    }
+    function validMovement(data, businessId) {
+      return data.keys().hasAll(['productId', 'kind', 'delta', 'stockBefore', 'stockAfter', 'reason', 'authorUid', 'initialProduct', 'createdAt'])
+        && data.keys().hasOnly(['productId', 'kind', 'delta', 'stockBefore', 'stockAfter', 'reason', 'authorUid', 'initialProduct', 'createdAt'])
+        && identifier(data.productId) && data.authorUid == businessId
+        && data.delta is int && units(data.stockBefore) && units(data.stockAfter)
+        && data.stockAfter == data.stockBefore + data.delta
+        && line(data.reason, 3, 200) && data.createdAt == request.time;
+    }
+    function linkedMovement(businessId, productId, operationId, before, after, opening) {
+      let path = /databases/$(database)/documents/businesses/$(businessId)/inventoryMovements/$(operationId);
+      let movement = getAfter(path).data;
+      return !exists(path) && validMovement(movement, businessId)
+        && movement.productId == productId && movement.stockBefore == before && movement.stockAfter == after
+        && (opening ? movement.kind == 'opening' : movement.kind in ['entry', 'exit']);
+    }
     match /businesses/{businessId} {
       allow get: if isOwner(businessId);
       allow list, delete: if false;
@@ -24,8 +62,49 @@ service cloud.firestore {
         && validBusiness(request.resource.data)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'updatedAt'])
         && request.resource.data.updatedAt == request.time;
+
+      match /products/{productId} {
+        allow get: if inventoryOwner(businessId);
+        allow list: if inventoryOwner(businessId) && request.query.limit > 0 && request.query.limit <= 26;
+        allow create: if inventoryOwner(businessId) && identifier(productId) && validProduct(request.resource.data)
+          && request.resource.data.active == true && request.resource.data.createdAt == request.time
+          && request.resource.data.lastMovementId == productId
+          && linkedMovement(businessId, productId, productId, 0, request.resource.data.stock, true);
+        allow update: if inventoryOwner(businessId) && validProduct(request.resource.data)
+          && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'priceMinor', 'minimumStock', 'active', 'updatedAt'])
+            || (resource.data.active == true && request.resource.data.stock != resource.data.stock
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock', 'lastMovementId', 'updatedAt'])
+              && request.resource.data.lastMovementId != resource.data.lastMovementId
+              && linkedMovement(businessId, productId, request.resource.data.lastMovementId, resource.data.stock, request.resource.data.stock, false)));
+        allow delete: if false;
+      }
+      match /inventoryMovements/{operationId} {
+        allow get: if inventoryOwner(businessId);
+        allow list: if inventoryOwner(businessId) && request.query.limit > 0 && request.query.limit <= 26;
+        allow create: if inventoryOwner(businessId) && identifier(operationId)
+          && validMovement(request.resource.data, businessId) && movementMatchesProduct(businessId, operationId);
+        allow update, delete: if false;
+      }
     }
-    // Los módulos comerciales permanecen cerrados hasta implementar sus invariantes.
+    function movementMatchesProduct(businessId, operationId) {
+      let movement = request.resource.data;
+      let path = /databases/$(database)/documents/businesses/$(businessId)/products/$(movement.productId);
+      let after = getAfter(path).data;
+      return after.lastMovementId == operationId && after.stock == movement.stockAfter
+        && after.updatedAt == request.time
+        && ((movement.kind == 'opening' && !exists(path) && movement.productId == operationId
+            && movement.stockBefore == 0 && movement.delta >= 0 && movement.reason == 'Stock inicial'
+            && movement.initialProduct is map
+            && movement.initialProduct.keys().hasAll(['name', 'priceMinor', 'minimumStock'])
+            && movement.initialProduct.keys().hasOnly(['name', 'priceMinor', 'minimumStock'])
+            && movement.initialProduct.name == after.name && movement.initialProduct.priceMinor == after.priceMinor
+            && movement.initialProduct.minimumStock == after.minimumStock)
+          || (movement.kind in ['entry', 'exit'] && exists(path) && get(path).data.active == true
+            && movement.initialProduct == null && get(path).data.stock == movement.stockBefore
+            && get(path).data.lastMovementId != operationId
+            && ((movement.kind == 'entry' && movement.delta > 0) || (movement.kind == 'exit' && movement.delta < 0))));
+    }
+    // Ventas, gastos, fiados y otros módulos siguen cerrados.
     match /{document=**} { allow read, write: if false; }
   }
 }

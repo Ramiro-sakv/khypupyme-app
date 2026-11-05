@@ -21,7 +21,7 @@ Si se requiere Functions para garantizar invariantes comerciales, comparar costo
 
 ## Respaldo y restauración: estrategia pendiente de ejecutar
 
-- **Código:** commits locales por unidad lógica y remoto oficial una vez autorizado. Mientras no haya push, el equipo local sigue siendo una única copia; no afirmar que existe respaldo remoto del nuevo código.
+- **Código:** commits locales por unidad lógica y remoto oficial. El propietario autorizó la subida de la primera versión de prueba con inventario; verificar el hash remoto antes de afirmar que existe respaldo. Esta autorización no incluye despliegues ni cambios de visibilidad.
 - **Datos locales ficticios:** export/import de Emulator Suite en `.emulator-data`, fuera de Git; no es solución para producción.
 - **Datos comerciales futuros:** evaluar exportaciones administradas de Firestore o backups/PITR y Auth por separado, con autorización de costos y control de acceso. Definir retención, ubicación, responsables, RPO/RTO y cifrado antes del piloto; aún no hay objetivos acordados.
 - **Restauración:** ensayar en un proyecto aislado autorizado, comprobar propietarios, conteos, importes, stock, vínculos venta-fiado/cobro y acceso A/B; registrar fecha y resultado. No probar restauración sobre producción ni considerar un CSV como ensayo de recuperación.

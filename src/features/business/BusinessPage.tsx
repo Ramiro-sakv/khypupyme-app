@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { SubmitEvent } from 'react';
+import { Link } from 'react-router';
 import { useAuth } from '../auth/auth-context';
 import { businessName } from './domain';
 import type { Business, BusinessRepository } from './domain';
@@ -53,9 +54,10 @@ export function BusinessPage({ repository, settings = false }: { repository: Bus
           <button className="primary" disabled={busy || !online}>{busy ? 'Guardando…' : business ? 'Guardar cambios' : 'Crear mi negocio'}</button>
         </form>
       </section>
-      <aside className="next-card"><span className="section-label">02 / LO QUE SIGUE</span><h2>Primero, una base firme.</h2><p>Tu cuenta y el perfil ya tienen su lugar. Las herramientas del día a día se habilitarán después de revisar esta primera etapa.</p>
-        <ul className="module-list">{['Ventas y gastos', 'Productos y existencias', 'Fiados y cobros', 'Resumen y reportes'].map((name) => <li key={name}><span>{name}</span><span className="tag">Próximamente</span></li>)}</ul>
-        <p className="muted">Todavía no se registran operaciones comerciales.</p>
+      <aside className="next-card"><span className="section-label">02 / TUS HERRAMIENTAS</span><h2>Organiza tus productos.</h2><p>El inventario permite registrar productos, entradas y salidas con historial.</p>
+        {business && <p><Link to="/inventario">Abrir inventario</Link></p>}
+        <ul className="module-list">{['Ventas y gastos', 'Fiados y cobros', 'Resumen y reportes'].map((name) => <li key={name}><span>{name}</span><span className="tag">Próximamente</span></li>)}</ul>
+        <p className="muted">Esta versión de prueba todavía no registra ventas ni cobros.</p>
       </aside>
     </div>
   </>;

@@ -8,6 +8,8 @@ import type { BusinessRepository } from '../features/business/domain';
 import { useOnline } from '../shared/hooks/useOnline';
 import { errorMessage } from '../shared/errors';
 import { Feedback } from '../shared/components/Feedback';
+import type { InventoryService } from '../features/inventory/InventoryService';
+import { InventoryPage } from '../features/inventory/InventoryPage';
 
 function Protected({ children }: { children: ReactNode }) {
   const { status, user, error } = useAuth();
@@ -16,7 +18,7 @@ function Protected({ children }: { children: ReactNode }) {
   return user ? children : <Navigate to="/ingresar" replace />;
 }
 
-export function App({ repository }: { repository: BusinessRepository }) {
+export function App({ repository, inventory }: { repository: BusinessRepository; inventory: InventoryService }) {
   const { user, service } = useAuth();
   const online = useOnline();
   const [error, setError] = useState('');
@@ -30,7 +32,7 @@ export function App({ repository }: { repository: BusinessRepository }) {
     <a href="#main" className="skip-link">Saltar al contenido</a>
     <div className="environment-banner">Entorno local de pruebas · Usa solo datos ficticios</div>
     <header><div className="header-inner"><Link className="brand" to="/" aria-label="KhypuPyme, inicio"><span className="brand-mark" aria-hidden="true">K</span><span>Khypu<span className="brand-light">Pyme</span></span></Link>
-      {user && <nav aria-label="Navegación principal"><NavLink to="/" end>Inicio</NavLink><NavLink to="/negocio">Mi negocio</NavLink><button className="quiet" onClick={logout} disabled={exiting}>{exiting ? 'Saliendo…' : 'Salir'}</button></nav>}
+      {user && <nav aria-label="Navegación principal"><NavLink to="/" end>Inicio</NavLink><NavLink to="/negocio">Mi negocio</NavLink><NavLink to="/inventario">Inventario</NavLink><button className="quiet" onClick={logout} disabled={exiting}>{exiting ? 'Saliendo…' : 'Salir'}</button></nav>}
     </div></header>
     {!online && <p className="offline" role="alert">Sin conexión. No se pueden guardar cambios. Recupera la conexión y vuelve a consultar.</p>}
     <main id="main" tabIndex={-1}><Feedback error={error} /><Routes>
@@ -39,6 +41,7 @@ export function App({ repository }: { repository: BusinessRepository }) {
       <Route path="/recuperar" element={<AuthPage key="reset" mode="reset" />} />
       <Route path="/" element={<Protected><BusinessPage key={user?.uid} repository={repository} /></Protected>} />
       <Route path="/negocio" element={<Protected><BusinessPage key={user?.uid} repository={repository} settings /></Protected>} />
+      <Route path="/inventario" element={<Protected><InventoryPage key={user?.uid} businessRepository={repository} service={inventory} /></Protected>} />
       <Route path="*" element={<section className="card"><h1>No encontramos esta página</h1><Link to="/">Volver al inicio</Link></section>} />
     </Routes></main>
     <footer><span>KhypuPyme</span><span>Hecho para el día a día de tu negocio.</span></footer>

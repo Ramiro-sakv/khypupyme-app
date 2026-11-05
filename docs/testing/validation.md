@@ -86,3 +86,33 @@ Revisión conjunta de arquitectura/modelo/seguridad y estado de Firebase antes d
 Se extrajeron `FirebaseAuthService` y `FirestoreBusinessRepository`, que implementan los contratos existentes y reciben sus dependencias por constructor. El repositorio antes estaba en `src/features/business/repository.ts`; ahora está en `FirestoreBusinessRepository.ts`. La composición sigue en infraestructura y mantiene la carga diferida de Firestore. La prueba de integración utiliza ambas clases reales. No se modificaron reglas, esquema de datos ni dependencias.
 
 Verificación posterior: `pnpm check` aprobado (lint, TypeScript, 16 pruebas y build); `pnpm test:emulators` aprobado (1 integración, 15 reglas y 9 E2E). Total: 41 pruebas aprobadas. Entorno: Node 24.22.2 y Java 21.0.13. Sin pruebas remotas, push ni despliegue.
+
+## Actualización 05/11/2026: inventario y primera versión de prueba 0.1.0
+
+Autorización posterior del propietario: implementar inventario con cantidades enteras y movimientos con motivo; subir esta primera versión al repositorio oficial. No se autorizaron ventas, gastos, fiados, instaladores, servicios cloud ni despliegues públicos.
+
+### Resultado final ejecutado
+
+| Verificación | Resultado |
+| --- | --- |
+| `pnpm check` | Aprobado: ESLint sin avisos, TypeScript estricto, 35 pruebas unitarias/componentes y build |
+| `pnpm test:emulators` | Aprobado: 4 pruebas de integración, 58 de reglas, 12 E2E |
+| Total | 109 pruebas aprobadas; sin retries adicionales en Playwright |
+| Navegadores | Chromium escritorio, Chromium Pixel 7 emulado y WebKit iPhone 13 emulado |
+| Revisión visual | Capturas de inventario e historial revisadas en escritorio y móvil Chromium; sin desbordamiento horizontal en los tres navegadores por aserción E2E |
+| Integridad | Apertura atómica, cambios con historial, archivo/reactivación, paginación de productos/historial, IDs repetidos y solicitudes distintas con el mismo ID |
+| Concurrencia | Dos salidas sobre una unidad: solo una aceptada; dos entradas distintas: ambas aplicadas; dos entradas con el mismo ID: un solo movimiento |
+| Ataques | Acceso cruzado/anónimo/sin negocio, cambios aislados de stock, aperturas y movimientos falsificados, pares coherentes con importes/cantidades inválidos, archivo, inmutabilidad y colecciones futuras cerradas |
+| Respuesta incierta | Componente verifica conservación de solicitud/ID al remontar, ausencia de reenvío automático y confirmación manual con la misma solicitud |
+
+Entorno: Node 24.22.2, pnpm 11.25.0 y Java 21.0.13. Emuladores demo efímeros apagados al terminar; no se importó la sesión local persistente. No se añadieron dependencias.
+
+### Fallos encontrados y corregidos
+
+- Una carrera por el mismo ID podía devolver permiso denegado al segundo cliente: las reglas evaluaban su vista antigua. Ahora se consulta el movimiento inmutable; solo una solicitud coincidente acredita éxito. Si no existe y hay conflicto/permisos, una transacción nueva recalcula stock con un máximo de tres intentos. No se relajaron las reglas. La prueba incluye también entradas concurrentes con IDs distintos.
+- El helper inicial de tests de reglas perdía el contexto `this` al desestructurar `firestore`; se conserva el contexto. Los archivos de reglas se ejecutan secuencialmente porque limpian el mismo proyecto demo.
+- El primer E2E de inventario encontraba dos elementos `status` durante la recarga del listado. El test identifica el mensaje de confirmación concreto, conservando ambos estados accesibles. No se añadieron esperas fijas ni se ocultó el error.
+
+### Límites y siguiente revisión
+
+RF-04 queda implementado localmente; la parte de inventario de RNF-03 tiene reglas y pruebas adversarias. No se declara preparación comercial completa. RNF-02/06 siguen pendientes de dispositivos físicos y RNF-05 de respaldo real. El emulador no acredita índices, cuotas ni comportamiento cloud; los índices declarados requieren validación futura en staging autorizado. No hay APK ni instalador Windows. La solicitud pendiente en sessionStorage se pierde al cerrar la pestaña: consultar productos/historial antes de repetir en ese caso. Revisar esta entrega antes de comenzar ventas.

@@ -22,11 +22,21 @@ Actualización 05/11/2026, a solicitud del propietario: las clases concretas enc
 
 ## Seguridad e integridad
 
-Se autorizan get/create/update del propio negocio, con esquema exacto, propietario inmutable, BOB/La Paz y timestamps de servidor. Listar todos los negocios y borrar perfiles está denegado. Todas las subcolecciones están cerradas. Borrar será un procedimiento explícito con política de conservación, no una escritura casual. Datos del usuario: Firebase Auth almacena correo/UID; no se duplica correo ni se pide documento, teléfono o dirección.
+Se autorizan get/create/update del propio negocio, con esquema exacto, propietario inmutable, BOB/La Paz y timestamps de servidor. Listar todos los negocios y borrar perfiles está denegado. Solo se abren productos y movimientos con las restricciones detalladas abajo; las demás subcolecciones siguen cerradas. Borrar será un procedimiento explícito con política de conservación, no una escritura casual. Datos del usuario: Firebase Auth almacena correo/UID; no se duplica correo ni se pide documento, teléfono o dirección.
 
 Creación del negocio en una transacción sobre `businesses/{uid}`: reintentos consultan el documento existente y no lo reemplazan. Una lectura desde servidor posterior confirma el estado antes del mensaje de éxito. Si se pierde la respuesta tras escribir, se debe volver a consultar; no se afirma que una operación pendiente haya fallado definitivamente. Nombre editable, moneda y zona bloqueadas para proteger futuras operaciones históricas.
 
 Futuro multiusuario requerirá membresías seguras y migración del criterio `uid == businessId`; no se confunde esta estructura con soporte Pro ya implementado. Modelo y reglas se revisarán antes de abrir acceso a colaboradores.
+
+## Inventario autorizado: primera versión local
+
+El propietario aprobó catálogo, unidades enteras y entradas/salidas con motivo. Orden de lectura: dominio → InventoryRepository → InventoryService → FirestoreInventoryRepository → reglas/pruebas → interfaz. El servicio normaliza entradas; el repositorio encapsula transacciones y consultas. La interfaz recibe servicios por composición, sin SDK Firebase.
+
+Producto/apertura y stock/movimiento se escriben atómicamente. Las reglas validan el vínculo en ambas direcciones con getAfter, incluyendo stock previo/posterior, autor, fecha, ID nuevo y forma exacta. Los movimientos son inmutables y no hay borrado físico. Editar metadatos no cambia stock; los archivados no aceptan movimientos. Ventas/gastos/fiados siguen denegados.
+
+Cada solicitud usa un ID estable. Antes de confirmar un error de red o una carrera por el mismo ID, el repositorio consulta el movimiento del servidor y compara la solicitud original. Una operación distinta con el mismo ID se rechaza. Si no existe el movimiento y el servidor rechazó una vista antigua por permisos/conflicto, se vuelve a calcular en una transacción nueva, con un máximo de tres intentos externos a los reintentos del SDK. Esto no amplía permisos ni sustituye las reglas.
+
+Una única solicitud incierta se conserva por cuenta en sessionStorage (ID y formulario, sin credenciales) para sobrevivir a recargas de esa pestaña. No se reenvía automáticamente ni permite iniciar otra modificación hasta resolverla. Esta intención pendiente no es una caché comercial ni una cola offline; al cerrar la pestaña se pierde y debe consultarse el historial antes de repetir manualmente. Dinero en centavos enteros y cantidades de unidades enteras; sin pesos ni costos de compra en esta entrega.
 
 ## Operaciones futuras: todavía sin autorización de implementación
 

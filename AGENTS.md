@@ -2,9 +2,9 @@
 
 ## Producto y alcance actual
 
-Cuaderno digital para micro y pequeños negocios de Bolivia; español, BOB, America/La_Paz. Fuente: dossier Final V2 de 21 páginas del 30/06/2026, analizado en `docs/requirements`. Solo están autorizadas Fase 0 y base Fase 1. **Detenerse para revisión del propietario antes de implementar masivamente ventas, inventario, gastos y fiados.** No presentar esta base como MVP comercial completo.
+Cuaderno digital para micro y pequeños negocios de Bolivia; español, BOB, America/La_Paz. Fuente: dossier Final V2 de 21 páginas del 30/06/2026, analizado en `docs/requirements`. Fase 0 y base Fase 1 completadas. El propietario autorizó después inventario con unidades enteras y movimientos con motivo, y la subida de la primera versión de prueba al repositorio oficial. **Detenerse para revisión antes de continuar con ventas, gastos y fiados.** No presentar esta versión como MVP comercial completo.
 
-El propietario añadió el requisito de aplicación descargable e instalable; se están preparando Android y Windows. Los instaladores del producto todavía no están implementados. GitHub permanece pendiente: no hacer push.
+El propietario añadió el requisito de aplicación descargable e instalable; se están preparando Android y Windows. Los instaladores del producto todavía no están implementados. La autorización de subir esta primera versión no autoriza despliegues, cambios de visibilidad ni publicaciones posteriores sin autorización.
 
 ## Arquitectura
 
@@ -15,6 +15,8 @@ Organizar los adaptadores con clases de responsabilidad única: `FirebaseAuthSer
 ## Seguridad
 
 Solo proyectos `demo-` y emuladores locales; no conectar cloud automáticamente. `businessId = uid` y `ownerUid` inmutable para un administrador por negocio; no es una plataforma multiusuario todavía. Autorización en `firestore.rules`, listas y borrados de negocios denegados, subcolecciones comerciales cerradas por defecto. Validar formas, campos y timestamps también en reglas. Ampliar reglas únicamente con pruebas de ataque y aislamiento A/B. Dinero futuro en unidades menores enteras; ventas/stock y cobros deben ser atómicos e idempotentes y demostrar invariantes contra clientes maliciosos. La transacción del frontend por sí sola no acredita seguridad.
+
+Inventario abre únicamente `products` e `inventoryMovements` del negocio propio existente. Crear producto exige movimiento inicial; cambiar stock exige movimiento inmutable nuevo, con vínculo validado en ambas direcciones por `getAfter`. No borrar productos/movimientos, editar stock como metadato ni mover productos archivados. Precio en centavos enteros; cantidades enteras de 0 a 1.000.000. Paginación con cursor de segundos/nanosegundos e ID para no perder precisión. Una solicitud incierta se conserva por cuenta en sessionStorage y solo se reintenta manualmente con su ID original; no hay cola offline ni reenvío automático.
 
 ## Git y protección
 

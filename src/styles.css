@@ -22,3 +22,25 @@ form { display: flex; flex-direction: column; }label { font-size: .92rem; font-w
 footer { border-top: 1px solid #dcded4; max-width: 1104px; margin: auto; padding: 22px 0; display: flex; justify-content: space-between; gap: 12px; color: #59685d; font-size: .8rem; }
 @media (max-width: 760px) { .header-inner { padding: 14px 20px; min-height: 78px; flex-wrap: wrap; gap: 10px; }nav { gap: 20px; font-size: .9rem; }.brand { font-size: 1.35rem; }.auth-grid, .workspace-grid { grid-template-columns: 1fr; gap: 24px; }.auth-grid { padding: 0; }.intro h1 { max-width: 360px; }.intro-note, .intro > .muted { display: none; }.intro > p { margin-bottom: 0; }.card, .auth-card, .next-card { padding: 25px; }main { padding: 32px 20px 45px; }.eyebrow { margin-bottom: 15px; }footer { padding: 22px 20px; flex-direction: column; }.details div { flex-direction: column; gap: 2px; }.page-heading { margin-bottom: 24px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } }
+
+/* Inventario: tarjetas legibles y controles táctiles, sin tablas que desborden el móvil. */
+fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+select { font: inherit; color: inherit; background: white; width: 100%; min-height: 50px; padding: 10px 13px; border: 1px solid #aab9ae; border-radius: 9px; margin-bottom: 14px; }
+.inventory-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-bottom: 22px; }
+.inventory-toolbar h2 { margin: 0; overflow-wrap: anywhere; }
+.inventory-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.inventory-actions .primary, .inventory-toolbar .primary { margin-top: 0; }
+.inventory-editor { margin-bottom: 28px; }
+.inventory-editor form { max-width: 560px; }
+.inventory-grid { padding: 0; list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; margin: 24px 0; }
+.product-card { min-width: 0; }
+.product-card dl { margin: 20px 0; }
+.product-card dl div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid #e0e3d9; }
+.product-card dd { margin: 0; font-weight: 650; }
+.stock-badge { font-size: .8rem; padding: 5px 10px; background: #e3f0e5; border-radius: 8px; }
+.stock-badge.warning { background: #f7e6ce; color: #674019; }
+.inventory-history { padding-left: 22px; }
+.inventory-history li { padding: 14px 0; border-bottom: 1px solid #dcded4; overflow-wrap: anywhere; }
+.inventory-history span, .inventory-history time { display: block; }
+.inventory-history time { color: #59685d; font-size: .85rem; }
+@media (max-width: 760px) { .inventory-grid { grid-template-columns: minmax(0, 1fr); } nav { flex-wrap: wrap; gap: 14px; } .header-inner > nav { width: 100%; } }

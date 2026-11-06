@@ -54,3 +54,14 @@ Lecturas de informes no son un cierre contable: varias consultas acotadas, hasta
 `configure-business` recibe configuración y `expectedRevision`; el servidor valida forma/versión, propietario y revisión, incrementa esta última y registra la operación idempotente en la misma transacción. Conflictos de sesión se rechazan sin sobrescribir. Un reintento confirmado conserva el resultado aunque la revisión haya cambiado después. Las reglas validan creación completa y siguen denegando modificación directa de configuración/revisión desde el cliente.
 
 Las herramientas son preferencias, no permisos ni tipos nuevos de inventario. Consultas financieras incluyen el historial de herramientas ocultas. Los perfiles admitidos comparten unidades enteras y BOB; perfiles que necesitarían medidas/variantes/series/producción siguen pendientes. El acceso a recuperar solicitudes tiene prioridad sobre ocultarlas; al resolver una solicitud se actualiza la interfaz sin reenvíos automáticos.
+
+
+## Fichas por rubro, beta 3
+
+`configuration.industryId` opcional elige uno de 21 rubros; `profileId` sigue indicando comercio/servicios/mixto. Se valida la compatibilidad del rubro con la familia; personalizar herramientas no cambia esta identidad. Configuraciones previas siguen válidas sin `industryId`.
+
+`products.specification` es opcional para compatibilidad, versión 1: `{kind, unit, attributes}` además de `version`. Tipos `general/timber/apparel/appliance/perishable/ceramic/cement`, campos cerrados y límites replicados en reglas. Se copia exactamente en `inventoryMovements.initialProduct.specification` al crear; las reglas exigen igualdad y prohíben agregar, eliminar o modificar la ficha después. Cambiar variante/medida/lote/unidad requiere otro producto, sin convertir históricos. Los productos anteriores conservan unidades genéricas.
+
+Compras conservan `specification` validada e igual a la del producto. Functions obtiene y valida la ficha del producto dentro de la transacción y la guarda en cada línea de venta; el cliente no puede suministrar esa copia. La fecha de vencimiento debe ser calendario válido; vender después de su vencimiento actual o con fecha de venta posterior se rechaza sin afectar stock/costos. Las anulaciones conservan sus mecanismos anteriores.
+
+Milímetros, cm² por caja y gramos por bolsa son enteros; equivalencias y estimación de cajas usan BigInt. El stock permanece entero en la unidad fijada y el precio/costo sigue siendo por esa unidad. No hay cambios en reglas de valoración, límites monetarios, propietario o aislamiento.

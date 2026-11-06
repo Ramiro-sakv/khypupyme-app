@@ -1,9 +1,12 @@
+import { INDUSTRIES, INDUSTRY_IDS } from './business-industries.js';
+import type { IndustryId } from './business-industries.js';
 export const TOOL_IDS = ['inventory', 'purchases', 'services', 'customers', 'receivables'] as const;
 export type ToolId = (typeof TOOL_IDS)[number];
 export type ProfileId = 'retail' | 'services' | 'mixed';
 export interface BusinessConfiguration {
   profileId: ProfileId;
   version: 1;
+  industryId?: IndustryId;
   tools: ToolId[];
 }
 export const PROFILE_DEFAULTS: Record<ProfileId, readonly ToolId[]> = {
@@ -17,7 +20,13 @@ export function validateConfiguration(value: unknown): BusinessConfiguration {
     throw new Error('Configuración de negocio inválida.');
   const data = value as Record<string, unknown>;
   if (
-    Object.keys(data).length !== 3 ||
+    Object.keys(data).some(
+      (key) => !['profileId', 'version', 'tools', 'industryId'].includes(key),
+    ) ||
+    !['profileId', 'version', 'tools'].every((key) => key in data) ||
+    ('industryId' in data &&
+      (!INDUSTRY_IDS.includes(data.industryId as IndustryId) ||
+        INDUSTRIES[data.industryId as IndustryId].profile !== data.profileId)) ||
     !['retail', 'services', 'mixed'].includes(String(data.profileId)) ||
     data.version !== 1 ||
     !Array.isArray(data.tools) ||
@@ -33,6 +42,7 @@ export function validateConfiguration(value: unknown): BusinessConfiguration {
   return {
     profileId: data.profileId as ProfileId,
     version: 1,
+    ...('industryId' in data ? { industryId: data.industryId as IndustryId } : {}),
     tools: TOOL_IDS.filter((tool) => (data.tools as unknown[]).includes(tool)),
   };
 }
@@ -68,4 +78,8 @@ export function enabledTools(business: {
   configuration?: BusinessConfiguration;
 }): readonly ToolId[] {
   return business.configuration?.tools ?? TOOL_IDS;
+}
+
+export function industryConfiguration(industryId: IndustryId): BusinessConfiguration {
+  return { ...defaultConfiguration(INDUSTRIES[industryId].profile), industryId };
 }

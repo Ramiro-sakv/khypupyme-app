@@ -1,3 +1,4 @@
+import type { ProductSpecification } from './product-specification.js';
 import type { BusinessConfiguration } from './business-configuration.js';
 export const MAX_AMOUNT = 1_000_000_000_000;
 export type PaymentMethod = 'cash' | 'qr' | 'transfer';
@@ -14,6 +15,7 @@ export interface SaleInput {
   customerName: string;
 }
 export interface StoredSaleLine {
+  specification?: ProductSpecification;
   kind: 'product' | 'service' | 'custom';
   itemId: string;
   name: string;
@@ -125,7 +127,12 @@ export interface Report {
   pendingMinor: number;
   saleCount: number;
   days: { date: string; salesMinor: number; expensesMinor: number }[];
-  topProducts: { name: string; quantity: number; totalMinor: number }[];
+  topProducts: {
+    name: string;
+    quantity: number;
+    totalMinor: number;
+    specification?: ProductSpecification;
+  }[];
   categories: { name: string; totalMinor: number }[];
   alerts: { id: string; name: string; stock: number; minimumStock: number }[];
   generatedAt: string;

@@ -13,8 +13,14 @@ service cloud.firestore {
       return value is string && value.size() >= min && value.size() <= max
         && value.matches('^[^\\s](.*[^\\s])?$') && !value.matches('.*[\r\n].*');
     }
+    function validIndustry(id, profile) {
+      return (profile == 'retail' && id in ['convenience','grocery','beverages','clothing','footwear','furniture','cosmetics','timber','ceramics','cement','hardware','appliances','electronics','spareParts','stationery','pets'])
+        || (profile == 'services' && id in ['beauty','cleaning','professional'])
+        || (profile == 'mixed' && id in ['repair','crafts']);
+    }
     function validConfiguration(data) {
-      return data is map && data.keys().hasAll(['profileId','version','tools']) && data.keys().hasOnly(['profileId','version','tools'])
+      return data is map && data.keys().hasAll(['profileId','version','tools']) && data.keys().hasOnly(['profileId','version','tools','industryId'])
+        && (!('industryId' in data) || validIndustry(data.industryId, data.profileId))
         && data.profileId in ['retail','services','mixed'] && data.version is int && data.version == 1
         && data.tools is list && data.tools.size() <= 5 && data.tools.hasOnly(['inventory','purchases','services','customers','receivables'])
         && data.tools.toSet().size() == data.tools.size() && (!data.tools.hasAny(['purchases']) || data.tools.hasAny(['inventory']));
@@ -30,13 +36,34 @@ service cloud.firestore {
         && data.currency == 'BOB' && data.timeZone == 'America/La_Paz'
         && data.createdAt is timestamp && data.updatedAt is timestamp;
     }
+    function boundedInt(value, min, max) { return value is int && value >= min && value <= max; }
+    function optionalLine(value, max) { return value == '' || line(value, 1, max); }
+    function validSpecification(s) {
+      return s is map && s.keys().hasAll(['version','kind','unit','attributes']) && s.keys().hasOnly(['version','kind','unit','attributes'])
+        && s.version is int && s.version == 1 && s.attributes is map && specificationAttributes(s, s.attributes);
+    }
+    function specificationAttributes(s, a) {
+      return (s.kind == 'general' && s.unit in ['unit','piece','pair','box','bag'] && a.keys().hasAll(['reference']) && a.keys().hasOnly(['reference']) && optionalLine(a.reference,40))
+        || (s.kind == 'timber' && s.unit == 'piece' && a.keys().hasAll(['species','lengthMm','widthMm','thicknessMm']) && a.keys().hasOnly(['species','lengthMm','widthMm','thicknessMm'])
+          && line(a.species,2,40) && boundedInt(a.lengthMm,1,100000) && boundedInt(a.widthMm,1,2000) && boundedInt(a.thicknessMm,1,2000))
+        || (s.kind == 'apparel' && s.unit in ['piece','pair'] && a.keys().hasAll(['reference','size','color']) && a.keys().hasOnly(['reference','size','color'])
+          && optionalLine(a.reference,40) && line(a.size,1,20) && line(a.color,1,30))
+        || (s.kind == 'appliance' && s.unit == 'piece' && a.keys().hasAll(['brand','model','warrantyMonths']) && a.keys().hasOnly(['brand','model','warrantyMonths'])
+          && line(a.brand,2,40) && line(a.model,1,40) && boundedInt(a.warrantyMonths,0,120))
+        || (s.kind == 'perishable' && s.unit == 'unit' && a.keys().hasAll(['barcode','lot','expiresOn']) && a.keys().hasOnly(['barcode','lot','expiresOn'])
+          && optionalLine(a.barcode,40) && line(a.lot,1,40) && validDate(a.expiresOn))
+        || (s.kind == 'ceramic' && s.unit == 'box' && a.keys().hasAll(['reference','tone','caliber','coverageCm2','piecesPerBox']) && a.keys().hasOnly(['reference','tone','caliber','coverageCm2','piecesPerBox'])
+          && line(a.reference,2,40) && line(a.tone,1,30) && line(a.caliber,1,30) && boundedInt(a.coverageCm2,1,1000000) && boundedInt(a.piecesPerBox,1,1000))
+        || (s.kind == 'cement' && s.unit == 'bag' && a.keys().hasAll(['brand','grade','weightGrams','lot','expiresOn']) && a.keys().hasOnly(['brand','grade','weightGrams','lot','expiresOn'])
+          && line(a.brand,2,40) && line(a.grade,1,40) && boundedInt(a.weightGrams,1,1000000) && line(a.lot,1,40) && (a.expiresOn == '' || validDate(a.expiresOn)));
+    }
     function details(data) {
       return line(data.name, 2, 80) && data.priceMinor is int && data.priceMinor >= 1 && data.priceMinor <= 999999999
-        && units(data.minimumStock);
+        && units(data.minimumStock) && (!('specification' in data) || validSpecification(data.specification));
     }
     function productShape(data) {
       return data.keys().hasAll(['name','priceMinor','minimumStock','stock','active','lastMovementId','createdAt','updatedAt'])
-        && data.keys().hasOnly(['name','priceMinor','minimumStock','stock','active','lastMovementId','createdAt','updatedAt','inventoryValueMinor'])
+        && data.keys().hasOnly(['name','priceMinor','minimumStock','stock','active','lastMovementId','createdAt','updatedAt','inventoryValueMinor','specification'])
         && details(data) && units(data.stock) && data.active is bool && identifier(data.lastMovementId)
         && data.createdAt is timestamp && data.updatedAt == request.time
         && (!('inventoryValueMinor' in data) || money(data.inventoryValueMinor))
@@ -56,7 +83,9 @@ service cloud.firestore {
       let id = after.lastMovementId;
       let path = /databases/$(database)/documents/businesses/$(businessId)/inventoryMovements/$(id);
       let m = getAfter(path).data;
-      return !exists(path) && validMovement(m, businessId) && m.productId == productId
+      // El movimiento nuevo debe pasar su propia regla de creación (validMovement).
+      // Aquí se comprueba el vínculo; no duplicar esquemas evita exceder 1000 expresiones.
+      return !exists(path) && m.productId == productId
         && m.stockBefore == before.stock && m.stockAfter == after.stock
         && m.valueBeforeMinor == before.get('inventoryValueMinor', null) && m.valueAfterMinor == after.inventoryValueMinor;
     }
@@ -65,7 +94,8 @@ service cloud.firestore {
         && m.valueBeforeMinor == 0 && unitCost(m.unitCostMinor) && m.valueAfterMinor == m.stockAfter * m.unitCostMinor
         && (m.stockAfter != 0 || m.unitCostMinor == 0) && m.purchaseId == null && m.reason == 'Stock inicial'
         && m.initialProduct is map && m.initialProduct.keys().hasAll(['name','priceMinor','minimumStock'])
-        && m.initialProduct.keys().hasOnly(['name','priceMinor','minimumStock'])
+        && m.initialProduct.keys().hasOnly(['name','priceMinor','minimumStock','specification'])
+        && m.initialProduct.get('specification', null) == after.get('specification', null)
         && m.initialProduct.name == after.name && m.initialProduct.priceMinor == after.priceMinor
         && m.initialProduct.minimumStock == after.minimumStock;
     }
@@ -92,7 +122,8 @@ service cloud.firestore {
     }
     function validPurchase(p, businessId) {
       return p.keys().hasAll(['productId','productName','quantity','unitCostMinor','totalMinor','date','reference','stockBefore','stockAfter','valueBeforeMinor','valueAfterMinor','authorUid','createdAt'])
-        && p.keys().hasOnly(['productId','productName','quantity','unitCostMinor','totalMinor','date','reference','stockBefore','stockAfter','valueBeforeMinor','valueAfterMinor','authorUid','createdAt'])
+        && p.keys().hasOnly(['productId','productName','quantity','unitCostMinor','totalMinor','date','reference','stockBefore','stockAfter','valueBeforeMinor','valueAfterMinor','authorUid','createdAt','specification'])
+        && (!('specification' in p) || validSpecification(p.specification))
         && identifier(p.productId) && line(p.productName, 2, 80)
         && units(p.quantity) && p.quantity > 0 && unitCost(p.unitCostMinor) && p.unitCostMinor > 0
         && money(p.totalMinor) && p.totalMinor == p.quantity * p.unitCostMinor
@@ -110,7 +141,8 @@ service cloud.firestore {
     function purchasedMovement(businessId, operationId, m, before) {
       let path = /databases/$(database)/documents/businesses/$(businessId)/purchases/$(operationId);
       let p = getAfter(path).data;
-      return !exists(path) && validPurchase(p, businessId) && p.productName == before.name && purchasePair(m, p, operationId);
+      // La compra nueva debe pasar su propia regla de creación (validPurchase).
+      return !exists(path) && p.productName == before.name && p.get('specification', null) == before.get('specification', null) && purchasePair(m, p, operationId);
     }
     function validReversal(r, businessId, purchaseId) {
       return r.keys().hasAll(['purchaseId','operationId','reason','authorUid','createdAt'])

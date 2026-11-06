@@ -1,3 +1,5 @@
+import { specificationSummary, stockUnits } from '../../../shared/product-specification';
+import { industry } from '../../../shared/business-industries';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import type { Report } from '../../../shared/commerce';
@@ -69,6 +71,13 @@ export function DashboardPage({
         <div>
           <span className="eyebrow">{reports ? 'INFORMES' : 'VISTA GENERAL'} · BETA</span>
           <h1>{reports ? 'Tus números, claros.' : `Hola, ${business.name}`}</h1>
+          {!reports && industry(business.configuration?.industryId) && (
+            <p className="industry-summary">
+              <strong>{industry(business.configuration?.industryId)?.name}</strong> ·{' '}
+              {industry(business.configuration?.industryId)?.description}{' '}
+              <Link to="/negocio">Cambiar rubro y herramientas</Link>
+            </p>
+          )}
           <p>
             {reports
               ? 'Comprende las ventas, los costos y el dinero registrado.'
@@ -186,7 +195,15 @@ export function DashboardPage({
                     <li key={i}>
                       <span>
                         <strong>{item.name}</strong>
-                        <small>{item.quantity} unidades / servicios</small>
+                        <small>
+                          {item.quantity}{' '}
+                          {item.specification
+                            ? stockUnits(item.specification)
+                            : 'unidades / servicios'}
+                        </small>
+                        {item.specification && (
+                          <small>{specificationSummary(item.specification)}</small>
+                        )}
                       </span>
                       <b>{formatBOB(item.totalMinor)}</b>
                     </li>

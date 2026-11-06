@@ -1,3 +1,12 @@
+import type { SalePreviewLine } from './presentation';
+import {
+  expired,
+  specificationSummary,
+  stockUnits,
+  materialQuantity,
+} from '../../../shared/product-specification';
+import { todayInBolivia } from '../purchases/domain';
+import { MaterialCalculator } from '../inventory/MaterialCalculator';
 import { useState } from 'react';
 import type { Command, FinancialRecord, SaleInput, SaleLineInput } from '../../../shared/commerce';
 import type { Product } from '../inventory/domain';
@@ -24,7 +33,7 @@ export function SaleForm({
   inventory: InventoryService;
   commerce: CommerceService;
   disabled: boolean;
-  onReview: (command: Command) => void;
+  onReview: (command: Command, preview: SalePreviewLine[]) => void;
   activity: string;
   tools?: readonly ToolId[];
 }) {
@@ -35,10 +44,13 @@ export function SaleForm({
         ? 'product'
         : 'custom',
   );
+  const [quantity, setQuantity] = useState('1');
   const [product, setProduct] = useState<Product | null>(null),
     [service, setService] = useState<FinancialRecord | null>(null),
     [customer, setCustomer] = useState<FinancialRecord | null>(null);
-  const [lines, setLines] = useState<{ input: SaleLineInput; name: string; price: number }[]>([]),
+  const [lines, setLines] = useState<({ input: SaleLineInput; price: number } & SalePreviewLine)[]>(
+      [],
+    ),
     [error, setError] = useState('');
   function add(form: HTMLFormElement) {
     try {
@@ -78,11 +90,23 @@ export function SaleForm({
           )
         )
           throw new Error('El artículo ya está agregado. Quítalo para cambiar su cantidad.');
+        if (kind === 'product' && product && expired(product.specification, todayInBolivia()))
+          throw new Error('Este lote está vencido. Selecciona otro lote.');
         name = item.name!;
         price = item.priceMinor!;
         input = { kind, itemId: item.id, quantity, expectedPriceMinor: price };
       }
-      setLines([...lines, { input, name, price }]);
+      setLines([
+        ...lines,
+        {
+          input,
+          name,
+          price,
+          ...(kind === 'product' && product?.specification
+            ? { specification: product.specification }
+            : {}),
+        },
+      ]);
       setError('');
     } catch (cause) {
       setError((cause as Error).message);
@@ -112,7 +136,13 @@ export function SaleForm({
           if (input.payment === 'credit' && input.customerName.trim().length < 2)
             throw new Error('Para fiar, selecciona un cliente o indica su nombre.');
           setError('');
-          onReview({ kind: 'sale', operationId: crypto.randomUUID(), input });
+          onReview(
+            { kind: 'sale', operationId: crypto.randomUUID(), input },
+            lines.map(({ name, specification }) => ({
+              name,
+              ...(specification ? { specification } : {}),
+            })),
+          );
         } catch (cause) {
           setError((cause as Error).message);
         }
@@ -143,9 +173,21 @@ export function SaleForm({
             />
             {product && (
               <small>
-                {formatBOB(product.priceMinor)} · {product.stock} disponibles
+                {formatBOB(product.priceMinor)} · {product.stock}{' '}
+                {stockUnits(product.specification)} disponibles
               </small>
             )}
+          </>
+        )}
+        {kind === 'product' && product?.specification && (
+          <>
+            <p>{specificationSummary(product.specification)}</p>
+            <p>{materialQuantity(product.specification, product.stock)}</p>
+            <MaterialCalculator
+              key={product.id}
+              specification={product.specification}
+              onQuantity={(next) => setQuantity(String(next))}
+            />
           </>
         )}
         {kind === 'service' && (
@@ -177,7 +219,12 @@ export function SaleForm({
         )}
         <div className="form-columns">
           <div>
-            <label htmlFor="quantity">Cantidad</label>
+            <label htmlFor="quantity">
+              Cantidad
+              {kind === 'product' && product?.specification
+                ? ` (${stockUnits(product.specification)})`
+                : ''}
+            </label>
             <input
               id="quantity"
               name="quantity"
@@ -185,7 +232,8 @@ export function SaleForm({
               min="1"
               max="1000000"
               step="1"
-              defaultValue="1"
+              value={quantity}
+              onChange={(event) => setQuantity(event.target.value)}
             />
           </div>
           <button type="button" onClick={(event) => add(event.currentTarget.form!)}>
@@ -197,6 +245,7 @@ export function SaleForm({
             <li key={index}>
               <span>
                 <strong>{line.name}</strong>
+                {line.specification && <small>{specificationSummary(line.specification)}</small>}
                 <small>
                   {line.input.quantity} × {formatBOB(line.price)}
                 </small>

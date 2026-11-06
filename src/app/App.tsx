@@ -155,7 +155,7 @@ export function App({
                   {exiting ? 'Saliendo…' : 'Cerrar sesión'}
                 </button>
                 <small className="sidebar-version">
-                  KhypuPyme · 0.3.0 beta 2
+                  KhypuPyme · 0.3.0 beta 3
                   <br />
                   Bolivia · BOB
                 </small>

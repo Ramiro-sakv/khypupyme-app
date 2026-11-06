@@ -36,3 +36,8 @@ Clientes y catálogo de servicios son extensiones derivadas de esa autorización
 ## Perfiles y modularización, ampliación autorizada 06/11/2026
 
 Beta 2 permite perfiles retail/services/mixed con capacidades comunes existentes y vista previa, no rubros especializados terminados. La configuración tiene versión y revisión; cambios explícitos sin borrar documentos, alterar stock/valor ni convertir unidades. Los negocios previos preservan acceso y no se migran automáticamente. Amplía RF-01/RNF-06 y mantiene RNF-03 con validación de configuración en reglas/servidor y aislamiento de contexto por UID. Pantallas y formularios separados se cargan bajo demanda, con reintento y recuperación prioritaria de operaciones inciertas. Los instaladores aún empaquetan todos los archivos; no acredita descarga remota de perfiles, nube o módulos industriales. No se crean nuevos RF/RNF numerados del dossier.
+
+
+## Rubros, ampliación explícita 06/11/2026
+
+Beta 3 implementa catálogo investigado de 21 rubros en el alta del negocio, agrupados por familia comercio/servicios/mixto. Extiende RF-01 y RNF-06 con selección, vista previa y datos por rubro; conserva RNF-03 mediante validación de fichas inmutables en reglas, aislamiento A/B y copia histórica en compras/ventas. Fichas de madera, moda, equipos, lotes, cerámica y cemento operan con cantidades enteras y unidades fijas. Los detalles, fuentes y límites son decisiones derivadas de la solicitud del propietario, documentadas en README; no se atribuyen al dossier ni se crean nuevos identificadores RF/RNF. No acredita fabricación, FEFO, series, mesas o agenda.

@@ -1,3 +1,5 @@
+import type { SalePreviewLine } from './presentation';
+import { specificationSummary, stockUnits } from '../../../shared/product-specification';
 import { lazy, Suspense, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import type { Command, FinancialRecord, PaymentMethod, Resource } from '../../../shared/commerce';
@@ -67,6 +69,7 @@ export function RecordsPage({
     [action, setAction] = useState<{ record: FinancialRecord; kind: 'collect' | 'cancel' } | null>(
       null,
     );
+  const [salePreview, setSalePreview] = useState<SalePreviewLine[]>([]);
   const [message, setMessage] = useState(''),
     [receipt, setReceipt] = useState<FinancialRecord | null>(null),
     [error, setError] = useState('');
@@ -153,6 +156,7 @@ export function RecordsPage({
       <Feedback error={error} />
       {review && (
         <CommandReview
+          salePreview={salePreview}
           command={review}
           record={action?.record ?? null}
           onConfirm={() => void operation.execute(review)}
@@ -181,7 +185,10 @@ export function RecordsPage({
                 inventory={inventory}
                 commerce={service}
                 disabled={blocked}
-                onReview={setReview}
+                onReview={(command, preview) => {
+                  setSalePreview(preview);
+                  setReview(command);
+                }}
                 tools={enabledTools(business)}
                 activity={
                   business.configuration?.profileId === 'services'
@@ -283,9 +290,10 @@ export function RecordsPage({
               <li key={index}>
                 <span>
                   {line.name}
+                  {line.specification && <small>{specificationSummary(line.specification)}</small>}
                   <small>
-                    {line.quantity} × {formatBOB(line.priceMinor)} · Descuento{' '}
-                    {formatBOB(line.discountMinor)}
+                    {line.quantity} {line.specification ? stockUnits(line.specification) : ''} ×{' '}
+                    {formatBOB(line.priceMinor)} · Descuento {formatBOB(line.discountMinor)}
                   </small>
                 </span>
                 <b>{formatBOB(line.totalMinor)}</b>

@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.3.0-beta.3 - 2026-11-06 (local, sin push)
+
+- Elección de 21 rubros al crear el negocio, herramientas sugeridas y alcance visible; cambio posterior sin convertir datos previos.
+- Fichas de madera, variantes de moda, equipos, lotes/vencimientos, cajas de cerámica y bolsas de cemento; unidades y fichas inmutables.
+- Volumen, cobertura y peso derivados, cálculo exacto de cajas con merma, datos originales conservados en compras y ventas.
+- Servidor rechaza ventas de lotes vencidos incluso con fecha retroactiva; validación de esquemas y vínculos en reglas, pruebas de aislamiento y regresión.
+
 ## 0.3.0-beta.2 - 2026-11-06 (local, sin push)
 
 - Selección explícita de perfil al crear negocio, vista previa y combinación compatible de herramientas.

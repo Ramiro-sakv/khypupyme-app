@@ -215,3 +215,52 @@ Los perfiles son preferencias de interfaz y herramientas, no permisos adicionale
 - Paquetes conservados en `artifacts/KhypuPyme-0.3.0-beta.2-android-debug.apk` y `artifacts/KhypuPyme-0.3.0-beta.2-windows-x64-setup.exe`, excluidos de Git junto con logs y datos de pruebas.
 - Arranque nativo Windows beta 2: **no ejecutado**. La revisión automática rechazó la acción que preparaba un WebView aislado, abría el ejecutable para comprobar inicio/registro y cerraba únicamente su proceso. El mensaje solo indicó `blocked by policy`, sin motivo detallado; no se intentó eludirlo. El arranque acreditado de beta 1 no se atribuye a beta 2.
 - Ambos paquetes siguen requiriendo los emuladores locales. No se instalaron sobre la aplicación del propietario, no se publicaron ni se añadieron accesos al escritorio.
+
+## Beta 0.3.0-beta.3 — 06/11/2026
+
+Ampliación explícita del propietario: investigar rubros y ofrecer su elección al crear el perfil. Catálogo de 21 rubros, seis fichas especializadas y una general, con límites visibles; no equivale a 21 ERP completos. Fuentes primarias y decisiones derivadas en README.
+
+### Incidencias y correcciones durante la verificación
+
+- Las primeras transacciones con fichas complejas superaron las 1.000 expresiones de reglas. Se eliminó validación de esquema duplicada en enlaces: el documento nuevo sigue obligado a superar su propia regla de creación (`validMovement`/`validPurchase`), y el vínculo sigue comprobando existencia nueva, identificadores, autor/esquema en la creación, cantidades, valores y copia exacta de ficha. Pasaron las pruebas de documentos aislados, pares incompletos, alteración coherente de importes y fichas, inmutabilidad y aislamiento A/B. No se amplió autorización ni se omitió validación del documento correspondiente.
+- Un test anterior de InventoryPage no proporcionaba el nuevo contexto de negocio; se actualizó su composición, manteniendo sus aserciones de recuperación e ID original. Lint exigió separar la lectura del formulario del componente; quedó en `specification-form.ts`.
+- El mensaje de éxito del perfil desaparecía al remontar el editor después de refrescar la revisión. Se añadió el rubro confirmado por servidor como indicador permanente y la prueba espera ese dato, no un mensaje transitorio.
+- WebKit presentó errores de consulta de perfil tras recargar/reingresar. Se conservó el error y la recuperación manual de lectura. Se corrigió ToolGate para no abrir una herramienta cuando no se pudo consultar su configuración. Las pruebas ejercitan el botón de consulta cuando aparece y siguen exigiendo el mismo resultado final; no repiten escrituras, no omiten casos y no usan reintentos globales de Playwright.
+
+### Evidencia cubierta
+
+- Persistencia, idempotencia y copia histórica de las siete fichas en creación, compra y venta; modificar el rubro después conserva unidad, stock, costo, recibo e historial. Anulación devuelve cantidades/valor sin cambiar la ficha.
+- Servidor rechaza venta de lote vencido, tanto de productos envasados como cemento, incluso usando fecha retroactiva. No crea ventas, operaciones confirmadas ni retiros de stock/valor.
+- Reglas rechazan unidades incompatibles, campos extra/faltantes, dimensiones/pesos fraccionarios o fuera de límites, fechas inexistentes, ficha inicial discordante, cambio posterior de ficha y compra con unidad/lote falsificado u omitido. A/B permanece aislado.
+- Equivalencias: 10 tablones de 3000×200×25 mm = 0,150000 m³; 10 bolsas de 50000 g = 500,000 kg; área de 10 m² con merma del 10 % y cajas de 1,44 m² requiere 8 cajas. Una venta de 8 desde stock 10 deja 2 cajas, 2,8800 m² y valor Bs 40 al costo unitario Bs 20.
+
+La traza de WebKit en Windows precisó el error de transporte: el POST de `Listen/channel` devolvía estado −1 con `Send failed since rewinding of the data stream failed` al cambiar Auth. El ensayo con long-polling pasó la prueba aislada, pero no resolvió la suite completa, por lo que se retiró de la aplicación. Se mantienen el transporte SDK original, `getDocFromServer`, `getDocsFromServer`, memoria local y restricciones online. Se investiga evitar reutilización de conexión únicamente en el navegador de pruebas Windows/WebKit; no se sustituye ninguna respuesta o escritura financiera.
+
+
+La prueba diagnóstica con `Connection: close` exclusivamente en Windows/WebKit pasó dos de tres repeticiones del reingreso; no resolvió la intermitencia y se retiró. También se retiró el ensayo long-polling. La aplicación y Playwright conservan su configuración de transporte original. La incidencia de lectura/reingreso queda abierta para WebKit: no se acredita una corrección completa ni uso físico en Safari. Las pruebas de nuevas fichas pasaron en los tres navegadores. El error crudo cURL observado se conserva en esta descripción; no se confundirá un fallo de transporte con una prueba aprobada.
+
+
+### Resultado de la verificación definitiva
+
+| Verificación | Resultado real |
+| --- | --- |
+| `pnpm check` | **Aprobado**, código 0: lint, TypeScript, 146 unitarias/componentes y builds web/Functions |
+| Integración | **27 aprobadas** |
+| Reglas y ataques | **157 aprobadas** |
+| E2E | **23 aprobadas y 1 fallida** de 24, sin omisiones ni reintentos globales |
+| `pnpm test:emulators` completo | **Fallido**, código 1, por reingreso en WebKit móvil |
+| Total único de casos | **353 aprobados y 1 fallido**; las repeticiones diagnósticas no se suman |
+| Rubros y fichas | Recorrido de seis rubros, creación, cambio conservando datos, cálculo/venta de cajas, recibo e informes aprobado en Chromium escritorio/móvil y WebKit móvil |
+| Visual | Inventario revisado en escritorio y móvil; sin desbordamiento horizontal |
+
+La incidencia restante no se considera resuelta ni se oculta: `base.spec.ts`, registro/negocio/edición/cierre/reingreso, espera el tablero tras iniciar nuevamente y recibe un error de consulta en Windows/WebKit. Se reprodujo de forma intermitente incluso en ejecuciones aisladas. Falta confirmar causa y corrección completa antes de acreditar ese navegador. Las dos configuraciones experimentales de transporte se retiraron porque no resolvieron la regresión; no se modificaron permisos, respuestas ni escrituras para obtener resultados verdes.
+
+Las verificaciones usaron exclusivamente `demo-khypupyme-tests`, puertos aislados y `dist-test`, sin importación/exportación de la sesión del propietario. Sus servicios habituales no se iniciaron, detuvieron ni limpiaron. No se acredita Safari físico, uso comercial ni cloud.
+
+
+### Paquetes nativos beta 3
+
+- Android: `pnpm android:build` aprobado, código 0; 154 tareas Gradle, compilación de 1 min 4 s. APK debug: **4.473.613 bytes**. Gradle se ejecutó sin daemon persistente.
+- Windows: `pnpm windows:build` aprobado, código 0; Rust release y NSIS x64, compilación Rust de 2 min 9 s. Instalador: **1.589.857 bytes**.
+- Entregables excluidos de Git: `artifacts/KhypuPyme-0.3.0-beta.3-android-debug.apk`, `artifacts/KhypuPyme-0.3.0-beta.3-windows-x64-setup.exe` y `artifacts/SHA256SUMS-beta3.txt`. Se conservaron los paquetes anteriores.
+- No se acredita arranque nativo beta 3 ni ejecución física. Android conserva el destino de emulador `10.0.2.2`; Windows usa loopback. Ambos necesitan Auth/Firestore/Functions locales encendidos. No se instaló sobre la sesión del propietario, no se crearon accesos y no se publicó ni hizo push.

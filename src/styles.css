@@ -122,3 +122,7 @@ details { margin-top: 20px; font-size: .82rem; }summary { cursor: pointer; paddi
 @media (max-width: 400px) { .tool-options { grid-template-columns: 1fr; } }
 
 .dashboard-grid.single-column { grid-template-columns: minmax(0, 1fr); }
+
+.specification-fields { margin-block: 1.25rem; padding: 1rem; border: 1px solid var(--line, #ccd8cc); border-radius: 12px; }
+.product-specification, .industry-summary { overflow-wrap: anywhere; }
+.material-calculator { margin-block: 1rem; padding: 1rem; background: #f1f5e9; border-radius: 12px; }

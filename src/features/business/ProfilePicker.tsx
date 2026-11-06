@@ -1,5 +1,12 @@
 import type { BusinessConfiguration, ProfileId } from '../../../shared/business-configuration';
-import { defaultConfiguration, toggleTool } from '../../../shared/business-configuration';
+import {
+  defaultConfiguration,
+  industryConfiguration,
+  toggleTool,
+} from '../../../shared/business-configuration';
+
+import { INDUSTRIES, INDUSTRY_IDS, industry } from '../../../shared/business-industries';
+import type { IndustryId } from '../../../shared/business-industries';
 
 const profiles: Record<ProfileId, { name: string; description: string }> = {
   retail: {
@@ -40,13 +47,28 @@ export function ProfilePicker({
       <label htmlFor="businessProfile">Tipo de negocio</label>
       <select
         id="businessProfile"
-        value={value?.profileId ?? ''}
+        value={value?.industryId ? `industry:${value.industryId}` : (value?.profileId ?? '')}
         required
-        onChange={(event) => onChange(defaultConfiguration(event.target.value as ProfileId))}
+        onChange={(event) =>
+          onChange(
+            event.target.value.startsWith('industry:')
+              ? industryConfiguration(event.target.value.slice(9) as IndustryId)
+              : defaultConfiguration(event.target.value as ProfileId),
+          )
+        }
       >
         <option value="" disabled>
           Elige un perfil para comenzar
         </option>
+        {[...new Set(INDUSTRY_IDS.map((id) => INDUSTRIES[id].group))].map((group) => (
+          <optgroup key={group} label={group}>
+            {INDUSTRY_IDS.filter((id) => INDUSTRIES[id].group === group).map((id) => (
+              <option key={id} value={`industry:${id}`}>
+                {INDUSTRIES[id].name}
+              </option>
+            ))}
+          </optgroup>
+        ))}
         {Object.entries(profiles).map(([id, profile]) => (
           <option key={id} value={id}>
             {profile.name}
@@ -55,8 +77,8 @@ export function ProfilePicker({
       </select>
       {value && (
         <section className="profile-preview" aria-label="Vista previa del perfil">
-          <h3>{profiles[value.profileId].name}</h3>
-          <p>{profiles[value.profileId].description}</p>
+          <h3>{industry(value.industryId)?.name ?? profiles[value.profileId].name}</h3>
+          <p>{industry(value.industryId)?.description ?? profiles[value.profileId].description}</p>
           <p>Siempre incluye ventas, gastos e informes en BOB.</p>
           <div className="tool-options">
             {Object.entries(toolLabels).map(([id, label]) => (
@@ -80,10 +102,12 @@ export function ProfilePicker({
         </section>
       )}
       <details>
-        <summary>Rubros especializados que vendrán después</summary>
+        <summary>Otros modelos de trabajo</summary>
         <p>
-          Madera, ropa y calzado, electrodomésticos y fabricación necesitarán medidas, variantes,
-          series o producción propias. Aún no están disponibles como módulos especializados.
+          Restaurantes con mesas y recetas, fabricación con materias primas, alquileres y hospedaje
+          necesitan operaciones distintas. No se ofrecen como modelos completos en esta beta. Si tu
+          rubro no aparece, elige Tienda y comercio, Servicios o Comercio y servicios para usar el
+          núcleo común.
         </p>
       </details>
     </fieldset>

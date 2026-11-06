@@ -1,3 +1,4 @@
+import { stockUnits } from '../../../shared/product-specification';
 import { useEffect, useRef, useState } from 'react';
 import { Feedback } from '../../shared/components/Feedback';
 import { errorMessage } from '../../shared/errors';
@@ -6,9 +7,26 @@ import type { InventoryService } from './InventoryService';
 import type { InventoryMovement, PageCursor, Product } from './domain';
 import { formatBOB } from './domain';
 
-const labels = { opening: 'Stock inicial', entry: 'Entrada', exit: 'Salida', valuation: 'Valoración inicial', purchase: 'Compra', 'purchase-reversal': 'Anulación de compra', sale: 'Venta', 'sale-reversal': 'Anulación de venta' };
-export function InventoryHistory({ uid, product, service, onClose }: {
-  uid: string; product: Product; service: InventoryService; onClose: () => void;
+const labels = {
+  opening: 'Stock inicial',
+  entry: 'Entrada',
+  exit: 'Salida',
+  valuation: 'Valoración inicial',
+  purchase: 'Compra',
+  'purchase-reversal': 'Anulación de compra',
+  sale: 'Venta',
+  'sale-reversal': 'Anulación de venta',
+};
+export function InventoryHistory({
+  uid,
+  product,
+  service,
+  onClose,
+}: {
+  uid: string;
+  product: Product;
+  service: InventoryService;
+  onClose: () => void;
 }) {
   const online = useOnline();
   const [items, setItems] = useState<InventoryMovement[]>([]);
@@ -19,30 +37,79 @@ export function InventoryHistory({ uid, product, service, onClose }: {
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
-    service.history(uid, product.id).then((result) => {
-      if (alive.current) { setItems(result.items); setNext(result.next); setLoading(false); }
-    }, (cause) => { if (alive.current) { setError(errorMessage(cause)); setLoading(false); } });
-    return () => { alive.current = false; };
+    service.history(uid, product.id).then(
+      (result) => {
+        if (alive.current) {
+          setItems(result.items);
+          setNext(result.next);
+          setLoading(false);
+        }
+      },
+      (cause) => {
+        if (alive.current) {
+          setError(errorMessage(cause));
+          setLoading(false);
+        }
+      },
+    );
+    return () => {
+      alive.current = false;
+    };
   }, [uid, product.id, service]);
   async function loadMore() {
     if (lock.current || !online) return;
-    lock.current = true; setLoading(true); setError('');
+    lock.current = true;
+    setLoading(true);
+    setError('');
     try {
       const result = await service.history(uid, product.id, next ?? undefined);
-      if (alive.current) { setItems((old) => next ? [...old, ...result.items] : result.items); setNext(result.next); }
-    } catch (cause) { if (alive.current) setError(errorMessage(cause)); }
-    finally { lock.current = false; if (alive.current) setLoading(false); }
+      if (alive.current) {
+        setItems((old) => (next ? [...old, ...result.items] : result.items));
+        setNext(result.next);
+      }
+    } catch (cause) {
+      if (alive.current) setError(errorMessage(cause));
+    } finally {
+      lock.current = false;
+      if (alive.current) setLoading(false);
+    }
   }
-  return <section className="card inventory-editor" aria-label="Historial de movimientos">
-    <div className="inventory-toolbar"><h2 tabIndex={-1}>Historial de {product.name}</h2><button onClick={onClose}>Cerrar historial</button></div>
-    <Feedback error={error} />{loading && <p role="status">Consultando movimientos…</p>}
-    {!loading && !error && items.length === 0 && <p>No hay movimientos registrados.</p>}
-    <ol className="inventory-history">{items.map((movement) => <li key={movement.id}>
-      <strong>{labels[movement.kind]} · {movement.delta > 0 ? '+' : ''}{movement.delta} unidades</strong>
-      <span>{movement.reason}</span><span>{movement.stockBefore} → {movement.stockAfter} unidades</span>
-      <span>{movement.valueAfterMinor === null ? 'Movimiento anterior al costeo' : `Valor posterior: ${formatBOB(movement.valueAfterMinor)}`}</span>
-      <time dateTime={movement.createdAt.toISOString()}>{movement.createdAt.toLocaleString('es-BO', { timeZone: 'America/La_Paz' })}</time>
-    </li>)}</ol>
-    {(next || error) && <button onClick={() => void loadMore()} disabled={loading || !online}>{error ? 'Volver a consultar historial' : 'Ver más movimientos'}</button>}
-  </section>;
+  return (
+    <section className="card inventory-editor" aria-label="Historial de movimientos">
+      <div className="inventory-toolbar">
+        <h2 tabIndex={-1}>Historial de {product.name}</h2>
+        <button onClick={onClose}>Cerrar historial</button>
+      </div>
+      <Feedback error={error} />
+      {loading && <p role="status">Consultando movimientos…</p>}
+      {!loading && !error && items.length === 0 && <p>No hay movimientos registrados.</p>}
+      <ol className="inventory-history">
+        {items.map((movement) => (
+          <li key={movement.id}>
+            <strong>
+              {labels[movement.kind]} · {movement.delta > 0 ? '+' : ''}
+              {movement.delta} {stockUnits(product.specification)}
+            </strong>
+            <span>{movement.reason}</span>
+            <span>
+              {movement.stockBefore} → {movement.stockAfter} {stockUnits(product.specification)}
+            </span>
+            <span>
+              {movement.valueAfterMinor === null
+                ? 'Movimiento anterior al costeo'
+                : `Valor posterior: ${formatBOB(movement.valueAfterMinor)}`}
+            </span>
+            <time dateTime={movement.createdAt.toISOString()}>
+              {movement.createdAt.toLocaleString('es-BO', { timeZone: 'America/La_Paz' })}
+            </time>
+          </li>
+        ))}
+      </ol>
+      {(next || error) && (
+        <button onClick={() => void loadMore()} disabled={loading || !online}>
+          {error ? 'Volver a consultar historial' : 'Ver más movimientos'}
+        </button>
+      )}
+    </section>
+  );
 }

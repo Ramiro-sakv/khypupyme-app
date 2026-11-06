@@ -51,3 +51,10 @@ Se autorizaron selección de rubro, vista previa, combinación de herramientas, 
 `configure-business` modifica solo configuración, actividad derivada, revisión y fecha mediante Functions local. Compara `expectedRevision` y usa el registro idempotente existente. Creación del negocio/perfil es atómica; las reglas validan esquema, versión, herramientas y revisión inicial. No actualizar configuración directamente desde clientes. Las preferencias no sustituyen autorización ni cambian unidades/dinero históricos.
 
 Navegación y formularios se adaptan a herramientas; recuperación de solicitudes inciertas tiene prioridad sobre ocultarlas. `BusinessProvider` comparte el perfil sin reutilizar datos al cambiar UID. Pantallas/formularios se cargan por demanda con React lazy/Suspense y recuperación de errores. Native conserva módulos empaquetados, sin descargas remotas ni nuevas conexiones cloud.
+
+
+## Rubros, beta 3 (ampliación explícita del propietario 06/11/2026)
+
+Se autorizó investigar y añadir rubros durante la creación del perfil. `shared/business-industries.ts` separa 21 rubros de las tres familias de trabajo; `industryId` opcional conserva configuraciones beta 2. Las seis fichas especializadas y la ficha general se definen en `shared/product-specification.ts`. No presentar estos perfiles como ERP industriales completos: el alcance y los límites se muestran antes de elegir.
+
+Las fichas de producto son inmutables y quedan ligadas al movimiento inicial; compras y ventas conservan copia. Nueva variante, medida o lote implica producto nuevo. Stock entero por unidad/pieza/par/caja/bolsa, sin reinterpretar datos anteriores. Dimensiones, superficie y peso usan enteros escalados; cálculos derivados con BigInt, sin cambiar dinero. Las ventas de lotes vencidos se rechazan en Functions usando fecha actual de Bolivia y fecha de venta, sin permitir eludirlo con ventas retroactivas. Series, FEFO automático, fraccionamiento, recetas, mesas, citas y producción siguen fuera de alcance. No descargar código de rubros ni conectar cloud.

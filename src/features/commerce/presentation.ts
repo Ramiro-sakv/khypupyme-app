@@ -1,3 +1,8 @@
+import type { ProductSpecification } from '../../../shared/product-specification';
+export interface SalePreviewLine {
+  name: string;
+  specification?: ProductSpecification;
+}
 import { today } from '../../../shared/commerce';
 import type { Command, DateFilter } from '../../../shared/commerce';
 export const commandNames: Record<Command['kind'], string> = {

@@ -1,4 +1,4 @@
-import { navigate } from './navigation';
+import { navigate, expectBusinessView } from './navigation';
 import { expect, test } from './fixtures';
 
 test('registro, negocio persistente, edición, cierre e inicio de sesión', async ({
@@ -20,6 +20,7 @@ test('registro, negocio persistente, edición, cierre e inicio de sesión', asyn
   await expect(page.getByRole('heading', { name: 'Hola, Tienda de prueba' })).toBeVisible();
   await page.goto('/negocio');
   await page.reload();
+  await expectBusinessView(page, page.getByLabel('Nombre del negocio'));
   await expect(page.getByLabel('Nombre del negocio')).toHaveValue('Tienda de prueba');
   await navigate(page, 'Mi negocio');
   await page.getByLabel('Nombre del negocio').fill('Tienda actualizada');
@@ -37,7 +38,7 @@ test('registro, negocio persistente, edición, cierre e inicio de sesión', asyn
   await page.getByLabel('Correo electrónico').fill(email);
   await page.getByLabel('Contraseña', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Ingresar', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Hola, Tienda actualizada' })).toBeVisible();
+  await expectBusinessView(page, page.getByRole('heading', { name: 'Hola, Tienda actualizada' }));
 });
 
 test('recuperación local con mensaje comprensible', async ({ page }) => {

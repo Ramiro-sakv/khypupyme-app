@@ -1,3 +1,5 @@
+import { expired, validateSpecification } from '../../shared/product-specification.js';
+import type { ProductSpecification } from '../../shared/product-specification.js';
 import { FieldValue } from 'firebase-admin/firestore';
 import { configurationActivity } from '../../shared/business-configuration.js';
 import type {
@@ -241,6 +243,7 @@ export class CommerceService {
     }[] = [];
     for (const [index, item] of input.lines.entries()) {
       let price: number, cost: number, name: string;
+      let specification: ProductSpecification | undefined;
       if (item.kind === 'custom') {
         price = item.priceMinor;
         cost = int(item.unitCostMinor * item.quantity);
@@ -259,6 +262,12 @@ export class CommerceService {
             `El precio de ${name} cambió. Actualiza el catálogo y revisa la venta.`,
           );
         if (item.kind === 'product') {
+          specification =
+            data.specification === undefined
+              ? undefined
+              : validateSpecification(data.specification);
+          if (expired(specification, today()) || expired(specification, input.date))
+            throw new DomainError(`El lote de ${name} está vencido. Selecciona otro lote.`);
           if (data.inventoryValueMinor === undefined)
             throw new DomainError(`Registra el costo inicial de ${name}.`);
           cost = costOf(
@@ -277,6 +286,7 @@ export class CommerceService {
       }
       const grossMinor = int(price * item.quantity, 1);
       lines.push({
+        ...(specification ? { specification } : {}),
         kind: item.kind,
         itemId: item.kind === 'custom' ? '' : item.itemId,
         name,

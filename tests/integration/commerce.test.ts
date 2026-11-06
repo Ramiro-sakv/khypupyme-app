@@ -1,3 +1,7 @@
+import { specifications } from '../fixtures/product-specifications';
+import { industryConfiguration } from '../../shared/business-configuration';
+import { PurchaseService } from '../../src/features/purchases/PurchaseService';
+import { FirestorePurchaseRepository } from '../../src/features/purchases/FirestorePurchaseRepository';
 import { randomUUID } from 'node:crypto';
 import { defaultConfiguration } from '../../shared/business-configuration';
 import type { BusinessConfiguration } from '../../shared/business-configuration';
@@ -474,3 +478,101 @@ it('migra perfil anterior explícitamente, rechaza versiones falsas y resuelve d
     await b.close();
   }
 }, 60000);
+
+it.each(Object.values(specifications))(
+  'compra, vende y conserva la ficha $kind al cambiar el rubro',
+  async (specification) => {
+    const s = await session(industryConfiguration('timber'));
+    try {
+      const id = randomUUID(),
+        input = { ...product, specification };
+      await s.inventory.create(s.uid, id, input);
+      await s.inventory.create(s.uid, id, input);
+      await expect(
+        s.inventory.create(s.uid, id, {
+          ...input,
+          specification: specifications[specification.kind === 'general' ? 'timber' : 'general'],
+        }),
+      ).rejects.toThrow('otra operación');
+      const purchases = new PurchaseService(new FirestorePurchaseRepository(s.db)),
+        purchaseId = randomUUID();
+      const request = {
+        productId: id,
+        quantity: 2,
+        unitCostMinor: 500,
+        date: today(),
+        reference: 'Lote original',
+      };
+      const bought = await purchases.create(s.uid, purchaseId, request);
+      await purchases.create(s.uid, purchaseId, request);
+      expect(bought.specification).toEqual(specification);
+      expect(await s.inventory.get(s.uid, id)).toMatchObject({
+        stock: 12,
+        inventoryValueMinor: 6000,
+        specification,
+      });
+      const command = sale(id, 2);
+      await s.service.execute(command);
+      const receipt = await s.service.get('sales', command.operationId);
+      expect(receipt?.lines?.[0]).toMatchObject({ quantity: 2, costMinor: 1000, specification });
+      expect((await s.service.report(filter())).topProducts[0]).toMatchObject({
+        quantity: 2,
+        specification,
+      });
+      await s.service.execute({
+        kind: 'configure-business',
+        operationId: randomUUID(),
+        input: { configuration: industryConfiguration('professional'), expectedRevision: 1 },
+      });
+      expect(await s.inventory.get(s.uid, id)).toMatchObject({
+        stock: 10,
+        inventoryValueMinor: 5000,
+        specification,
+      });
+      expect(
+        (await s.service.get('sales', command.operationId))?.lines?.[0]?.specification,
+      ).toEqual(specification);
+      await s.service.execute({
+        kind: 'cancel-sale',
+        operationId: randomUUID(),
+        input: { id: command.operationId, reason: 'Prueba de corrección' },
+      });
+      expect(await s.inventory.get(s.uid, id)).toMatchObject({
+        stock: 12,
+        inventoryValueMinor: 6000,
+        specification,
+      });
+    } finally {
+      await s.close();
+    }
+  },
+);
+it.each(['perishable', 'cement'] as const)(
+  'rechaza venta de %s vencido aun con fecha pasada y cliente malicioso',
+  async (kind) => {
+    const s = await session();
+    try {
+      const id = randomUUID();
+      await s.inventory.create(s.uid, id, {
+        ...product,
+        specification: {
+          ...specifications[kind],
+          attributes: { ...specifications[kind].attributes, expiresOn: '2001-01-01' },
+        },
+      });
+      const command = sale(id);
+      await expect(s.service.execute(command)).rejects.toThrow('vencido');
+      await expect(
+        s.service.execute({ ...command, input: { ...command.input, date: '2000-12-31' } }),
+      ).rejects.toThrow('vencido');
+      expect(await s.service.status(command.operationId)).toBeNull();
+      expect(await s.inventory.get(s.uid, id)).toMatchObject({
+        stock: 10,
+        inventoryValueMinor: 5000,
+      });
+      expect((await s.service.list('sales')).items).toHaveLength(0);
+    } finally {
+      await s.close();
+    }
+  },
+);

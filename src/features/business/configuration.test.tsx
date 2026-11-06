@@ -1,6 +1,8 @@
+import { INDUSTRY_IDS, INDUSTRIES } from '../../../shared/business-industries';
+import { industryConfiguration } from '../../../shared/business-configuration';
 import { useState } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   configurationActivity,
   defaultConfiguration,
@@ -59,4 +61,26 @@ describe('perfiles y compatibilidad', () => {
     fireEvent.click(screen.getByLabelText('Inventario'));
     expect(screen.getByLabelText('Compras')).not.toBeChecked();
   });
+});
+
+it.each(INDUSTRY_IDS)('selecciona el rubro %s con su modelo compatible', (id) => {
+  const config = industryConfiguration(id);
+  expect(validateConfiguration(config)).toEqual(config);
+  expect(config.profileId).toBe(INDUSTRIES[id].profile);
+});
+it('rechaza rubros desconocidos y familias incompatibles', () => {
+  expect(() =>
+    validateConfiguration({ ...defaultConfiguration('retail'), industryId: 'factory' }),
+  ).toThrow();
+  expect(() =>
+    validateConfiguration({ ...industryConfiguration('timber'), profileId: 'services' }),
+  ).toThrow();
+});
+it('permite elegir el rubro al crear el perfil, con alcance visible', () => {
+  const change = vi.fn();
+  render(<ProfilePicker value={null} onChange={change} />);
+  fireEvent.change(screen.getByLabelText('Tipo de negocio'), {
+    target: { value: 'industry:timber' },
+  });
+  expect(change).toHaveBeenCalledWith(industryConfiguration('timber'));
 });

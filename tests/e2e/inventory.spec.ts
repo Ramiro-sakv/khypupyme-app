@@ -1,4 +1,4 @@
-import { navigate } from './navigation';
+import { navigate, expectBusinessView } from './navigation';
 import { expect, test } from './fixtures';
 
 test('inventario completo: alta, edición, entradas, salidas, historial y archivo', async ({
@@ -65,7 +65,7 @@ test('inventario completo: alta, edición, entradas, salidas, historial y archiv
   await expect(card).toContainText('Stock bajo');
   await expect(card).toContainText('2 unidades');
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Arroz integral' })).toBeVisible();
+  await expectBusinessView(page, page.getByRole('heading', { name: 'Arroz integral' }));
   await page.getByRole('button', { name: 'Historial de Arroz integral' }).click();
   const history = page.getByRole('region', { name: 'Historial de movimientos' });
   await expect(history.getByRole('listitem')).toHaveCount(3);

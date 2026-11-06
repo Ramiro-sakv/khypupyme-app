@@ -1,3 +1,5 @@
+import { industryConfiguration } from '../../shared/business-configuration';
+import { INDUSTRY_IDS } from '../../shared/business-industries';
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, beforeEach, expect, it } from 'vitest';
 import {
@@ -153,4 +155,30 @@ it('no acepta configuración sin revisión ni revisión sin configuración', asy
   const ref = doc(env.authenticatedContext('A').firestore(), 'businesses', 'A');
   await assertFails(setDoc(ref, { ...valid('A'), configuration }));
   await assertFails(setDoc(ref, { ...valid('A'), configurationRevision: 1 }));
+});
+
+it.each(INDUSTRY_IDS)('crea el negocio con rubro %s en su perfil', async (id) => {
+  const configuration = industryConfiguration(id),
+    ref = doc(env.authenticatedContext('A').firestore(), 'businesses', 'A');
+  const activity = configuration.tools.includes('services')
+    ? configuration.tools.includes('inventory')
+      ? 'mixed'
+      : 'services'
+    : 'commerce';
+  await assertSucceeds(
+    setDoc(ref, { ...valid('A'), configuration, configurationRevision: 1, activity }),
+  );
+});
+it.each([
+  { ...industryConfiguration('timber'), industryId: 'fake' },
+  { ...industryConfiguration('timber'), profileId: 'services' },
+])('deniega rubro o familia falsificados %j', async (configuration) => {
+  await assertFails(
+    setDoc(doc(env.authenticatedContext('A').firestore(), 'businesses', 'A'), {
+      ...valid('A'),
+      configuration,
+      configurationRevision: 1,
+      activity: 'commerce',
+    }),
+  );
 });

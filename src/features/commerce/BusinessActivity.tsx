@@ -1,3 +1,4 @@
+import { industry } from '../../../shared/business-industries';
 import { useState } from 'react';
 import type { Business } from '../business/domain';
 import { useBusiness } from '../business/business-context';
@@ -30,6 +31,11 @@ export function BusinessActivity({
   return (
     <section className="card activity-card">
       <h2>Tu perfil y herramientas</h2>
+      {business.configuration?.industryId && (
+        <p className="saved-industry">
+          Rubro guardado: <strong>{industry(business.configuration.industryId)?.name}</strong>
+        </p>
+      )}
       <p>
         Elige un punto de partida y combina las herramientas que necesitas. Cambiar de perfil no
         convierte unidades ni modifica precios, costos o historial.

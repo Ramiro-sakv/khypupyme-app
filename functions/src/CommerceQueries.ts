@@ -1,3 +1,4 @@
+import type { ProductSpecification } from '../../shared/product-specification.js';
 import { Timestamp } from 'firebase-admin/firestore';
 import type { DocumentData, Firestore, Query } from 'firebase-admin/firestore';
 import { DomainError, id, int, period } from '../../shared/commerce.js';
@@ -131,13 +132,21 @@ export class CommerceQueries {
       const date = new Date(cursor).toISOString().slice(0, 10);
       buckets.set(date, { date, salesMinor: 0, expensesMinor: 0 });
     }
-    const top = new Map<string, { name: string; quantity: number; totalMinor: number }>(),
+    const top = new Map<
+        string,
+        { name: string; quantity: number; totalMinor: number; specification?: ProductSpecification }
+      >(),
       categories = new Map<string, number>();
     for (const sale of sales) {
       buckets.get(sale.date)!.salesMinor += sale.totalMinor;
       for (const line of sale.lines as StoredSaleLine[]) {
         const key = `${line.kind}:${line.itemId || line.name}`,
-          record = top.get(key) ?? { name: line.name, quantity: 0, totalMinor: 0 };
+          record = top.get(key) ?? {
+            name: line.name,
+            quantity: 0,
+            totalMinor: 0,
+            ...(line.specification ? { specification: line.specification } : {}),
+          };
         record.quantity += line.quantity;
         record.totalMinor += line.totalMinor;
         top.set(key, record);

@@ -1,6 +1,6 @@
 # KhypuPyme
 
-Cuaderno digital para micro y pequeños comercios de Bolivia. Beta local **0.3.0-beta.2**: cuenta, negocio, inventario, compras, costos, ventas, gastos, fiados, cobros, clientes, servicios, tablero e informes. **No es una versión comercial publicada**.
+Cuaderno digital para micro y pequeños comercios de Bolivia. Beta local **0.3.0-beta.3**: cuenta, negocio, inventario, compras, costos, ventas, gastos, fiados, cobros, clientes, servicios, tablero e informes. **No es una versión comercial publicada**.
 
 Funciona con React, TypeScript estricto, Vite, React Router y Firebase Emulator. Registro, ingreso, cierre de sesión, solicitud de recuperación y creación/consulta/edición del negocio usan persistencia real en los emuladores. Moneda BOB y zona America/La_Paz. Los datos de desarrollo son ficticios.
 
@@ -120,10 +120,30 @@ En Android el CSV abre la selección de destino con un archivo temporal privado;
 
 ## Perfiles y carga por demanda (beta 2)
 
-Al crear el negocio se elige Tienda y comercio, Servicios o Comercio y servicios, con vista previa y herramientas combinables. Compras requiere Inventario; activar Compras lo activa y desactivar Inventario retira Compras. Ventas, gastos e informes son comunes. Madera, ropa/calzado, electrodomésticos y fabricación se muestran como futuros, sin prometer sus funciones específicas.
+Al crear el negocio se elige Tienda y comercio, Servicios o Comercio y servicios, con vista previa y herramientas combinables. Compras requiere Inventario; activar Compras lo activa y desactivar Inventario retira Compras. Ventas, gastos e informes son comunes. La beta 3 amplía la selección de rubros y añade fichas específicas con el alcance descrito más abajo.
 
 Mi negocio permite cambiar perfil/herramientas. Solo cambia la presentación: no convierte unidades, no borra ni reescribe productos, costos o documentos históricos. Los informes incluyen los datos conservados. Los negocios anteriores mantienen todas sus herramientas hasta elegir explícitamente. Una revisión comprobada en servidor evita que dos sesiones sobrescriban configuraciones; ante conflicto, usar Actualizar perfil. Estas preferencias no son permisos: la autorización continúa comprobándose por propietario y las operaciones conservan sus validaciones financieras.
 
 Las pantallas y formularios usan módulos separados cargados al abrirse, con estado de carga y recuperación si falla un archivo. La recarga conserva solicitudes pendientes en esa pestaña. Una solicitud pendiente mantiene disponible su recuperación aunque otra sesión desactive la herramienta. No se reenvía automáticamente.
 
 **Esto reduce la carga inicial del navegador, no garantiza un instalador más pequeño.** Los paquetes nativos todavía incluyen los archivos de las herramientas. No hay descarga remota de rubros ni recursos cloud nuevos. Distribuir paquetes externos verificados y desarrollar un rubro especializado requieren una entrega posterior.
+
+
+## Rubros al crear el perfil (beta 3)
+
+La elección de rubro aparece al crear el negocio y se puede cambiar en Mi negocio. Hay 21 opciones agrupadas: alimentos/consumo, moda/hogar, construcción/materiales, tecnología/equipos, otros comercios y servicios/oficios. Se conserva la elección genérica comercio/servicios/mixto. Los rubros proponen herramientas y una ficha de producto; no alteran productos existentes al cambiar de perfil.
+
+| Ficha | Datos y trabajo disponible |
+| --- | --- |
+| Madera | Especie y dimensiones en mm, stock/precio por pieza y volumen equivalente en m³ |
+| Ropa/calzado | Referencia, talla y color, stock por pieza o par; cada variante es un producto separado |
+| Electrodomésticos/electrónica | Marca, modelo y meses de garantía declarados, conservados en la venta; sin control de series o reclamos |
+| Tienda 24/7, abarrotes, bebidas, cosméticos y mascotas | Productos envasados por unidad, código de referencia, lote y vencimiento; cada lote es un producto separado; servidor rechaza vender vencidos |
+| Cerámica | Cajas por referencia/tono/calibre, piezas y cobertura por caja; cálculo de cajas completas a partir de m² y merma del 0–30 % |
+| Cemento | Bolsas por marca/tipo/peso/lote, vencimiento opcional y peso total disponible |
+| Ferretería, muebles, repuestos, papelería y artesanía | Referencia y unidad de venta fija; artesanía admite servicios y productos terminados |
+| Belleza, limpieza, profesionales y reparación | Catálogo de servicios y costos directos; reparación combina repuestos y servicios |
+
+Las fichas, unidades, variantes y lotes se fijan al crear el producto y son inmutables. Crear otro producto para otra talla, medida, tono o lote preserva costos e historial separados. Las compras y las ventas conservan una copia de la ficha original. Todo precio/costo es por la unidad de venta elegida; no hay conversión monetaria ni existencias fraccionarias. Madera no incluye cortes ni venta por volumen; cerámica no vende cajas fraccionadas; cemento no vende fracciones de bolsa. No hay selección automática FEFO, escaneo de códigos, recetas, mesas, agenda, alquileres ni órdenes de producción/taller.
+
+**Investigación y decisión derivada:** el catálogo se apoya en las familias de actividades de [INE/CAEB](https://fm.ine.gob.bo/index.php/catalog/71/related-materials) y en los [rubros de Odoo](https://www.odoo.com/all-industries); no representa códigos oficiales CAEB ni cobertura completa de una industria. Se separa rubro de forma de trabajo. La identificación de variantes toma como referencia [Shopify](https://help.shopify.com/en/manual/products/variants), y la separación de lotes y fechas se apoya en [Odoo: vencimientos](https://www.odoo.com/documentation/18.0/applications/inventory_and_mrp/inventory/product_management/product_tracking/expiration_dates.html). Los campos y límites concretos son decisiones de KhypuPyme para esta beta, no requisitos atribuidos al dossier. Los modelos que necesitan procesos adicionales se identifican como futuros y no se anuncian completos.

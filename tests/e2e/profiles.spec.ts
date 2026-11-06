@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures';
-import { navigate } from './navigation';
+import { navigate, expectBusinessView } from './navigation';
 // Esta prueba intercepta archivos del build; el service worker se verifica
 // por separado en base.spec.ts y no debe ocultar aquí el fallo de red simulado.
 test.use({ serviceWorkers: 'block' });
@@ -28,9 +28,10 @@ test('perfil de servicios combina herramientas, conserva productos y recupera un
   expect(inventoryRequests).toHaveLength(0);
   await expect(page.locator('nav a[href="/inventario"]')).toHaveCount(0);
   await page.goto('/inventario');
-  await expect(
+  await expectBusinessView(
+    page,
     page.getByRole('heading', { name: 'Esta herramienta está desactivada' }),
-  ).toBeVisible();
+  );
   expect(inventoryRequests).toHaveLength(0);
   await page.getByRole('link', { name: 'Configurar herramientas' }).click();
   await page.getByLabel('Compras', { exact: true }).check();
@@ -56,7 +57,7 @@ test('perfil de servicios combina herramientas, conserva productos y recupera un
   ).toBeVisible();
   unavailable = false;
   await page.getByRole('button', { name: 'Volver a cargar' }).click();
-  await expect(page.getByRole('button', { name: 'Nuevo producto', exact: true })).toBeVisible();
+  await expectBusinessView(page, page.getByRole('button', { name: 'Nuevo producto', exact: true }));
   await page.getByRole('button', { name: 'Nuevo producto', exact: true }).click();
   await page.getByLabel('Nombre del producto').fill('Pieza conservada');
   await page.getByLabel('Precio de venta (BOB)').fill('10');

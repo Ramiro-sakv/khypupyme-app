@@ -1,12 +1,17 @@
 import { navigate } from './navigation';
 import { expect, test } from './fixtures';
 
-test('inventario completo: alta, edición, entradas, salidas, historial y archivo', async ({ page, context }, info) => {
+test('inventario completo: alta, edición, entradas, salidas, historial y archivo', async ({
+  page,
+  context,
+}, info) => {
   await page.goto('/inventario');
   await expect(page).toHaveURL(/ingresar/);
   await page.getByRole('link', { name: 'Crear una cuenta' }).click();
   await expect(page.getByRole('heading', { name: 'Empecemos con tu negocio' })).toBeVisible();
-  await page.getByLabel('Correo electrónico').fill(`stock-${info.project.name}-${Date.now()}@example.invalid`);
+  await page
+    .getByLabel('Correo electrónico')
+    .fill(`stock-${info.project.name}-${Date.now()}@example.invalid`);
   await page.getByLabel('Contraseña', { exact: true }).fill('una-frase-de-prueba-segura');
   await page.getByRole('button', { name: 'Crear mi cuenta' }).click();
   await expect(page.getByRole('heading', { name: 'Dale un nombre a tu negocio' })).toBeVisible();
@@ -14,10 +19,13 @@ test('inventario completo: alta, edición, entradas, salidas, historial y archiv
   await expect(page.getByRole('heading', { name: 'Primero crea tu negocio' })).toBeVisible();
   await page.getByRole('link', { name: 'Crear mi negocio' }).click();
   await page.getByLabel('Nombre del negocio').fill('Tienda inventario');
+  await page.getByLabel('Tipo de negocio').selectOption('retail');
   await page.getByRole('button', { name: 'Crear mi negocio' }).click();
   await expect(page.getByRole('heading', { name: 'Perfil de tu negocio' })).toBeVisible();
   await navigate(page, 'Inventario');
-  await expect(page.getByRole('heading', { name: 'Todavía no tienes productos activos' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Todavía no tienes productos activos' }),
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Nuevo producto', exact: true }).click();
   await page.getByLabel('Nombre del producto').fill('Arroz');
   await page.getByLabel('Precio de venta (BOB)').fill('12,50');
@@ -25,17 +33,23 @@ test('inventario completo: alta, edición, entradas, salidas, historial y archiv
   await page.getByLabel('Costo unitario inicial (BOB)').fill('5');
   await page.getByLabel('Existencia mínima').fill('3');
   await page.getByRole('button', { name: 'Crear producto', exact: true }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'Producto creado correctamente.' })).toBeVisible();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Producto creado correctamente.' }),
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Editar Arroz', exact: true }).click();
   await page.getByLabel('Nombre del producto').fill('Arroz integral');
   await page.getByRole('button', { name: 'Guardar producto' }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'Producto actualizado correctamente.' })).toBeVisible();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Producto actualizado correctamente.' }),
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Movimiento de Arroz integral' }).click();
   await page.getByLabel('Cantidad de unidades').fill('2');
   await page.getByLabel('Motivo', { exact: true }).fill('Ajuste inicial');
   await page.getByLabel('Costo unitario de entrada (BOB)').fill('5');
   await page.getByRole('button', { name: 'Guardar movimiento' }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'Movimiento confirmado correctamente.' })).toBeVisible();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Movimiento confirmado correctamente.' }),
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Movimiento de Arroz integral' }).click();
   await page.getByLabel('Tipo de movimiento').selectOption('exit');
   await page.getByLabel('Cantidad de unidades').fill('8');
@@ -44,7 +58,9 @@ test('inventario completo: alta, edición, entradas, salidas, historial y archiv
   await expect(page.getByRole('alert')).toContainText('Existencia resultante');
   await page.getByLabel('Cantidad de unidades').fill('5');
   await page.getByRole('button', { name: 'Guardar movimiento' }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'Movimiento confirmado correctamente.' })).toBeVisible();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Movimiento confirmado correctamente.' }),
+  ).toBeVisible();
   const card = page.getByRole('list', { name: 'Lista de productos' });
   await expect(card).toContainText('Stock bajo');
   await expect(card).toContainText('2 unidades');
@@ -55,11 +71,19 @@ test('inventario completo: alta, edición, entradas, salidas, historial y archiv
   await expect(history.getByRole('listitem')).toHaveCount(3);
   await expect(history).toContainText('Rotura de envases');
   await expect(history).toContainText('7 → 2 unidades');
-  await page.screenshot({ path: `test-results/inventory-${info.project.name}.png`, fullPage: true });
-  await expect(page.locator('body')).toHaveJSProperty('scrollWidth', await page.locator('body').evaluate((el) => el.clientWidth));
+  await page.screenshot({
+    path: `test-results/inventory-${info.project.name}.png`,
+    fullPage: true,
+  });
+  await expect(page.locator('body')).toHaveJSProperty(
+    'scrollWidth',
+    await page.locator('body').evaluate((el) => el.clientWidth),
+  );
   await page.getByRole('button', { name: 'Cerrar historial' }).click();
   await page.getByRole('button', { name: 'Archivar Arroz integral' }).click();
-  await expect(page.getByRole('status').filter({ hasText: 'Producto archivado. Su historial se conserva.' })).toBeVisible();
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Producto archivado. Su historial se conserva.' }),
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Archivados', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Arroz integral' })).toBeVisible();
   await page.getByRole('button', { name: 'Reactivar Arroz integral' }).click();

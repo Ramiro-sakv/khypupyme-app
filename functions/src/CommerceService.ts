@@ -1,4 +1,5 @@
 import { FieldValue } from 'firebase-admin/firestore';
+import { configurationActivity } from '../../shared/business-configuration.js';
 import type {
   DocumentData,
   DocumentReference,
@@ -194,7 +195,24 @@ export class CommerceService {
           });
           break;
         }
+        case 'configure-business': {
+          if ((business.data()?.configurationRevision ?? 0) !== command.input.expectedRevision)
+            throw new DomainError(
+              'La configuración cambió en otra sesión. Actualiza el perfil antes de guardar.',
+            );
+          const configuration = command.input.configuration;
+          tx.update(businessRef, {
+            configuration,
+            configurationRevision: command.input.expectedRevision + 1,
+            activity: configurationActivity(configuration),
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+          resultId = uid;
+          break;
+        }
         case 'business-settings':
+          if (business.data()?.configuration)
+            throw new DomainError('Usa la selección de perfil y herramientas de Mi negocio.');
           tx.update(businessRef, { ...command.input, updatedAt: FieldValue.serverTimestamp() });
           resultId = uid;
           break;

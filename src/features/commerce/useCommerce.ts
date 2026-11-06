@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Command, DateFilter, QueryInput, RecordPage } from '../../../shared/commerce';
 import { canonical, DomainError } from '../../../shared/commerce';
 import type { CommerceService } from './CommerceRepository';
+import { pendingRequestsChanged } from '../../shared/pendingRequests';
 
 export function commerceError(cause: unknown): string {
   if (cause instanceof DomainError) return cause.message;
@@ -76,7 +77,7 @@ export function useRecords(
 export function useCommerceCommand(
   uid: string,
   service: CommerceService,
-  onSuccess: (id: string) => void,
+  onSuccess: (id: string, command: Command) => void,
 ) {
   const key = `khypupyme:pending-commerce:${uid}`;
   const [initial] = useState(() => {
@@ -121,18 +122,21 @@ export function useCommerceCommand(
           'Confirma primero la solicitud original pendiente, con sus mismos datos.',
         );
       sessionStorage.setItem(key, JSON.stringify(command));
+      pendingRequestsChanged();
       setPending(command);
       const result = await service.execute(command);
       sessionStorage.removeItem(key);
+      pendingRequestsChanged();
       if (alive.current) {
         setPending(null);
-        onSuccess(result.id);
+        onSuccess(result.id, command);
       }
     } catch (cause) {
       const code =
         typeof cause === 'object' && cause !== null && 'code' in cause ? String(cause.code) : '';
       if (['functions/invalid-argument', 'functions/failed-precondition'].includes(code)) {
         sessionStorage.removeItem(key);
+        pendingRequestsChanged();
         if (alive.current) setPending(null);
       }
       if (alive.current) setError(commerceError(cause));
@@ -150,8 +154,9 @@ export function useCommerceCommand(
       const result = await service.status(pending.operationId);
       if (result) {
         sessionStorage.removeItem(key);
+        pendingRequestsChanged();
         setPending(null);
-        onSuccess(result.id);
+        onSuccess(result.id, pending);
       } else {
         setRetryAllowed(true);
         setError(

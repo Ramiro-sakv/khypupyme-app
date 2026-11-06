@@ -8,6 +8,8 @@ import type { CommerceService } from './CommerceRepository';
 import { CatalogPicker } from './CatalogPicker';
 import { DateInput, MethodSelect } from './CommerceControls';
 import { Feedback } from '../../shared/components/Feedback';
+import { TOOL_IDS } from '../../../shared/business-configuration';
+import type { ToolId } from '../../../shared/business-configuration';
 
 export function SaleForm({
   uid,
@@ -16,6 +18,7 @@ export function SaleForm({
   disabled,
   onReview,
   activity,
+  tools = TOOL_IDS,
 }: {
   uid: string;
   inventory: InventoryService;
@@ -23,9 +26,14 @@ export function SaleForm({
   disabled: boolean;
   onReview: (command: Command) => void;
   activity: string;
+  tools?: readonly ToolId[];
 }) {
   const [kind, setKind] = useState<'product' | 'service' | 'custom'>(
-    activity === 'services' ? 'service' : 'product',
+    tools.includes('services') && (activity === 'services' || !tools.includes('inventory'))
+      ? 'service'
+      : tools.includes('inventory')
+        ? 'product'
+        : 'custom',
   );
   const [product, setProduct] = useState<Product | null>(null),
     [service, setService] = useState<FinancialRecord | null>(null),
@@ -118,8 +126,8 @@ export function SaleForm({
           value={kind}
           onChange={(event) => setKind(event.target.value as typeof kind)}
         >
-          <option value="product">Producto de inventario</option>
-          <option value="service">Servicio del catálogo</option>
+          {tools.includes('inventory') && <option value="product">Producto de inventario</option>}
+          {tools.includes('services') && <option value="service">Servicio del catálogo</option>}
           <option value="custom">Servicio ocasional</option>
         </select>
         {kind === 'product' && (
@@ -212,13 +220,17 @@ export function SaleForm({
         </p>
         <label htmlFor="discount">Descuento total (BOB)</label>
         <input id="discount" name="discount" inputMode="decimal" defaultValue="0" required />
-        <label>Cliente registrado (opcional)</label>
-        <CatalogPicker
-          resource="customers"
-          service={commerce}
-          selected={customer}
-          onChange={setCustomer}
-        />
+        {tools.includes('customers') && (
+          <>
+            <label>Cliente registrado (opcional)</label>
+            <CatalogPicker
+              resource="customers"
+              service={commerce}
+              selected={customer}
+              onChange={setCustomer}
+            />
+          </>
+        )}
         <label htmlFor="customerName">Nombre del cliente</label>
         <input
           id="customerName"
@@ -232,7 +244,7 @@ export function SaleForm({
             <DateInput />
           </div>
           <div>
-            <MethodSelect credit name="payment" />
+            <MethodSelect credit={tools.includes('receivables')} name="payment" />
           </div>
         </div>
         <label htmlFor="description">Nota (opcional)</label>

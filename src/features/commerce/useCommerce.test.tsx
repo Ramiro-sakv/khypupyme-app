@@ -36,7 +36,7 @@ it('conserva solicitud original ante respuesta incierta, consulta y confirma sin
   expect(result.current.pending).toEqual(command);
   await act(() => result.current.consult());
   expect(execute).toHaveBeenCalledTimes(1);
-  expect(done).toHaveBeenCalledWith(command.operationId);
+  expect(done).toHaveBeenCalledWith(command.operationId, command);
   expect(sessionStorage.length).toBe(0);
 });
 it('reintenta manualmente con el mismo ID y bloquea operaciones cruzadas', async () => {

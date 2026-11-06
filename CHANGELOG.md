@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.3.0-beta.2 - 2026-11-06 (local, sin push)
+
+- Selección explícita de perfil al crear negocio, vista previa y combinación compatible de herramientas.
+- Preferencias persistidas con versión y revisión, cambio transaccional e idempotente; conserva datos anteriores sin conversiones.
+- Negocios existentes conservan herramientas, navegación y formularios se adaptan, e informes mantienen históricos.
+- Pantallas/formularios por demanda, errores recuperables y acceso a solicitudes pendientes aunque se desactive una herramienta.
+- Contexto compartido de negocio con aislamiento al cambiar cuenta; perfiles especializados y descarga remota siguen pendientes.
+
 ## 0.3.0-beta.1 - 2026-11-05 (local, sin push)
 
 - Núcleo común: ventas de productos/servicios, descuento, contado/QR/transferencia/fiado, comprobantes internos y anulación con evidencia.

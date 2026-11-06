@@ -10,7 +10,11 @@ import type { createBusinessServices } from './business-services';
 
 export function createServices() {
   const config = readEnvironment(import.meta.env);
-  const app = initializeApp({ projectId: config.projectId, apiKey: 'demo-api-key', authDomain: `${config.projectId}.firebaseapp.com` });
+  const app = initializeApp({
+    projectId: config.projectId,
+    apiKey: 'demo-api-key',
+    authDomain: `${config.projectId}.firebaseapp.com`,
+  });
   const auth = initializeAuth(app, { persistence: browserSessionPersistence });
   // El aviso local permanente de App reemplaza el cartel flotante del SDK en móvil.
   connectAuthEmulator(auth, config.authHost, { disableWarnings: true });
@@ -18,10 +22,13 @@ export function createServices() {
   const authService = new FirebaseAuthService(auth);
   // Firestore se descarga solo al consultar el negocio después de autenticarse.
   let repository: Promise<ReturnType<typeof createBusinessServices>> | undefined;
-  const load = () => repository ??= import('./business-services').then(({ createBusinessServices }) => createBusinessServices(app, config));
+  const load = () =>
+    (repository ??= import('./business-services').then(({ createBusinessServices }) =>
+      createBusinessServices(app, config),
+    ));
   const businessRepository: BusinessRepository = {
     get: async (uid) => (await load()).businessRepository.get(uid),
-    create: async (uid, name) => (await load()).businessRepository.create(uid, name),
+    create: async (...args) => (await load()).businessRepository.create(...args),
     rename: async (uid, name) => (await load()).businessRepository.rename(uid, name),
   };
   const inventoryService = new InventoryService({

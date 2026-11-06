@@ -1,7 +1,9 @@
 import { navigate } from './navigation';
 import { expect, test } from './fixtures';
 
-test('registro, negocio persistente, edición, cierre e inicio de sesión', async ({ page }, info) => {
+test('registro, negocio persistente, edición, cierre e inicio de sesión', async ({
+  page,
+}, info) => {
   const email = `e2e-${info.project.name}-${Date.now()}@example.invalid`;
   const password = 'una-frase-de-prueba-segura';
   await page.goto('/negocio');
@@ -13,6 +15,7 @@ test('registro, negocio persistente, edición, cierre e inicio de sesión', asyn
   await page.getByRole('button', { name: 'Crear mi cuenta' }).click();
   await expect(page.getByRole('heading', { name: 'Dale un nombre a tu negocio' })).toBeVisible();
   await page.getByLabel('Nombre del negocio').fill('Tienda de prueba');
+  await page.getByLabel('Tipo de negocio').selectOption('retail');
   await page.getByRole('button', { name: 'Crear mi negocio' }).click();
   await expect(page.getByRole('heading', { name: 'Hola, Tienda de prueba' })).toBeVisible();
   await page.goto('/negocio');
@@ -22,9 +25,13 @@ test('registro, negocio persistente, edición, cierre e inicio de sesión', asyn
   await page.getByLabel('Nombre del negocio').fill('Tienda actualizada');
   await page.getByRole('button', { name: 'Guardar cambios' }).click();
   await expect(page.getByRole('status')).toHaveText('Tu negocio se guardó correctamente.');
-  await expect(page.locator('body')).toHaveJSProperty('scrollWidth', await page.locator('body').evaluate((el) => el.clientWidth));
+  await expect(page.locator('body')).toHaveJSProperty(
+    'scrollWidth',
+    await page.locator('body').evaluate((el) => el.clientWidth),
+  );
   await page.screenshot({ path: `test-results/profile-${info.project.name}.png`, fullPage: true });
-  if (!(await page.getByRole('button', { name: 'Cerrar sesión', exact: true }).isVisible())) await page.getByRole('button', { name: '☰ Menú' }).click();
+  if (!(await page.getByRole('button', { name: 'Cerrar sesión', exact: true }).isVisible()))
+    await page.getByRole('button', { name: '☰ Menú' }).click();
   await page.getByRole('button', { name: 'Cerrar sesión', exact: true }).click();
   await expect(page).toHaveURL(/ingresar/);
   await page.getByLabel('Correo electrónico').fill(email);
@@ -43,7 +50,9 @@ test('recuperación local con mensaje comprensible', async ({ page }) => {
 test('bloquea formularios sin conexión y prepara la PWA', async ({ page, context }) => {
   await page.goto('/ingresar');
   await expect(page.getByRole('button', { name: 'Ingresar', exact: true })).toBeEnabled();
-  await page.evaluate(async () => { await navigator.serviceWorker.ready; });
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.ready;
+  });
   const manifest = await page.request.get('/manifest.webmanifest');
   expect((await manifest.json()).icons).toHaveLength(2);
   await context.setOffline(true);

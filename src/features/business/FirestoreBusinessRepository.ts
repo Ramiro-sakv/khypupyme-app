@@ -1,15 +1,55 @@
-import { doc, getDocFromServer, runTransaction, serverTimestamp, Timestamp, updateDoc } from 'firebase/firestore';
+import {
+  doc,
+  getDocFromServer,
+  runTransaction,
+  serverTimestamp,
+  Timestamp,
+  updateDoc,
+} from 'firebase/firestore';
 import type { Firestore, DocumentSnapshot } from 'firebase/firestore';
 import { businessName } from './domain';
 import type { Business, BusinessRepository } from './domain';
+import {
+  configurationActivity,
+  validateConfiguration,
+} from '../../../shared/business-configuration';
+import type { BusinessConfiguration } from '../../../shared/business-configuration';
 
 function decode(snapshot: DocumentSnapshot): Business | null {
   if (!snapshot.exists()) return null;
   const data = snapshot.data();
-  if (typeof data.name !== 'string' || data.ownerUid !== snapshot.id || data.currency !== 'BOB' || data.timeZone !== 'America/La_Paz' || !(data.createdAt instanceof Timestamp) || !(data.updatedAt instanceof Timestamp)) {
+  if (
+    typeof data.name !== 'string' ||
+    data.ownerUid !== snapshot.id ||
+    data.currency !== 'BOB' ||
+    data.timeZone !== 'America/La_Paz' ||
+    !(data.createdAt instanceof Timestamp) ||
+    !(data.updatedAt instanceof Timestamp)
+  ) {
     throw new Error('El perfil guardado no tiene un formato válido.');
   }
-  return { id: snapshot.id, ownerUid: data.ownerUid as string, name: data.name, currency: data.currency, timeZone: data.timeZone, createdAt: data.createdAt.toDate(), updatedAt: data.updatedAt.toDate(), activity: data.activity === 'services' || data.activity === 'mixed' ? data.activity : 'commerce' };
+  if (
+    data.configuration !== undefined &&
+    (!Number.isSafeInteger(data.configurationRevision) || data.configurationRevision < 1)
+  )
+    throw new Error('Revisión de configuración inválida.');
+  return {
+    id: snapshot.id,
+    ownerUid: data.ownerUid as string,
+    name: data.name,
+    currency: data.currency,
+    timeZone: data.timeZone,
+    createdAt: data.createdAt.toDate(),
+    updatedAt: data.updatedAt.toDate(),
+    activity:
+      data.activity === 'services' || data.activity === 'mixed' ? data.activity : 'commerce',
+    ...(data.configuration === undefined
+      ? {}
+      : {
+          configuration: validateConfiguration(data.configuration),
+          configurationRevision: data.configurationRevision as number,
+        }),
+  };
 }
 
 export class FirestoreBusinessRepository implements BusinessRepository {
@@ -30,12 +70,31 @@ export class FirestoreBusinessRepository implements BusinessRepository {
     return result;
   }
 
-  async create(uid: string, value: string): Promise<Business> {
+  async create(
+    uid: string,
+    value: string,
+    configuration?: BusinessConfiguration,
+  ): Promise<Business> {
     const name = businessName(value);
+    const selected = configuration === undefined ? undefined : validateConfiguration(configuration);
     await runTransaction(this.db, async (transaction) => {
       const business = this.ref(uid);
       if ((await transaction.get(business)).exists()) return; // Reintentar no reemplaza el negocio existente.
-      transaction.set(business, { name, ownerUid: uid, currency: 'BOB', timeZone: 'America/La_Paz', createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      transaction.set(business, {
+        name,
+        ownerUid: uid,
+        currency: 'BOB',
+        timeZone: 'America/La_Paz',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        ...(selected
+          ? {
+              configuration: selected,
+              configurationRevision: 1,
+              activity: configurationActivity(selected),
+            }
+          : {}),
+      });
     });
     return this.required(uid);
   }

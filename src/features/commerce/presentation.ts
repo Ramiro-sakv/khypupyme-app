@@ -1,5 +1,18 @@
 import { today } from '../../../shared/commerce';
-import type { DateFilter } from '../../../shared/commerce';
+import type { Command, DateFilter } from '../../../shared/commerce';
+export const commandNames: Record<Command['kind'], string> = {
+  sale: 'Venta',
+  'cancel-sale': 'Anulación de venta',
+  expense: 'Gasto',
+  'cancel-expense': 'Anulación de gasto',
+  receivable: 'Fiado anterior',
+  collect: 'Cobro',
+  'cancel-receivable': 'Anulación de fiado',
+  customer: 'Cliente',
+  service: 'Servicio',
+  'business-settings': 'Actividad del negocio',
+  'configure-business': 'Perfil y herramientas',
+};
 export const paymentNames = {
   cash: 'Efectivo',
   qr: 'QR',

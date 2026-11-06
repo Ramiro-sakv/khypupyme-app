@@ -1,5 +1,6 @@
 import { date, DomainError, id, int, period, text, today } from '../../shared/commerce.js';
 import type { Command, PaymentMethod, SaleLineInput } from '../../shared/commerce.js';
+import { validateConfiguration } from '../../shared/business-configuration.js';
 
 function object(value: unknown, fields: string[]): Record<string, unknown> {
   if (value === null || typeof value !== 'object' || Array.isArray(value))
@@ -179,6 +180,17 @@ export function validateCommand(raw: unknown): Command {
           priceMinor: int(data.priceMinor, 1, 999999999),
           unitCostMinor: int(data.unitCostMinor, 0, 999999999),
           active: boolean(data.active),
+        },
+      };
+    }
+    case 'configure-business': {
+      const data = object(command.input, ['configuration', 'expectedRevision']);
+      return {
+        kind,
+        operationId,
+        input: {
+          configuration: validateConfiguration(data.configuration),
+          expectedRevision: int(data.expectedRevision, 0, 999999, 'Revisión'),
         },
       };
     }

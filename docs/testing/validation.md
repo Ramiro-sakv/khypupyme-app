@@ -180,3 +180,38 @@ Verificación local del núcleo común, sin push ni despliegue. Node 24.22.2, pn
 ### Límites
 
 Solo emuladores, datos ficticios y un propietario por negocio. Sin cloud, publicación, firma comercial, rubros especializados, abonos parciales, impuestos o respaldos comerciales. La anulación sustituye edición/borrado financiero. El flujo registrado excluye compras y no representa saldo bancario/caja; resultados estimados excluyen costos no declarados. Informes de hasta 366 días, 10.000 registros por sección y acumulados de hasta 10^12 centavos, con error explícito si se exceden. Fiados e inventario actuales se distinguen de las métricas del periodo. No se acredita evaluación de usabilidad con personas, Android real, restauración ni seguridad de un despliegue público.
+
+## Beta 0.3.0-beta.2 — 06/11/2026
+
+| Verificación | Resultado ejecutado |
+| --- | --- |
+| `pnpm check` | Aprobado: lint, TypeScript, 90 pruebas unitarias/componentes y builds web/Functions |
+| `pnpm test:emulators` | Aprobado, código 0: 18 integración + 114 reglas + 21 E2E |
+| Total automatizado | **243 pruebas aprobadas**, sin omitir casos ni reintentos de Playwright |
+| Perfiles | Comercio, servicios y mixto; selección explícita, vista previa, combinación de herramientas y dependencia Compras → Inventario |
+| Integridad | Cambio atómico/idempotente de configuración, revisión esperada y conflicto entre sesiones; cantidades, costos e historial conservados |
+| Seguridad | Rechazo de formas/campos/perfiles/versiones inválidos, acceso A/B y actualización directa de configuración; pruebas anteriores conservadas |
+| Recuperación | Solicitud incierta accesible aunque su herramienta esté desactivada; caché y respuestas tardías aisladas por cuenta |
+| Navegadores | Chromium escritorio/móvil y WebKit móvil: archivo de inventario ausente al iniciar servicios, carga al activar, error HTTP 503 y recuperación manual |
+| Visual | Perfil revisado en escritorio y móvil; controles sin desbordamiento horizontal |
+| Tamaño web | Entrada JS: 435,91 → 374,65 kB (−14,1 %); gzip: 131,86 → 117,47 kB (−10,9 %). No representa el total descargado ni el tamaño del instalador |
+
+La ejecución usó exclusivamente `demo-khypupyme-tests`, puertos separados y `dist-test`; no se iniciaron, detuvieron ni limpiaron los servicios habituales del propietario.
+
+### Incidencias resueltas
+
+- Playwright 1.64.1/WebKit mantenía fallida una importación después de recargar durante la simulación de error. Se actualizó únicamente la herramienta de pruebas a 1.65.0 (WebKit 27.2 y Chromium 158), se instalaron sus navegadores y se repitió la suite completa con las mismas comprobaciones de recuperación. No se modificaron las dependencias de ejecución. No acredita comportamiento en Safari físico.
+- La prueba que intercepta el archivo bloquea el service worker para no ocultar el error simulado; las pruebas base siguen comprobando la PWA en los tres navegadores. El fallo HTTP 503 usa `no-store`, y el reintento conserva la misma pestaña.
+- Se corrigieron selectores de navegación móvil y la espera de reconexión de productos. La prueba de timestamp inmutable ahora envía una fecha inequívocamente diferente, en lugar de un timestamp de servidor que podía coincidir; no se debilitaron reglas.
+
+### Alcance comprobado
+
+Los perfiles son preferencias de interfaz y herramientas, no permisos adicionales. Los negocios existentes conservan todas las herramientas hasta elegir un perfil. No se transforman unidades, valores históricos ni datos al cambiar. Los módulos nativos continúan empaquetados; esta versión divide pantallas para carga al abrirlas, sin descargar paquetes remotos de rubro. Madera, variantes de ropa, números de serie y fabricación siguen pendientes de diseño propio. Continúa siendo una beta exclusivamente local, sin cloud, push ni publicación.
+
+### Paquetes nativos beta 2
+
+- `pnpm android:build`: aprobado, código 0; 154 tareas Gradle, APK debug de 4.466.467 bytes. No se ejecutó en Android físico ni se reintentó el AVD con memoria limitada.
+- `pnpm windows:build`: aprobado, código 0; Rust release y NSIS x64, instalador de 1.583.337 bytes.
+- Paquetes conservados en `artifacts/KhypuPyme-0.3.0-beta.2-android-debug.apk` y `artifacts/KhypuPyme-0.3.0-beta.2-windows-x64-setup.exe`, excluidos de Git junto con logs y datos de pruebas.
+- Arranque nativo Windows beta 2: **no ejecutado**. La revisión automática rechazó la acción que preparaba un WebView aislado, abría el ejecutable para comprobar inicio/registro y cerraba únicamente su proceso. El mensaje solo indicó `blocked by policy`, sin motivo detallado; no se intentó eludirlo. El arranque acreditado de beta 1 no se atribuye a beta 2.
+- Ambos paquetes siguen requiriendo los emuladores locales. No se instalaron sobre la aplicación del propietario, no se publicaron ni se añadieron accesos al escritorio.

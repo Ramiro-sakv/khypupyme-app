@@ -4,7 +4,7 @@ import { period, today } from '../../../shared/commerce';
 import { Feedback } from '../../shared/components/Feedback';
 import { useOnline } from '../../shared/hooks/useOnline';
 import type { useCommerceCommand } from './useCommerce';
-import { paymentNames } from './presentation';
+import { commandNames, paymentNames } from './presentation';
 
 export function MethodSelect({
   credit = false,
@@ -95,8 +95,8 @@ export function OperationFeedback({
         <aside className="pending-operation" aria-label="Operación pendiente">
           <h3>Confirma la solicitud anterior</h3>
           <p>
-            Operación: {operation.pending.kind}. Se conservan sus datos para evitar duplicados.
-            Consulta su estado antes de reintentar.
+            Operación: {commandNames[operation.pending.kind] ?? 'Solicitud guardada'}. Se conservan
+            sus datos para evitar duplicados. Consulta su estado antes de reintentar.
           </p>
           <div className="actions">
             <button disabled={operation.busy || !online} onClick={() => void operation.consult()}>

@@ -1,7 +1,6 @@
-import { useState } from 'react';
+import { lazy, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Link, NavLink, Navigate, Route, Routes } from 'react-router';
-import { AuthPage } from '../features/auth/AuthPage';
+import { Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router';
 import { useAuth } from '../features/auth/auth-context';
 import { BusinessPage } from '../features/business/BusinessPage';
 import type { BusinessRepository } from '../features/business/domain';
@@ -9,14 +8,50 @@ import { useOnline } from '../shared/hooks/useOnline';
 import { errorMessage } from '../shared/errors';
 import { Feedback } from '../shared/components/Feedback';
 import type { InventoryService } from '../features/inventory/InventoryService';
-import { InventoryPage } from '../features/inventory/InventoryPage';
-import { PurchasesPage } from '../features/purchases/PurchasesPage';
 import type { PurchaseService } from '../features/purchases/PurchaseService';
 import type { CommerceService } from '../features/commerce/CommerceRepository';
 import { CommerceArea } from '../features/commerce/CommerceArea';
-import { DashboardPage } from '../features/commerce/DashboardPage';
-import { RecordsPage } from '../features/commerce/RecordsPage';
-import { BusinessActivity } from '../features/commerce/BusinessActivity';
+
+import { DeferredScreen } from './DeferredScreen';
+import { ToolGate } from './ToolGate';
+import { useBusiness } from '../features/business/business-context';
+import { enabledTools } from '../../shared/business-configuration';
+import type { ToolId } from '../../shared/business-configuration';
+import { usePendingRequests } from '../shared/pendingRequests';
+const routeTools: Record<string, ToolId> = {
+  '/inventario': 'inventory',
+  '/compras': 'purchases',
+  '/servicios': 'services',
+  '/clientes': 'customers',
+  '/fiados': 'receivables',
+};
+
+const AuthPage = lazy(() =>
+  import('../features/auth/AuthPage').then((module) => ({ default: module.AuthPage })),
+);
+const InventoryPage = lazy(() =>
+  import('../features/inventory/InventoryPage').then((module) => ({
+    default: module.InventoryPage,
+  })),
+);
+const PurchasesPage = lazy(() =>
+  import('../features/purchases/PurchasesPage').then((module) => ({
+    default: module.PurchasesPage,
+  })),
+);
+const DashboardPage = lazy(() =>
+  import('../features/commerce/DashboardPage').then((module) => ({
+    default: module.DashboardPage,
+  })),
+);
+const RecordsPage = lazy(() =>
+  import('../features/commerce/RecordsPage').then((module) => ({ default: module.RecordsPage })),
+);
+const BusinessActivity = lazy(() =>
+  import('../features/commerce/BusinessActivity').then((module) => ({
+    default: module.BusinessActivity,
+  })),
+);
 
 function Protected({ children }: { children: ReactNode }) {
   const { status, user, error } = useAuth();
@@ -37,7 +72,11 @@ export function App({
   commerce: CommerceService;
 }) {
   const { user, service } = useAuth();
+  const pendingRequests = usePendingRequests(user?.uid);
   const online = useOnline();
+  const { business } = useBusiness();
+  const tools = enabledTools(business ?? {});
+  const location = useLocation();
   const [error, setError] = useState('');
   const [exiting, setExiting] = useState(false);
   const [menu, setMenu] = useState(false);
@@ -97,19 +136,26 @@ export function App({
                   ['/servicios', 'Servicios', '◇'],
                   ['/informes', 'Informes', '▥'],
                   ['/negocio', 'Mi negocio', '⚙'],
-                ].map(([path, label, icon]) => (
-                  <NavLink key={path} to={path!} end={path === '/'} onClick={() => setMenu(false)}>
-                    <span aria-hidden="true" className="nav-icon">
-                      {icon}
-                    </span>
-                    {label}
-                  </NavLink>
-                ))}
+                ]
+                  .filter(([path]) => !routeTools[path!] || tools.includes(routeTools[path!]!))
+                  .map(([path, label, icon]) => (
+                    <NavLink
+                      key={path}
+                      to={path!}
+                      end={path === '/'}
+                      onClick={() => setMenu(false)}
+                    >
+                      <span aria-hidden="true" className="nav-icon">
+                        {icon}
+                      </span>
+                      {label}
+                    </NavLink>
+                  ))}
                 <button className="quiet" onClick={logout} disabled={exiting}>
                   {exiting ? 'Saliendo…' : 'Cerrar sesión'}
                 </button>
                 <small className="sidebar-version">
-                  KhypuPyme · 0.3.0 beta
+                  KhypuPyme · 0.3.0 beta 2
                   <br />
                   Bolivia · BOB
                 </small>
@@ -124,106 +170,137 @@ export function App({
         </p>
       )}
       <main id="main" tabIndex={-1}>
+        {user && (pendingRequests.inventory || pendingRequests.commerce) && (
+          <aside className="pending-operation" role="alert">
+            <strong>Tienes una solicitud por confirmar.</strong>
+            <p>Resuélvela antes de registrar otra operación o cambiar tus herramientas.</p>
+            <div className="actions">
+              {pendingRequests.inventory && (
+                <Link to="/inventario">Revisar inventario o compras</Link>
+              )}
+              {pendingRequests.commerce && <Link to="/ventas">Revisar solicitud comercial</Link>}
+            </div>
+          </aside>
+        )}
         <Feedback error={error} />
-        <Routes>
-          <Route path="/ingresar" element={<AuthPage key="login" mode="login" />} />
-          <Route path="/registro" element={<AuthPage key="register" mode="register" />} />
-          <Route path="/recuperar" element={<AuthPage key="reset" mode="reset" />} />
-          <Route
-            path="/"
-            element={
-              <Protected>
-                <CommerceArea key={user?.uid} repository={repository}>
-                  {(business) => <DashboardPage service={commerce} business={business} />}
-                </CommerceArea>
-              </Protected>
-            }
-          />
-          <Route
-            path="/negocio"
-            element={
-              <Protected>
-                <CommerceArea key={user?.uid} repository={repository}>
-                  {(business, uid) => (
-                    <>
-                      <BusinessPage repository={repository} settings />
-                      <BusinessActivity business={business} uid={uid} service={commerce} />
-                    </>
-                  )}
-                </CommerceArea>
-              </Protected>
-            }
-          />
-          <Route
-            path="/inventario"
-            element={
-              <Protected>
-                <InventoryPage
-                  key={user?.uid}
-                  businessRepository={repository}
-                  service={inventory}
-                  purchases={purchases}
-                />
-              </Protected>
-            }
-          />
-          <Route
-            path="/compras"
-            element={
-              <Protected>
-                <PurchasesPage
-                  key={user?.uid}
-                  businessRepository={repository}
-                  inventory={inventory}
-                  service={purchases}
-                />
-              </Protected>
-            }
-          />
-          {(['sales', 'expenses', 'receivables', 'customers', 'services'] as const).map(
-            (resource, index) => (
-              <Route
-                key={resource}
-                path={['/ventas', '/gastos', '/fiados', '/clientes', '/servicios'][index]!}
-                element={
-                  <Protected>
-                    <CommerceArea key={user?.uid} repository={repository}>
-                      {(business, uid) => (
-                        <RecordsPage
-                          key={`${uid}:${resource}`}
-                          resource={resource}
-                          uid={uid}
+        <DeferredScreen key={location.pathname}>
+          <Routes>
+            <Route path="/ingresar" element={<AuthPage key="login" mode="login" />} />
+            <Route path="/registro" element={<AuthPage key="register" mode="register" />} />
+            <Route path="/recuperar" element={<AuthPage key="reset" mode="reset" />} />
+            <Route
+              path="/"
+              element={
+                <Protected>
+                  <CommerceArea key={user?.uid} repository={repository}>
+                    {(business) => <DashboardPage service={commerce} business={business} />}
+                  </CommerceArea>
+                </Protected>
+              }
+            />
+            <Route
+              path="/negocio"
+              element={
+                <Protected>
+                  <CommerceArea key={user?.uid} repository={repository}>
+                    {(business, uid) => (
+                      <>
+                        <BusinessPage repository={repository} settings />
+                        <BusinessActivity
+                          key={business.configurationRevision ?? 0}
                           business={business}
+                          uid={uid}
                           service={commerce}
-                          inventory={inventory}
                         />
-                      )}
-                    </CommerceArea>
-                  </Protected>
-                }
-              />
-            ),
-          )}
-          <Route
-            path="/informes"
-            element={
-              <Protected>
-                <CommerceArea key={user?.uid} repository={repository}>
-                  {(business) => <DashboardPage service={commerce} business={business} reports />}
-                </CommerceArea>
-              </Protected>
-            }
-          />
-          <Route
-            path="*"
-            element={
-              <section className="card">
-                <h1>No encontramos esta página</h1>
-                <Link to="/">Volver al inicio</Link>
-              </section>
-            }
-          />
-        </Routes>
+                      </>
+                    )}
+                  </CommerceArea>
+                </Protected>
+              }
+            />
+            <Route
+              path="/inventario"
+              element={
+                <Protected>
+                  <ToolGate tool="inventory">
+                    <InventoryPage
+                      key={user?.uid}
+                      businessRepository={repository}
+                      service={inventory}
+                      purchases={purchases}
+                    />
+                  </ToolGate>
+                </Protected>
+              }
+            />
+            <Route
+              path="/compras"
+              element={
+                <Protected>
+                  <ToolGate tool="purchases">
+                    <PurchasesPage
+                      key={user?.uid}
+                      businessRepository={repository}
+                      inventory={inventory}
+                      service={purchases}
+                    />
+                  </ToolGate>
+                </Protected>
+              }
+            />
+            {(['sales', 'expenses', 'receivables', 'customers', 'services'] as const).map(
+              (resource, index) => (
+                <Route
+                  key={resource}
+                  path={['/ventas', '/gastos', '/fiados', '/clientes', '/servicios'][index]!}
+                  element={
+                    <Protected>
+                      <ToolGate
+                        tool={
+                          routeTools[
+                            ['/ventas', '/gastos', '/fiados', '/clientes', '/servicios'][index]!
+                          ] ?? null
+                        }
+                      >
+                        <CommerceArea key={user?.uid} repository={repository}>
+                          {(business, uid) => (
+                            <RecordsPage
+                              key={`${uid}:${resource}`}
+                              resource={resource}
+                              uid={uid}
+                              business={business}
+                              service={commerce}
+                              inventory={inventory}
+                            />
+                          )}
+                        </CommerceArea>
+                      </ToolGate>
+                    </Protected>
+                  }
+                />
+              ),
+            )}
+            <Route
+              path="/informes"
+              element={
+                <Protected>
+                  <CommerceArea key={user?.uid} repository={repository}>
+                    {(business) => <DashboardPage service={commerce} business={business} reports />}
+                  </CommerceArea>
+                </Protected>
+              }
+            />
+            <Route
+              path="*"
+              element={
+                <section className="card">
+                  <h1>No encontramos esta página</h1>
+                  <Link to="/">Volver al inicio</Link>
+                </section>
+              }
+            />
+          </Routes>
+        </DeferredScreen>
       </main>
       <footer>
         <span>KhypuPyme</span>

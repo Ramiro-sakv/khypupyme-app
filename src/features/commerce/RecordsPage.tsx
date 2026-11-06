@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import type { Command, FinancialRecord, PaymentMethod, Resource } from '../../../shared/commerce';
 import type { Business } from '../business/domain';
@@ -10,9 +10,14 @@ import type { CommerceService } from './CommerceRepository';
 import { commerceError, useCommerceCommand, useRecords } from './useCommerce';
 import { DateInput, MethodSelect, OperationFeedback, PeriodPicker } from './CommerceControls';
 import { currentMonth, paymentNames } from './presentation';
-import { SaleForm } from './SaleForm';
-import { RecordForm } from './RecordForm';
+import { enabledTools } from '../../../shared/business-configuration';
+import { useBusiness } from '../business/business-context';
 import { CommandReview } from './CommandReview';
+
+const SaleForm = lazy(() => import('./SaleForm').then((module) => ({ default: module.SaleForm })));
+const RecordForm = lazy(() =>
+  import('./RecordForm').then((module) => ({ default: module.RecordForm })),
+);
 
 const labels: Record<Resource, { title: string; singular: string; hint: string }> = {
   sales: {
@@ -70,7 +75,10 @@ export function RecordsPage({
   const online = useOnline(),
     catalog = resource === 'customers' || resource === 'services';
   const records = useRecords(service, resource, catalog ? undefined : filter);
-  const operation = useCommerceCommand(uid, service, (id) => {
+  const { refresh: refreshBusiness } = useBusiness();
+  const operation = useCommerceCommand(uid, service, (id, confirmed) => {
+    if (confirmed.kind === 'configure-business' || confirmed.kind === 'business-settings')
+      refreshBusiness();
     setReview(null);
     setOpen(false);
     setEditing(null);
@@ -167,23 +175,33 @@ export function RecordsPage({
             </button>
           </div>
           {resource === 'sales' ? (
-            <SaleForm
-              uid={uid}
-              inventory={inventory}
-              commerce={service}
-              disabled={blocked}
-              onReview={setReview}
-              activity={business.activity ?? 'commerce'}
-            />
+            <Suspense fallback={<p role="status">Abriendo formulario…</p>}>
+              <SaleForm
+                uid={uid}
+                inventory={inventory}
+                commerce={service}
+                disabled={blocked}
+                onReview={setReview}
+                tools={enabledTools(business)}
+                activity={
+                  business.configuration?.profileId === 'services'
+                    ? 'services'
+                    : (business.activity ?? 'commerce')
+                }
+              />
+            </Suspense>
           ) : (
-            <RecordForm
-              key={editing?.id ?? 'new'}
-              resource={resource}
-              record={editing}
-              service={service}
-              onReview={setReview}
-              disabled={blocked}
-            />
+            <Suspense fallback={<p role="status">Abriendo formulario…</p>}>
+              <RecordForm
+                key={editing?.id ?? 'new'}
+                allowCustomers={enabledTools(business).includes('customers')}
+                resource={resource}
+                record={editing}
+                service={service}
+                onReview={setReview}
+                disabled={blocked}
+              />
+            </Suspense>
           )}
         </section>
       )}

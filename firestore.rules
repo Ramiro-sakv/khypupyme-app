@@ -13,9 +13,18 @@ service cloud.firestore {
       return value is string && value.size() >= min && value.size() <= max
         && value.matches('^[^\\s](.*[^\\s])?$') && !value.matches('.*[\r\n].*');
     }
+    function validConfiguration(data) {
+      return data is map && data.keys().hasAll(['profileId','version','tools']) && data.keys().hasOnly(['profileId','version','tools'])
+        && data.profileId in ['retail','services','mixed'] && data.version is int && data.version == 1
+        && data.tools is list && data.tools.size() <= 5 && data.tools.hasOnly(['inventory','purchases','services','customers','receivables'])
+        && data.tools.toSet().size() == data.tools.size() && (!data.tools.hasAny(['purchases']) || data.tools.hasAny(['inventory']));
+    }
     function validBusiness(data) {
       return data.keys().hasAll(['name','ownerUid','currency','timeZone','createdAt','updatedAt'])
-        && data.keys().hasOnly(['name','ownerUid','currency','timeZone','createdAt','updatedAt','activity'])
+        && data.keys().hasOnly(['name','ownerUid','currency','timeZone','createdAt','updatedAt','activity','configuration','configurationRevision'])
+        && (('configuration' in data) == ('configurationRevision' in data))
+        && (!('configuration' in data) || (validConfiguration(data.configuration) && data.configurationRevision is int && data.configurationRevision >= 1 && data.configurationRevision <= 1000000
+          && data.activity == (data.configuration.tools.hasAny(['services']) ? (data.configuration.tools.hasAny(['inventory']) ? 'mixed' : 'services') : 'commerce')))
         && (!('activity' in data) || data.activity in ['commerce','services','mixed'])
         && line(data.name, 2, 80) && data.ownerUid is string
         && data.currency == 'BOB' && data.timeZone == 'America/La_Paz'
@@ -140,6 +149,7 @@ service cloud.firestore {
       allow get: if isOwner(businessId);
       allow list, delete: if false;
       allow create: if isOwner(businessId) && validBusiness(request.resource.data)
+        && (!('configurationRevision' in request.resource.data) || request.resource.data.configurationRevision == 1)
         && request.resource.data.ownerUid == request.auth.uid
         && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
       allow update: if isOwner(businessId) && resource.data.ownerUid == request.auth.uid && validBusiness(request.resource.data)

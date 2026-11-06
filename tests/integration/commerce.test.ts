@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { defaultConfiguration } from '../../shared/business-configuration';
+import type { BusinessConfiguration } from '../../shared/business-configuration';
 import { expect, it } from 'vitest';
 import { deleteApp, initializeApp } from 'firebase/app';
 import { connectAuthEmulator, getAuth } from 'firebase/auth';
@@ -26,7 +28,7 @@ import {
   testProjectId,
 } from '../emulator-environment';
 
-async function session() {
+async function session(configuration?: BusinessConfiguration) {
   requireTestEmulators();
   const app = initializeApp({ projectId: testProjectId, apiKey: 'demo-api-key' }, randomUUID());
   const auth = getAuth(app),
@@ -40,7 +42,7 @@ async function session() {
     'una-frase-de-prueba-segura',
   );
   const uid = auth.currentUser!.uid;
-  await new FirestoreBusinessRepository(db).create(uid, 'Beta de prueba');
+  await new FirestoreBusinessRepository(db).create(uid, 'Beta de prueba', configuration);
   const inventory = new InventoryService(new FirestoreInventoryRepository(db)),
     service = new CommerceService(new FirebaseCommerceRepository(functions));
   return {
@@ -382,5 +384,93 @@ it('clientes, servicios archivados, actividad y paginación conservan datos', as
     expect((await getDocFromServer(doc(s.db, 'businesses', s.uid))).data()?.activity).toBe('mixed');
   } finally {
     await s.close();
+  }
+}, 60000);
+
+it('crea perfil atómico y conserva stock, costos e historial al cambiar herramientas', async () => {
+  const s = await session(defaultConfiguration('retail'));
+  try {
+    const repository = new FirestoreBusinessRepository(s.db);
+    expect(await repository.get(s.uid)).toMatchObject({
+      configuration: defaultConfiguration('retail'),
+      configurationRevision: 1,
+    });
+    const id = randomUUID();
+    await s.inventory.create(s.uid, id, product);
+    const before = await s.inventory.get(s.uid, id),
+      history = await s.inventory.history(s.uid, id);
+    const command: Command = {
+      kind: 'configure-business',
+      operationId: randomUUID(),
+      input: { configuration: defaultConfiguration('services'), expectedRevision: 1 },
+    };
+    await s.service.execute(command);
+    await s.service.execute(command);
+    expect(await repository.get(s.uid)).toMatchObject({
+      configuration: defaultConfiguration('services'),
+      configurationRevision: 2,
+      activity: 'services',
+    });
+    expect(await s.inventory.get(s.uid, id)).toEqual(before);
+    expect(await s.inventory.history(s.uid, id)).toEqual(history);
+    await expect(s.service.execute({ ...command, operationId: randomUUID() })).rejects.toThrow(
+      'cambió',
+    );
+    await expect(
+      s.service.execute({
+        kind: 'business-settings',
+        operationId: randomUUID(),
+        input: { activity: 'mixed' },
+      }),
+    ).rejects.toThrow();
+    expect((await s.service.report(filter())).inventoryValueMinor).toBe(5000);
+  } finally {
+    await s.close();
+  }
+}, 60000);
+it('migra perfil anterior explícitamente, rechaza versiones falsas y resuelve dos configuraciones concurrentes', async () => {
+  const a = await session(),
+    b = await session();
+  try {
+    const commands: Command[] = ['retail', 'services'].map((profile) => ({
+      kind: 'configure-business',
+      operationId: randomUUID(),
+      input: {
+        configuration: defaultConfiguration(profile as 'retail' | 'services'),
+        expectedRevision: 0,
+      },
+    }));
+    const results = await Promise.allSettled(commands.map((command) => a.service.execute(command)));
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
+    expect((await new FirestoreBusinessRepository(a.db).get(a.uid))?.configurationRevision).toBe(1);
+    expect((await new FirestoreBusinessRepository(b.db).get(b.uid))?.configuration).toBeUndefined();
+    for (const configuration of [
+      { ...defaultConfiguration('retail'), version: 99 },
+      { ...defaultConfiguration('retail'), tools: ['purchases'] },
+      { ...defaultConfiguration('retail'), profileId: 'manufacturing' },
+    ]) {
+      await expect(
+        httpsCallable(
+          a.functions,
+          'commerceCommand',
+        )({
+          kind: 'configure-business',
+          operationId: randomUUID(),
+          input: { configuration, expectedRevision: 1 },
+        }),
+      ).rejects.toThrow();
+    }
+    await expect(
+      setDoc(
+        doc(b.db, 'businesses', a.uid),
+        { configuration: defaultConfiguration('mixed') },
+        { merge: true },
+      ),
+    ).rejects.toThrow();
+    expect((await new FirestoreBusinessRepository(a.db).get(a.uid))?.configurationRevision).toBe(1);
+  } finally {
+    await a.close();
+    await b.close();
   }
 }, 60000);

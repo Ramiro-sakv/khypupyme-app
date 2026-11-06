@@ -12,6 +12,7 @@ test('beta: servicio, venta fiada, cobro, gasto, informe y anulación', async ({
   await page.getByLabel('Contraseña', { exact: true }).fill('una-frase-de-prueba-segura');
   await page.getByRole('button', { name: 'Crear mi cuenta' }).click();
   await page.getByLabel('Nombre del negocio').fill('Estudio beta');
+  await page.getByLabel('Tipo de negocio').selectOption('mixed');
   await page.getByRole('button', { name: 'Crear mi negocio' }).click();
   await expect(page.getByRole('heading', { name: 'Hola, Estudio beta' })).toBeVisible();
   await navigate(page, 'Servicios');

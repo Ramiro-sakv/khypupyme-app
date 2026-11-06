@@ -1,3 +1,4 @@
+import type { BusinessConfiguration } from './business-configuration.js';
 export const MAX_AMOUNT = 1_000_000_000_000;
 export type PaymentMethod = 'cash' | 'qr' | 'transfer';
 export type SaleLineInput =
@@ -64,6 +65,10 @@ export type Command = { operationId: string } & (
       };
     }
   | { kind: 'business-settings'; input: { activity: 'commerce' | 'services' | 'mixed' } }
+  | {
+      kind: 'configure-business';
+      input: { configuration: BusinessConfiguration; expectedRevision: number };
+    }
 );
 export type Resource = 'sales' | 'expenses' | 'receivables' | 'customers' | 'services';
 export interface DateFilter {

@@ -46,3 +46,11 @@ Colecciones bajo `businesses/{uid}`: `sales`, `expenses`, `receivables`, `paymen
 Venta fiada crea `receivables/{saleId}` sin ingreso de dinero. `payments/{receivableId}` impide el segundo cobro, incluso con otro operationId. Deuda manual no crea venta. `cashEvents` representa cobro, gasto o devolución atómicos, con signo y fecha; una devolución usa el día de anulación. No incluye compras y no constituye saldo bancario/caja. Anulaciones cambian estado y conservan campos originales; correcciones mediante nuevo registro. Archivo de clientes/servicios no altera nombres históricos.
 
 Lecturas de informes no son un cierre contable: varias consultas acotadas, hasta 10.000 registros por sección y 366 días. Sin truncar cifras al exceder. Costos desconocidos de bajas anteriores se advierten y excluyen; productos sin costo no se venden. Ganancia bruta, resultado estimado y movimiento de dinero se muestran separados.
+
+## Configuración por negocio (beta 2)
+
+`configuration` opcional contiene `profileId` (retail/services/mixed), `version: 1` y `tools` (inventory/purchases/services/customers/receivables, únicos; compras implica inventario). `configurationRevision` se crea en 1; ausencia en perfiles anteriores equivale a revisión 0 solo para configurar, no produce escritura automática. `activity` se deriva de las herramientas y no reemplaza los datos históricos.
+
+`configure-business` recibe configuración y `expectedRevision`; el servidor valida forma/versión, propietario y revisión, incrementa esta última y registra la operación idempotente en la misma transacción. Conflictos de sesión se rechazan sin sobrescribir. Un reintento confirmado conserva el resultado aunque la revisión haya cambiado después. Las reglas validan creación completa y siguen denegando modificación directa de configuración/revisión desde el cliente.
+
+Las herramientas son preferencias, no permisos ni tipos nuevos de inventario. Consultas financieras incluyen el historial de herramientas ocultas. Los perfiles admitidos comparten unidades enteras y BOB; perfiles que necesitarían medidas/variantes/series/producción siguen pendientes. El acceso a recuperar solicitudes tiene prioridad sobre ocultarlas; al resolver una solicitud se actualiza la interfaz sin reenvíos automáticos.

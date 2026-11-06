@@ -10,6 +10,7 @@ import { PeriodPicker } from './CommerceControls';
 import { currentMonth } from './presentation';
 import { ReportChart } from './ReportChart';
 import { downloadReport } from './export';
+import { enabledTools } from '../../../shared/business-configuration';
 
 export function DashboardPage({
   service,
@@ -25,6 +26,13 @@ export function DashboardPage({
     [error, setError] = useState(''),
     [refresh, setRefresh] = useState(0);
   const [exporting, setExporting] = useState(false);
+  const tools = enabledTools(business);
+  const showInventory =
+    tools.includes('inventory') ||
+    (!!report &&
+      (report.inventoryValueMinor > 0 ||
+        report.pendingValuationCount > 0 ||
+        report.alerts.length > 0));
   useEffect(() => {
     let active = true;
     service.report(filter).then(
@@ -121,29 +129,46 @@ export function DashboardPage({
               cambia las fechas para ver la evolución.
             </div>
           )}
-          <p className="inventory-summary">
-            Inventario activo valorado hoy: <strong>{formatBOB(report.inventoryValueMinor)}</strong>
-            {report.pendingValuationCount > 0 && (
-              <span>
-                {' '}
-                · {report.pendingValuationCount} productos con costo pendiente, excluidos de este
-                valor.
-              </span>
-            )}{' '}
-            · <Link to="/inventario">Revisar productos</Link>
-          </p>
+          {showInventory && (
+            <p className="inventory-summary">
+              Inventario activo valorado hoy:{' '}
+              <strong>{formatBOB(report.inventoryValueMinor)}</strong>
+              {report.pendingValuationCount > 0 && (
+                <span>
+                  {' '}
+                  · {report.pendingValuationCount} productos con costo pendiente, excluidos de este
+                  valor.
+                </span>
+              )}{' '}
+              ·{' '}
+              <Link to={tools.includes('inventory') ? '/inventario' : '/negocio'}>
+                {tools.includes('inventory')
+                  ? 'Revisar productos'
+                  : 'Activar inventario conservado'}
+              </Link>
+            </p>
+          )}
           <div className="dashboard-grid">
             <section className="card">
               <ReportChart days={report.days} />
             </section>
             <section className="card accent-card">
-              <span className="eyebrow">POR COBRAR</span>
-              <strong className="hero-number">{formatBOB(report.pendingMinor)}</strong>
-              <p>Fiados pendientes de todos los periodos. No son dinero cobrado.</p>
-              <Link className="button" to="/fiados">
-                Revisar fiados →
-              </Link>
-              <hr />
+              {(tools.includes('receivables') || report.pendingMinor > 0) && (
+                <>
+                  <span className="eyebrow">POR COBRAR</span>
+                  <strong className="hero-number">{formatBOB(report.pendingMinor)}</strong>
+                  <p>Fiados pendientes de todos los periodos. No son dinero cobrado.</p>
+                  <Link
+                    className="button"
+                    to={tools.includes('receivables') ? '/fiados' : '/negocio'}
+                  >
+                    {tools.includes('receivables')
+                      ? 'Revisar fiados →'
+                      : 'Activar cobros conservados →'}
+                  </Link>
+                  <hr />
+                </>
+              )}
               <span>Margen bruto del periodo</span>
               <strong className="hero-number">
                 {report.marginPercent === null
@@ -152,7 +177,7 @@ export function DashboardPage({
               </strong>
             </section>
           </div>
-          <div className="dashboard-grid">
+          <div className={`dashboard-grid ${showInventory ? '' : 'single-column'}`}>
             <section className="card">
               <h2>Lo que más vendes</h2>
               {report.topProducts.length ? (
@@ -171,27 +196,31 @@ export function DashboardPage({
                 <p className="muted">Las ventas confirmadas aparecerán aquí.</p>
               )}
             </section>
-            <section className="card">
-              <h2>Atención al inventario</h2>
-              {report.alerts.length ? (
-                <ul className="ranking-list">
-                  {report.alerts.map((item) => (
-                    <li key={item.id}>
-                      <span>
-                        <strong>{item.name}</strong>
-                        <small>Mínimo: {item.minimumStock}</small>
-                      </span>
-                      <span className={`tag ${item.stock === 0 ? 'danger-tag' : ''}`}>
-                        {item.stock === 0 ? 'Agotado' : `${item.stock} restantes`}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="muted">Sin alertas de existencias en los productos activos.</p>
-              )}
-              <Link to="/inventario">Abrir inventario →</Link>
-            </section>
+            {showInventory && (
+              <section className="card">
+                <h2>Atención al inventario</h2>
+                {report.alerts.length ? (
+                  <ul className="ranking-list">
+                    {report.alerts.map((item) => (
+                      <li key={item.id}>
+                        <span>
+                          <strong>{item.name}</strong>
+                          <small>Mínimo: {item.minimumStock}</small>
+                        </span>
+                        <span className={`tag ${item.stock === 0 ? 'danger-tag' : ''}`}>
+                          {item.stock === 0 ? 'Agotado' : `${item.stock} restantes`}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="muted">Sin alertas de existencias en los productos activos.</p>
+                )}
+                <Link to={tools.includes('inventory') ? '/inventario' : '/negocio'}>
+                  {tools.includes('inventory') ? 'Abrir inventario →' : 'Activar herramienta →'}
+                </Link>
+              </section>
+            )}
           </div>
           {reports && (
             <div className="dashboard-grid">

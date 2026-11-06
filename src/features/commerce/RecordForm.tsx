@@ -12,12 +12,14 @@ export function RecordForm({
   service,
   onReview,
   disabled,
+  allowCustomers = true,
 }: {
   resource: Exclude<Resource, 'sales'>;
   record: FinancialRecord | null;
   service: CommerceService;
   onReview: (command: Command) => void;
   disabled: boolean;
+  allowCustomers?: boolean;
 }) {
   const [customer, setCustomer] = useState<FinancialRecord | null>(null),
     [error, setError] = useState('');
@@ -99,13 +101,17 @@ export function RecordForm({
               Registra aquí una deuda anterior. No crea una venta ni aumenta tus ingresos. Para una
               venta nueva, usa Ventas → Fiado.
             </p>
-            <label>Cliente registrado (opcional)</label>
-            <CatalogPicker
-              resource="customers"
-              service={service}
-              selected={customer}
-              onChange={setCustomer}
-            />
+            {allowCustomers && (
+              <>
+                <label>Cliente registrado (opcional)</label>
+                <CatalogPicker
+                  resource="customers"
+                  service={service}
+                  selected={customer}
+                  onChange={setCustomer}
+                />
+              </>
+            )}
           </>
         )}
         {(catalog || resource === 'receivables') && (

@@ -1,6 +1,6 @@
 # KhypuPyme
 
-Cuaderno digital para micro y pequeños comercios de Bolivia. Beta local **0.3.0-beta.1**: cuenta, negocio, inventario, compras, costos, ventas, gastos, fiados, cobros, clientes, servicios, tablero e informes. **No es una versión comercial publicada**.
+Cuaderno digital para micro y pequeños comercios de Bolivia. Beta local **0.3.0-beta.2**: cuenta, negocio, inventario, compras, costos, ventas, gastos, fiados, cobros, clientes, servicios, tablero e informes. **No es una versión comercial publicada**.
 
 Funciona con React, TypeScript estricto, Vite, React Router y Firebase Emulator. Registro, ingreso, cierre de sesión, solicitud de recuperación y creación/consulta/edición del negocio usan persistencia real en los emuladores. Moneda BOB y zona America/La_Paz. Los datos de desarrollo son ficticios.
 
@@ -117,3 +117,13 @@ pnpm windows:build
 APK: `android/app/build/outputs/apk/debug/app-debug.apk`. Instalador Windows: `src-tauri/target/release/bundle/nsis/`. No instalar automáticamente ni publicar: son artefactos locales sin firma comercial. Las pruebas del navegador no reemplazan la validación en dispositivos reales. El servidor debe seguir ejecutándose en el PC.
 
 En Android el CSV abre la selección de destino con un archivo temporal privado; no envía información sin tu intervención. `pnpm check` limita trabajadores de pruebas; los emuladores efímeros limitan Java a 512 MB. En equipos de 8 GB, ejecutar compilaciones y Android Emulator por separado. Vite usa `dist-test` para pruebas y el navegador bloquea solicitudes a los puertos interactivos.
+
+## Perfiles y carga por demanda (beta 2)
+
+Al crear el negocio se elige Tienda y comercio, Servicios o Comercio y servicios, con vista previa y herramientas combinables. Compras requiere Inventario; activar Compras lo activa y desactivar Inventario retira Compras. Ventas, gastos e informes son comunes. Madera, ropa/calzado, electrodomésticos y fabricación se muestran como futuros, sin prometer sus funciones específicas.
+
+Mi negocio permite cambiar perfil/herramientas. Solo cambia la presentación: no convierte unidades, no borra ni reescribe productos, costos o documentos históricos. Los informes incluyen los datos conservados. Los negocios anteriores mantienen todas sus herramientas hasta elegir explícitamente. Una revisión comprobada en servidor evita que dos sesiones sobrescriban configuraciones; ante conflicto, usar Actualizar perfil. Estas preferencias no son permisos: la autorización continúa comprobándose por propietario y las operaciones conservan sus validaciones financieras.
+
+Las pantallas y formularios usan módulos separados cargados al abrirse, con estado de carga y recuperación si falla un archivo. La recarga conserva solicitudes pendientes en esa pestaña. Una solicitud pendiente mantiene disponible su recuperación aunque otra sesión desactive la herramienta. No se reenvía automáticamente.
+
+**Esto reduce la carga inicial del navegador, no garantiza un instalador más pequeño.** Los paquetes nativos todavía incluyen los archivos de las herramientas. No hay descarga remota de rubros ni recursos cloud nuevos. Distribuir paquetes externos verificados y desarrollar un rubro especializado requieren una entrega posterior.

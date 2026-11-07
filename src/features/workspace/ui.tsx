@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useId, useRef, useState } from "react";
 import type { ReactNode, SubmitEvent } from "react";
+import { Icon } from "./Icon";
 import { showQuantity } from "../../../shared/workspace/exact";
 import type { Quantity } from "../../../shared/workspace/exact";
 export function Field({
@@ -8,6 +9,8 @@ export function Field({
   type = "text",
   value,
   required = true,
+  help,
+  error,
   ...rest
 }: {
   label: string;
@@ -19,17 +22,34 @@ export function Field({
   max?: number | string;
   step?: string;
   maxLength?: number;
+  help?: string;
+  error?: string;
 }) {
+  const id = useId();
   return (
-    <label>
-      {label}
+    <label htmlFor={id}>
+      <span>
+        {label}
+        {!required && <small className="optional">Opcional</small>}
+      </span>
       <input
+        id={id}
         name={name}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error || help ? id + "-help" : undefined}
         type={type}
         defaultValue={value}
         required={required}
         {...rest}
       />
+      {(error || help) && (
+        <small
+          id={id + "-help"}
+          className={error ? "field-error" : "field-help"}
+        >
+          {error || help}
+        </small>
+      )}
     </label>
   );
 }
@@ -53,14 +73,23 @@ export function ActionForm({
   onSave,
   label = "Guardar",
   disabled = false,
+  className = "",
+  dirty = false,
+  protectDraft = true,
 }: {
   children: ReactNode;
   onSave: (data: FormData) => Promise<unknown>;
   label?: string;
   disabled?: boolean;
+  className?: string;
+  dirty?: boolean;
+  protectDraft?: boolean;
 }) {
   const [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [changed, setChanged] = useState(false),
+    [invalid, setInvalid] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
   async function submit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     if (busy || disabled) return;
@@ -69,6 +98,8 @@ export function ActionForm({
     setError("");
     try {
       await onSave(data);
+      setChanged(false);
+      setInvalid(false);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo guardar.");
     } finally {
@@ -76,15 +107,41 @@ export function ActionForm({
     }
   }
   return (
-    <form onSubmit={submit} aria-busy={busy}>
+    <form
+      ref={formRef}
+      className={className}
+      onSubmit={submit}
+      aria-busy={busy}
+      data-dirty={protectDraft && (changed || dirty) ? "true" : "false"}
+      data-invalid={invalid ? "true" : undefined}
+      onChange={() => setChanged(true)}
+      onInvalid={() => setInvalid(true)}
+    >
       <fieldset disabled={busy || disabled}>
         {children}
-        {error && (
-          <p role="alert" className="error">
-            {error}
-          </p>
+        {(error || invalid) && (
+          <div role="alert" className="notice notice-error">
+            <Icon name="shield" />
+            <span>
+              {error || "Revisa los campos señalados antes de continuar."}
+            </span>
+          </div>
         )}
-        <button className="primary">{busy ? "Procesando…" : label}</button>
+        <div className="form-submit">
+          <button type="submit" className="primary">
+            {busy ? (
+              <>
+                <span className="spinner" />
+                Procesando…
+              </>
+            ) : (
+              <>
+                <Icon name="check" />
+                {label}
+              </>
+            )}
+          </button>
+        </div>
       </fieldset>
     </form>
   );
@@ -103,20 +160,35 @@ export function Pager({
 }) {
   return (
     <>
-      {page.loading && <p role="status">Cargando…</p>}
-      {page.error && <p role="alert">{page.error}</p>}
-      {!page.loading && !page.error && !page.items.length && (
-        <p>Todavía no hay registros.</p>
+      {page.loading && (
+        <div role="status" className="loading-state">
+          <span className="spinner" /> Cargando registros…
+        </div>
       )}
-      <div className="actions">
-        <button type="button" onClick={page.first}>
-          Primera página
-        </button>
-        {page.next && (
-          <button type="button" onClick={page.more}>
-            Siguientes 25
+      {page.error && (
+        <p role="alert" className="notice notice-error">
+          {page.error}
+        </p>
+      )}
+      {!page.loading && !page.error && !page.items.length && (
+        <div className="empty-state">
+          <Icon name="box" />
+          <strong>Todavía no hay registros</strong>
+          <p>Los registros de este negocio aparecerán aquí.</p>
+        </div>
+      )}
+      <div className="pager">
+        <span>{page.items.length} registros en esta página</span>
+        <div>
+          <button type="button" onClick={page.first} disabled={page.loading}>
+            Primera página
           </button>
-        )}
+          {page.next && (
+            <button type="button" onClick={page.more} disabled={page.loading}>
+              Siguientes 25
+            </button>
+          )}
+        </div>
       </div>
     </>
   );

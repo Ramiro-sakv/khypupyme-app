@@ -75,3 +75,12 @@ Esta sección sustituye las restricciones históricas de un negocio por cuenta, 
 - Solicitudes inciertas en IndexedDB por cuenta/negocio, incluida creación; consulta antes del reintento manual. Sin reenvío automático. Resolver pendientes anteriores antes de convertir.
 - Emuladores predeterminados. Perfil alojado requiere configuración, proyecto y despliegue futuros autorizados. El servidor rechaza cloud; no activar facturación, recursos, firma, publicación, push ni accesos.
 - Instrucción posterior: **no ejecutar pruebas en esta entrega**. Solo compilación, análisis estático e instaladores; registrar pruebas no ejecutadas. Capturas, vídeos y trazas visuales desactivados. La incidencia de reingreso Windows/WebKit sigue sin corrección acreditada.
+
+
+## Interfaz beta 2 de 0.4 — 07/11/2026
+
+Rediseño autorizado: sistema claro/verde, acentos por rubro, navegación lateral/tablet/móvil, Inicio/Informes y Ventas/Cotizaciones separados. La URL usa vista y mantiene HashRouter nativo. Respetar negocio activo, carga por demanda y recuperación manual de solicitudes; no confundir avisar por formulario modificado con cancelar una transacción.
+
+Estilos comunes en src/styles.css y workspace.css; Icon aporta SVG local, Panel usa dialog nativo con foco/cierre, navigation protege borradores y useReport reutiliza consultas existentes. Mantener botones accesibles y estados textuales en español. No añadir dependencias para gráficos, iconos o fuentes sin necesidad. Este incremento es de presentación: no cambió reglas, contratos, históricos ni cálculos monetarios.
+
+La entrega conserva la instrucción de no ejecutar pruebas/capturas/recorridos. Solo análisis estático, compilación e instaladores; no declarar comprobación visual ni corrección del reingreso Windows/WebKit sin evidencia.

@@ -1,8 +1,8 @@
 # KhypuPyme
 
-Cuaderno digital para negocios de Bolivia. Beta local **0.4.0-beta.1**, sin publicación ni conexión cloud activa.
+Cuaderno digital para negocios de Bolivia. Beta local **0.4.0-beta.2**, sin publicación ni conexión cloud activa.
 
-Una cuenta administra varios negocios independientes. Después de ingresar se crea un espacio, se responde el cuestionario y se confirma un rubro fijo. Cada negocio conserva catálogo, clientes, compras, ventas, fiados, caja y documentos propios. Se abre el último negocio autorizado; **Cambiar de negocio** vuelve al selector.
+Una cuenta administra varios negocios independientes. Después de ingresar se crea un espacio, se responde el cuestionario y se confirma un rubro fijo. Cada negocio conserva catálogo, clientes, compras, ventas, fiados, caja y documentos propios. Se abre el último negocio autorizado; **Cambiar negocio** vuelve al selector.
 
 Modelos: madera por medidas/volumen, ropa y calzado por talla/color, electrodomésticos por serie y garantía, tienda 24/7 por lotes/vencimientos/peso, cerámicas por piezas/cajas/m² y cemento en bolsas/granel. Los demás rubros se identifican como núcleo común (productos por unidad y servicios). Los módulos están empaquetados, se cargan por demanda y no descargan programas externos.
 
@@ -51,6 +51,16 @@ pnpm exec playwright install chromium webkit
 ```
 
 `check` ejecuta lint, typecheck, unitarias/componentes y build. `test:emulators` usa `firebase.test.json`, proyecto efímero `demo-khypupyme-tests`, Auth 19099, Firestore 18080, Functions 15001, hub 14400 y preview 4173. Comprueba puertos libres, nunca importa/exporta datos y no reutiliza los emuladores interactivos. Ejecuta integración, Security Rules y E2E; los tests de reglas limpian solo ese proyecto aislado. El lanzador fija `VITE_EMULATOR_PROFILE=test`; el perfil habitual sigue en 9099/8080. Playwright cubre Chromium de escritorio/móvil y WebKit móvil; no reemplaza teléfonos físicos. Evidencias y límites: [docs/testing/validation.md](docs/testing/validation.md).
+
+## Interfaz beta 2
+
+Diseño profesional claro, verde profundo y detalles por rubro. Menú lateral en escritorio, compacto en tablet y barra inferior en móvil (Inicio, Vender, Inventario, Caja y Más). El negocio activo y el entorno local permanecen identificados. Altas y edición de productos, devoluciones y menú móvil usan paneles con foco contenido, cierre con Escape y aviso al descartar cambios.
+
+Inicio muestra el resumen del mes, inventario actual, fiados de todos los periodos y accesos rápidos. Informes conserva selección de fechas y PDF. Ventas y Cotizaciones tienen entradas separadas; convertir una cotización conserva la operación en su editor hasta confirmarla. El catálogo distingue búsqueda en la página cargada, estados, precio, costo y unidades. Tablas en escritorio y tarjetas en móvil para inventario, clientes y ventas.
+
+La sección actual se guarda en el parámetro vista de la URL (también dentro del hash de los instaladores). Recargar y Atrás conservan navegación por secciones; las no disponibles para el rubro vuelven a Inicio. Los formularios modificados avisan antes de salir; esto no cancela ni reenvía solicitudes ya enviadas. La recuperación de operaciones inciertas sigue separada por negocio.
+
+Estilos preparados para 360, 768, 1100 y 1440 px, sin revisión visual ni pruebas en dispositivos en esta entrega. No cambian reglas, contratos, datos históricos ni cálculos comerciales. Sin nuevas librerías visuales o fuentes remotas.
 
 ## Código y orden de lectura
 

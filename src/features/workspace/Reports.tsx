@@ -1,47 +1,32 @@
-import { useEffect, useState } from "react";
-import type {
-  BusinessDocument,
-  WorkspaceReport,
-} from "../../../shared/workspace/model";
+import { Icon } from "./Icon";
+import { useReport } from "./useReport";
+import { localDate } from "./format";
+import { useState } from "react";
+import type { BusinessDocument } from "../../../shared/workspace/model";
 import { useRecords, useWorkspace } from "./context";
 import { ActionForm, Pager } from "./ui";
 import { bob, today } from "./format";
 import { ReportChart } from "../commerce/ReportChart";
 export default function Reports() {
-  const { business, repository, revision, run, busy } = useWorkspace(),
+  const { run, busy } = useWorkspace(),
     [from, setFrom] = useState(today().slice(0, 7) + "-01"),
     [to, setTo] = useState(today()),
-    [result, setResult] = useState<{
-      key: string;
-      report: WorkspaceReport | null;
-      error: string;
-    } | null>(null);
-  const key = JSON.stringify([business.id, revision, from, to]),
-    current = result?.key === key ? result : null,
-    report = current?.report,
-    error = current?.error;
-  useEffect(() => {
-    let active = true;
-    repository
-      .report(business.id, from, to)
-      .then((r) => {
-        if (active) setResult({ key, report: r, error: "" });
-      })
-      .catch((e) => {
-        if (active)
-          setResult({
-            key,
-            report: null,
-            error: e instanceof Error ? e.message : "No se pudo cargar.",
-          });
-      });
-    return () => {
-      active = false;
-    };
-  }, [business.id, repository, from, to, key]);
+    { report, error, refresh } = useReport(from, to);
   return (
     <>
-      <h2>Tus números</h2>
+      <div className="section-heading">
+        <div>
+          <span className="eyebrow">ENTIENDE CÓMO VA TU NEGOCIO</span>
+          <h2>Informes y resultados</h2>
+          <p className="muted">
+            Consulta un periodo de hasta 366 días y genera tus documentos.
+          </p>
+        </div>
+        <button onClick={refresh}>
+          <Icon name="history" />
+          Actualizar
+        </button>
+      </div>
       <div className="actions">
         <label>
           Desde
@@ -81,7 +66,7 @@ export default function Reports() {
                 ).toFixed(2) + " %"
               : "Sin ventas netas"}
           </p>
-          <div className="workspace-grid">
+          <div className="metric-grid">
             {[
               ["Ventas netas", report.salesMinor],
               ["Costo vendido neto", report.costMinor],
@@ -117,7 +102,7 @@ export default function Reports() {
                 <tbody>
                   {report.days.map((d) => (
                     <tr key={d.date}>
-                      <td>{d.date}</td>
+                      <td>{localDate(d.date)}</td>
                       <td>{bob(d.salesMinor)}</td>
                       <td>{bob(d.expensesMinor)}</td>
                     </tr>
@@ -163,42 +148,55 @@ export function Documents() {
     [busy, setBusy] = useState("");
   return (
     <>
-      <h2>Documentos no fiscales</h2>
+      <div className="section-heading">
+        <div>
+          <span className="eyebrow">EL ARCHIVO DE TU NEGOCIO</span>
+          <h2>Documentos</h2>
+        </div>
+        <span className="badge" data-state="neutral">
+          No fiscales
+        </span>
+      </div>
       <p>
         Conservan los datos originales. Regenerar un PDF no vuelve a registrar
         la operación.
       </p>
       {error && <p role="alert">{error}</p>}
       <Pager page={page} />
-      {page.items.map((d) => (
-        <article className="card" key={d.id}>
-          <h3>
-            {d.number} · {d.title}
-          </h3>
-          <p>
-            {d.businessName} · {d.date}
-          </p>
-          <button
-            disabled={!!busy}
-            onClick={() => {
-              setBusy(d.id);
-              setError("");
-              void import("./pdf")
-                .then((m) => m.saveDocument(d))
-                .catch((e) =>
-                  setError(
-                    e instanceof Error
-                      ? e.message
-                      : "No se pudo generar. Puedes reintentar este documento.",
-                  ),
-                )
-                .finally(() => setBusy(""));
-            }}
-          >
-            {busy === d.id ? "Preparando PDF…" : "Guardar / compartir PDF"}
-          </button>
-        </article>
-      ))}
+      <div className="document-grid">
+        {page.items.map((d) => (
+          <article className="card document-card" key={d.id}>
+            <span className="doc-icon">
+              <Icon name="document" />
+            </span>
+            <h3>
+              {d.number} · {d.title}
+            </h3>
+            <p>
+              {d.businessName} · {localDate(d.date)}
+            </p>
+            <button
+              disabled={!!busy}
+              onClick={() => {
+                setBusy(d.id);
+                setError("");
+                void import("./pdf")
+                  .then((m) => m.saveDocument(d))
+                  .catch((e) =>
+                    setError(
+                      e instanceof Error
+                        ? e.message
+                        : "No se pudo generar. Puedes reintentar este documento.",
+                    ),
+                  )
+                  .finally(() => setBusy(""));
+              }}
+            >
+              {busy === d.id ? "Preparando PDF…" : "Guardar / compartir PDF"}
+            </button>
+          </article>
+        ))}
+      </div>
     </>
   );
 }

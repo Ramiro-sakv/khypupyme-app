@@ -1,4 +1,6 @@
 import { amount, decimal, fraction } from "../../../shared/workspace/exact";
+import { ITEM_MODELS } from "../../../shared/workspace/catalog";
+import type { ItemDraft } from "../../../shared/workspace/model";
 import type { Method } from "../../../shared/workspace/model";
 export const bob = (minor: number) =>
   new Intl.NumberFormat("es-BO", { style: "currency", currency: "BOB" }).format(
@@ -45,4 +47,71 @@ export function averageCost(
   return (
     "Bs " + String(minor / 100n) + "," + String(minor % 100n).padStart(2, "0")
   );
+}
+
+export function localDate(value: string, time = false) {
+  if (!value) return "—";
+  const date = new Date(value.length === 10 ? value + "T12:00:00Z" : value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("es-BO", {
+    timeZone: "America/La_Paz",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    ...(time ? ({ hour: "2-digit", minute: "2-digit" } as const) : {}),
+  }).format(date);
+}
+export function statusLabel(value: string) {
+  return (
+    (
+      {
+        active: "Activo",
+        returned: "Devuelta",
+        pending: "Pendiente",
+        paid: "Pagado",
+        cancelled: "Anulado",
+        open: "Abierta",
+        closed: "Cerrada",
+        available: "Disponible",
+        sold: "Vendido",
+        inspection: "En inspección",
+        "written-off": "Baja",
+        received: "Recibido",
+        diagnosis: "En diagnóstico",
+        resolved: "Resuelto",
+        cash: "Efectivo",
+        qr: "QR",
+        transfer: "Transferencia",
+        credit: "Fiado",
+        sale: "Venta",
+        purchase: "Compra",
+        expense: "Gasto",
+        collection: "Cobro",
+        return: "Devolución",
+        exchange: "Cambio",
+        opening: "Stock inicial",
+        entry: "Entrada",
+        loss: "Salida con pérdida",
+        release: "Liberación",
+        "return-loss": "Devolución sin reingreso",
+        "expense-reversal": "Anulación de gasto",
+        aporte: "Aporte",
+        retiro: "Retiro",
+        payment: "Pago",
+        transferStock: "Transformación",
+      } as Record<string, string>
+    )[value] ?? "Registro"
+  );
+}
+
+export function itemDetails(item: Pick<ItemDraft, "kind" | "fields">) {
+  return ITEM_MODELS[item.kind].fields
+    .filter((field) => item.fields[field.key])
+    .map(
+      (field) =>
+        field.label.replace(": si o no", "").replace(": pieza o par", "") +
+        ": " +
+        item.fields[field.key],
+    )
+    .join(" · ");
 }

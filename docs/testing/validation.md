@@ -289,3 +289,29 @@ Paquetes locales excluidos de Git, con copias anteriores conservadas:
 Huella conjunta: artifacts/SHA256SUMS-beta4.txt. Requieren los emuladores locales; Android apunta a 10.0.2.2 y Windows a loopback. No se inició/detuvo la sesión habitual del propietario, no se limpiaron datos, no se crearon accesos y no hubo push ni despliegue.
 
 La incidencia previa de reingreso Windows/WebKit sigue **pendiente, sin corrección acreditada**. No se acredita funcionamiento comercial, aislamiento/concurrencia, contenido/paginación de PDF, dispositivos físicos ni servicio alojado.
+
+
+## 0.4.0-beta.2 — 07/11/2026: rediseño visual
+
+Interfaz profesional, estructura adaptable, navegación por vista, Inicio/Informes y Ventas/Cotizaciones separados, paneles con dialog nativo, tablas/tarjetas, estado textual, fechas bolivianas y advertencias por borradores. El negocio activo se identifica también en encabezado y paneles. Las consultas de resumen/caja utilizan contratos existentes; no cambiaron reglas, índices, servidor comercial, infraestructura ni cálculos compartidos.
+
+Verificaciones realmente ejecutadas:
+
+- pnpm lint: aprobado, salida 0.
+- pnpm typecheck: aprobado; el código final también pasó tsc --noEmit dentro de pnpm build.
+- pnpm build: aprobado, salida 0. CSS final ~28,85 kB (7,11 kB gzip), aplicación principal ~405,32 kB (127,51 kB gzip). SVG, tipografía del sistema y carga diferida sin nuevas dependencias visuales.
+- pnpm build:functions: aprobado, salida 0; solo cambia metadato de versión del paquete, sin cambios del servidor.
+- pnpm android:build: aprobado, salida 0; 154 tareas, 33 ejecutadas y 121 actualizadas, 1 min 9 s.
+- pnpm windows:build: aprobado, salida 0; Rust release y NSIS x64.
+- git diff --check: aprobado. Revisión básica de patrones de secretos en staging sin coincidencias. Datos, logs, credenciales locales y artefactos fuera del commit.
+
+No ejecutados por instrucción del propietario: pnpm check, pruebas unitarias/integración/reglas/E2E, capturas, vídeos, recorridos automáticos, revisión visual del diseño, PDF ni instalación/arranque en dispositivos. Los puntos 360/768/1100/1440 px son decisiones de CSS, no tamaños comprobados mediante navegador. No se acredita corrección del reingreso Windows/WebKit ni se sustituyen resultados pendientes de la beta anterior.
+
+Vite mantiene el aviso de tamaño de pdfmake y fuentes, que se cargan únicamente al generar un documento. Gradle conserva avisos de flatDir y versiones de herramientas/XML del SDK; no impidieron compilar. No se cambiaron herramientas del propietario.
+
+Paquetes nuevos excluidos de Git, conservando anteriores:
+
+- KhypuPyme-0.4.0-beta.2-android-debug.apk: **5427877 bytes**, SHA-256 0aacad9d34ecd0fb8e3b4449a27f033ee4e24910f2303be7c7fb90fa8c7192cc.
+- KhypuPyme-0.4.0-beta.2-windows-x64-setup.exe: **2442649 bytes**, SHA-256 823a344d8b2e9e52c8e2478c54587aa289a74e1ecb32b4288c30791543480344.
+
+Huellas: artifacts/SHA256SUMS-beta4b2.txt. Paquetes locales de prueba que necesitan emuladores encendidos. No se instalaron, publicaron ni generaron accesos; no se inició/detuvo la sesión habitual ni se tocaron datos del propietario.

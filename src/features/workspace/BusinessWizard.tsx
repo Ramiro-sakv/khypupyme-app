@@ -1,3 +1,5 @@
+import { Icon } from "./Icon";
+import { confirmDiscardChanges } from "./navigation";
 import { useState } from "react";
 import type { BusinessAnswers } from "../../../shared/workspace/model";
 import { INDUSTRIES, INDUSTRY_IDS } from "../../../shared/business-industries";
@@ -33,14 +35,23 @@ export default function BusinessWizard({
     ),
     [answers, setAnswers] = useState<BusinessAnswers>({ ...DEFAULT_ANSWERS });
   return (
-    <section className="card">
-      <span className="eyebrow">PASO {stage + 1} DE 3</span>
+    <section className="card wizard">
+      <ol className="wizard-progress" aria-label="Progreso de creación">
+        {["Tu actividad", "Forma de trabajar", "Confirmación"].map(
+          (label, index) => (
+            <li key={label} aria-current={stage === index ? "step" : undefined}>
+              <span>{stage > index ? <Icon name="check" /> : index + 1}</span>
+              {label}
+            </li>
+          ),
+        )}
+      </ol>
       <h1>
         {initialName
           ? "Confirma el rubro de tu negocio"
           : "Un espacio para tu negocio"}
       </h1>
-      <p>
+      <p className="wizard-intro">
         Cada negocio tiene inventario, ventas, caja y documentos independientes.
         Su rubro queda fijo; puedes crear otro espacio con esta misma cuenta.
       </p>
@@ -59,17 +70,33 @@ export default function BusinessWizard({
             value={name}
             maxLength={80}
           />
-          <label>
-            Tipo de negocio
-            <select name="industry" defaultValue={industry}>
+          <fieldset>
+            <legend>Elige el tipo de negocio</legend>
+            <div className="industry-options">
               {INDUSTRY_IDS.map((id) => (
-                <option key={id} value={id}>
-                  {INDUSTRIES[id].name}
-                  {specialized(id) ? "" : " · núcleo común"}
-                </option>
+                <label className="industry-choice" key={id}>
+                  <input
+                    type="radio"
+                    name="industry"
+                    value={id}
+                    defaultChecked={industry === id}
+                    required
+                  />
+                  <span>
+                    <strong>{INDUSTRIES[id].name}</strong>
+                    <small>
+                      {specialized(id)
+                        ? "Modelo especializado"
+                        : "Núcleo común"}
+                    </small>
+                    <small className="industry-help">
+                      {INDUSTRIES[id].description}
+                    </small>
+                  </span>
+                </label>
               ))}
-            </select>
-          </label>
+            </div>
+          </fieldset>
         </ActionForm>
       )}
       {stage === 1 && (
@@ -153,7 +180,12 @@ export default function BusinessWizard({
             required={false}
             maxLength={300}
           />
-          <button type="button" onClick={() => setStage(0)}>
+          <button
+            type="button"
+            onClick={() => {
+              if (confirmDiscardChanges()) setStage(0);
+            }}
+          >
             Atrás
           </button>
         </ActionForm>
@@ -164,22 +196,30 @@ export default function BusinessWizard({
           label="Confirmar y comenzar"
           onSave={async () => onConfirm(name, industry, answers)}
         >
-          <h2>{name}</h2>
-          <p>{industryLabel(industry)} · BOB · America/La_Paz</p>
-          <p>
-            {answers.address} {answers.phone}
-          </p>
-          <p>
-            Internet requerido. Documentos no fiscales.{" "}
-            {specialized(industry)
-              ? "Modelo especializado habilitado."
-              : "Núcleo común; sin procesos especializados para este rubro."}
-          </p>
+          <div className="wizard-summary">
+            <span className="eyebrow">TU NEGOCIO ESTÁ LISTO PARA EMPEZAR</span>
+            <h2>{name}</h2>
+            <p>{industryLabel(industry)} · BOB · America/La_Paz</p>
+            <p>
+              {answers.address} {answers.phone}
+            </p>
+            <p>
+              Internet requerido. Documentos no fiscales.{" "}
+              {specialized(industry)
+                ? "Modelo especializado habilitado."
+                : "Núcleo común; sin procesos especializados para este rubro."}
+            </p>
+          </div>
           <label>
             <input type="checkbox" required />
             Confirmo este rubro fijo y la separación de los datos.
           </label>
-          <button type="button" onClick={() => setStage(1)}>
+          <button
+            type="button"
+            onClick={() => {
+              if (confirmDiscardChanges()) setStage(1);
+            }}
+          >
             Atrás
           </button>
         </ActionForm>

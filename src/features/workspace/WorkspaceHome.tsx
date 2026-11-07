@@ -1,9 +1,16 @@
 import { lazy, Suspense, useState } from "react";
 import type { ComponentType, ReactNode } from "react";
+import { Panel } from "./Panel";
+import { Navigate } from "react-router";
 import { useWorkspace } from "./context";
+import { Icon } from "./Icon";
+import type { IconName } from "./Icon";
+import { useWorkspaceNavigation } from "./navigation";
+import { industryLabel } from "../../../shared/workspace/catalog";
 const Catalog = lazy(() => import("./Catalog")),
   Trade = lazy(() => import("./Trade")),
   Reports = lazy(() => import("./Reports")),
+  Dashboard = lazy(() => import("./Dashboard")),
   Documents = lazy(() =>
     import("./Reports").then((m) => ({ default: m.Documents })),
   ),
@@ -35,96 +42,206 @@ const models: Record<string, ComponentType<{ children: ReactNode }>> = {
   ceramics: lazy(() => import("./modules/Ceramics")),
   cement: lazy(() => import("./modules/Cement")),
 };
-const tabs = [
-  ["dashboard", "Inicio e informes"],
-  ["catalog", "Catálogo"],
-  ["purchase", "Compras"],
-  ["sale", "Ventas y cotizaciones"],
-  ["cash", "Caja"],
-  ["customers", "Clientes"],
-  ["debts", "Fiados"],
-  ["expenses", "Gastos"],
-  ["documents", "Documentos"],
-  ["preferences", "Mi negocio"],
-] as const;
+const groups: {
+  label: string;
+  items: { id: string; label: string; icon: IconName }[];
+}[] = [
+  {
+    label: "Tu negocio",
+    items: [{ id: "inicio", label: "Inicio", icon: "home" }],
+  },
+  {
+    label: "Operaciones",
+    items: [
+      { id: "ventas", label: "Ventas", icon: "sale" },
+      { id: "cotizaciones", label: "Cotizaciones", icon: "document" },
+      { id: "inventario", label: "Inventario", icon: "box" },
+      { id: "compras", label: "Compras", icon: "purchase" },
+      { id: "caja", label: "Caja", icon: "cash" },
+    ],
+  },
+  {
+    label: "Gestión",
+    items: [
+      { id: "clientes", label: "Clientes", icon: "users" },
+      { id: "fiados", label: "Fiados", icon: "debt" },
+      { id: "gastos", label: "Gastos", icon: "expense" },
+    ],
+  },
+  {
+    label: "Análisis y archivo",
+    items: [
+      { id: "informes", label: "Informes", icon: "chart" },
+      { id: "documentos", label: "Documentos", icon: "document" },
+      { id: "negocio", label: "Mi negocio", icon: "settings" },
+    ],
+  },
+];
 export default function WorkspaceHome() {
   const { business } = useWorkspace(),
-    [tab, setTab] = useState("dashboard"),
+    { view, go } = useWorkspaceNavigation(),
+    [more, setMore] = useState(false),
     Model = models[business.industryId ?? ""];
+  const sections = [
+    ...groups.flatMap((g) => g.items),
+    ...(business.industryId === "appliances"
+      ? [{ id: "garantias", label: "Garantías", icon: "shield" as const }]
+      : []),
+    ...(business.legacy
+      ? [
+          {
+            id: "anteriores",
+            label: "Registros anteriores",
+            icon: "history" as const,
+          },
+        ]
+      : []),
+  ];
+  if (!sections.some((s) => s.id === view))
+    return <Navigate to="?vista=inicio" replace />;
   let content: ReactNode;
-  switch (tab) {
-    case "catalog":
+  switch (view) {
+    case "inventario":
       content = <Catalog />;
       break;
-    case "purchase":
-      content = <Trade purchase />;
+    case "compras":
+      content = <Trade key="compras" purchase />;
       break;
-    case "sale":
-      content = <Trade />;
+    case "ventas":
+      content = <Trade key="ventas" />;
       break;
-    case "cash":
+    case "cotizaciones":
+      content = <Trade key="cotizaciones" initialQuote />;
+      break;
+    case "caja":
       content = <Cash />;
       break;
-    case "customers":
+    case "clientes":
       content = <Customers />;
       break;
-    case "debts":
+    case "fiados":
       content = <Debts />;
       break;
-    case "expenses":
+    case "gastos":
       content = <Expenses />;
       break;
-    case "documents":
+    case "documentos":
       content = <Documents />;
       break;
-    case "preferences":
+    case "negocio":
       content = <Preferences />;
       break;
-    case "warranty":
+    case "garantias":
       content = <Warranty />;
       break;
-    case "legacy":
+    case "anteriores":
       content = <Legacy />;
       break;
-    default:
+    case "informes":
       content = <Reports />;
+      break;
+    default:
+      content = <Dashboard />;
+  }
+  function item(id: string, mobile = false) {
+    const s = sections.find((s) => s.id === id)!;
+    return (
+      <button
+        key={id}
+        title={s.label}
+        aria-label={s.label}
+        aria-current={view === id ? "page" : undefined}
+        onClick={() => {
+          go(id);
+          setMore(false);
+        }}
+      >
+        <Icon name={s.icon} />
+        <span>{mobile && id === "ventas" ? "Vender" : s.label}</span>
+      </button>
+    );
   }
   return (
-    <>
-      <nav className="workspace-nav" aria-label="Herramientas del negocio">
-        {tabs.map(([id, label]) => (
-          <button
-            key={id}
-            aria-current={tab === id ? "page" : undefined}
-            onClick={() => setTab(id)}
-          >
-            {label}
-          </button>
-        ))}
-        {business.industryId === "appliances" && (
-          <button
-            aria-current={tab === "warranty" ? "page" : undefined}
-            onClick={() => setTab("warranty")}
-          >
-            Garantías
-          </button>
-        )}
-        {business.legacy && (
-          <button
-            aria-current={tab === "legacy" ? "page" : undefined}
-            onClick={() => setTab("legacy")}
-          >
-            Registros anteriores
-          </button>
-        )}
+    <div className="workspace-shell">
+      <aside className="sidebar">
+        <div className="sidebar-business">
+          <span className="business-symbol">
+            <Icon name="box" />
+          </span>
+          <div>
+            <strong>{business.name}</strong>
+            <small>{industryLabel(business.industryId)}</small>
+          </div>
+        </div>
+        <nav aria-label="Herramientas del negocio">
+          {groups.map((g) => (
+            <section className="nav-group" key={g.label}>
+              <h2>{g.label}</h2>
+              {g.items.map((s) => item(s.id))}
+            </section>
+          ))}
+          {sections.some((s) => s.id === "garantias") && item("garantias")}
+          {business.legacy && item("anteriores")}
+        </nav>
+        <div className="sidebar-foot">
+          <Icon name="shield" />
+          <span>
+            Espacio independiente
+            <br />
+            <strong>BOB · Bolivia</strong>
+          </span>
+        </div>
+      </aside>
+      <div className="workspace-content" id="workspace-content">
+        <Suspense
+          fallback={
+            <div className="loading-state card" role="status">
+              <span className="spinner" />
+              Abriendo herramienta…
+            </div>
+          }
+        >
+          {Model &&
+          ["inventario", "compras", "ventas", "cotizaciones"].includes(view) ? (
+            <Model>{content}</Model>
+          ) : (
+            content
+          )}
+        </Suspense>
+      </div>
+      <nav className="mobile-nav" aria-label="Navegación móvil">
+        {["inicio", "ventas", "inventario", "caja"].map((id) => item(id, true))}
+        <button
+          aria-current={
+            ["inicio", "ventas", "inventario", "caja"].includes(view)
+              ? undefined
+              : "page"
+          }
+          aria-expanded={more}
+          aria-controls="more-menu"
+          onClick={() => setMore((v) => !v)}
+        >
+          <Icon name="grid" />
+          <span>Más</span>
+        </button>
       </nav>
-      <Suspense fallback={<p role="status">Abriendo módulo…</p>}>
-        {Model && ["catalog", "purchase", "sale"].includes(tab) ? (
-          <Model>{content}</Model>
-        ) : (
-          content
-        )}
-      </Suspense>
-    </>
+      {more && (
+        <Panel
+          id="more-menu"
+          title="Herramientas"
+          className="navigation-panel"
+          onClose={() => setMore(false)}
+        >
+          <nav className="mobile-tools" aria-label="Más herramientas">
+            {sections
+              .filter(
+                (s) =>
+                  !["inicio", "ventas", "inventario", "caja"].includes(s.id),
+              )
+              .map((s) => item(s.id))}
+          </nav>
+        </Panel>
+      )}
+    </div>
   );
 }

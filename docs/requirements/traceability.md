@@ -56,3 +56,11 @@ Beta 3 implementa catálogo investigado de 21 rubros en el alta del negocio, agr
 | Paquetes y perfil alojado | Android/Windows, perfil explícito | Solo paquetes locales; cloud/publicación fuera de autorización |
 
 Pruebas omitidas por la instrucción más reciente del propietario: no trasladar resultados de beta 3 a 0.4. No se cambia ni inventa RNF-04.
+
+
+## Presentación 0.4.0-beta.2 — 07/11/2026
+
+- Diseño profesional común, detalles por rubro, navegación adaptable y negocio activo: WorkspaceHome, WorkspaceApp, estilos e iconos locales.
+- Inicio/Informes y Ventas/Cotizaciones separados: Dashboard, useReport, Reports y Trade; importes y comandos originales conservados.
+- Usabilidad: paneles, tablas/tarjetas, asistente, fechas/estados en español y avisos de borradores. Sin nuevos permisos, reglas, contratos ni datos comerciales.
+- Evidencia: lint/TypeScript/build e instaladores; no ejecutadas pruebas ni revisión visual de 360/768/1100/1440, dispositivos, PDF o recorridos. Incidencia Windows/WebKit sin revalidar.

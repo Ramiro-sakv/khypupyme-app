@@ -1,3 +1,4 @@
+import { confirmDiscardChanges } from "./navigation";
 import { useState } from "react";
 import type {
   CashSession,
@@ -6,9 +7,14 @@ import type {
 } from "../../../shared/workspace/model";
 import { useRecords, useWorkspace } from "./context";
 import { ActionForm, Field, MethodField, Pager } from "./ui";
+import { localDate, statusLabel } from "./format";
+import { Icon } from "./Icon";
 import { bob, cents, method, today } from "./format";
 export function Cash() {
   const { run, busy } = useWorkspace(),
+    currentSession = useRecords<CashSession>("cashSessions", {
+      status: "open",
+    }),
     sessions = useRecords<CashSession>("cashSessions"),
     entries = useRecords<{
       id: string;
@@ -18,7 +24,7 @@ export function Cash() {
       method: string;
       createdAt: string;
     }>("cashEntries");
-  const open = sessions.items.find((s) => s.status === "open");
+  const open = currentSession.items[0];
   return (
     <>
       <h2>Caja del negocio</h2>
@@ -26,31 +32,42 @@ export function Cash() {
         Una sesión puede cruzar medianoche. Una caja cerrada conserva sus
         movimientos.
       </p>
-      <Pager page={sessions} />
-      {open ? (
-        <section className="card">
-          <h3>Caja abierta desde {open.openedAt}</h3>
+      {currentSession.loading ? (
+        <p className="loading-state" role="status">
+          Consultando la caja actual…
+        </p>
+      ) : currentSession.error ? (
+        <p role="alert" className="notice notice-error">
+          {currentSession.error}
+        </p>
+      ) : open ? (
+        <section className="card cash-current">
+          <span className="badge">Caja abierta</span>
+          <h3>Caja abierta desde {localDate(open.openedAt, true)}</h3>
           <strong>Efectivo esperado: {bob(open.balanceMinor)}</strong>
-          <ActionForm
-            disabled={busy}
-            label="Cerrar caja y emitir comprobante"
-            onSave={(d) =>
-              run({
-                kind: "close-cash",
-                input: {
-                  countedMinor: cents(d.get("counted")),
-                  reason: String(d.get("reason") ?? ""),
-                },
-              })
-            }
-          >
-            <Field name="counted" label="Efectivo contado (BOB)" />
-            <Field
-              name="reason"
-              label="Motivo de diferencia (obligatorio si hay diferencia)"
-              required={false}
-            />
-          </ActionForm>
+          <details className="correction-actions">
+            <summary>Cerrar y conciliar esta caja</summary>
+            <ActionForm
+              disabled={busy}
+              label="Cerrar caja y emitir comprobante"
+              onSave={(d) =>
+                run({
+                  kind: "close-cash",
+                  input: {
+                    countedMinor: cents(d.get("counted")),
+                    reason: String(d.get("reason") ?? ""),
+                  },
+                })
+              }
+            >
+              <Field name="counted" label="Efectivo contado (BOB)" />
+              <Field
+                name="reason"
+                label="Motivo de diferencia (obligatorio si hay diferencia)"
+                required={false}
+              />
+            </ActionForm>
+          </details>
           <ActionForm
             disabled={busy}
             label="Registrar aporte o retiro"
@@ -96,11 +113,13 @@ export function Cash() {
           </ActionForm>
         </section>
       )}
-      <h3>Sesiones</h3>
+      <h3>Sesiones anteriores y actuales</h3>
+      <Pager page={sessions} />
       {sessions.items.map((s) => (
         <p key={s.id}>
-          {s.openedAt} · {s.status === "open" ? "Abierta" : "Cerrada"} ·
-          esperado {bob(s.balanceMinor)}{" "}
+          {localDate(s.openedAt, true)} ·{" "}
+          {s.status === "open" ? "Abierta" : "Cerrada"} · esperado{" "}
+          {bob(s.balanceMinor)}{" "}
           {s.differenceMinor !== null
             ? `· diferencia ${bob(s.differenceMinor)}`
             : ""}
@@ -110,7 +129,8 @@ export function Cash() {
       <Pager page={entries} />
       {entries.items.map((e) => (
         <p key={e.id}>
-          {e.createdAt} · {e.source} · {e.method} · {bob(e.amountMinor)}
+          {localDate(e.createdAt, true)} · {statusLabel(e.source)} ·{" "}
+          {statusLabel(e.method)} · {bob(e.amountMinor)}
         </p>
       ))}
     </>
@@ -123,7 +143,12 @@ export function Customers() {
   return (
     <>
       <h2>Clientes</h2>
-      <section className="card" key={edit?.id ?? "new"}>
+      <details
+        className="card record-editor"
+        key={edit?.id ?? "new"}
+        open={edit ? true : undefined}
+      >
+        <summary>{edit ? "Editar cliente" : "Nuevo cliente"}</summary>
         <ActionForm
           disabled={busy}
           label={edit ? "Guardar cliente" : "Crear cliente"}
@@ -164,20 +189,82 @@ export function Customers() {
           </label>
         </ActionForm>
         {edit && (
-          <button onClick={() => setEdit(null)}>Cancelar edición</button>
+          <button
+            onClick={() => {
+              if (confirmDiscardChanges()) setEdit(null);
+            }}
+          >
+            Cancelar edición
+          </button>
         )}
-      </section>
+      </details>
       <Pager page={page} />
-      {page.items.map((c) => (
-        <article key={c.id} className="card">
-          <h3>{c.name}</h3>
-          <p>
-            {c.phone} · {c.active ? "Activo" : "Archivado"}
-          </p>
-          <p>{c.notes}</p>
-          <button onClick={() => setEdit(c)}>Editar / archivar</button>
-        </article>
-      ))}
+      <div className="table-scroll desktop-records">
+        <table>
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>Teléfono</th>
+              <th>Estado</th>
+              <th>
+                <span className="sr-only">Acciones</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {page.items.map((c) => (
+              <tr key={c.id}>
+                <td>
+                  <strong>{c.name}</strong>
+                  <small>{c.notes}</small>
+                </td>
+                <td>{c.phone || "—"}</td>
+                <td>
+                  <span
+                    className="badge"
+                    data-state={c.active ? "active" : "neutral"}
+                  >
+                    {c.active ? "Activo" : "Archivado"}
+                  </span>
+                </td>
+                <td>
+                  <button
+                    onClick={() => {
+                      if (confirmDiscardChanges()) setEdit(c);
+                    }}
+                  >
+                    Editar / archivar
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="records-grid mobile-records">
+        {page.items.map((c) => (
+          <article key={c.id} className="card list-card">
+            <h3>{c.name}</h3>
+            <p>
+              {c.phone} ·{" "}
+              <span
+                className="badge"
+                data-state={c.active ? "active" : "neutral"}
+              >
+                {c.active ? "Activo" : "Archivado"}
+              </span>
+            </p>
+            <p>{c.notes}</p>
+            <button
+              onClick={() => {
+                if (confirmDiscardChanges()) setEdit(c);
+              }}
+            >
+              Editar / archivar
+            </button>
+          </article>
+        ))}
+      </div>
     </>
   );
 }
@@ -195,7 +282,11 @@ export function Debts() {
   return (
     <>
       <h2>Fiados y cobros completos</h2>
-      <section className="card">
+      <details className="card record-editor">
+        <summary>
+          <Icon name="plus" />
+          Registrar una deuda anterior
+        </summary>
         <ActionForm
           disabled={busy}
           label="Registrar deuda previa (no registra una venta)"
@@ -217,48 +308,59 @@ export function Debts() {
           <Field name="description" label="Concepto" />
           <Field name="date" label="Fecha" type="date" value={today()} />
         </ActionForm>
-      </section>
+      </details>
       <Pager page={page} />
-      {page.items.map((d) => (
-        <article key={d.id} className="card">
-          <h3>
-            {d.customerName} · {bob(d.amountMinor)}
-          </h3>
-          <p>
-            {d.description} · {d.status}
-          </p>
-          {d.status === "pending" && (
-            <>
-              <ActionForm
-                disabled={busy}
-                label="Cobrar saldo completo"
-                onSave={(f) =>
-                  run({
-                    kind: "collect",
-                    input: { id: d.id, method: method(f) },
-                  })
-                }
-              >
-                <MethodField />
-              </ActionForm>
-              {d.origin === "manual" && (
-                <ActionForm
-                  disabled={busy}
-                  label="Anular deuda"
-                  onSave={(f) =>
-                    run({
-                      kind: "cancel-debt",
-                      input: { id: d.id, reason: String(f.get("reason")) },
-                    })
-                  }
-                >
-                  <Field name="reason" label="Motivo" />
-                </ActionForm>
-              )}
-            </>
-          )}
-        </article>
-      ))}
+      <div className="records-grid">
+        {page.items.map((d) => (
+          <article key={d.id} className="card list-card">
+            <h3>
+              {d.customerName} · {bob(d.amountMinor)}
+            </h3>
+            <p>
+              {d.description} ·{" "}
+              <span className="badge" data-state={d.status}>
+                {statusLabel(d.status)}
+              </span>
+            </p>
+            {d.status === "pending" && (
+              <>
+                <details className="record-action">
+                  <summary>Cobrar este fiado</summary>
+                  <ActionForm
+                    disabled={busy}
+                    label="Cobrar saldo completo"
+                    onSave={(f) =>
+                      run({
+                        kind: "collect",
+                        input: { id: d.id, method: method(f) },
+                      })
+                    }
+                  >
+                    <MethodField />
+                  </ActionForm>
+                </details>
+                {d.origin === "manual" && (
+                  <details className="correction-actions">
+                    <summary>Corregir deuda anterior</summary>
+                    <ActionForm
+                      disabled={busy}
+                      label="Anular deuda"
+                      onSave={(f) =>
+                        run({
+                          kind: "cancel-debt",
+                          input: { id: d.id, reason: String(f.get("reason")) },
+                        })
+                      }
+                    >
+                      <Field name="reason" label="Motivo" />
+                    </ActionForm>
+                  </details>
+                )}
+              </>
+            )}
+          </article>
+        ))}
+      </div>
     </>
   );
 }
@@ -275,7 +377,11 @@ export function Expenses() {
     <>
       <h2>Gastos operativos</h2>
       <p>Las compras de inventario se registran en Compras.</p>
-      <section className="card">
+      <details className="card record-editor">
+        <summary>
+          <Icon name="plus" />
+          Registrar gasto
+        </summary>
         <ActionForm
           disabled={busy}
           label="Registrar gasto y pago"
@@ -298,32 +404,40 @@ export function Expenses() {
           <Field name="date" label="Fecha" type="date" value={today()} />
           <MethodField />
         </ActionForm>
-      </section>
+      </details>
       <Pager page={page} />
-      {page.items.map((e) => (
-        <article className="card" key={e.id}>
-          <strong>
-            {e.description} · {bob(e.amountMinor)}
-          </strong>
-          <p>
-            {e.date} · {e.status}
-          </p>
-          {e.status === "active" && (
-            <ActionForm
-              disabled={busy}
-              label="Anular gasto con evidencia"
-              onSave={(d) =>
-                run({
-                  kind: "cancel-expense",
-                  input: { id: e.id, reason: String(d.get("reason")) },
-                })
-              }
-            >
-              <Field name="reason" label="Motivo" />
-            </ActionForm>
-          )}
-        </article>
-      ))}
+      <div className="records-grid">
+        {page.items.map((e) => (
+          <article className="card list-card" key={e.id}>
+            <strong>
+              {e.description} · {bob(e.amountMinor)}
+            </strong>
+            <p>
+              {localDate(e.date)} ·{" "}
+              <span className="badge" data-state={e.status}>
+                {statusLabel(e.status)}
+              </span>
+            </p>
+            {e.status === "active" && (
+              <details className="correction-actions">
+                <summary>Anular este gasto</summary>
+                <ActionForm
+                  disabled={busy}
+                  label="Anular gasto con evidencia"
+                  onSave={(d) =>
+                    run({
+                      kind: "cancel-expense",
+                      input: { id: e.id, reason: String(d.get("reason")) },
+                    })
+                  }
+                >
+                  <Field name="reason" label="Motivo" />
+                </ActionForm>
+              </details>
+            )}
+          </article>
+        ))}
+      </div>
     </>
   );
 }
@@ -390,7 +504,9 @@ export function Warranty() {
                   l.allocations.map((a) => (
                     <option key={a.stockId} value={a.stockId}>
                       {a.serial} · garantía hasta{" "}
-                      {l.warrantyUntil || "sin garantía declarada"}
+                      {l.warrantyUntil
+                        ? localDate(l.warrantyUntil)
+                        : "sin garantía declarada"}
                     </option>
                   )),
                 )}
@@ -419,7 +535,7 @@ export function Warranty() {
       <Pager page={claims} />
       {claims.items.map((c) => (
         <p key={c.id}>
-          {c.description} · {c.status} · {c.resolution}
+          {c.description} · {statusLabel(c.status)} · {c.resolution}
         </p>
       ))}
     </>

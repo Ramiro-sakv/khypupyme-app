@@ -1,4 +1,8 @@
 import { CustomerSelector } from "./CustomerSelector";
+import { Panel } from "./Panel";
+import { Icon } from "./Icon";
+import { confirmDiscardChanges } from "./navigation";
+import { localDate, statusLabel, itemDetails } from "./format";
 import { useState } from "react";
 import type {
   Item,
@@ -70,13 +74,19 @@ function receiptInputs(lines: CartLine[]): ReceiptLineInput[] {
     serials: l.serials,
   }));
 }
-export default function Trade({ purchase = false }: { purchase?: boolean }) {
+export default function Trade({
+  purchase = false,
+  initialQuote = false,
+}: {
+  purchase?: boolean;
+  initialQuote?: boolean;
+}) {
   const { business, repository, run, busy } = useWorkspace(),
     page = useRecords<Item>("items"),
     [lines, setLines] = useState<CartLine[]>([]),
     [barcode, setBarcode] = useState(""),
     [error, setError] = useState(""),
-    [isQuote, setIsQuote] = useState(false),
+    [isQuote, setIsQuote] = useState(initialQuote),
     [quoteId, setQuoteId] = useState(""),
     [customerName, setCustomerName] = useState(""),
     [customerId, setCustomerId] = useState(""),
@@ -137,190 +147,217 @@ export default function Trade({ purchase = false }: { purchase?: boolean }) {
             ? "Cotización sin reserva de stock"
             : "Nueva venta"}
       </h2>
-      {!purchase && (
-        <label>
-          <input
-            type="checkbox"
-            checked={isQuote}
-            onChange={(e) => {
-              setIsQuote(e.target.checked);
-              setQuoteId("");
-            }}
-          />
-          Preparar cotización (7 días de vigencia inicial)
-        </label>
-      )}
-      <div className="card">
+      <p className="muted">
+        {purchase
+          ? "Selecciona los productos, declara su costo y revisa el pago."
+          : isQuote
+            ? "La cotización no reserva existencias. Su vigencia inicial es de siete días."
+            : quoteId
+              ? "Revisa la cotización original y confirma la venta con las existencias actuales."
+              : "Selecciona productos y servicios. Revisa las cantidades y el total antes de confirmar."}
+      </p>
+      <div className="trade-layout">
+        <section className="trade-picker">
+          <div className="card">
+            <div className="section-heading">
+              <h3>Seleccionar productos</h3>
+              <Icon name="box" />
+            </div>
+            <ActionForm
+              disabled={busy}
+              className="barcode-search"
+              protectDraft={false}
+              label="Buscar código"
+              onSave={async () => {
+                const result = await repository.list<Item>({
+                  apiVersion: 2,
+                  businessId: business.id,
+                  resource: "items",
+                  barcode: barcode.trim().toUpperCase(),
+                });
+                if (!result.items[0])
+                  throw new Error("No se encontró ese código en este negocio.");
+                addItem(result.items[0]);
+                setBarcode("");
+              }}
+            >
+              <label>
+                Código de producto / lector como teclado
+                <input
+                  value={barcode}
+                  onChange={(e) => setBarcode(e.target.value)}
+                  autoComplete="off"
+                />
+              </label>
+            </ActionForm>
+            <Pager page={page} />
+            <div className="product-picker">
+              {page.items
+                .filter((i) => i.active && (!purchase || i.kind !== "service"))
+                .map((item) => (
+                  <button key={item.id} onClick={() => addItem(item)}>
+                    <strong>{item.name}</strong>
+                    <small>
+                      {itemDetails(item)} · {bob(item.priceMinor)}/
+                      {UNITS[item.priceUnit]}
+                    </small>
+                  </button>
+                ))}
+            </div>
+          </div>
+        </section>
         <ActionForm
-          disabled={busy}
-          label="Buscar código"
-          onSave={async () => {
-            const result = await repository.list<Item>({
-              apiVersion: 2,
-              businessId: business.id,
-              resource: "items",
-              barcode: barcode.trim().toUpperCase(),
-            });
-            if (!result.items[0])
-              throw new Error("No se encontró ese código en este negocio.");
-            addItem(result.items[0]);
-            setBarcode("");
+          className="trade-form"
+          dirty={lines.length > 0}
+          disabled={busy || !lines.length}
+          label={
+            purchase
+              ? "Confirmar compra y pago"
+              : isQuote
+                ? "Emitir cotización"
+                : "Confirmar venta"
+          }
+          onSave={async (d) => {
+            if (total <= 0)
+              throw new Error("Revisa cantidades, precios y descuento.");
+            if (d.get("review") !== "on")
+              throw new Error("Confirma el importe antes de guardar.");
+            let result;
+            if (purchase)
+              result = await run({
+                kind: "purchase",
+                input: {
+                  lines: receiptInputs(lines),
+                  method: method(d),
+                  date: String(d.get("date")),
+                  reference: String(d.get("reference") ?? ""),
+                },
+              });
+            else if (isQuote)
+              result = await run({
+                kind: "quote",
+                input: {
+                  lines: saleInputs(lines),
+                  customerId,
+                  customerName,
+                  discountMinor: cents(discount),
+                  validUntil: String(d.get("validUntil")),
+                },
+              });
+            else
+              result = await run({
+                kind: "sale",
+                input: {
+                  lines: saleInputs(lines),
+                  method: String(d.get("method")) as Method | "credit",
+                  date: String(d.get("date")),
+                  customerId,
+                  customerName,
+                  discountMinor: cents(discount),
+                  quoteId,
+                },
+              });
+            if (result) {
+              setLines([]);
+              setQuoteId("");
+              setDiscount("0");
+              if (initialQuote) setIsQuote(true);
+            }
           }}
         >
-          <label>
-            Código de producto / lector como teclado
-            <input
-              value={barcode}
-              onChange={(e) => setBarcode(e.target.value)}
-              autoComplete="off"
+          <div className="section-heading">
+            <h3>Detalle de la operación</h3>
+            <span className="badge">{lines.length} líneas</span>
+          </div>
+          {error && (
+            <p role="alert" className="notice notice-error">
+              {error}
+            </p>
+          )}
+          {!lines.length && (
+            <div className="empty-state">
+              <Icon name="sale" />
+              <strong>Empieza seleccionando un producto</strong>
+              <p>Las cantidades y el importe aparecerán aquí.</p>
+            </div>
+          )}
+          {lines.map((line, index) => (
+            <CartEditor
+              key={line.item.id}
+              line={line}
+              purchase={purchase}
+              quote={isQuote}
+              update={(patch) =>
+                setLines((old) =>
+                  old.map((l, i) => (i === index ? { ...l, ...patch } : l)),
+                )
+              }
+              remove={() =>
+                setLines((old) => old.filter((_, i) => i !== index))
+              }
             />
-          </label>
-        </ActionForm>
-        <Pager page={page} />
-        <div className="product-picker">
-          {page.items
-            .filter((i) => i.active && (!purchase || i.kind !== "service"))
-            .map((item) => (
-              <button key={item.id} onClick={() => addItem(item)}>
-                <strong>{item.name}</strong>
-                <small>
-                  {Object.values(item.fields).filter(Boolean).join(" · ")} ·{" "}
-                  {bob(item.priceMinor)}/{UNITS[item.priceUnit]}
-                </small>
-              </button>
-            ))}
-        </div>
-      </div>
-      {error && <p role="alert">{error}</p>}
-      <ActionForm
-        disabled={busy || !lines.length}
-        label={
-          purchase
-            ? "Confirmar compra y pago"
-            : isQuote
-              ? "Emitir cotización"
-              : "Confirmar venta"
-        }
-        onSave={async (d) => {
-          if (total <= 0)
-            throw new Error("Revisa cantidades, precios y descuento.");
-          if (d.get("review") !== "on")
-            throw new Error("Confirma el importe antes de guardar.");
-          let result;
-          if (purchase)
-            result = await run({
-              kind: "purchase",
-              input: {
-                lines: receiptInputs(lines),
-                method: method(d),
-                date: String(d.get("date")),
-                reference: String(d.get("reference") ?? ""),
-              },
-            });
-          else if (isQuote)
-            result = await run({
-              kind: "quote",
-              input: {
-                lines: saleInputs(lines),
-                customerId,
-                customerName,
-                discountMinor: cents(discount),
-                validUntil: String(d.get("validUntil")),
-              },
-            });
-          else
-            result = await run({
-              kind: "sale",
-              input: {
-                lines: saleInputs(lines),
-                method: String(d.get("method")) as Method | "credit",
-                date: String(d.get("date")),
-                customerId,
-                customerName,
-                discountMinor: cents(discount),
-                quoteId,
-              },
-            });
-          if (result) {
-            setLines([]);
-            setQuoteId("");
-            setDiscount("0");
-          }
-        }}
-      >
-        {lines.map((line, index) => (
-          <CartEditor
-            key={line.item.id}
-            line={line}
-            purchase={purchase}
-            quote={isQuote}
-            update={(patch) =>
-              setLines((old) =>
-                old.map((l, i) => (i === index ? { ...l, ...patch } : l)),
-              )
-            }
-            remove={() => setLines((old) => old.filter((_, i) => i !== index))}
-          />
-        ))}
-        <div className="card">
-          <h3>Revisar importe: {bob(total)}</h3>
-          {!purchase && (
-            <>
-              <CustomerSelector
-                value={customerId}
-                onChange={(id, name) => {
-                  setCustomerId(id);
-                  setCustomerName(name);
-                }}
+          ))}
+          <div className="card cart-summary">
+            <h3>Revisar importe: {bob(total)}</h3>
+            {!purchase && (
+              <>
+                <CustomerSelector
+                  value={customerId}
+                  onChange={(id, name) => {
+                    setCustomerId(id);
+                    setCustomerName(name);
+                  }}
+                />
+                <label>
+                  Cliente (obligatorio para fiado)
+                  <input
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    maxLength={80}
+                  />
+                </label>
+                <label>
+                  Descuento total (BOB)
+                  <input
+                    value={discount}
+                    onChange={(e) => setDiscount(e.target.value)}
+                    inputMode="decimal"
+                  />
+                </label>
+              </>
+            )}
+            {purchase && (
+              <Field
+                name="reference"
+                label="Referencia de compra"
+                required={false}
+                maxLength={100}
               />
-              <label>
-                Cliente (obligatorio para fiado)
-                <input
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  maxLength={80}
-                />
-              </label>
-              <label>
-                Descuento total (BOB)
-                <input
-                  value={discount}
-                  onChange={(e) => setDiscount(e.target.value)}
-                  inputMode="decimal"
-                />
-              </label>
-            </>
-          )}
-          {purchase && (
-            <Field
-              name="reference"
-              label="Referencia de compra"
-              required={false}
-              maxLength={100}
-            />
-          )}
-          {isQuote ? (
-            <Field
-              name="validUntil"
-              label="Válida hasta"
-              type="date"
-              value={validUntil}
-            />
-          ) : (
-            <>
-              <Field name="date" label="Fecha" type="date" value={today()} />
-              <MethodField credit={!purchase} />
-            </>
-          )}
-          <label>
-            <input name="review" type="checkbox" required />
-            He revisado cantidades e importe de {bob(total)}.
-          </label>
-        </div>
-      </ActionForm>
-      {!purchase && (
+            )}
+            {isQuote ? (
+              <Field
+                name="validUntil"
+                label="Válida hasta"
+                type="date"
+                value={validUntil}
+              />
+            ) : (
+              <>
+                <Field name="date" label="Fecha" type="date" value={today()} />
+                <MethodField credit={!purchase} />
+              </>
+            )}
+            <label>
+              <input name="review" type="checkbox" required />
+              He revisado cantidades e importe de {bob(total)}.
+            </label>
+          </div>
+        </ActionForm>
+      </div>
+      {!purchase && initialQuote && (
         <Quotes
           onConvert={(quote) => {
+            if (!confirmDiscardChanges()) return;
             setLines(
               quote.lines.map((l) => ({
                 item: l.item,
@@ -342,7 +379,7 @@ export default function Trade({ purchase = false }: { purchase?: boolean }) {
           }}
         />
       )}
-      {purchase ? <PurchaseHistory /> : <SalesHistory />}
+      {purchase ? <PurchaseHistory /> : !initialQuote ? <SalesHistory /> : null}
     </>
   );
 }
@@ -373,8 +410,9 @@ function CartEditor({
     coverage = "Revisa la cantidad.";
   }
   return (
-    <section className="card">
+    <section className="card cart-line">
       <h3>{line.item.name}</h3>
+      <p className="muted">{itemDetails(line.item)}</p>
       <div className="workspace-grid">
         <label>
           Cantidad solicitada
@@ -528,7 +566,8 @@ function Quotes({
       {error && <p role="alert">{error}</p>}
       {page.items.map((row) => (
         <article className="card" key={row.id}>
-          {row.number} · {row.customerName} · vigente hasta {row.validUntil}
+          {row.number} · {row.customerName} · vigente hasta{" "}
+          {localDate(row.validUntil)}
           <button
             onClick={() => {
               void (async () => {
@@ -637,19 +676,61 @@ export function SalesHistory() {
     <>
       <h2>Ventas y devoluciones</h2>
       <Pager page={page} />
-      {page.items.map((s) => (
-        <article className="card" key={s.id}>
-          <strong>
-            {s.number} · {bob(s.totalMinor)}
-          </strong>
-          <p>
-            {s.date} · {s.customerName || "Cliente ocasional"} · {s.status}
-          </p>
-          <button onClick={() => setSale(s)}>
-            Detalle / devolver / cambiar
-          </button>
-        </article>
-      ))}
+      <div className="table-scroll desktop-records">
+        <table>
+          <thead>
+            <tr>
+              <th>Venta</th>
+              <th>Cliente</th>
+              <th>Estado</th>
+              <th className="numeric">Importe</th>
+              <th>
+                <span className="sr-only">Acciones</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {page.items.map((s) => (
+              <tr key={s.id}>
+                <td>
+                  <strong>{s.number}</strong>
+                  <small>{localDate(s.date)}</small>
+                </td>
+                <td>{s.customerName || "Cliente ocasional"}</td>
+                <td>
+                  <span className="badge" data-state={s.status}>
+                    {statusLabel(s.status)}
+                  </span>
+                </td>
+                <td className="numeric">{bob(s.totalMinor)}</td>
+                <td>
+                  <button onClick={() => setSale(s)}>
+                    Detalle y devolución
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="mobile-records">
+        {page.items.map((s) => (
+          <article className="card" key={s.id}>
+            <strong>
+              {s.number} · {bob(s.totalMinor)}
+            </strong>
+            <p>
+              {localDate(s.date)} · {s.customerName || "Cliente ocasional"} ·{" "}
+              <span className="badge" data-state={s.status}>
+                {statusLabel(s.status)}
+              </span>
+            </p>
+            <button onClick={() => setSale(s)}>
+              Detalle / devolver / cambiar
+            </button>
+          </article>
+        ))}
+      </div>
       {sale && (
         <ReturnForm key={sale.id} sale={sale} close={() => setSale(null)} />
       )}
@@ -665,9 +746,7 @@ function ReturnForm({ sale, close }: { sale: SaleV2; close: () => void }) {
     [replacements, setReplacements] = useState<CartLine[]>([]),
     items = useRecords<Item>("items");
   return (
-    <section className="card">
-      <h3>{sale.number}</h3>
-      <button onClick={close}>Cerrar</button>
+    <Panel title={sale.number + " · Devoluciones y cambios"} onClose={close}>
       <ActionForm
         disabled={busy}
         label={exchange ? "Confirmar cambio atómico" : "Confirmar devolución"}
@@ -868,6 +947,6 @@ function ReturnForm({ sale, close }: { sale: SaleV2; close: () => void }) {
           inspección.
         </p>
       </ActionForm>
-    </section>
+    </Panel>
   );
 }

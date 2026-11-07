@@ -1,86 +1,160 @@
-import type { Report } from '../../../shared/commerce';
-import { formatBOB } from '../inventory/domain';
+import { useId } from "react";
+import type { Report } from "../../../shared/commerce";
+import { formatBOB } from "../inventory/domain";
+import { localDate } from "../workspace/format";
 
-export function ReportChart({ days }: Pick<Report, 'days'>) {
-  const max = Math.max(100, ...days.flatMap((day) => [day.salesMinor, day.expensesMinor]));
-  const minimum=Math.min(0,...days.flatMap(day=>[day.salesMinor,day.expensesMinor]));
-  const y=(value:number)=>220-((value-minimum)/(max-minimum))*180;
-  const points = (field: 'salesMinor' | 'expensesMinor') =>
-    days
-      .map(
-        (day, index) =>
-          `${50 + (index * 690) / Math.max(1, days.length - 1)},${y(day[field])}`,
-      )
-      .join(' ');
+export function ReportChart({ days }: Pick<Report, "days">) {
+  const id = useId(),
+    maximum = Math.max(
+      100,
+      ...days.flatMap((day) => [day.salesMinor, day.expensesMinor]),
+    ),
+    minimum = Math.min(
+      0,
+      ...days.flatMap((day) => [day.salesMinor, day.expensesMinor]),
+    );
+  const x = (index: number) =>
+      104 + (index * 680) / Math.max(1, days.length - 1),
+    y = (value: number) =>
+      224 - ((value - minimum) / (maximum - minimum)) * 180;
+  const points = (field: "salesMinor" | "expensesMinor") =>
+    days.map((day, index) => `${x(index)},${y(day[field])}`).join(" ");
+  const compact = (minor: number) =>
+    new Intl.NumberFormat("es-BO", {
+      notation: "compact",
+      maximumFractionDigits: 1,
+    }).format(minor / 100);
+  const labels = [
+    ...new Set([0, Math.floor((days.length - 1) / 2), days.length - 1]),
+  ].filter((index) => index >= 0);
   return (
     <figure className="report-chart">
       <figcaption>
-        <strong>El ritmo de tu negocio</strong>
+        <strong>Importes en BOB · datos del periodo</strong>
         <span className="chart-legend">
-          <i /> Ventas <i className="expense-dot" /> Gastos
+          <i />
+          Ventas netas
+          <i className="expense-dot" />
+          Gastos netos
         </span>
       </figcaption>
       <svg
-        viewBox="0 0 800 265"
+        viewBox="0 0 820 280"
         role="img"
-        aria-label={`Ventas y gastos diarios del ${days[0]?.date} al ${days.at(-1)?.date}. Tabla detallada a continuación.`}
+        aria-labelledby={id + "-title " + id + "-desc"}
       >
-        {[0, 0.5, 1].map((value) => (
-          <g key={value}>
-            <line
-              x1="50"
-              x2="760"
-              y1={y(minimum+(max-minimum)*value)}
-              y2={y(minimum+(max-minimum)*value)}
-              stroke="#dfe6df"
-              strokeDasharray="4 5"
-            />
-            <text x="48" y={y(minimum+(max-minimum)*value)-10} fontSize="16" fill="#55685f">
-              {formatBOB(minimum+(max-minimum)*value)}
-            </text>
-          </g>
-        ))}
-        <polyline
-          points={points('salesMinor')}
-          fill="none"
-          stroke="#176d58"
-          strokeWidth="3"
-          strokeLinejoin="round"
-        />
-        <polyline
-          points={points('expensesMinor')}
-          fill="none"
-          stroke="#bc7240"
-          strokeWidth="3"
-          strokeLinejoin="round"
-        />
-        {days.length === 1 && (
-          <circle cx="50" cy={220 - (days[0]!.salesMinor / max) * 180} r="4" fill="#176d58" />
+        <title id={id + "-title"}>Ventas y gastos diarios</title>
+        <desc id={id + "-desc"}>
+          Periodo del {days[0] ? localDate(days[0].date) : "—"} al{" "}
+          {days.at(-1) ? localDate(days.at(-1)!.date) : "—"}. Los importes
+          negativos representan el efecto neto de devoluciones o anulaciones.
+          Las cifras completas están en la tabla.
+        </desc>
+        <defs>
+          <linearGradient id={id + "-fill"} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#2f8e6e" stopOpacity=".15" />
+            <stop offset="100%" stopColor="#2f8e6e" stopOpacity=".015" />
+          </linearGradient>
+        </defs>
+        {[0, 0.25, 0.5, 0.75, 1].map((t) => {
+          const value = minimum + (maximum - minimum) * t;
+          return (
+            <g key={t}>
+              <line
+                x1="104"
+                x2="784"
+                y1={y(value)}
+                y2={y(value)}
+                stroke="#e5ece7"
+                strokeDasharray="3 6"
+              />
+              <text
+                x="88"
+                y={y(value) + 5}
+                textAnchor="end"
+                fontSize="15"
+                fill="#6c8073"
+              >
+                {compact(value)}
+              </text>
+            </g>
+          );
+        })}
+        {days.length > 1 && (
+          <polygon
+            points={`${x(0)},${y(0)} ${points("salesMinor")} ${x(days.length - 1)},${y(0)}`}
+            fill={"url(#" + id + "-fill)"}
+          />
         )}
-        <text x="50" y="255" fontSize="16" fill="#55685f">
-          {days[0]?.date}
-        </text>
-        <text x="740" y="255" textAnchor="end" fontSize="16" fill="#55685f">
-          {days.at(-1)?.date}
-        </text>
+        <polyline
+          points={points("salesMinor")}
+          fill="none"
+          stroke="#187051"
+          strokeWidth="3"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+        <polyline
+          points={points("expensesMinor")}
+          fill="none"
+          stroke="#ba7b34"
+          strokeWidth="2.5"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+        {days.length === 1 &&
+          (["salesMinor", "expensesMinor"] as const).map((field, index) => (
+            <circle
+              key={field}
+              cx={x(0)}
+              cy={y(days[0]![field])}
+              r="4"
+              fill={index ? "#ba7b34" : "#187051"}
+            />
+          ))}
+        {labels.map((index) => (
+          <text
+            key={index}
+            x={x(index)}
+            y="260"
+            textAnchor={
+              index === 0
+                ? "start"
+                : index === days.length - 1
+                  ? "end"
+                  : "middle"
+            }
+            fontSize="15"
+            fill="#6c8073"
+          >
+            {localDate(days[index]!.date)}
+          </text>
+        ))}
       </svg>
       <details>
-        <summary>Ver cifras por día</summary>
+        <summary>Ver cifras completas por día</summary>
         <div className="table-scroll">
           <table>
+            <caption className="sr-only">
+              Ventas y gastos netos diarios en BOB
+            </caption>
             <thead>
               <tr>
-                <th>Fecha</th>
-                <th>Ventas</th>
-                <th>Gastos</th>
+                <th scope="col">Fecha</th>
+                <th scope="col" className="numeric">
+                  Ventas netas
+                </th>
+                <th scope="col" className="numeric">
+                  Gastos netos
+                </th>
               </tr>
             </thead>
             <tbody>
               {days.map((day) => (
                 <tr key={day.date}>
-                  <td>{day.date}</td>
-                  <td>{formatBOB(day.salesMinor)}</td>
-                  <td>{formatBOB(day.expensesMinor)}</td>
+                  <th scope="row">{localDate(day.date)}</th>
+                  <td className="numeric">{formatBOB(day.salesMinor)}</td>
+                  <td className="numeric">{formatBOB(day.expensesMinor)}</td>
                 </tr>
               ))}
             </tbody>

@@ -1,4 +1,6 @@
 import { lazy, useCallback, useEffect, useRef, useState } from "react";
+import { Icon } from "./Icon";
+import { confirmDiscardChanges, useDraftProtection } from "./navigation";
 import { DeferredScreen } from "../../app/DeferredScreen";
 import { Link, Navigate, Route, Routes, useNavigate } from "react-router";
 import { useAuth } from "../auth/auth-context";
@@ -40,32 +42,56 @@ export function WorkspaceApp({
 }) {
   const { user, status, service, error: authError } = useAuth();
   const [logoutError, setLogoutError] = useState("");
+  useDraftProtection();
   return (
     <>
+      <a
+        href="#main"
+        className="skip-link"
+        onClick={(e) => {
+          e.preventDefault();
+          document.getElementById("main")?.focus();
+        }}
+      >
+        Saltar al contenido
+      </a>
       <div className="environment-banner">
-        KhypuPyme 0.4 beta ·{" "}
         {import.meta.env.VITE_USE_EMULATORS === "false"
-          ? "Servicio alojado"
-          : "Pruebas locales · usa datos ficticios"}
+          ? "Beta de KhypuPyme · Servicio alojado"
+          : "Entorno local de pruebas · Usa datos ficticios"}
       </div>
-      <header>
+      <header className="app-header">
         <div className="header-inner">
           <Link className="brand" to="/">
+            <span className="brand-mark" aria-hidden="true">
+              K
+            </span>
             KhypuPyme
           </Link>
-          {user && (
-            <button
-              onClick={() => {
-                void service.logout().catch((e) => setLogoutError(message(e)));
-              }}
-            >
-              Cerrar sesión
-            </button>
-          )}
+          <div className="header-actions">
+            <span className="version-label">0.4 beta 2</span>
+            {user && (
+              <button
+                onClick={() => {
+                  if (!confirmDiscardChanges()) return;
+                  void service
+                    .logout()
+                    .catch((e) => setLogoutError(message(e)));
+                }}
+              >
+                <Icon name="logout" />
+                Salir
+              </button>
+            )}
+          </div>
         </div>
       </header>
-      <main id="main">
-        {logoutError && <p role="alert">{logoutError}</p>}
+      <main id="main" className="app-main" tabIndex={-1}>
+        {logoutError && (
+          <p role="alert" className="notice notice-error">
+            {logoutError}
+          </p>
+        )}
         {status === "loading" ? (
           <p role="status">Comprobando tu sesión…</p>
         ) : status === "error" ? (
@@ -199,12 +225,19 @@ function Account({
     );
   return (
     <>
-      <h1>Mis negocios</h1>
-      <p>
-        Una cuenta, espacios independientes. Selecciona el que vas a
-        administrar.
-      </p>
-      {error && <p role="alert">{error}</p>}
+      <div className="selector-heading">
+        <span className="eyebrow">TUS ESPACIOS DE TRABAJO</span>
+        <h1>¿Con qué negocio empezamos?</h1>
+        <p>
+          Una cuenta, espacios independientes. Selecciona el que vas a
+          administrar.
+        </p>
+      </div>
+      {error && (
+        <p className="notice notice-error" role="alert">
+          {error}
+        </p>
+      )}
       {pending && (
         <section className="card">
           <h2>Creación sin confirmar</h2>
@@ -249,7 +282,9 @@ function Account({
       {create ? (
         <BusinessWizard
           busy={busy || !!pending}
-          onCancel={() => setCreate(false)}
+          onCancel={() => {
+            if (confirmDiscardChanges()) setCreate(false);
+          }}
           onConfirm={(name, industryId, answers) =>
             createBusiness({
               operationId: crypto.randomUUID(),
@@ -270,10 +305,28 @@ function Account({
                   void select(b);
                 }}
               >
+                <span className="business-symbol">
+                  <Icon name="box" />
+                </span>
                 <strong>{b.name}</strong>
                 <span>{industryLabel(b.industryId)}</span>
+                <span className="choice-footer">
+                  Abrir negocio
+                  <Icon name="arrow" />
+                </span>
               </button>
             ))}
+            <button
+              className="card business-choice new-business"
+              disabled={!!pending}
+              onClick={() => setCreate(true)}
+            >
+              <span className="business-symbol">
+                <Icon name="plus" />
+              </span>
+              <strong>Crear otro negocio</strong>
+              <span>Tu misma cuenta. Un espacio independiente.</span>
+            </button>
           </div>
           {next && (
             <button
@@ -448,70 +501,102 @@ function Workspace({
         run,
       }}
     >
-      <div className="workspace-heading">
-        <div>
-          <span className="eyebrow">NEGOCIO ACTIVO</span>
-          <h1>{business.name}</h1>
-          <p>{industryLabel(business.industryId)}</p>
-        </div>
-        <button onClick={onExit}>Cambiar de negocio</button>
-      </div>
-      {!online && (
-        <p role="alert">
-          Sin conexión. No se guardan operaciones ni se reenvían
-          automáticamente.
-        </p>
-      )}
-      {error && <p role="alert">{error}</p>}
-      {notice && <p role="status">{notice}</p>}
-      {pending && (
-        <section className="card">
-          <h2>Solicitud pendiente en este negocio</h2>
-          <p>
-            {(pending.request as WorkspaceCommand).kind} · {business.name}
-          </p>
-          <p>
-            Se conserva el contenido original. Consulta antes de volver a
-            enviarlo.
-          </p>
-          <button
-            disabled={busy || !online}
-            onClick={() => {
-              void resolve();
-            }}
-          >
-            Consultar confirmación
-          </button>
-          {canRetry && (
+      <div
+        className="business-workspace"
+        data-industry={business.industryId ?? "general"}
+      >
+        <span className="active-business-label" title={business.name}>
+          <span className="sr-only">Negocio activo: </span>
+          {business.name}
+        </span>
+        <div className="workspace-heading">
+          <div>
+            <span className="eyebrow">NEGOCIO ACTIVO</span>
+            <h1>{business.name}</h1>
+            <p>{industryLabel(business.industryId)}</p>
+          </div>
+          <div className="workspace-status">
+            <span className="connection" data-online={online}>
+              <span className="connection-dot" />
+              {online ? "Con conexión" : "Sin conexión"}
+            </span>
             <button
-              disabled={busy || !online}
               onClick={() => {
-                void execute(pending.request as WorkspaceCommand, true).catch(
-                  () => {},
-                );
+                if (confirmDiscardChanges()) onExit();
               }}
             >
-              Reintentar solicitud original
+              <Icon name="grid" />
+              Cambiar negocio
             </button>
-          )}
-        </section>
-      )}
-      {!ready ? (
-        <p role="status">Recuperando solicitudes…</p>
-      ) : !business.typeConfirmed ? (
-        <BusinessWizard
-          initialName={business.name}
-          initialIndustry={business.industryId}
-          busy={busy || !!pending}
-          onConfirm={(_, industryId, answers) =>
-            run({ kind: "confirm-type", input: { industryId, answers } })
-          }
-        />
-      ) : (
-        <DeferredScreen>
-          <WorkspaceHome />
-        </DeferredScreen>
-      )}
+          </div>
+        </div>
+        {!online && (
+          <p role="alert">
+            Sin conexión. No se guardan operaciones ni se reenvían
+            automáticamente.
+          </p>
+        )}
+        {error && (
+          <p className="notice notice-error" role="alert">
+            {error}
+          </p>
+        )}
+        {notice && (
+          <p className="notice" role="status">
+            <Icon name="check" />
+            {notice}
+          </p>
+        )}
+        {pending && (
+          <section className="notice notice-warning pending-request">
+            <div>
+              <h2>Solicitud pendiente en este negocio</h2>
+              <p>Resultado sin confirmar · {business.name}</p>
+              <p>
+                Se conserva el contenido original. Consulta antes de volver a
+                enviarlo.
+              </p>
+              <button
+                disabled={busy || !online}
+                onClick={() => {
+                  void resolve();
+                }}
+              >
+                Consultar confirmación
+              </button>
+              {canRetry && (
+                <button
+                  disabled={busy || !online}
+                  onClick={() => {
+                    void execute(
+                      pending.request as WorkspaceCommand,
+                      true,
+                    ).catch(() => {});
+                  }}
+                >
+                  Reintentar solicitud original
+                </button>
+              )}
+            </div>
+          </section>
+        )}
+        {!ready ? (
+          <p role="status">Recuperando solicitudes…</p>
+        ) : !business.typeConfirmed ? (
+          <BusinessWizard
+            initialName={business.name}
+            initialIndustry={business.industryId}
+            busy={busy || !!pending}
+            onConfirm={(_, industryId, answers) =>
+              run({ kind: "confirm-type", input: { industryId, answers } })
+            }
+          />
+        ) : (
+          <DeferredScreen>
+            <WorkspaceHome />
+          </DeferredScreen>
+        )}
+      </div>
     </WorkspaceContext>
   );
 }

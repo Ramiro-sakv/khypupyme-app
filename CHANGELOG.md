@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.4.0-beta.2 - 2026-11-07 (local, sin push)
+
+- Rediseño profesional con menú lateral, navegación móvil, contexto de negocio siempre visible y acentos por rubro.
+- Inicio separado de Informes, Ventas y Cotizaciones; navegación por URL, gráficos legibles y accesos rápidos con datos existentes.
+- Selector y asistente de rubro, tablas/tarjetas, paneles accesibles, estados en español y fechas de Bolivia.
+- Advertencia de formularios modificados y recuperación pendiente conservada, sin cambiar cálculos, reglas ni contratos financieros.
+- Compilación e instaladores actualizados; sin pruebas, capturas ni recorridos automáticos por instrucción del propietario.
+
+
 ## 0.4.0-beta.1 - 2026-11-07 (local, sin push)
 
 - Cuenta con negocios independientes, cuestionario y rubro fijo; solicitudes duraderas por negocio.

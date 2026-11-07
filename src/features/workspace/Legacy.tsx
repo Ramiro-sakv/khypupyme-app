@@ -9,6 +9,7 @@ import type { WorkspaceResource } from "../../../shared/workspace/model";
 import { UNITS } from "../../../shared/workspace/catalog";
 import { useRecords, useWorkspace } from "./context";
 import { ActionForm, Field, MethodField, Pager } from "./ui";
+import { localDate, statusLabel } from "./format";
 import { bob, cents, method, q, serials, today } from "./format";
 import ItemForm from "./ItemForm";
 interface OldProduct {
@@ -178,7 +179,8 @@ function LegacyRecords({
               · {bob(amount)}
             </strong>
             <p>
-              {String(row.date ?? "")} · {String(row.status ?? "Conservado")}
+              {localDate(String(row.date ?? ""))} ·{" "}
+              {row.status ? statusLabel(String(row.status)) : "Conservado"}
             </p>
             <details>
               <summary>Detalle conservado</summary>
@@ -279,7 +281,7 @@ function OldHistory({ id, close }: { id: string; close: () => void }) {
       <Pager page={page} />
       {page.items.map((m) => (
         <p key={m.id}>
-          {m.createdAt.slice(0, 10)} · {m.reason} · {m.stockBefore} →{" "}
+          {localDate(m.createdAt)} · {m.reason} · {m.stockBefore} →{" "}
           {m.stockAfter} ({m.delta > 0 ? "+" : ""}
           {m.delta})
         </p>

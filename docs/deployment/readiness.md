@@ -34,3 +34,12 @@ Checklist previo al piloto: RF/RNF completos o excepciones aprobadas, reglas y c
 Windows usa Tauri/WebView2 y Android Capacitor/SDK 36. Instalador NSIS x64 y APK debug, sin firma comercial. Los binarios se generan localmente y se excluyen de Git. No se instalaron automáticamente ni publicaron. Windows apunta al PC local; Android solo al host 10.0.2.2 del emulador, no a un teléfono físico. El núcleo de servidor sigue siendo local. No se debe ofrecer esta configuración a clientes reales hasta autorizar y preparar un entorno seguro conectado, validar dispositivos y completar privacidad/recuperación/costos.
 
 La exportación Android usa caché privada y la selección de destino del usuario; no requiere permiso general de almacenamiento ni comparte información automáticamente. Windows incluye CSP limitada a recursos empaquetados y servicios de loopback, sin permisos de shell/archivos del host.
+
+
+## Perfil y paquetes 0.4
+
+Predeterminado: demo local. Para preparar después el servicio alojado: autorizar proyecto/costos, configurar Auth/Firestore/Functions, región, reglas/índices, validar aislamiento/recuperación, desplegar y activar un cliente separado con VITE_USE_EMULATORS=false, VITE_SERVICE_PROFILE=hosted, VITE_FIREBASE_PROJECT_ID, VITE_FIREBASE_API_KEY, VITE_FIREBASE_AUTH_DOMAIN y VITE_FIREBASE_APP_ID. No hay credenciales reales. El backend mantiene bloqueo cloud; revisarlo con esa autorización futura. Scripts nativos fuerzan emuladores; CSP Windows solo permite loopback.
+
+Windows incorpora dialog:allow-save y fs:allow-write-file, con acceso al archivo seleccionado, sin acceso general al disco. Android conserva caché privada y compartir a elección del usuario. Instalar no inicia un servidor ni sustituye el servicio alojado.
+
+v0.4 sin pruebas funcionales por instrucción del propietario. Antes del piloto retomar aislamiento A/B con dos negocios/cuenta, concurrencia/idempotencia, series/lotes, caja/devoluciones, compatibilidad, PDF y guardado nativo. Incidencia previa Windows/WebKit visible y sin corrección acreditada.

@@ -264,3 +264,28 @@ Las verificaciones usaron exclusivamente `demo-khypupyme-tests`, puertos aislado
 - Windows: `pnpm windows:build` aprobado, código 0; Rust release y NSIS x64, compilación Rust de 2 min 9 s. Instalador: **1.589.857 bytes**.
 - Entregables excluidos de Git: `artifacts/KhypuPyme-0.3.0-beta.3-android-debug.apk`, `artifacts/KhypuPyme-0.3.0-beta.3-windows-x64-setup.exe` y `artifacts/SHA256SUMS-beta3.txt`. Se conservaron los paquetes anteriores.
 - No se acredita arranque nativo beta 3 ni ejecución física. Android conserva el destino de emulador `10.0.2.2`; Windows usa loopback. Ambos necesitan Auth/Firestore/Functions locales encendidos. No se instaló sobre la sesión del propietario, no se crearon accesos y no se publicó ni hizo push.
+
+
+## 0.4.0-beta.1 — 07/11/2026: compilación sin pruebas
+
+Instrucción posterior del propietario: no ejecutar pruebas para esta entrega. No se ejecutaron pnpm check, test, test:emulators, integración, reglas, recorridos de navegador, validación de PDF ni pruebas nativas. No se tomaron capturas; configuración de screenshot/video/trace desactivada y llamadas a capturas retiradas. Los resultados de beta 3 son históricos y no acreditan 0.4. Los recorridos antiguos deberán adaptarse al nuevo flujo y ampliarse con cobertura 0.4 antes de volver a acreditar regresión.
+
+Resultados reales sobre el código final:
+
+- pnpm lint: aprobado, salida 0.
+- TypeScript: aprobado mediante pnpm typecheck y pnpm build (tsc --noEmit), salida 0.
+- pnpm build: aprobado, salida 0; módulos de rubro separados y PDF/fuentes cargados por demanda. Aviso de tamaño para pdfmake (~1,33 MB) y fuentes (~830 kB); siguen empaquetados para generación local, sin cargar al ingresar.
+- pnpm build:functions: aprobado, salida 0. No acredita invariantes financieras ni reglas en ejecución.
+- pnpm android:build: aprobado, salida 0; compilación final Gradle de 31 s, 154 tareas (27 ejecutadas / 127 actualizadas). APK debug, sin instalación ni arranque.
+- pnpm windows:build: aprobado, salida 0; Rust release y NSIS x64. Sin instalación ni arranque.
+- pnpm audit --prod --audit-level high: salida 0; dos avisos moderados: [glob](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4) y [minimatch](https://github.com/advisories/GHSA-g3hv-75wg-m249). No se forzaron actualizaciones incompatibles. Esto no es una auditoría completa de seguridad.
+- git diff --check: aprobado. Revisión básica de patrones de claves en cambios preparados: cero coincidencias; artefactos, datos de emuladores y .env.local fuera del commit.
+
+Paquetes locales excluidos de Git, con copias anteriores conservadas:
+
+- KhypuPyme-0.4.0-beta.1-android-debug.apk: **5557491 bytes**, SHA-256 809265bf86dd64213aa372aa8b186433b7d060aaa0b0e1710746203db85a698d.
+- KhypuPyme-0.4.0-beta.1-windows-x64-setup.exe: **2431562 bytes**, SHA-256 4ac1bef28ef463e31b0b713b5ac92d2af586421ef07892628b3919409683573f.
+
+Huella conjunta: artifacts/SHA256SUMS-beta4.txt. Requieren los emuladores locales; Android apunta a 10.0.2.2 y Windows a loopback. No se inició/detuvo la sesión habitual del propietario, no se limpiaron datos, no se crearon accesos y no hubo push ni despliegue.
+
+La incidencia previa de reingreso Windows/WebKit sigue **pendiente, sin corrección acreditada**. No se acredita funcionamiento comercial, aislamiento/concurrencia, contenido/paginación de PDF, dispositivos físicos ni servicio alojado.

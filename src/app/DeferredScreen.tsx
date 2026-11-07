@@ -13,7 +13,7 @@ class ScreenErrorBoundary extends Component<{ children: ReactNode }, { failed: b
           <h1>No pudimos abrir esta herramienta</h1>
           <p>
             Comprueba la conexión y vuelve a cargar. Las operaciones pendientes conservan su
-            identificador en esta pestaña.
+            identificador y contenido original en este dispositivo.
           </p>
           <div className="actions">
             <button onClick={() => window.location.reload()}>Volver a cargar</button>

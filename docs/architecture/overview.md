@@ -1,3 +1,5 @@
+> Vigencia: la sección final v0.4 de data-model.md y AGENTS.md sustituye decisiones históricas de negocio único y unidades enteras.
+
 # Arquitectura y límites de la base
 
 ## Decisiones y origen

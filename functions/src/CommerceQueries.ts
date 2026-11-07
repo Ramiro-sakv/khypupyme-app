@@ -1,6 +1,6 @@
 import type { ProductSpecification } from '../../shared/product-specification.js';
 import { Timestamp } from 'firebase-admin/firestore';
-import type { DocumentData, Firestore, Query } from 'firebase-admin/firestore';
+import type { DocumentData, Firestore, Query, Transaction } from 'firebase-admin/firestore';
 import { DomainError, id, int, period } from '../../shared/commerce.js';
 import type {
   DateFilter,
@@ -21,9 +21,9 @@ function serialize(value: unknown): unknown {
   return value;
 }
 export class CommerceQueries {
-  constructor(private readonly db: Firestore) {}
+  constructor(private readonly db: Firestore,private readonly transaction?:Transaction) {}
   async owner(uid: string): Promise<void> {
-    const business = await this.db.doc(`businesses/${id(uid)}`).get();
+    const ref=this.db.doc(`businesses/${id(uid)}`),business = await (this.transaction?this.transaction.get(ref):ref.get());
     if (!business.exists || business.data()?.ownerUid !== uid)
       throw new DomainError('Primero crea tu negocio.');
   }
@@ -68,7 +68,7 @@ export class CommerceQueries {
     return snapshot.exists ? (snapshot.data()!.result as { id: string }) : null;
   }
   private async bounded(query: Query): Promise<DocumentData[]> {
-    const result = await query.limit(10001).get();
+    const bounded=query.limit(10001),result = await (this.transaction?this.transaction.get(bounded):bounded.get());
     if (result.size > 10000)
       throw new DomainError('El informe supera 10.000 registros por sección. Reduce el periodo.');
     return result.docs.map((doc) => ({ ...doc.data(), id: doc.id }));

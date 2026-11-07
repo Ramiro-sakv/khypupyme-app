@@ -20,7 +20,9 @@ import {
 import type { Command, StoredSaleLine } from '../../shared/commerce.js';
 
 export class CommerceService {
-  constructor(private readonly db: Firestore) {}
+  constructor(private readonly db: Firestore, private readonly workspace?: {signature:string;recovery:boolean}) {}
+  private readonly cashContexts=new WeakMap<Transaction,{id:string;data:DocumentData;sequence:number}>();
+
   private ref(uid: string, collection: string, recordId: string): DocumentReference {
     return this.db.doc(`businesses/${id(uid)}/${collection}/${id(recordId)}`);
   }
@@ -33,6 +35,15 @@ export class CommerceService {
     method: string,
     source: string,
   ) {
+    const context=this.cashContexts.get(tx);
+    if(this.workspace && !this.workspace.recovery) {
+      if(method==='cash' && !context)throw new DomainError('Abre una caja antes de esta operación.');
+      if(method==='cash' && context) {
+        context.data.balanceMinor=int(context.data.balanceMinor+amountMinor);
+        tx.update(this.ref(uid,'cashSessions',context.id),{balanceMinor:context.data.balanceMinor});
+      }
+      tx.create(this.ref(uid,'cashEntries',operationId+'-legacy'),{id:operationId+'-legacy',sessionId:context?.id??'',amountMinor,method,source,reference:operationId,date,createdAt:new Date().toISOString()});
+    }
     tx.create(this.ref(uid, 'cashEvents', operationId), {
       amountMinor,
       date,
@@ -96,10 +107,21 @@ export class CommerceService {
       const [business, operation] = await tx.getAll(businessRef, opRef);
       if (!business?.exists || business.data()?.ownerUid !== uid)
         throw new DomainError('Primero crea tu negocio.');
+      const globalRef=this.db.doc(`users/${uid}/operationKeys/${command.operationId}`);
+      const global=this.workspace ? await tx.get(globalRef) : null;
+      if(global?.exists && (global.data()?.businessId!==uid || global.data()?.signature!==this.workspace?.signature))throw new DomainError('Identificador usado en otro negocio o solicitud.');
+      if(business.data()?.workspaceVersion===2 && !this.workspace)throw new DomainError('Usa la versión actual de la aplicación.');
+      if(this.workspace && ['configure-business','business-settings'].includes(command.kind))throw new DomainError('El rubro ya es fijo.');
       if (operation?.exists) {
         if (operation.data()?.signature !== signature)
           throw new DomainError('El identificador pertenece a otra solicitud.');
+        if(this.workspace && !global?.exists)tx.create(globalRef,{businessId:uid,signature:this.workspace.signature,result:operation.data()!.result,createdAt:new Date().toISOString()});
         return operation.data()!.result as { id: string };
+      }
+      if(this.workspace && !this.workspace.recovery){
+        const control=await tx.get(this.ref(uid,'cashControl','current'));
+        const active=control.data()?.activeId;
+        if(active){const session=await tx.get(this.ref(uid,'cashSessions',active));if(session.data()?.status==='open')this.cashContexts.set(tx,{id:active,data:session.data()!,sequence:0});}
       }
       let resultId = command.operationId;
       switch (command.kind) {
@@ -227,6 +249,7 @@ export class CommerceService {
         authorUid: uid,
         createdAt: FieldValue.serverTimestamp(),
       });
+      if(this.workspace)tx.create(globalRef,{businessId:uid,signature:this.workspace.signature,result,createdAt:new Date().toISOString()});
       return result;
     });
   }

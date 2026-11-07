@@ -58,3 +58,20 @@ Navegación y formularios se adaptan a herramientas; recuperación de solicitude
 Se autorizó investigar y añadir rubros durante la creación del perfil. `shared/business-industries.ts` separa 21 rubros de las tres familias de trabajo; `industryId` opcional conserva configuraciones beta 2. Las seis fichas especializadas y la ficha general se definen en `shared/product-specification.ts`. No presentar estos perfiles como ERP industriales completos: el alcance y los límites se muestran antes de elegir.
 
 Las fichas de producto son inmutables y quedan ligadas al movimiento inicial; compras y ventas conservan copia. Nueva variante, medida o lote implica producto nuevo. Stock entero por unidad/pieza/par/caja/bolsa, sin reinterpretar datos anteriores. Dimensiones, superficie y peso usan enteros escalados; cálculos derivados con BigInt, sin cambiar dinero. Las ventas de lotes vencidos se rechazan en Functions usando fecha actual de Bolivia y fecha de venta, sin permitir eludirlo con ventas retroactivas. Series, FEFO automático, fraccionamiento, recetas, mesas, citas y producción siguen fuera de alcance. No descargar código de rubros ni conectar cloud.
+
+
+## v0.4: autorización vigente del propietario, 06–07/11/2026
+
+Esta sección sustituye las restricciones históricas de un negocio por cuenta, businessId=uid, stock exclusivamente entero y perfiles editables. El contrato anterior se conserva solo para lectura, corrección y recuperación compatible.
+
+- Cuenta con varios espacios independientes, businessId aleatorio y ownerUid real; índice privado users/{uid}/businesses. Rubro confirmado una vez y fijo. Legacy conserva businessId=uid e historiales.
+- Nuevas escrituras de catálogo/inventario/comercio únicamente en Functions. Rules permiten lecturas del propietario y deniegan escrituras v2 de clientes. Tras confirmar también cierran escrituras directas antiguas. Sin miembros ni datos compartidos.
+- shared/workspace: modelos, fracciones BigInt JSON {n,d}, validaciones y conversiones. functions/src/workspace: AccountService, UnitOfWork, inventario, comercio, caja, documentos y compatibilidad. src/features/workspace: contratos, formularios y módulos; FirebaseWorkspaceRepository adapta Functions sin Firestore en componentes.
+- Toda operación captura businessId/operationId/contenido; índice global por cuenta impide reutilizar IDs en otro negocio. UnitOfWork lee antes de escribir y confirma todos los cambios atómicamente. Máximo 20 líneas y 100 lotes/series afectados.
+- Madera, moda, equipos serializados, tienda, cerámicas y cemento tienen procesos propios. No reinterpretar stock antiguo: conversión auditada con valor total exacto, sin costo desconocido ni solicitud pendiente.
+- Entradas comerciales hasta seis decimales; piezas/pares/cajas/bolsas/series enteros. Conversiones internas racionales exactas, dinero entero acotado a 10^12, redondeo mitades arriba. Costo promedio común y costo específico serializado.
+- Caja única abierta por negocio, movimientos inmutables, cierre con motivo si hay diferencia. Devoluciones con cantidades/costo/neto originales; equipos en inspección. Cambio atómico y pago de diferencia.
+- PDF no fiscal mediante pdfmake y fuentes empaquetadas. Snapshot inmutable y numeración por negocio/tipo/año. Guardar/compartir no repite operaciones comerciales. Windows escribe solo en el archivo elegido.
+- Solicitudes inciertas en IndexedDB por cuenta/negocio, incluida creación; consulta antes del reintento manual. Sin reenvío automático. Resolver pendientes anteriores antes de convertir.
+- Emuladores predeterminados. Perfil alojado requiere configuración, proyecto y despliegue futuros autorizados. El servidor rechaza cloud; no activar facturación, recursos, firma, publicación, push ni accesos.
+- Instrucción posterior: **no ejecutar pruebas en esta entrega**. Solo compilación, análisis estático e instaladores; registrar pruebas no ejecutadas. Capturas, vídeos y trazas visuales desactivados. La incidencia de reingreso Windows/WebKit sigue sin corrección acreditada.

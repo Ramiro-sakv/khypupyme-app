@@ -33,7 +33,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' | 'reset' }) {
     try {
       if (reset) {
         await service.resetPassword(email);
-        setMessage('Si existe una cuenta, podrás continuar con el enlace de recuperación. En este entorno local, el enlace aparece en la terminal del emulador.');
+        setMessage(import.meta.env.VITE_USE_EMULATORS==='false'?'Si existe una cuenta, recibirás el enlace de recuperación.':'Si existe una cuenta, el enlace de recuperación aparece en la terminal del emulador local.');
       } else if (register) await service.register(email, password);
       else await service.login(email, password);
     } catch (cause) { setError(errorMessage(cause)); }

@@ -3,8 +3,9 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function isOwner(businessId) { return request.auth != null && request.auth.uid == businessId; }
     function inventoryOwner(businessId) {
-      return isOwner(businessId) && exists(/databases/$(database)/documents/businesses/$(businessId));
+      return request.auth != null && exists(/databases/$(database)/documents/businesses/$(businessId)) && get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerUid == request.auth.uid;
     }
+    function legacyWrite(businessId) {return inventoryOwner(businessId) && get(/databases/$(database)/documents/businesses/$(businessId)).data.get('workspaceVersion',1) != 2;}
     function identifier(value) { return value is string && value.matches('^[a-zA-Z0-9_-]{1,128}$'); }
     function units(value) { return value is int && value >= 0 && value <= 1000000; }
     function money(value) { return value is int && value >= 0 && value <= 1000000000000; }
@@ -178,22 +179,22 @@ service cloud.firestore {
           || (money(m.valueBeforeMinor) && m.kind == 'purchase-reversal' && reversedMovement(businessId, operationId, m, before)));
     }
     match /businesses/{businessId} {
-      allow get: if isOwner(businessId);
+      allow get: if inventoryOwner(businessId);
       allow list, delete: if false;
       allow create: if isOwner(businessId) && validBusiness(request.resource.data)
         && (!('configurationRevision' in request.resource.data) || request.resource.data.configurationRevision == 1)
         && request.resource.data.ownerUid == request.auth.uid
         && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
-      allow update: if isOwner(businessId) && resource.data.ownerUid == request.auth.uid && validBusiness(request.resource.data)
+      allow update: if legacyWrite(businessId) && resource.data.ownerUid == request.auth.uid && validBusiness(request.resource.data)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','updatedAt']) && request.resource.data.updatedAt == request.time;
       match /products/{productId} {
         allow get: if inventoryOwner(businessId);
         allow list: if inventoryOwner(businessId) && request.query.limit > 0 && request.query.limit <= 26;
-        allow create: if inventoryOwner(businessId) && identifier(productId) && productShape(request.resource.data)
+        allow create: if legacyWrite(businessId) && identifier(productId) && productShape(request.resource.data)
           && money(request.resource.data.inventoryValueMinor) && request.resource.data.active == true
           && request.resource.data.createdAt == request.time && request.resource.data.lastMovementId == productId
           && linkedMovement(businessId, productId, {'stock': 0, 'inventoryValueMinor': 0}, request.resource.data);
-        allow update: if inventoryOwner(businessId) && productShape(request.resource.data)
+        allow update: if legacyWrite(businessId) && productShape(request.resource.data)
           && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','priceMinor','minimumStock','active','updatedAt'])
             || (resource.data.active == true && request.resource.data.lastMovementId != resource.data.lastMovementId
               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock','inventoryValueMinor','lastMovementId','updatedAt'])
@@ -203,21 +204,21 @@ service cloud.firestore {
       match /inventoryMovements/{operationId} {
         allow get: if inventoryOwner(businessId);
         allow list: if inventoryOwner(businessId) && request.query.limit > 0 && request.query.limit <= 26;
-        allow create: if inventoryOwner(businessId) && identifier(operationId) && validMovement(request.resource.data, businessId)
+        allow create: if legacyWrite(businessId) && identifier(operationId) && validMovement(request.resource.data, businessId)
           && movementMatchesProduct(businessId, operationId);
         allow update, delete: if false;
       }
       match /purchases/{purchaseId} {
         allow get: if inventoryOwner(businessId);
         allow list: if inventoryOwner(businessId) && request.query.limit > 0 && request.query.limit <= 26;
-        allow create: if inventoryOwner(businessId) && identifier(purchaseId) && validPurchase(request.resource.data, businessId)
+        allow create: if legacyWrite(businessId) && identifier(purchaseId) && validPurchase(request.resource.data, businessId)
           && !exists(/databases/$(database)/documents/businesses/$(businessId)/inventoryMovements/$(purchaseId))
           && purchasePair(getAfter(/databases/$(database)/documents/businesses/$(businessId)/inventoryMovements/$(purchaseId)).data, request.resource.data, purchaseId);
         allow update, delete: if false;
       }
       match /purchaseReversals/{purchaseId} {
         allow get: if inventoryOwner(businessId);
-        allow create: if inventoryOwner(businessId) && validReversal(request.resource.data, businessId, purchaseId)
+        allow create: if legacyWrite(businessId) && validReversal(request.resource.data, businessId, purchaseId)
           && !exists(/databases/$(database)/documents/businesses/$(businessId)/inventoryMovements/$(request.resource.data.operationId))
           && reversalPair(getAfter(/databases/$(database)/documents/businesses/$(businessId)/inventoryMovements/$(request.resource.data.operationId)).data, request.resource.data);
         allow list, update, delete: if false;
@@ -228,8 +229,13 @@ service cloud.firestore {
     }
     // Los documentos financieros se escriben exclusivamente mediante el servidor validado.
     match /businesses/{businessId}/{resource}/{recordId} {
-      allow get: if inventoryOwner(businessId) && resource in ['sales','expenses','receivables','payments','customers','services','cashEvents'];
-      allow list: if inventoryOwner(businessId) && resource in ['sales','expenses','receivables','payments','customers','services','cashEvents'] && request.query.limit > 0 && request.query.limit <= 26;
+      allow get: if inventoryOwner(businessId) && resource in ['sales','expenses','receivables','payments','customers','services','cashEvents','items','lots','serials','movementsV2','salesV2','purchasesV2','returns','quotes','customersV2','expensesV2','expenseReversals','debts','paymentsV2','cashSessions','cashEntries','documentsV2','warrantyClaims','legacyConversions'];
+      allow list: if inventoryOwner(businessId) && resource in ['sales','expenses','receivables','payments','customers','services','cashEvents','items','lots','serials','movementsV2','salesV2','purchasesV2','returns','quotes','customersV2','expensesV2','expenseReversals','debts','paymentsV2','cashSessions','cashEntries','documentsV2','warrantyClaims','legacyConversions'] && request.query.limit > 0 && request.query.limit <= 26;
+      allow write: if false;
+    }
+    match /users/{uid}/businesses/{businessId} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list: if request.auth != null && request.auth.uid == uid && request.query.limit > 0 && request.query.limit <= 26;
       allow write: if false;
     }
     match /{document=**} { allow read, write: if false; }

@@ -83,10 +83,6 @@ test('creación por rubro, seis fichas distintas y venta de cajas calculadas', a
     'scrollWidth',
     await page.locator('body').evaluate((element) => element.clientWidth),
   );
-  await page.screenshot({
-    path: `test-results/industries-${info.project.name}.png`,
-    fullPage: true,
-  });
   await navigate(page, 'Informes');
   await expect(page.locator('.ranking-list')).toContainText('8 cajas');
   await expect(page.locator('.ranking-list')).toContainText('Tono: A');

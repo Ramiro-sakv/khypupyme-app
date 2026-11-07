@@ -63,10 +63,6 @@ test('beta: servicio, venta fiada, cobro, gasto, informe y anulación', async ({
     'scrollWidth',
     await page.locator('body').evaluate((el) => el.clientWidth),
   );
-  await page.screenshot({
-    path: `test-results/beta-report-${info.project.name}.png`,
-    fullPage: true,
-  });
   await navigate(page, 'Ventas');
   await page.getByRole('button', { name: 'Anular', exact: true }).click();
   await page.getByLabel('Motivo de anulación').fill('Venta de prueba equivocada');

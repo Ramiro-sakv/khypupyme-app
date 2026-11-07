@@ -41,3 +41,18 @@ Beta 2 permite perfiles retail/services/mixed con capacidades comunes existentes
 ## Rubros, ampliación explícita 06/11/2026
 
 Beta 3 implementa catálogo investigado de 21 rubros en el alta del negocio, agrupados por familia comercio/servicios/mixto. Extiende RF-01 y RNF-06 con selección, vista previa y datos por rubro; conserva RNF-03 mediante validación de fichas inmutables en reglas, aislamiento A/B y copia histórica en compras/ventas. Fichas de madera, moda, equipos, lotes, cerámica y cemento operan con cantidades enteras y unidades fijas. Los detalles, fuentes y límites son decisiones derivadas de la solicitud del propietario, documentadas en README; no se atribuyen al dossier ni se crean nuevos identificadores RF/RNF. No acredita fabricación, FEFO, series, mesas o agenda.
+
+
+## Ampliación autorizada 0.4 — 07/11/2026
+
+| Requisito | Código principal | Evidencia disponible |
+|---|---|---|
+| Varios negocios / rubro fijo | AccountService, WorkspaceService, BusinessWizard, WorkspaceApp | Implementado; compilación. Sin prueba de aislamiento |
+| Rubros, fracciones, compras múltiples | shared/workspace, InventoryServiceV2, TradeService, módulos | Implementado; compilación. Sin prueba de concurrencia |
+| Devoluciones, cambios, series/lotes, caja | TradeService, InventoryServiceV2, CashService, Trade/Operations | Implementado; compilación. Sin prueba financiera/reglas |
+| Historial y compatibilidad | LegacyInventory, CommerceService, Legacy, OperationJournal | Implementado; sin conversión automática ni prueba sobre datos del propietario |
+| PDF no fiscal | Documents, workspace/pdf, diálogo Tauri, Filesystem/Share Android | Implementado; compilación. Contenido/guardado no probados |
+| Gráficos e informes | WorkspaceQueries, Reports, ReportChart | Implementado; compilación. Sin validación funcional |
+| Paquetes y perfil alojado | Android/Windows, perfil explícito | Solo paquetes locales; cloud/publicación fuera de autorización |
+
+Pruebas omitidas por la instrucción más reciente del propietario: no trasladar resultados de beta 3 a 0.4. No se cambia ni inventa RNF-04.

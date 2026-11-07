@@ -30,7 +30,6 @@ test('registro, negocio persistente, edición, cierre e inicio de sesión', asyn
     'scrollWidth',
     await page.locator('body').evaluate((el) => el.clientWidth),
   );
-  await page.screenshot({ path: `test-results/profile-${info.project.name}.png`, fullPage: true });
   if (!(await page.getByRole('button', { name: 'Cerrar sesión', exact: true }).isVisible()))
     await page.getByRole('button', { name: '☰ Menú' }).click();
   await page.getByRole('button', { name: 'Cerrar sesión', exact: true }).click();

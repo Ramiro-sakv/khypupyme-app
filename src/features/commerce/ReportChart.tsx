@@ -3,11 +3,13 @@ import { formatBOB } from '../inventory/domain';
 
 export function ReportChart({ days }: Pick<Report, 'days'>) {
   const max = Math.max(100, ...days.flatMap((day) => [day.salesMinor, day.expensesMinor]));
+  const minimum=Math.min(0,...days.flatMap(day=>[day.salesMinor,day.expensesMinor]));
+  const y=(value:number)=>220-((value-minimum)/(max-minimum))*180;
   const points = (field: 'salesMinor' | 'expensesMinor') =>
     days
       .map(
         (day, index) =>
-          `${50 + (index * 690) / Math.max(1, days.length - 1)},${220 - (day[field] / max) * 180}`,
+          `${50 + (index * 690) / Math.max(1, days.length - 1)},${y(day[field])}`,
       )
       .join(' ');
   return (
@@ -28,13 +30,13 @@ export function ReportChart({ days }: Pick<Report, 'days'>) {
             <line
               x1="50"
               x2="760"
-              y1={220 - value * 180}
-              y2={220 - value * 180}
+              y1={y(minimum+(max-minimum)*value)}
+              y2={y(minimum+(max-minimum)*value)}
               stroke="#dfe6df"
               strokeDasharray="4 5"
             />
-            <text x="48" y={210 - value * 180} fontSize="16" fill="#55685f">
-              {formatBOB(max * value)}
+            <text x="48" y={y(minimum+(max-minimum)*value)-10} fontSize="16" fill="#55685f">
+              {formatBOB(minimum+(max-minimum)*value)}
             </text>
           </g>
         ))}

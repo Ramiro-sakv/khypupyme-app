@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.4.0-beta.1 - 2026-11-07 (local, sin push)
+
+- Cuenta con negocios independientes, cuestionario y rubro fijo; solicitudes duraderas por negocio.
+- Madera, ropa/calzado, equipos serializados, tienda por lotes/peso, cerámicas y cemento/granel.
+- Compras múltiples, fracciones exactas, devoluciones/cambios, caja por sesión, garantías, gráficos y PDF no fiscal.
+- Conversión auditada de stock anterior con valor total exacto e historial conservado.
+- Paquetes locales Android/Windows y perfil alojado preparado sin activar servicios. Pruebas omitidas por instrucción del propietario.
+
+
 ## 0.3.0-beta.3 - 2026-11-06 (local, sin push)
 
 - Elección de 21 rubros al crear el negocio, herramientas sugeridas y alcance visible; cambio posterior sin convertir datos previos.

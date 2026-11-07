@@ -1,0 +1,1 @@
+{"identifier":"pdf-save","windows":["main"],"permissions":["core:default","dialog:allow-save","fs:allow-write-file"]}

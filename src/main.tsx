@@ -1,15 +1,14 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, HashRouter } from 'react-router';
-import { App } from './app/App';
+import { WorkspaceApp } from './features/workspace/WorkspaceApp';
 import { AuthProvider } from './features/auth/AuthProvider';
-import { BusinessProvider } from './features/business/BusinessProvider';
-import { createServices } from './infrastructure/firebase';
+import { createWorkspaceServices } from './infrastructure/workspace';
 import './styles.css';
 
 const root = createRoot(document.getElementById('root')!);
 try {
-  const services = createServices();
+  const services = createWorkspaceServices();
   const Router =
     import.meta.env.VITE_RUNTIME_TARGET === 'android' ||
     import.meta.env.VITE_RUNTIME_TARGET === 'windows'
@@ -19,14 +18,7 @@ try {
     <StrictMode>
       <Router>
         <AuthProvider service={services.authService}>
-          <BusinessProvider repository={services.businessRepository}>
-            <App
-              repository={services.businessRepository}
-              inventory={services.inventoryService}
-              purchases={services.purchaseService}
-              commerce={services.commerceService}
-            />
-          </BusinessProvider>
+          <WorkspaceApp repository={services.repository}/>
         </AuthProvider>
       </Router>
     </StrictMode>,

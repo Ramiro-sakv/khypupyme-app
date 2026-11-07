@@ -65,3 +65,18 @@ Las herramientas son preferencias, no permisos ni tipos nuevos de inventario. Co
 Compras conservan `specification` validada e igual a la del producto. Functions obtiene y valida la ficha del producto dentro de la transacción y la guarda en cada línea de venta; el cliente no puede suministrar esa copia. La fecha de vencimiento debe ser calendario válido; vender después de su vencimiento actual o con fecha de venta posterior se rechaza sin afectar stock/costos. Las anulaciones conservan sus mecanismos anteriores.
 
 Milímetros, cm² por caja y gramos por bolsa son enteros; equivalencias y estimación de cajas usan BigInt. El stock permanece entero en la unidad fijada y el precio/costo sigue siendo por esa unidad. No hay cambios en reglas de valoración, límites monetarios, propietario o aislamiento.
+
+
+## Modelo vigente 0.4 (secciones anteriores: contratos históricos)
+
+businesses/{businessId} incorpora ownerUid, industryId inmutable, typeConfirmed, workspaceVersion=2, workflowVersion=2 y respuestas. users/{uid}/businesses/{businessId} es índice de navegación; autoriza el propietario del documento real. Creación/relación atómicas; users/{uid}/operationKeys/{operationId} vincula negocio, solicitud y resultado.
+
+Subcolecciones v2: items, lots, serials, movementsV2, salesV2, purchasesV2, returns, exchanges, quotes, customersV2, debts, paymentsV2, expensesV2, expenseReversals, cashSessions, cashEntries, documentCounters, documentsV2, warrantyClaims, operationsV2 y legacyConversions. Índices privados de códigos, variantes y series. Escritas solo por Functions; sin borrado físico expuesto.
+
+Unidades: piezas/pares/bolsas, mm³ para madera por volumen y gramos para granel/peso. Fracciones reducidas JSON n/d, denominador positivo, entrada comercial de seis decimales y conversión interna BigInt. 1 pie tablar = 144 pulgadas³ = 294967152/125 mm³; pulgada exacta 25,4 mm. Fichas/factores fijos. Ventas conservan unidad/factores, cantidad solicitada/entregada, precio, costo y asignaciones.
+
+Costo común por valor total/existencia; seriales con costo individual. Devolución distribuye neto/costo histórico acumulativamente para conservar centavos. Apertura de bolsas reparte valor acumulativamente, sin inventar masa ni gasto. Series devueltas suman valor, pero no disponibilidad hasta inspección.
+
+Informes en snapshot consistente, hasta 366 días/10.000 registros por sección. No suman unidades incompatibles. Documentos inmutables por negocio/tipo/año, máximo técnico 850.000 bytes para respetar Firestore, con error explícito. Fuentes locales y tablas multipágina. PDFs grandes requieren reducir el informe.
+
+Historiales anteriores permanecen en sus rutas; conversiones crean movimientos vinculados y transfieren exactamente el valor. Costo ausente es pendiente. Una reversión antigua puede restaurar stock original; reconvertir exige el factor ya confirmado.

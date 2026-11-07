@@ -54,10 +54,6 @@ test('compra confirmada actualiza costos y puede anularse conservando historial'
   await expect(page.getByRole('list', { name: 'Lista de compras' })).toContainText(
     'Recibo ficticio',
   );
-  await page.screenshot({
-    path: `test-results/purchases-${info.project.name}.png`,
-    fullPage: true,
-  });
   await expect(page.locator('body')).toHaveJSProperty(
     'scrollWidth',
     await page.locator('body').evaluate((element) => element.clientWidth),

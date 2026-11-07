@@ -80,7 +80,6 @@ test('perfil de servicios combina herramientas, conserva productos y recupera un
     'scrollWidth',
     await page.locator('body').evaluate((element) => element.clientWidth),
   );
-  await page.screenshot({ path: `test-results/profiles-${info.project.name}.png`, fullPage: true });
   await navigate(page, 'Inventario');
   const product = page.getByRole('list', { name: 'Lista de productos' });
   await expect(product).toContainText('Pieza conservada');

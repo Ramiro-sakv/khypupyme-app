@@ -2,6 +2,11 @@ export function readEnvironment(env: Record<string, unknown>) {
   const projectId = env.VITE_FIREBASE_PROJECT_ID ?? 'demo-khypupyme';
   const useEmulators = env.VITE_USE_EMULATORS ?? 'true';
   const profile = env.VITE_EMULATOR_PROFILE ?? 'local';
+  if(useEmulators==='false'){
+    if(profile!=='local'||env.VITE_SERVICE_PROFILE!=='hosted'||typeof projectId!=='string'||projectId.startsWith('demo-')||!projectId.match(/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/)||!['VITE_FIREBASE_API_KEY','VITE_FIREBASE_AUTH_DOMAIN','VITE_FIREBASE_APP_ID'].every(k=>typeof env[k]==='string'&&(env[k] as string).length>5))throw new Error('Configuración alojada incompleta. No cambies el perfil local sin preparar el servicio.');
+    if(env.VITE_FIREBASE_AUTH_DOMAIN!==`${projectId}.firebaseapp.com`)throw new Error('Dominio de autenticación no autorizado.');
+    return {projectId,authHost:'',firestoreHost:'127.0.0.1',firestorePort:8080,functionsPort:5001};
+  }
   if (typeof projectId !== 'string' || !/^demo-[a-z0-9-]+$/.test(projectId) || useEmulators !== 'true'
     || !['local', 'test'].includes(profile as string)
     || (profile === 'test' && projectId !== 'demo-khypupyme-tests')

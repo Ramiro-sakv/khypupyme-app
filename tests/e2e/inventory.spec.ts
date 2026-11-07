@@ -71,10 +71,6 @@ test('inventario completo: alta, edición, entradas, salidas, historial y archiv
   await expect(history.getByRole('listitem')).toHaveCount(3);
   await expect(history).toContainText('Rotura de envases');
   await expect(history).toContainText('7 → 2 unidades');
-  await page.screenshot({
-    path: `test-results/inventory-${info.project.name}.png`,
-    fullPage: true,
-  });
   await expect(page.locator('body')).toHaveJSProperty(
     'scrollWidth',
     await page.locator('body').evaluate((el) => el.clientWidth),

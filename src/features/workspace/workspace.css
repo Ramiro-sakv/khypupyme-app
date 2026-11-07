@@ -1212,3 +1212,132 @@
     font-size: 1.04rem;
   }
 }
+
+.draft-status > div {
+  flex: 1;
+  min-width: 0;
+}
+.draft-status p {
+  margin: 8px 0;
+  font-size: 0.8rem;
+}
+.draft-status .actions {
+  margin: 12px 0 0;
+  gap: 8px;
+}
+.draft-status .actions button {
+  font-size: 0.75rem;
+}
+.draft-review {
+  border-top: 1px solid #d8e2e7;
+  padding-top: 14px;
+  margin-top: 14px;
+}
+.getting-started {
+  margin: 24px 0;
+}
+.getting-started .section-heading {
+  margin-bottom: 10px;
+}
+.getting-started progress {
+  display: block;
+  width: 100%;
+  height: 6px;
+  accent-color: var(--primary);
+  border: 0;
+  border-radius: 5px;
+  margin: 12px 0 20px;
+}
+.setup-steps {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.setup-steps li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.setup-steps li:last-child {
+  border-bottom: 0;
+}
+.setup-steps li > div {
+  flex: 1;
+}
+.setup-steps strong {
+  font-size: 0.83rem;
+  display: block;
+}
+.setup-steps small {
+  display: block;
+  margin-top: 4px;
+}
+.setup-steps button {
+  font-size: 0.75rem;
+}
+.setup-dot {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.setup-dot.done {
+  background: #edf6ee;
+  color: #286c45;
+  border-color: #c5ddce;
+}
+.setup-dot .icon {
+  width: 16px;
+  height: 16px;
+}
+.industry-help-panel {
+  border: 1px solid var(--line);
+  padding: 0 16px;
+  border-radius: 10px;
+  background: #f7faf8;
+}
+.industry-help-panel p {
+  font-size: 0.83rem;
+  margin: 4px 0 12px;
+}
+.industry-help-panel > small {
+  display: block;
+  margin-bottom: 14px;
+}
+.purchase-history {
+  margin-top: 32px;
+}
+.mobile-records .list-card > button {
+  display: block;
+  margin-top: 14px;
+}
+@media (max-width: 767px) {
+  .setup-steps {
+    margin: 0;
+  }
+  .setup-steps li {
+    flex-wrap: wrap;
+  }
+  .setup-steps li > div {
+    min-width: 170px;
+  }
+  .setup-steps button {
+    margin-left: 44px;
+  }
+  .draft-status {
+    padding: 14px;
+    gap: 8px;
+  }
+  .draft-status > .icon {
+    width: 17px;
+  }
+  .draft-status .actions button {
+    width: 100%;
+  }
+}

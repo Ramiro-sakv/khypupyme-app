@@ -1,12 +1,10 @@
-import { Icon } from "./Icon";
-import { useReport } from "./useReport";
-import { localDate } from "./format";
 import { useState } from "react";
-import type { BusinessDocument } from "../../../shared/workspace/model";
-import { useRecords, useWorkspace } from "./context";
-import { ActionForm, Pager } from "./ui";
-import { bob, today } from "./format";
 import { ReportChart } from "../commerce/ReportChart";
+import { useWorkspace } from "./context";
+import { bob, localDate, today } from "./format";
+import { Icon } from "./Icon";
+import { ActionForm } from "./ui";
+import { useReport } from "./useReport";
 export default function Reports() {
   const { run, busy } = useWorkspace(),
     [from, setFrom] = useState(today().slice(0, 7) + "-01"),
@@ -139,64 +137,6 @@ export default function Reports() {
           </div>
         </>
       )}
-    </>
-  );
-}
-export function Documents() {
-  const page = useRecords<BusinessDocument>("documentsV2"),
-    [error, setError] = useState(""),
-    [busy, setBusy] = useState("");
-  return (
-    <>
-      <div className="section-heading">
-        <div>
-          <span className="eyebrow">EL ARCHIVO DE TU NEGOCIO</span>
-          <h2>Documentos</h2>
-        </div>
-        <span className="badge" data-state="neutral">
-          No fiscales
-        </span>
-      </div>
-      <p>
-        Conservan los datos originales. Regenerar un PDF no vuelve a registrar
-        la operación.
-      </p>
-      {error && <p role="alert">{error}</p>}
-      <Pager page={page} />
-      <div className="document-grid">
-        {page.items.map((d) => (
-          <article className="card document-card" key={d.id}>
-            <span className="doc-icon">
-              <Icon name="document" />
-            </span>
-            <h3>
-              {d.number} · {d.title}
-            </h3>
-            <p>
-              {d.businessName} · {localDate(d.date)}
-            </p>
-            <button
-              disabled={!!busy}
-              onClick={() => {
-                setBusy(d.id);
-                setError("");
-                void import("./pdf")
-                  .then((m) => m.saveDocument(d))
-                  .catch((e) =>
-                    setError(
-                      e instanceof Error
-                        ? e.message
-                        : "No se pudo generar. Puedes reintentar este documento.",
-                    ),
-                  )
-                  .finally(() => setBusy(""));
-              }}
-            >
-              {busy === d.id ? "Preparando PDF…" : "Guardar / compartir PDF"}
-            </button>
-          </article>
-        ))}
-      </div>
     </>
   );
 }

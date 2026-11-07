@@ -1,6 +1,6 @@
 # KhypuPyme
 
-Cuaderno digital para negocios de Bolivia. Beta local **0.4.0-beta.2**, sin publicación ni conexión cloud activa.
+Cuaderno digital para negocios de Bolivia. Beta local **0.4.0-beta.3**, sin publicación ni conexión cloud activa.
 
 Una cuenta administra varios negocios independientes. Después de ingresar se crea un espacio, se responde el cuestionario y se confirma un rubro fijo. Cada negocio conserva catálogo, clientes, compras, ventas, fiados, caja y documentos propios. Se abre el último negocio autorizado; **Cambiar negocio** vuelve al selector.
 
@@ -15,6 +15,16 @@ Los negocios anteriores conservan sus rutas e identificadores. Confirman el rubr
 Las solicitudes sin confirmación se conservan en IndexedDB por cuenta/negocio, sin cola offline ni reintento automático. **Consultar confirmación** precede al reintento manual. La operación conserva su negocio original aunque cambies de espacio.
 
 React + TypeScript + Vite + Firebase Functions/Firestore/Auth locales; Android con Capacitor y Windows con Tauri. Los paquetes locales aún necesitan los emuladores encendidos en el PC. Android usa el host 10.0.2.2 del emulador Android; no está preparado para teléfonos físicos. Esta entrega se compiló sin ejecutar pruebas por instrucción del propietario; no se acredita uso comercial.
+
+## Continuidad beta 3
+
+Venta, cotización y compra conservan un borrador por cuenta/negocio/tipo en IndexedDB, separado del registro de solicitudes inciertas. El estado y la fecha de guardado son visibles. Al volver, el usuario elige restaurar o descartar; la restauración consulta el negocio y su catálogo autorizado. Precios cambiados requieren revisión, las series de salida se seleccionan de nuevo y una oferta cambiada exige nueva cotización. Los borradores guardan referencias y entradas del formulario, sin contraseñas, tokens, existencias ni costos consultados. El costo declarado de compra sí es una entrada.
+
+Las revisiones evitan sobrescribir silenciosamente otra pestaña: se puede cargar la versión guardada o reemplazarla expresamente con la pantalla actual. Un borrador enviado queda vinculado a su solicitud original hasta consultar su resultado; solo una confirmación permite limpiarlo. No hay envío ni reintento automático, sincronización entre equipos ni operación comercial offline. No borrar el almacenamiento de la aplicación si hay solicitudes pendientes.
+
+Inicio ofrece una guía derivada de registros existentes y cada rubro muestra ayuda propia. Las compras comparten consulta filtrada/paginada y detalle; los documentos muestran su copia histórica y permiten regenerar el PDF sin repetir operaciones.
+
+Orden de lectura: `DraftRepository` y `WorkspaceRepository` → `TradeDraftService`, `WorkspaceCommandService`, `AccountCreationService` → `IndexedDbDraftRepository`, `OperationJournal` y adaptador Firebase → hooks y pantallas por área. Autenticación, selección de negocios y espacio de trabajo están separados. Los cálculos y contratos comerciales existentes se conservan.
 
 ## Ejecutar en Windows
 

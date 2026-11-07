@@ -1,79 +1,26 @@
-import { CustomerSelector } from "./CustomerSelector";
-import { Panel } from "./Panel";
-import { Icon } from "./Icon";
-import { confirmDiscardChanges } from "./navigation";
-import { localDate, statusLabel, itemDetails } from "./format";
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import { UNITS } from "../../../shared/workspace/catalog";
+import { amount, div } from "../../../shared/workspace/exact";
 import type {
   Item,
   Method,
-  ReceiptLineInput,
-  ReturnInput,
-  SaleLineInputV2,
-  SaleV2,
-  Unit,
+  WorkspaceAction,
 } from "../../../shared/workspace/model";
-import {
-  amount,
-  ceil,
-  compare,
-  div,
-  fraction,
-  mul,
-  showQuantity,
-  ZERO,
-} from "../../../shared/workspace/exact";
-import { UNITS } from "../../../shared/workspace/catalog";
 import { useRecords, useWorkspace } from "./context";
+import { CustomerSelector } from "./CustomerSelector";
+import type { TradeDraftInput } from "./DraftRepository";
+import DraftStatus from "./DraftStatus";
+import { bob, cents, itemDetails, method, q, today } from "./format";
+import { Icon } from "./Icon";
+import IndustryHelp from "./IndustryHelp";
+import { confirmDiscardChanges } from "./navigation";
 import { ActionForm, Field, MethodField, Pager } from "./ui";
-import { bob, cents, method, q, serials, today } from "./format";
+import { useTradeDraft } from "./useTradeDraft";
 
-interface CartLine {
-  item: Item;
-  qty: string;
-  unit: Unit;
-  cost: string;
-  lot: string;
-  expiresOn: string;
-  serials: string[];
-  fullBoxes: boolean;
-  wastePercent: number;
-}
-function delivered(line: CartLine) {
-  let requested = mul(q(line.qty), line.item.units[line.unit]!);
-  if (line.item.kind === "ceramic" && line.unit === "m2")
-    requested = mul(requested, fraction(BigInt(100 + line.wastePercent), 100n));
-  if (line.item.kind === "timber-piece" || line.item.kind === "ceramic")
-    requested = ceil(requested);
-  if (line.item.kind === "ceramic" && line.fullBoxes)
-    requested = mul(
-      ceil(div(requested, line.item.units.box!)),
-      line.item.units.box!,
-    );
-  return requested;
-}
-function saleInputs(lines: CartLine[]): SaleLineInputV2[] {
-  return lines.map((l) => ({
-    itemId: l.item.id,
-    qty: q(l.qty),
-    unit: l.unit,
-    fullBoxes: l.fullBoxes,
-    wastePercent: l.wastePercent,
-    serials: l.serials,
-    expectedPriceMinor: l.item.priceMinor,
-  }));
-}
-function receiptInputs(lines: CartLine[]): ReceiptLineInput[] {
-  return lines.map((l) => ({
-    itemId: l.item.id,
-    qty: q(l.qty),
-    unit: l.unit,
-    unitCostMinor: cents(l.cost),
-    lot: l.lot,
-    expiresOn: l.expiresOn,
-    serials: l.serials,
-  }));
-}
+import type { CartLine } from "./Cart";
+import { delivered, receiptInputs, saleInputs } from "./Cart";
+import CartEditor from "./CartEditor";
+import Quotes from "./QuoteHistory";
 export default function Trade({
   purchase = false,
   initialQuote = false,
@@ -81,7 +28,7 @@ export default function Trade({
   purchase?: boolean;
   initialQuote?: boolean;
 }) {
-  const { business, repository, run, busy } = useWorkspace(),
+  const { business, repository, run, busy, prepare } = useWorkspace(),
     page = useRecords<Item>("items"),
     [lines, setLines] = useState<CartLine[]>([]),
     [barcode, setBarcode] = useState(""),
@@ -91,11 +38,82 @@ export default function Trade({
     [customerName, setCustomerName] = useState(""),
     [customerId, setCustomerId] = useState(""),
     [discount, setDiscount] = useState("0"),
-    [validUntil] = useState(() =>
+    [validUntil, setValidUntil] = useState(() =>
       new Date(Date.parse(today() + "T12:00:00Z") + 7 * 86400000)
         .toISOString()
         .slice(0, 10),
     );
+  const [date, setDate] = useState(today),
+    [payment, setPayment] = useState<Method | "credit">("cash"),
+    [reference, setReference] = useState(""),
+    [restoredNotice, setRestoredNotice] = useState("");
+  const draftInput: TradeDraftInput = {
+    lines: lines.map((line) => ({
+      itemId: line.item.id,
+      priceMinor: line.item.priceMinor,
+      qty: line.qty,
+      unit: line.unit,
+      cost: line.cost,
+      lot: line.lot,
+      expiresOn: line.expiresOn,
+      serials: purchase ? line.serials : [],
+      fullBoxes: line.fullBoxes,
+      wastePercent: line.wastePercent,
+    })),
+    isQuote,
+    quoteId,
+    customerId,
+    customerName,
+    discount,
+    date,
+    method: payment,
+    reference,
+    validUntil,
+  };
+  const resetConfirmed = useCallback(() => {
+    setLines([]);
+    setQuoteId("");
+    setDiscount("0");
+    setRestoredNotice("");
+    if (initialQuote) setIsQuote(true);
+  }, [initialQuote]);
+  const draft = useTradeDraft(
+    purchase ? "purchase" : initialQuote ? "quote" : "sale",
+    draftInput,
+    (restored) => {
+      const saved = restored.draft.input;
+      setLines(restored.lines);
+      setIsQuote(restored.requiresNewQuote ? true : saved.isQuote);
+      setQuoteId(restored.requiresNewQuote ? "" : saved.quoteId);
+      setCustomerId(saved.customerId);
+      setCustomerName(saved.customerName);
+      setDiscount(saved.discount);
+      setDate(saved.date);
+      setPayment(saved.method);
+      setReference(saved.reference);
+      setValidUntil(saved.validUntil);
+      setRestoredNotice(
+        restored.requiresNewQuote
+          ? "Los precios cambiaron. Se prepara una nueva cotización; revisa su vigencia."
+          : restored.serialsCleared
+            ? "Borrador restaurado. Selecciona otra vez las series de salida."
+            : "Borrador restaurado con el catálogo actual.",
+      );
+    },
+    resetConfirmed,
+  );
+  async function submitAction(action: WorkspaceAction) {
+    const command = prepare(action);
+    await draft.beforeSubmit(command, draftInput);
+    try {
+      const result = await run(action, command.operationId);
+      if (result) await draft.confirmed(command);
+      return result;
+    } catch (cause) {
+      await draft.failed(command, cause);
+      throw cause;
+    }
+  }
   function addItem(item: Item) {
     if (lines.some((l) => l.item.id === item.id)) return;
     if (lines.length >= 20) {
@@ -156,6 +174,13 @@ export default function Trade({
               ? "Revisa la cotización original y confirma la venta con las existencias actuales."
               : "Selecciona productos y servicios. Revisa las cantidades y el total antes de confirmar."}
       </p>
+      <IndustryHelp mode={purchase ? "purchase" : "sale"} />
+      <DraftStatus draft={draft} />
+      {restoredNotice && (
+        <p role="status" className="notice notice-info">
+          {restoredNotice}
+        </p>
+      )}
       <div className="trade-layout">
         <section className="trade-picker">
           <div className="card">
@@ -164,7 +189,7 @@ export default function Trade({
               <Icon name="box" />
             </div>
             <ActionForm
-              disabled={busy}
+              disabled={busy || !draft.editable}
               className="barcode-search"
               protectDraft={false}
               label="Buscar código"
@@ -195,7 +220,11 @@ export default function Trade({
               {page.items
                 .filter((i) => i.active && (!purchase || i.kind !== "service"))
                 .map((item) => (
-                  <button key={item.id} onClick={() => addItem(item)}>
+                  <button
+                    disabled={busy || !draft.editable}
+                    key={item.id}
+                    onClick={() => addItem(item)}
+                  >
                     <strong>{item.name}</strong>
                     <small>
                       {itemDetails(item)} · {bob(item.priceMinor)}/
@@ -209,7 +238,7 @@ export default function Trade({
         <ActionForm
           className="trade-form"
           dirty={lines.length > 0}
-          disabled={busy || !lines.length}
+          disabled={busy || !draft.editable || !lines.length}
           label={
             purchase
               ? "Confirmar compra y pago"
@@ -224,7 +253,7 @@ export default function Trade({
               throw new Error("Confirma el importe antes de guardar.");
             let result;
             if (purchase)
-              result = await run({
+              result = await submitAction({
                 kind: "purchase",
                 input: {
                   lines: receiptInputs(lines),
@@ -234,7 +263,7 @@ export default function Trade({
                 },
               });
             else if (isQuote)
-              result = await run({
+              result = await submitAction({
                 kind: "quote",
                 input: {
                   lines: saleInputs(lines),
@@ -245,7 +274,7 @@ export default function Trade({
                 },
               });
             else
-              result = await run({
+              result = await submitAction({
                 kind: "sale",
                 input: {
                   lines: saleInputs(lines),
@@ -258,10 +287,7 @@ export default function Trade({
                 },
               });
             if (result) {
-              setLines([]);
-              setQuoteId("");
-              setDiscount("0");
-              if (initialQuote) setIsQuote(true);
+              resetConfirmed();
             }
           }}
         >
@@ -330,6 +356,8 @@ export default function Trade({
               <Field
                 name="reference"
                 label="Referencia de compra"
+                value={reference}
+                onValueChange={setReference}
                 required={false}
                 maxLength={100}
               />
@@ -340,11 +368,22 @@ export default function Trade({
                 label="Válida hasta"
                 type="date"
                 value={validUntil}
+                onValueChange={setValidUntil}
               />
             ) : (
               <>
-                <Field name="date" label="Fecha" type="date" value={today()} />
-                <MethodField credit={!purchase} />
+                <Field
+                  name="date"
+                  label="Fecha"
+                  type="date"
+                  value={date}
+                  onValueChange={setDate}
+                />
+                <MethodField
+                  credit={!purchase}
+                  value={payment}
+                  onValueChange={setPayment}
+                />
               </>
             )}
             <label>
@@ -374,579 +413,15 @@ export default function Trade({
             setCustomerName(quote.customerName);
             setCustomerId(quote.customerId);
             setDiscount((quote.discountMinor / 100).toFixed(2));
-            setQuoteId(quote.id);
-            setIsQuote(false);
+            setQuoteId(quote.priceChanged ? "" : quote.id);
+            setIsQuote(quote.priceChanged);
+            if (quote.priceChanged)
+              setRestoredNotice(
+                "Los precios cambiaron. Se prepara una nueva cotización, sin modificar la oferta original.",
+              );
           }}
         />
       )}
-      {purchase ? <PurchaseHistory /> : !initialQuote ? <SalesHistory /> : null}
     </>
-  );
-}
-function CartEditor({
-  line,
-  update,
-  remove,
-  purchase,
-  quote = false,
-}: {
-  line: CartLine;
-  update: (patch: Partial<CartLine>) => void;
-  remove: () => void;
-  purchase: boolean;
-  quote?: boolean;
-}) {
-  const available = useRecords<{ id: string; serial: string }>(
-    "serials",
-    { itemId: line.item.id, status: "available" },
-    line.item.kind === "appliance" && !purchase && !quote,
-  );
-  let coverage: string;
-  try {
-    coverage = `Entrega: ${showQuantity(delivered(line))} ${line.item.baseUnit}`;
-    if (line.item.kind === "ceramic")
-      coverage += ` · Cobertura real ${showQuantity(div(delivered(line), line.item.units.m2!))} m²`;
-  } catch {
-    coverage = "Revisa la cantidad.";
-  }
-  return (
-    <section className="card cart-line">
-      <h3>{line.item.name}</h3>
-      <p className="muted">{itemDetails(line.item)}</p>
-      <div className="workspace-grid">
-        <label>
-          Cantidad solicitada
-          <input
-            value={line.qty}
-            onChange={(e) => update({ qty: e.target.value })}
-            inputMode="decimal"
-            required
-          />
-        </label>
-        <label>
-          Unidad
-          <select
-            value={line.unit}
-            onChange={(e) => update({ unit: e.target.value as Unit })}
-          >
-            {Object.keys(line.item.units).map((u) => (
-              <option key={u} value={u}>
-                {UNITS[u as Unit]}
-              </option>
-            ))}
-          </select>
-        </label>
-        {purchase && (
-          <label>
-            Costo por unidad elegida (BOB)
-            <input
-              value={line.cost}
-              onChange={(e) => update({ cost: e.target.value })}
-              required
-              inputMode="decimal"
-            />
-          </label>
-        )}
-      </div>
-      {purchase && (
-        <>
-          <label>
-            Lote
-            <input
-              value={line.lot}
-              onChange={(e) => update({ lot: e.target.value })}
-              maxLength={80}
-            />
-          </label>
-          <label>
-            Vencimiento (si corresponde)
-            <input
-              type="date"
-              value={line.expiresOn}
-              onChange={(e) => update({ expiresOn: e.target.value })}
-            />
-          </label>
-        </>
-      )}
-      {!purchase && line.item.kind === "ceramic" && (
-        <>
-          <label>
-            Merma al cotizar por m² (%)
-            <input
-              type="number"
-              min={0}
-              max={30}
-              step="1"
-              value={line.wastePercent}
-              onChange={(e) => update({ wastePercent: Number(e.target.value) })}
-            />
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              checked={line.fullBoxes}
-              onChange={(e) => update({ fullBoxes: e.target.checked })}
-            />
-            Entregar solamente cajas completas
-          </label>
-        </>
-      )}
-      {line.item.kind === "appliance" &&
-        (purchase ? (
-          <label>
-            Una serie por equipo (líneas o comas)
-            <textarea
-              value={line.serials.join("\n")}
-              onChange={(e) => update({ serials: serials(e.target.value) })}
-            />
-          </label>
-        ) : (
-          !quote && (
-            <>
-              <p>Selecciona cada unidad que se entrega.</p>
-              <Pager page={available} />
-              {available.items.map((s) => (
-                <label key={s.id}>
-                  <input
-                    type="checkbox"
-                    checked={line.serials.includes(s.id)}
-                    onChange={(e) =>
-                      update({
-                        serials: e.target.checked
-                          ? [...line.serials, s.id]
-                          : line.serials.filter((id) => id !== s.id),
-                      })
-                    }
-                  />
-                  {s.serial}
-                </label>
-              ))}
-            </>
-          )
-        ))}
-      {!purchase && (
-        <p>
-          {coverage} · Precio {bob(line.item.priceMinor)} /{" "}
-          {UNITS[line.item.priceUnit]}
-        </p>
-      )}
-      <button type="button" onClick={remove}>
-        Quitar línea
-      </button>
-    </section>
-  );
-}
-interface Quote {
-  customerId: string;
-  id: string;
-  number: string;
-  validUntil: string;
-  customerName: string;
-  discountMinor: number;
-  lines: SaleLineInputV2[];
-}
-function Quotes({
-  onConvert,
-}: {
-  onConvert: (q: {
-    customerId: string;
-    id: string;
-    customerName: string;
-    discountMinor: number;
-    lines: (Omit<SaleLineInputV2, "qty"> & { item: Item; qty: string })[];
-  }) => void;
-}) {
-  const page = useRecords<Quote>("quotes"),
-    { business, repository } = useWorkspace(),
-    [error, setError] = useState("");
-  return (
-    <details>
-      <summary>Cotizaciones anteriores</summary>
-      <Pager page={page} />
-      {error && <p role="alert">{error}</p>}
-      {page.items.map((row) => (
-        <article className="card" key={row.id}>
-          {row.number} · {row.customerName} · vigente hasta{" "}
-          {localDate(row.validUntil)}
-          <button
-            onClick={() => {
-              void (async () => {
-                try {
-                  const lines = await Promise.all(
-                    row.lines.map(async (l) => {
-                      const item = (
-                        await repository.list<Item>({
-                          apiVersion: 2,
-                          businessId: business.id,
-                          resource: "items",
-                          id: l.itemId,
-                        })
-                      ).items[0];
-                      if (!item) throw new Error("Producto no disponible.");
-                      return { ...l, item, qty: showQuantity(l.qty) };
-                    }),
-                  );
-                  onConvert({ ...row, lines });
-                } catch (e) {
-                  setError(
-                    e instanceof Error ? e.message : "No se pudo cargar.",
-                  );
-                }
-              })();
-            }}
-          >
-            Revisar y convertir a venta
-          </button>
-        </article>
-      ))}
-    </details>
-  );
-}
-function PurchaseHistory() {
-  const page = useRecords<{
-      id: string;
-      number: string;
-      date: string;
-      totalMinor: number;
-      lines: { name: string; qty: { n: string; d: string }; unit: Unit }[];
-    }>("purchasesV2"),
-    [from, setFrom] = useState(""),
-    [to, setTo] = useState(""),
-    [product, setProduct] = useState(""),
-    products = useRecords<Item>("items");
-  const filtered = useRecords<{
-    id: string;
-    number: string;
-    totalMinor: number;
-  }>("purchasesV2", {
-    ...(from && to ? { from, to } : {}),
-    ...(product ? { itemId: product } : {}),
-  });
-  return (
-    <details>
-      <summary>Compras registradas</summary>
-      <label>
-        Desde
-        <input
-          type="date"
-          value={from}
-          onChange={(e) => setFrom(e.target.value)}
-        />
-      </label>
-      <label>
-        Hasta
-        <input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-      </label>
-      <label>
-        Producto
-        <select value={product} onChange={(e) => setProduct(e.target.value)}>
-          <option value="">Todos</option>
-          {products.items.map((i) => (
-            <option key={i.id} value={i.id}>
-              {i.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <Pager page={products} />
-      <Pager page={filtered} />
-      {filtered.items.map((p) => (
-        <p key={p.id}>
-          {p.number} · {bob(p.totalMinor)}
-        </p>
-      ))}
-      <details>
-        <summary>Detalle de productos de la página reciente</summary>
-        {page.items.map((p) => (
-          <p key={p.id}>
-            {p.number}:{" "}
-            {p.lines
-              .map((l) => `${l.name} ${showQuantity(l.qty)} ${UNITS[l.unit]}`)
-              .join(" / ")}
-          </p>
-        ))}
-      </details>
-    </details>
-  );
-}
-export function SalesHistory() {
-  const page = useRecords<SaleV2>("salesV2"),
-    [sale, setSale] = useState<SaleV2 | null>(null);
-  return (
-    <>
-      <h2>Ventas y devoluciones</h2>
-      <Pager page={page} />
-      <div className="table-scroll desktop-records">
-        <table>
-          <thead>
-            <tr>
-              <th>Venta</th>
-              <th>Cliente</th>
-              <th>Estado</th>
-              <th className="numeric">Importe</th>
-              <th>
-                <span className="sr-only">Acciones</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {page.items.map((s) => (
-              <tr key={s.id}>
-                <td>
-                  <strong>{s.number}</strong>
-                  <small>{localDate(s.date)}</small>
-                </td>
-                <td>{s.customerName || "Cliente ocasional"}</td>
-                <td>
-                  <span className="badge" data-state={s.status}>
-                    {statusLabel(s.status)}
-                  </span>
-                </td>
-                <td className="numeric">{bob(s.totalMinor)}</td>
-                <td>
-                  <button onClick={() => setSale(s)}>
-                    Detalle y devolución
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div className="mobile-records">
-        {page.items.map((s) => (
-          <article className="card" key={s.id}>
-            <strong>
-              {s.number} · {bob(s.totalMinor)}
-            </strong>
-            <p>
-              {localDate(s.date)} · {s.customerName || "Cliente ocasional"} ·{" "}
-              <span className="badge" data-state={s.status}>
-                {statusLabel(s.status)}
-              </span>
-            </p>
-            <button onClick={() => setSale(s)}>
-              Detalle / devolver / cambiar
-            </button>
-          </article>
-        ))}
-      </div>
-      {sale && (
-        <ReturnForm key={sale.id} sale={sale} close={() => setSale(null)} />
-      )}
-    </>
-  );
-}
-function ReturnForm({ sale, close }: { sale: SaleV2; close: () => void }) {
-  const { run, busy } = useWorkspace(),
-    [selected, setSelected] = useState<
-      Record<number, { qty: string; restock: boolean; serials: string[] }>
-    >({}),
-    [exchange, setExchange] = useState(false),
-    [replacements, setReplacements] = useState<CartLine[]>([]),
-    items = useRecords<Item>("items");
-  return (
-    <Panel title={sale.number + " · Devoluciones y cambios"} onClose={close}>
-      <ActionForm
-        disabled={busy}
-        label={exchange ? "Confirmar cambio atómico" : "Confirmar devolución"}
-        onSave={async (d) => {
-          const lines: ReturnInput[] = Object.entries(selected)
-            .filter(([, v]) => v.qty && compare(q(v.qty), ZERO) > 0)
-            .map(([i, v]) => ({
-              line: Number(i),
-              qty: q(v.qty),
-              unit: String(d.get("returnUnit" + i)) as Unit,
-              restock: v.restock,
-              serials: v.serials,
-            }));
-          let result;
-          if (exchange) {
-            if (!replacements.length)
-              throw new Error("Selecciona los productos nuevos.");
-            result = await run({
-              kind: "exchange",
-              input: {
-                saleId: sale.id,
-                returns: lines,
-                lines: saleInputs(replacements),
-                reason: String(d.get("reason")),
-                method: method(d),
-                customerName: sale.customerName,
-              },
-            });
-          } else
-            result = await run({
-              kind: "return",
-              input: {
-                saleId: sale.id,
-                lines,
-                reason: String(d.get("reason")),
-                method: method(d),
-              },
-            });
-          if (result) close();
-        }}
-      >
-        {sale.lines.map((l, i) => {
-          const value = selected[i] ?? { qty: "", restock: true, serials: [] };
-          return (
-            <div key={i}>
-              <strong>
-                {l.name} · vendido {showQuantity(l.delivered)} {l.baseUnit} · ya
-                devuelto {showQuantity(l.returned)}
-              </strong>
-              <label>
-                Cantidad a devolver
-                <input
-                  value={value.qty}
-                  onChange={(e) =>
-                    setSelected((old) => ({
-                      ...old,
-                      [i]: { ...value, qty: e.target.value },
-                    }))
-                  }
-                  inputMode="decimal"
-                />
-              </label>
-              <label>
-                Unidad original
-                <select
-                  name={"returnUnit" + i}
-                  defaultValue={
-                    Object.entries(l.units).find(
-                      ([unit, factor]) =>
-                        factor?.n === "1" &&
-                        factor.d === "1" &&
-                        ["piece", "pair", "bag", "service"].includes(unit),
-                    )?.[0] ?? l.requestedUnit
-                  }
-                >
-                  {Object.keys(l.units).map((unit) => (
-                    <option key={unit} value={unit}>
-                      {UNITS[unit as Unit]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={value.restock}
-                  onChange={(e) =>
-                    setSelected((old) => ({
-                      ...old,
-                      [i]: { ...value, restock: e.target.checked },
-                    }))
-                  }
-                />
-                Reingresa al inventario{" "}
-                {l.kind === "appliance" ? "(en inspección)" : ""}
-              </label>
-              {l.kind === "appliance" &&
-                l.allocations
-                  .filter((a) => a.returned.n === "0")
-                  .map((a) => (
-                    <label key={a.stockId}>
-                      <input
-                        type="checkbox"
-                        checked={value.serials.includes(a.stockId)}
-                        onChange={(e) =>
-                          setSelected((old) => ({
-                            ...old,
-                            [i]: {
-                              ...value,
-                              serials: e.target.checked
-                                ? [...value.serials, a.stockId]
-                                : value.serials.filter(
-                                    (id) => id !== a.stockId,
-                                  ),
-                            },
-                          }))
-                        }
-                      />
-                      {a.serial}
-                    </label>
-                  ))}
-            </div>
-          );
-        })}
-        <label>
-          <input
-            type="checkbox"
-            checked={exchange}
-            onChange={(e) => setExchange(e.target.checked)}
-          />
-          Combinar con nueva venta como cambio
-        </label>
-        {exchange && (
-          <>
-            <Pager page={items} />
-            <label>
-              Agregar producto nuevo
-              <select
-                value=""
-                onChange={(e) => {
-                  const item = items.items.find((i) => i.id === e.target.value);
-                  if (
-                    item &&
-                    !replacements.some((l) => l.item.id === item.id) &&
-                    replacements.length < 20
-                  )
-                    setReplacements((old) => [
-                      ...old,
-                      {
-                        item,
-                        qty: "1",
-                        unit: item.priceUnit,
-                        cost: "",
-                        lot: "",
-                        expiresOn: "",
-                        serials: [],
-                        fullBoxes: false,
-                        wastePercent: 0,
-                      },
-                    ]);
-                }}
-              >
-                <option value="">Seleccionar</option>
-                {items.items
-                  .filter((i) => i.active)
-                  .map((i) => (
-                    <option key={i.id} value={i.id}>
-                      {i.name} · {bob(i.priceMinor)}/{UNITS[i.priceUnit]}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            {replacements.map((line, index) => (
-              <CartEditor
-                key={line.item.id}
-                line={line}
-                purchase={false}
-                update={(patch) =>
-                  setReplacements((old) =>
-                    old.map((l, i) => (i === index ? { ...l, ...patch } : l)),
-                  )
-                }
-                remove={() =>
-                  setReplacements((old) => old.filter((_, i) => i !== index))
-                }
-              />
-            ))}
-            <p>
-              La caja registra solamente la diferencia entre devolución y nueva
-              venta.
-            </p>
-          </>
-        )}
-        <Field name="reason" label="Motivo" maxLength={200} />
-        <MethodField />
-        <p>
-          Se restituye el costo histórico. Los equipos reingresados quedan en
-          inspección.
-        </p>
-      </ActionForm>
-    </Panel>
   );
 }

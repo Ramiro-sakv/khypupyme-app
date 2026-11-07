@@ -1,19 +1,28 @@
-import { Icon } from "./Icon";
-import { Panel } from "./Panel";
-import { localDate, statusLabel, itemDetails } from "./format";
 import { useState } from "react";
-import type { Item, Unit } from "../../../shared/workspace/model";
+import { ITEM_MODELS, UNITS } from "../../../shared/workspace/catalog";
 import {
   compare,
   div,
   showQuantity,
   ZERO,
 } from "../../../shared/workspace/exact";
-import { ITEM_MODELS, UNITS } from "../../../shared/workspace/catalog";
+import type { Item, Unit } from "../../../shared/workspace/model";
 import { useRecords, useWorkspace } from "./context";
-import { ActionForm, Field, Pager } from "./ui";
-import { bob, cents, q, serials, averageCost } from "./format";
+import {
+  averageCost,
+  bob,
+  cents,
+  itemDetails,
+  localDate,
+  q,
+  serials,
+  statusLabel,
+} from "./format";
+import { Icon } from "./Icon";
+import IndustryHelp from "./IndustryHelp";
 import ItemForm from "./ItemForm";
+import { Panel } from "./Panel";
+import { ActionForm, Field, Pager } from "./ui";
 export default function Catalog() {
   const { run, busy } = useWorkspace(),
     page = useRecords<Item>("items"),
@@ -41,6 +50,7 @@ export default function Catalog() {
           Nuevo producto o servicio
         </button>
       </div>
+      <IndustryHelp mode="catalog" />
       {newItem && (
         <Panel
           title="Nuevo producto o servicio"

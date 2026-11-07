@@ -3,11 +3,18 @@ import type {
   CommandResult,
   WorkspaceAction,
   WorkspaceBusiness,
+  WorkspaceCommand,
   WorkspaceQuery,
   WorkspaceResource,
 } from "../../../shared/workspace/model";
 import type { WorkspaceRepository } from "./WorkspaceRepository";
 export interface WorkspaceContextValue {
+  identity: Readonly<{ uid: string; businessId: string }>;
+  pending: boolean;
+  confirmedOperationId: string;
+  rejectedOperationId: string;
+  prepare: (action: WorkspaceAction, id?: string) => WorkspaceCommand;
+  recover: (command: WorkspaceCommand) => Promise<void>;
   business: WorkspaceBusiness;
   repository: WorkspaceRepository;
   revision: number;

@@ -315,3 +315,37 @@ Paquetes nuevos excluidos de Git, conservando anteriores:
 - KhypuPyme-0.4.0-beta.2-windows-x64-setup.exe: **2442649 bytes**, SHA-256 823a344d8b2e9e52c8e2478c54587aa289a74e1ecb32b4288c30791543480344.
 
 Huellas: artifacts/SHA256SUMS-beta4b2.txt. Paquetes locales de prueba que necesitan emuladores encendidos. No se instalaron, publicaron ni generaron accesos; no se inició/detuvo la sesión habitual ni se tocaron datos del propietario.
+
+
+## 0.4.0-beta.3 — 07/11/2026: continuidad y responsabilidades
+
+Verificación limitada por indicación expresa del propietario: **sin pruebas, capturas, vídeos, recorridos automáticos, revisión visual ni instalación/arranque de los paquetes**. No se acredita funcionamiento comercial a partir de estas compilaciones.
+
+Aprobados con salida 0:
+
+- `pnpm lint`: sin errores ni advertencias de ESLint.
+- `pnpm build`: TypeScript estricto (`tsc --noEmit`) y compilación Vite, 182 módulos. `pnpm build:functions`: TypeScript del servidor existente.
+- `pnpm android:build`: sincronización Capacitor y `assembleDebug`, BUILD SUCCESSFUL en 1m 7s; APK de prueba, versionCode 40003.
+- `pnpm windows:build`: compilación Tauri release en 2m 54s y generación NSIS x64. Versión 0.4.0-beta.3 en ambos paquetes.
+- `git diff --check`: sin errores. Revisión estática de archivos preparados: sin cambios en reglas/índices, shared, funciones financieras, adaptadores Firebase ni WorkspaceRepository. Comparación de AST de delivered/saleInputs/receiptInputs antes/después de extraer Cart: contenido conservado. No se ejecutaron sus cálculos como pruebas.
+- Revisión de patrones de credenciales en archivos preparados: sin coincidencias; sin incluir artefactos, datos locales, logs, secretos ni dependencias.
+
+Advertencias de construcción: pdfmake/fuentes superan 500 kB y permanecen en carga por demanda; Gradle conserva avisos flatDir y herramientas Android con XML SDK 3/4. No impidieron generar los paquetes; no se modificaron herramientas del propietario para ocultarlos.
+
+Artefactos locales, excluidos de Git; hashes también en `artifacts/SHA256SUMS-beta4b3.txt`:
+
+- `KhypuPyme-0.4.0-beta.3-android-debug.apk`: **5444445 bytes**, SHA-256 `5c00626e5d0e32c47fe35b50664f148b15a4bcf04ac9ab108d7e695bd9746591`.
+- `KhypuPyme-0.4.0-beta.3-windows-x64-setup.exe`: **2456769 bytes**, SHA-256 `e30aa99310268b2cbff8f4483f885cedc864394688fd8b0199aeb9137dbec789`.
+
+Revisión funcional diferida, **no ejecutada**:
+
+- Dos cuentas con varios negocios: aislamiento de borradores y solicitudes, cambio de espacio con operación iniciada y autorización del catálogo al restaurar.
+- Restauración con precios cambiados, nueva cotización cuando cambia la oferta, producto archivado/no disponible, reselección de series de salida y referencias originales de compra.
+- Dos pestañas: comparación atómica de ID/revisión, conservación de la pantalla en conflicto, carga/reemplazo expreso y borrador nuevo que no se borra/adopta al confirmar otro anterior.
+- Respuestas inciertas: contenido/ID originales, consulta antes del reintento manual, sin reenvío automático; rechazo definitivo conserva un borrador corregible y una confirmación limpia solo su vínculo. La ausencia de solicitud local no se interpreta como rechazo.
+- Persistencia ante recarga, desconexión, almacenamiento no disponible/cuota, y conservación de formularios al fallar la exportación. Comprobar PDF y su separación del registro comercial.
+- Historial de compras con fechas/producto/paginación y su detalle, primeros pasos con consultas fallidas, accesibilidad y dispositivos Android/Windows.
+
+Código fuente respecto de a49e087: **40 archivos, +4.023 / -1.859 líneas físicas**, incluyendo traslados y reorganización; no equivale a líneas nuevas de funcionalidad. El registro de solicitudes conserva su base/esquema anterior y el almacén de borradores es independiente.
+
+La incidencia previa de **reingreso Windows/WebKit continúa pendiente, sin corrección acreditada**. No se ejecutó `pnpm check` porque incluye pruebas. No se modificaron los servicios interactivos ni los datos del propietario; sin push, despliegue o publicación.

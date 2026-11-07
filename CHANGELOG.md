@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.4.0-beta.3 - 2026-11-07 (local, sin push)
+
+- Borradores de ventas/cotizaciones/compras por cuenta y negocio en IndexedDB separado, con revisión de precios, conflictos entre pestañas y recuperación manual de solicitudes originales.
+- Servicios de comandos y creación separados; pantallas de cuenta, espacio de trabajo y operaciones divididas por responsabilidad.
+- Guía inicial desde registros existentes, ayuda por rubro y detalles de compras/documentos desde sus datos conservados.
+- Sin cambios en reglas, contratos Firebase, datos históricos ni cálculos financieros. Verificación estática e instaladores; pruebas y revisión visual no ejecutadas por instrucción del propietario. Incidencia Windows/WebKit vigente.
+
 ## 0.4.0-beta.2 - 2026-11-07 (local, sin push)
 
 - Rediseño profesional con menú lateral, navegación móvil, contexto de negocio siempre visible y acentos por rubro.

@@ -1,12 +1,13 @@
 import { useState } from "react";
 import type { CashSession } from "../../../shared/workspace/model";
-import { useRecords, useWorkspace } from "./context";
-import { useReport } from "./useReport";
-import { Icon } from "./Icon";
+import { ReportChart } from "../commerce/ReportChart";
+import GettingStarted from "./GettingStarted";
 import type { IconName } from "./Icon";
+import { Icon } from "./Icon";
+import { useRecords, useWorkspace } from "./context";
 import { bob, localDate, today } from "./format";
 import { useWorkspaceNavigation } from "./navigation";
-import { ReportChart } from "../commerce/ReportChart";
+import { useReport } from "./useReport";
 export default function Dashboard() {
   const { business } = useWorkspace(),
     { go } = useWorkspaceNavigation(),
@@ -193,6 +194,11 @@ export default function Dashboard() {
           ))}
         </section>
       </div>
+      <GettingStarted
+        cashOpen={!!open}
+        cashLoading={cash.loading}
+        cashError={cash.error}
+      />
       <div className="notice notice-info">
         <Icon name="shield" />
         <p>

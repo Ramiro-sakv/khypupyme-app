@@ -1,8 +1,9 @@
-import { useId, useRef, useState } from "react";
 import type { ReactNode, SubmitEvent } from "react";
-import { Icon } from "./Icon";
-import { showQuantity } from "../../../shared/workspace/exact";
+import { useId, useRef, useState } from "react";
 import type { Quantity } from "../../../shared/workspace/exact";
+import { showQuantity } from "../../../shared/workspace/exact";
+import type { Method } from "../../../shared/workspace/model";
+import { Icon } from "./Icon";
 export function Field({
   label,
   name,
@@ -11,6 +12,7 @@ export function Field({
   required = true,
   help,
   error,
+  onValueChange,
   ...rest
 }: {
   label: string;
@@ -22,6 +24,7 @@ export function Field({
   max?: number | string;
   step?: string;
   maxLength?: number;
+  onValueChange?: (value: string) => void;
   help?: string;
   error?: string;
 }) {
@@ -38,7 +41,13 @@ export function Field({
         aria-invalid={error ? true : undefined}
         aria-describedby={error || help ? id + "-help" : undefined}
         type={type}
-        defaultValue={value}
+        {...(onValueChange
+          ? {
+              value: value ?? "",
+              onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
+                onValueChange(event.target.value),
+            }
+          : { defaultValue: value })}
         required={required}
         {...rest}
       />
@@ -53,11 +62,24 @@ export function Field({
     </label>
   );
 }
-export function MethodField({ credit = false }: { credit?: boolean }) {
+export function MethodField({
+  credit = false,
+  value,
+  onValueChange,
+}: {
+  credit?: boolean;
+  value?: Method | "credit";
+  onValueChange?: (value: Method | "credit") => void;
+}) {
   return (
     <label>
       Forma de pago
-      <select name="method" defaultValue="cash">
+      <select
+        name="method"
+        value={value}
+        onChange={(e) => onValueChange?.(e.target.value as Method | "credit")}
+        defaultValue={value === undefined ? "cash" : undefined}
+      >
         <option value="cash">Efectivo (requiere caja abierta)</option>
         <option value="qr">QR</option>
         <option value="transfer">Transferencia</option>

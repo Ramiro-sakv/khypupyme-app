@@ -84,3 +84,13 @@ Rediseño autorizado: sistema claro/verde, acentos por rubro, navegación latera
 Estilos comunes en src/styles.css y workspace.css; Icon aporta SVG local, Panel usa dialog nativo con foco/cierre, navigation protege borradores y useReport reutiliza consultas existentes. Mantener botones accesibles y estados textuales en español. No añadir dependencias para gráficos, iconos o fuentes sin necesidad. Este incremento es de presentación: no cambió reglas, contratos, históricos ni cálculos monetarios.
 
 La entrega conserva la instrucción de no ejecutar pruebas/capturas/recorridos. Solo análisis estático, compilación e instaladores; no declarar comprobación visual ni corrección del reingreso Windows/WebKit sin evidencia.
+
+
+## Continuidad 0.4 beta 3 — 07/11/2026
+
+- WorkspaceApp limita autenticación/rutas; AccountPage gestiona selección y Workspace el contexto de negocio. Las operaciones tienen componentes por área; Cart conserva las funciones exactas existentes.
+- WorkspaceCommandService recibe repositorio, PendingRequestStore y contexto inmutable uid/businessId. AccountCreationService conserva la creación atómica anterior. No cambiar IDs, contratos v2, reglas ni servidor financiero como parte de esta reorganización.
+- DraftRepository / IndexedDbDraftRepository usa una base independiente khypupyme-drafts-v1, un borrador por cuenta/negocio/tipo y comparación atómica de ID/revisión. TradeDraftService coordina autorización, precios actuales, series de salida y vínculo con el comando original. Nunca guardar stock/costos consultados como actuales ni autenticar desde un borrador.
+- Autosalvar entradas no envía operaciones. Restauración exige consulta autorizada; cambios de precio se revisan explícitamente y una oferta cambiada requiere nueva cotización. Conflictos conservan la pantalla y requieren cargar/reemplazar expresamente. Solicitudes enviadas no se editan ni se descartan; consultar y reintentar manualmente mediante su contrato/ID original. Confirmación limpia solo el borrador vinculado, sin adoptar revisiones nuevas de otras pestañas.
+- Guía inicial derivada de registros existentes; ayuda por rubro sin prometer capacidades ajenas. Detalles de compras desde la misma consulta filtrada y paginada; PDF se regenera separado del registro comercial.
+- Para esta entrega: solo lint, TypeScript, compilación e instaladores. No ejecutar tests, capturas ni recorridos. Documentar aislamiento/restauración/conflictos/recuperación como pendientes de revisión funcional. Mantener incidencia Windows/WebKit abierta. Commit local, sin push ni publicación.

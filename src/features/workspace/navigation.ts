@@ -4,7 +4,7 @@ export function confirmDiscardChanges(root: ParentNode = document) {
   return (
     !root.querySelector('form[data-dirty="true"]') ||
     window.confirm(
-      "Hay cambios sin guardar. ¿Quieres salir de este formulario? Las solicitudes enviadas conservan su confirmación pendiente.",
+      "Hay un formulario sin confirmar. ¿Quieres salir? Los borradores ya guardados permanecen en este dispositivo; las solicitudes enviadas conservan su confirmación pendiente.",
     )
   );
 }

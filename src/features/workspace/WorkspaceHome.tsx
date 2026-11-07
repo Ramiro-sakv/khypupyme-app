@@ -1,37 +1,35 @@
-import { lazy, Suspense, useState } from "react";
 import type { ComponentType, ReactNode } from "react";
-import { Panel } from "./Panel";
+import { lazy, Suspense, useState } from "react";
 import { Navigate } from "react-router";
-import { useWorkspace } from "./context";
-import { Icon } from "./Icon";
-import type { IconName } from "./Icon";
-import { useWorkspaceNavigation } from "./navigation";
 import { industryLabel } from "../../../shared/workspace/catalog";
+import { useWorkspace } from "./context";
+import type { IconName } from "./Icon";
+import { Icon } from "./Icon";
+import { useWorkspaceNavigation } from "./navigation";
+import { Panel } from "./Panel";
 const Catalog = lazy(() => import("./Catalog")),
-  Trade = lazy(() => import("./Trade")),
+  SalesPage = lazy(() => import("./SalesPage")),
+  PurchasePage = lazy(() => import("./PurchasePage")),
+  QuotesPage = lazy(() => import("./QuotesPage")),
   Reports = lazy(() => import("./Reports")),
   Dashboard = lazy(() => import("./Dashboard")),
-  Documents = lazy(() =>
-    import("./Reports").then((m) => ({ default: m.Documents })),
-  ),
+  Documents = lazy(() => import("./DocumentsPage")),
   Legacy = lazy(() => import("./Legacy"));
 const Cash = lazy(() =>
-    import("./Operations").then((m) => ({ default: m.Cash })),
+    import("./CashPage").then((m) => ({ default: m.Cash })),
   ),
   Customers = lazy(() =>
-    import("./Operations").then((m) => ({ default: m.Customers })),
+    import("./CustomerPage").then((m) => ({ default: m.Customers })),
   ),
-  Debts = lazy(() =>
-    import("./Operations").then((m) => ({ default: m.Debts })),
-  ),
+  Debts = lazy(() => import("./DebtPage").then((m) => ({ default: m.Debts }))),
   Expenses = lazy(() =>
-    import("./Operations").then((m) => ({ default: m.Expenses })),
+    import("./ExpensePage").then((m) => ({ default: m.Expenses })),
   ),
   Warranty = lazy(() =>
-    import("./Operations").then((m) => ({ default: m.Warranty })),
+    import("./WarrantyPage").then((m) => ({ default: m.Warranty })),
   ),
   Preferences = lazy(() =>
-    import("./Operations").then((m) => ({ default: m.Preferences })),
+    import("./PreferencesPage").then((m) => ({ default: m.Preferences })),
   );
 const models: Record<string, ComponentType<{ children: ReactNode }>> = {
   timber: lazy(() => import("./modules/Timber")),
@@ -105,13 +103,13 @@ export default function WorkspaceHome() {
       content = <Catalog />;
       break;
     case "compras":
-      content = <Trade key="compras" purchase />;
+      content = <PurchasePage />;
       break;
     case "ventas":
-      content = <Trade key="ventas" />;
+      content = <SalesPage />;
       break;
     case "cotizaciones":
-      content = <Trade key="cotizaciones" initialQuote />;
+      content = <QuotesPage />;
       break;
     case "caja":
       content = <Cash />;

@@ -64,3 +64,11 @@ Pruebas omitidas por la instrucción más reciente del propietario: no trasladar
 - Inicio/Informes y Ventas/Cotizaciones separados: Dashboard, useReport, Reports y Trade; importes y comandos originales conservados.
 - Usabilidad: paneles, tablas/tarjetas, asistente, fechas/estados en español y avisos de borradores. Sin nuevos permisos, reglas, contratos ni datos comerciales.
 - Evidencia: lint/TypeScript/build e instaladores; no ejecutadas pruebas ni revisión visual de 360/768/1100/1440, dispositivos, PDF o recorridos. Incidencia Windows/WebKit sin revalidar.
+
+
+## Continuidad 0.4.0-beta.3 — 07/11/2026
+
+- Borradores: DraftRepository, IndexedDbDraftRepository, TradeDraftService, useTradeDraft y DraftStatus. Separación uid/businessId/tipo, revisión local atómica, autorización al restaurar, revisión de precios y series, vínculo con solicitud original y limpieza tras confirmación. Implementado; sin pruebas funcionales.
+- Responsabilidades: WorkspaceCommandService, AccountCreationService y pantallas separadas de cuenta/espacio/ventas/compras/cotizaciones/devoluciones/clientes/caja/garantías. Contratos Firebase y servidor financiero conservados.
+- Ayuda/detalles: GettingStarted deriva pasos de registros existentes; IndustryHelp aporta indicaciones del modelo actual; PurchaseHistory usa una consulta filtrada/paginada; DocumentsPage conserva detalle histórico y exportación separada.
+- No se incorporan módulos comerciales ni nuevos identificadores RF/RNF. Verificación limitada a análisis estático y construcción de paquetes; aislamiento entre cuentas/negocios, conflictos entre pestañas, precios, respuestas inciertas y PDF quedan para revisión funcional posterior. Windows/WebKit sigue sin corrección acreditada.

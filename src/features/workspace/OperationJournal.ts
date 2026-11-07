@@ -1,4 +1,6 @@
+import { canonical } from "../../../shared/commerce";
 import type { WorkspaceCommand } from "../../../shared/workspace/model";
+import type { PendingRequestStore } from "./PendingRequestStore";
 import type { NewBusiness } from "./WorkspaceRepository";
 
 export type SavedRequest = {
@@ -9,7 +11,7 @@ export type SavedRequest = {
   creation: boolean;
 };
 // El registro conserva solicitudes inciertas. Nunca ejecuta ni reenvía operaciones.
-export class OperationJournal {
+export class OperationJournal implements PendingRequestStore {
   private database: Promise<IDBDatabase> | undefined;
   private open() {
     return (this.database ??= new Promise<IDBDatabase>((resolve, reject) => {
@@ -97,10 +99,38 @@ export class OperationJournal {
     });
   }
 
-  async clear(uid: string, businessId: string) {
-    await this.access("readwrite", (s) =>
-      s.delete(this.scope(uid, businessId)),
-    );
+  async clear(
+    uid: string,
+    businessId: string,
+    expected?: WorkspaceCommand | NewBusiness,
+  ) {
+    const db = await this.open(),
+      scope = this.scope(uid, businessId);
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction("requests", "readwrite"),
+        store = tx.objectStore("requests"),
+        read = store.get(scope);
+      read.onsuccess = () => {
+        if (
+          read.result &&
+          (!expected || canonical(read.result.request) === canonical(expected))
+        )
+          store.delete(scope);
+      };
+      tx.oncomplete = () => resolve();
+      tx.onerror = () =>
+        reject(
+          new Error(
+            "No se pudo limpiar el registro local. Consulta su estado.",
+          ),
+        );
+      tx.onabort = () =>
+        reject(
+          new Error(
+            "No se pudo limpiar el registro local. Consulta su estado.",
+          ),
+        );
+    });
   }
 }
 export const operationJournal = new OperationJournal();

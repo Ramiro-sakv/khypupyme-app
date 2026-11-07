@@ -97,8 +97,9 @@ export async function saveDocument(document: BusinessDocument) {
       defaultPath: name,
       filters: [{ name: "Documento PDF", extensions: ["pdf"] }],
     });
-    if (path) await writeFile(path, bytes);
-    return;
+    if (!path) return "cancelled" as const;
+    await writeFile(path, bytes);
+    return "saved" as const;
   }
   if (import.meta.env.VITE_RUNTIME_TARGET === "android") {
     const [{ Filesystem, Directory }, { Share }] = await Promise.all([
@@ -119,7 +120,7 @@ export async function saveDocument(document: BusinessDocument) {
       files: [result.uri],
       dialogTitle: "Guardar o compartir documento",
     });
-    return;
+    return "shared" as const;
   }
   const url = URL.createObjectURL(
     new Blob([bytes.buffer as ArrayBuffer], { type: "application/pdf" }),
@@ -130,4 +131,5 @@ export async function saveDocument(document: BusinessDocument) {
   anchor.download = name;
   anchor.click();
   window.setTimeout(() => URL.revokeObjectURL(url), 30000);
+  return "download-requested" as const;
 }

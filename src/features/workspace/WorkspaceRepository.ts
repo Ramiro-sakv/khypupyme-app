@@ -1,4 +1,8 @@
 import type {
+  TutorialRequest,
+  TutorialReply,
+} from "../../../shared/workspace/timber-tutorial";
+import type {
   WorkspaceReset,
   BusinessAnswers,
   CommandResult,
@@ -21,6 +25,7 @@ export interface NewBusiness {
   answers: BusinessAnswers;
 }
 export interface WorkspaceRepository {
+  tutorial?: (request: TutorialRequest) => Promise<TutorialReply>;
   businesses(cursor?: string): Promise<Page<WorkspaceBusiness>>;
   business(id: string): Promise<WorkspaceBusiness>;
   create(input: NewBusiness): Promise<WorkspaceBusiness>;

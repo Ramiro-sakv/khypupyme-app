@@ -12,6 +12,9 @@ export class Documents {
     private readonly business: WorkspaceBusiness,
     private readonly operationId: string,
   ) {}
+  get timberSystem() {
+    return this.business.timberSystem ?? "imperial";
+  }
   async issue(
     type: string,
     title: string,
@@ -45,6 +48,9 @@ export class Documents {
         rows,
         totals,
         notes: [
+          ...(this.business.tutorialSessionId
+            ? ["PRÁCTICA — DATOS FICTICIOS. No es una venta real."]
+            : []),
           ...(this.business.sampleData
             ? [
                 "EJEMPLO · DATOS FICTICIOS. No corresponde a operaciones reales.",

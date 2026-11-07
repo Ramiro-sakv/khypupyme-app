@@ -15,7 +15,7 @@ export function Debts() {
     page = useRecords<Debt>("debts");
   return (
     <>
-      <h2>Fiados y cobros completos</h2>
+      <h2 data-tutorial="debts">Fiados y cobros completos</h2>
       <details className="card record-editor">
         <summary>
           <Icon name="plus" />
@@ -62,6 +62,7 @@ export function Debts() {
                   <summary>Cobrar este fiado</summary>
                   <ActionForm
                     disabled={busy}
+                    dataTutorial="collect-form"
                     label="Cobrar saldo completo"
                     onSave={(f) =>
                       run({

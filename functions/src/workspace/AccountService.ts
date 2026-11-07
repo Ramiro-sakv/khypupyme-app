@@ -39,6 +39,13 @@ export function businessView(
           },
         }
       : {}),
+    ...(data.timberSystem ? { timberSystem: data.timberSystem } : {}),
+    ...(data.tutorialSessionId
+      ? {
+          tutorialSessionId: data.tutorialSessionId,
+          tutorialSourceBusinessId: data.tutorialSourceBusinessId,
+        }
+      : {}),
     legacy: data.legacy === true || data.workspaceVersion !== 2,
     createdAt:
       typeof data.createdAt === "string"
@@ -74,7 +81,12 @@ export class AccountService {
         ? { reset: account.data()!.workspaceReset }
         : {}),
       items: docs
-        .filter((doc) => doc.exists && doc.data()?.ownerUid === uid)
+        .filter(
+          (doc) =>
+            doc.exists &&
+            doc.data()?.ownerUid === uid &&
+            !doc.data()?.tutorialSessionId,
+        )
         .map((doc) => businessView(doc.id, doc.data()!)),
       next: page.size > 25 ? entries.at(-1)!.id : null,
     };
@@ -136,7 +148,11 @@ export class AccountService {
   }
   async get(uid: string, id: string) {
     const doc = await this.db.doc(`businesses/${identifier(id)}`).get();
-    if (!doc.exists || doc.data()?.ownerUid !== uid)
+    if (
+      !doc.exists ||
+      doc.data()?.ownerUid !== uid ||
+      doc.data()?.tutorialSessionId
+    )
       throw new Error("No tienes acceso a este negocio.");
     return businessView(doc.id, doc.data()!);
   }

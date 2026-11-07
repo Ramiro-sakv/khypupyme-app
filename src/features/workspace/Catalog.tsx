@@ -1,3 +1,8 @@
+import {
+  timberStockText,
+  minimumText,
+  minimumInput,
+} from "../../../shared/workspace/timber-measures";
 import { useState } from "react";
 import { ITEM_MODELS, UNITS } from "../../../shared/workspace/catalog";
 import {
@@ -24,7 +29,7 @@ import ItemForm from "./ItemForm";
 import { Panel } from "./Panel";
 import { ActionForm, Field, Pager } from "./ui";
 export default function Catalog() {
-  const { run, busy } = useWorkspace(),
+  const { run, busy, business } = useWorkspace(),
     [newItem, setNewItem] = useState(false),
     [archived, setArchived] = useState(false),
     [search, setSearch] = useState(""),
@@ -41,7 +46,11 @@ export default function Catalog() {
           <span className="eyebrow">PRODUCTOS, COSTOS Y EXISTENCIAS</span>
           <h2>Inventario</h2>
         </div>
-        <button className="primary" onClick={() => setNewItem(true)}>
+        <button
+          data-tutorial="new-item"
+          className="primary"
+          onClick={() => setNewItem(true)}
+        >
           <Icon name="plus" />
           Nuevo producto o servicio
         </button>
@@ -119,7 +128,8 @@ export default function Catalog() {
                   <td>
                     <span className="row-name">{item.name}</span>
                     <small className="row-detail">
-                      {itemDetails(item) || ITEM_MODELS[item.kind].label}
+                      {itemDetails(item, business.timberSystem ?? "imperial") ||
+                        ITEM_MODELS[item.kind].label}
                     </small>
                     {item.barcode && <small>Código: {item.barcode}</small>}
                   </td>
@@ -149,7 +159,10 @@ export default function Catalog() {
                   </td>
                   <td className="numeric">
                     {stock
-                      ? showQuantity(stock) + " " + UNITS[item.priceUnit]
+                      ? (timberStockText(
+                          item,
+                          business.timberSystem ?? "imperial",
+                        ) ?? showQuantity(stock) + " " + UNITS[item.priceUnit])
                       : "—"}
                   </td>
                   <td className="numeric">
@@ -169,7 +182,11 @@ export default function Catalog() {
                     </small>
                   </td>
                   <td>
-                    <button onClick={() => setSelected(item)}>
+                    <button
+                      data-tutorial="open-item"
+                      data-item-id={item.id}
+                      onClick={() => setSelected(item)}
+                    >
                       Gestionar <Icon name="arrow" />
                     </button>
                   </td>
@@ -209,14 +226,19 @@ export default function Catalog() {
             <article className="card" key={item.id}>
               <small>{ITEM_MODELS[item.kind].label}</small>
               <h3>{item.name}</h3>
-              <p>{itemDetails(item)}</p>
+              <p>{itemDetails(item, business.timberSystem ?? "imperial")}</p>
               <strong>
                 {bob(item.priceMinor)} / {UNITS[item.priceUnit]}
               </strong>
               {item.kind !== "service" && (
                 <>
                   <p>
-                    {showQuantity(balance)} {UNITS[item.priceUnit]} disponibles{" "}
+                    {timberStockText(
+                      item,
+                      business.timberSystem ?? "imperial",
+                    ) ??
+                      showQuantity(balance) + " " + UNITS[item.priceUnit]}{" "}
+                    disponibles{" "}
                     {item.balance.n === "0"
                       ? "· Agotado"
                       : compare(item.balance, item.minimum) < 0
@@ -243,7 +265,11 @@ export default function Catalog() {
                   )}
                 </>
               )}
-              <button onClick={() => setSelected(item)}>
+              <button
+                data-tutorial="open-item"
+                data-item-id={item.id}
+                onClick={() => setSelected(item)}
+              >
                 Gestionar e historial
               </button>
             </article>
@@ -253,6 +279,7 @@ export default function Catalog() {
       {selected && (
         <Panel
           key={selected.id}
+          dataTutorial="product-detail"
           title={selected.name}
           onClose={() => setSelected(null)}
         >
@@ -268,7 +295,11 @@ export default function Catalog() {
                   priceMinor: cents(d.get("price")),
                   serviceCostMinor:
                     selected.kind === "service" ? cents(d.get("cost")) : 0,
-                  minimum: q(d.get("minimum")),
+                  minimum: minimumInput(
+                    selected,
+                    String(d.get("minimum")),
+                    business.timberSystem ?? "imperial",
+                  ),
                   active: d.get("active") === "on",
                 },
               });
@@ -286,8 +317,15 @@ export default function Catalog() {
             />
             <Field
               name="minimum"
-              label={`Mínimo en ${selected.baseUnit}`}
-              value={showQuantity(selected.minimum)}
+              label={
+                "Mínimo en " +
+                (selected.kind === "timber-volume"
+                  ? business.timberSystem === "metric"
+                    ? "m³"
+                    : "pies tablares"
+                  : selected.baseUnit)
+              }
+              value={minimumText(selected, business.timberSystem ?? "imperial")}
             />
             {selected.kind === "service" && (
               <Field

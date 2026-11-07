@@ -21,6 +21,7 @@ export function Expenses() {
           Registrar gasto
         </summary>
         <ActionForm
+          dataTutorial="expense-form"
           disabled={busy}
           label="Registrar gasto y pago"
           onSave={(d) =>

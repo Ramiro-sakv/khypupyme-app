@@ -53,12 +53,13 @@ export default function WorkOrderPage() {
   if (!kind) return <p>Este rubro no utiliza órdenes de trabajo.</p>;
   return (
     <>
-      <h2>Órdenes y trabajos</h2>
+      <h2 data-tutorial="work-orders">Órdenes y trabajos</h2>
       <p>
         Recibe, presupuesta y registra avances. Solo la venta explícita mueve
         dinero y existencias.
       </p>
       <button
+        data-tutorial="new-order"
         className="primary"
         onClick={() => {
           setClient({ id: "", name: "" });

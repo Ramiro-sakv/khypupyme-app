@@ -1,3 +1,4 @@
+import type { TimberSystem } from "./timber-measures.js";
 import type { ItemDetails, OperationalAction } from "./operations.js";
 import type { IndustryId } from "../business-industries.js";
 import type { Quantity } from "./exact.js";
@@ -43,6 +44,9 @@ export interface WorkspaceBusiness {
   timeZone: "America/La_Paz";
   answers: BusinessAnswers;
   legacy: boolean;
+  timberSystem?: TimberSystem;
+  tutorialSessionId?: string;
+  tutorialSourceBusinessId?: string;
   sampleData?: { version: string; setId: string };
   createdAt: string;
 }
@@ -199,6 +203,7 @@ export interface SaleInput {
   quoteId: string;
 }
 export type WorkspaceAction =
+  | { kind: "timber-preferences"; input: { system: TimberSystem } }
   | OperationalAction
   | {
       kind: "confirm-type";

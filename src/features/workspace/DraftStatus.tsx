@@ -122,6 +122,7 @@ export default function DraftStatus({
                 {p.name}: {bob(p.before)} → {bob(p.after)}
               </p>
             ))}
+            {draft.review.quoteIssue && <p>{draft.review.quoteIssue}</p>}
             {draft.review.serialsCleared && (
               <p>
                 Vuelve a seleccionar las series de salida: su disponibilidad

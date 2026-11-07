@@ -19,7 +19,7 @@ export function Cash() {
   const open = currentSession.items[0];
   return (
     <>
-      <h2>Caja del negocio</h2>
+      <h2 data-tutorial="cash-form">Caja del negocio</h2>
       <p>
         Una sesión puede cruzar medianoche. Una caja cerrada conserva sus
         movimientos.

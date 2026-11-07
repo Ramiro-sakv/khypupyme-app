@@ -31,7 +31,7 @@ export default function Quotes({
     [error, setError] = useState("");
   return (
     <details>
-      <summary>Cotizaciones anteriores</summary>
+      <summary data-tutorial="quote-history">Cotizaciones anteriores</summary>
       <Pager page={page} />
       {error && <p role="alert">{error}</p>}
       {page.items.map((row) => (

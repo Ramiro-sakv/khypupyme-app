@@ -1,7 +1,7 @@
 import { UNITS } from "../../../shared/workspace/catalog";
 import { div, showQuantity } from "../../../shared/workspace/exact";
 import type { Unit } from "../../../shared/workspace/model";
-import { useRecords } from "./context";
+import { useRecords, useWorkspace } from "./context";
 import { bob, itemDetails, serials } from "./format";
 import { Pager } from "./ui";
 
@@ -20,6 +20,7 @@ export default function CartEditor({
   purchase: boolean;
   quote?: boolean;
 }) {
+  const { business } = useWorkspace();
   const available = useRecords<{ id: string; serial: string }>(
     "serials",
     { itemId: line.item.id, status: "available" },
@@ -36,11 +37,14 @@ export default function CartEditor({
   return (
     <section className="card cart-line">
       <h3>{line.item.name}</h3>
-      <p className="muted">{itemDetails(line.item)}</p>
+      <p className="muted">
+        {itemDetails(line.item, business.timberSystem ?? "imperial")}
+      </p>
       <div className="workspace-grid">
         <label>
           Cantidad solicitada
           <input
+            name="line-qty"
             value={line.qty}
             onChange={(e) => update({ qty: e.target.value })}
             inputMode="decimal"
@@ -50,6 +54,7 @@ export default function CartEditor({
         <label>
           Unidad
           <select
+            name="line-unit"
             value={line.unit}
             onChange={(e) => update({ unit: e.target.value as Unit })}
           >
@@ -64,6 +69,7 @@ export default function CartEditor({
           <label>
             Costo por unidad elegida (BOB)
             <input
+              name="line-cost"
               value={line.cost}
               onChange={(e) => update({ cost: e.target.value })}
               required

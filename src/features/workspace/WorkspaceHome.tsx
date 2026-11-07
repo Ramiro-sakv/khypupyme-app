@@ -261,9 +261,11 @@ export default function WorkspaceHome() {
         >
           {Model &&
           ["inventario", "compras", "ventas", "cotizaciones"].includes(view) ? (
-            <Model>{content}</Model>
+            <Model>
+              <section data-tutorial-page={view}>{content}</section>
+            </Model>
           ) : (
-            content
+            <section data-tutorial-page={view}>{content}</section>
           )}
         </Suspense>
       </div>

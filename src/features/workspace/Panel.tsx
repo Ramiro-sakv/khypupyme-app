@@ -1,3 +1,4 @@
+import TutorialCoach from "./tutorial/TutorialCoach";
 import { useContext, useEffect, useId, useRef } from "react";
 import type { ReactNode } from "react";
 import { WorkspaceContext } from "./context";
@@ -9,12 +10,14 @@ export function Panel({
   onClose,
   className = "",
   id: elementId,
+  dataTutorial,
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
   className?: string;
   id?: string;
+  dataTutorial?: string;
 }) {
   const workspace = useContext(WorkspaceContext);
   const ref = useRef<HTMLDialogElement>(null),
@@ -36,6 +39,7 @@ export function Panel({
   }
   return (
     <dialog
+      data-tutorial={dataTutorial}
       ref={ref}
       id={elementId}
       className={"editor-panel " + className}
@@ -73,7 +77,10 @@ export function Panel({
           <Icon name="close" />
         </button>
       </header>
-      <div className="panel-body">{children}</div>
+      <div className="panel-body">
+        <TutorialCoach inPanel />
+        {children}
+      </div>
     </dialog>
   );
 }

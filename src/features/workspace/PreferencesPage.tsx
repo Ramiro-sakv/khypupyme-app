@@ -6,6 +6,41 @@ export function Preferences() {
     <section className="card">
       <h2>Datos del negocio</h2>
       <p>El rubro es fijo. Para otra actividad crea otro negocio.</p>
+      {business.industryId === "timber" && (
+        <ActionForm
+          dataTutorial="timber-preferences"
+          label="Guardar medidas de madera"
+          disabled={busy}
+          onSave={(d) =>
+            run({
+              kind: "timber-preferences",
+              input: {
+                system: String(d.get("system")) as "imperial" | "metric",
+              },
+            })
+          }
+        >
+          <h3>Medidas de madera</h3>
+          <label>
+            Sistema de captura
+            <select
+              name="system"
+              defaultValue={business.timberSystem ?? "imperial"}
+            >
+              <option value="imperial">
+                Pulgadas y pies · volumen en pies tablares
+              </option>
+              <option value="metric">
+                Métrico · dimensiones en mm y volumen en m³
+              </option>
+            </select>
+          </label>
+          <p>
+            Se usan las medidas declaradas por tu negocio. Esta preferencia no
+            cambia precios, existencias ni documentos históricos.
+          </p>
+        </ActionForm>
+      )}
       <ActionForm
         disabled={busy}
         label="Guardar datos para documentos nuevos"

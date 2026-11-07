@@ -1429,3 +1429,59 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* El instructor usa el panel nativo cuando hay un dialog abierto. */
+.tutorial-coach {
+  position: sticky;
+  top: 0.5rem;
+  z-index: 6;
+  border: 2px solid #17684e;
+  border-radius: 1rem;
+  background: #f3fbf6;
+  padding: 1rem;
+  margin: 0.75rem 0;
+  box-shadow: 0 8px 22px #183e2d18;
+}
+.tutorial-coach-hidden {
+  display: none;
+}
+.tutorial-coach h3 {
+  margin: 0.45rem 0;
+}
+.tutorial-coach p {
+  margin: 0.45rem 0;
+}
+.tutorial-coach .actions {
+  flex-wrap: wrap;
+}
+.tutorial-coach progress {
+  width: 100%;
+  height: 8px;
+}
+.tutorial-field-hint {
+  padding: 0.6rem;
+  background: white;
+  border-left: 4px solid #17684e;
+}
+.tutorial-target {
+  outline: 3px solid #b47a14 !important;
+  outline-offset: 4px;
+  scroll-margin-top: 220px;
+}
+.tutorial-entry {
+  border: 1px solid #9bc6ae;
+  margin: 1rem 0;
+}
+@media (max-width: 600px) {
+  .tutorial-coach {
+    top: 0;
+    padding: 0.7rem;
+  }
+  .tutorial-coach .actions button {
+    flex: 1 1 45%;
+    min-height: 44px;
+  }
+  .tutorial-target {
+    scroll-margin-top: 290px;
+  }
+}

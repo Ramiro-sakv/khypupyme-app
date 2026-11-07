@@ -115,7 +115,7 @@ export function itemDraft(raw: unknown): ItemDraft {
     barcode: (v) => text(v, 0, 40).toUpperCase(),
     priceMinor: (v) => money(v, false),
     priceUnit: unit,
-    minimum: (v) => commercialQuantity(v),
+    minimum: (v) => quantity(v),
     serviceCostMinor: money,
   }) as unknown as ItemDraft;
   if (
@@ -126,6 +126,7 @@ export function itemDraft(raw: unknown): ItemDraft {
   )
     throw new Error("Ficha inválida.");
   item.fields = validItemFields(item.kind, item.fields);
+  validateItemMinimum(item.kind, item.minimum);
   if (!itemUnits(item).units[item.priceUnit])
     throw new Error("Unidad de precio incompatible.");
   return item;
@@ -191,6 +192,7 @@ const schemas: Record<
   Exclude<WorkspaceCommand["kind"], OperationalKind>,
   Record<string, Decode>
 > = {
+  "timber-preferences": { system: oneOf(["imperial", "metric"]) },
   "confirm-type": { industryId, answers },
   preferences: {
     name: (v) => text(v, 2, 80),
@@ -205,7 +207,7 @@ const schemas: Record<
     name: (v) => text(v, 2, 80),
     priceMinor: (v) => money(v, false),
     serviceCostMinor: money,
-    minimum: (v) => commercialQuantity(v),
+    minimum: (v) => quantity(v),
     active: boolean,
   },
   purchase: {
@@ -340,4 +342,14 @@ export function validateWorkspaceCommand(raw: unknown): WorkspaceCommand {
       allSchemas[envelope.kind as WorkspaceCommand["kind"]]!,
     ),
   } as WorkspaceCommand;
+}
+
+export function validateItemMinimum(
+  kind: ItemKind,
+  value: { n: string; d: string },
+) {
+  if (kind === "timber-volume") {
+    if (BigInt(value.n) > 999999999000000000n * BigInt(value.d))
+      throw new Error("El mínimo supera el límite permitido.");
+  } else commercialQuantity(value);
 }

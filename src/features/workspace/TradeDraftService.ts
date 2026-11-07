@@ -14,6 +14,7 @@ export interface RestoredTrade {
   lines: CartLine[];
   priceChanges: { name: string; before: number; after: number }[];
   requiresNewQuote: boolean;
+  quoteIssue?: string;
   serialsCleared: boolean;
 }
 export class TradeDraftService {
@@ -154,11 +155,33 @@ export class TradeDraftService {
         };
       }),
     );
+    let quoteIssue = "";
+    if (draft.input.quoteId) {
+      const quote = (
+        await this.repository.list<{ status: string; validUntil: string }>({
+          apiVersion: 2,
+          businessId: this.context.businessId,
+          resource: "quotes",
+          id: draft.input.quoteId,
+        })
+      ).items[0];
+      const today = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/La_Paz",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date());
+      if (!quote || quote.status !== "issued" || quote.validUntil < today)
+        quoteIssue =
+          "La cotización anterior venció o ya no está disponible. Revisa la vigencia y emite una nueva oferta.";
+    }
     return {
       draft,
       lines,
       priceChanges,
-      requiresNewQuote: !!draft.input.quoteId && priceChanges.length > 0,
+      requiresNewQuote:
+        !!draft.input.quoteId && (priceChanges.length > 0 || !!quoteIssue),
+      ...(quoteIssue ? { quoteIssue } : {}),
       serialsCleared:
         this.kind !== "purchase" &&
         lines.some((line) => line.item.kind === "appliance"),

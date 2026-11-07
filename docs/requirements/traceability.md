@@ -88,3 +88,18 @@ Ampliación expresa del propietario, derivada de su solicitud de 21 rubros con p
 | Paquetes | Android/Windows locales 0.5 beta | Compilación sin instalar/arrancar |
 
 El estudio de capacidades anteriores, mejoras, límites y fuentes está en industry-study.md. Los datos de autorización/manifiesto/resumen, datos del emulador e instaladores están excluidos de Git. No se acredita corrección de reingreso Windows/WebKit.
+
+
+## Tutorial práctico 0.5.0-beta.2 — 07/11/2026
+
+Alcance autorizado por el plan del propietario; no se atribuye al dossier ni se crean identificadores RF/RNF.
+
+| Necesidad | Archivos principales | Evidencia y límites |
+|---|---|---|
+| Instructor dentro de pantallas y paneles | shared/workspace/timber-tutorial.ts, tutorial/TutorialCoach, TimberTutorialHost, Panel | Lint/tipos/compilación; recorrido manual pendiente |
+| Espacio vacío separado y avance confirmado | TimberTutorialService, TutorialAccess, TutorialPolicy, WorkspaceService, TutorialWorkspaceRepository | Revisión estática; concurrencia y ataques pendientes |
+| Pausa, recuperación y limpieza delimitada | TutorialControlStore, sesión privada, IndexedDbDraftRepository y OperationJournal existentes | Sin escribir ni borrar datos del usuario durante esta entrega; aislamiento y fallos de limpieza pendientes |
+| Pulgadas/pies y métrico | timber-measures, catalog, ItemForm, PreferencesPage, TimberVisual, Documents/TradeService | Tipos/compilación; conversiones, presentación histórica y PDF pendientes de revisión funcional |
+| Conservación de ejemplos | Consulta de solo lectura a demo-khypupyme | 21 IDs originales presentes, 126 artículos y 153 ventas; cero espacios de práctica creados por el agente |
+
+No cambian firestore.rules, CashService ni algoritmos monetarios exactos. El contrato v2 se amplía con una preferencia opcional y un canal de tutorial separado. Reingreso Windows/WebKit continúa abierto; no se acredita seguridad ni funcionamiento completo mediante compilación.

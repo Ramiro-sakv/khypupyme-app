@@ -98,6 +98,7 @@ export function ActionForm({
   className = "",
   dirty = false,
   protectDraft = true,
+  dataTutorial,
 }: {
   children: ReactNode;
   onSave: (data: FormData) => Promise<unknown>;
@@ -106,6 +107,7 @@ export function ActionForm({
   className?: string;
   dirty?: boolean;
   protectDraft?: boolean;
+  dataTutorial?: string;
 }) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -130,6 +132,7 @@ export function ActionForm({
   }
   return (
     <form
+      data-tutorial={dataTutorial}
       ref={formRef}
       className={className}
       onSubmit={submit}

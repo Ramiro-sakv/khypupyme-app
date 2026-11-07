@@ -1,3 +1,4 @@
+import { useTimberTutorial } from "./tutorial/context";
 import { useState } from "react";
 import { ReportChart } from "../commerce/ReportChart";
 import { useWorkspace } from "./context";
@@ -6,8 +7,13 @@ import { Icon } from "./Icon";
 import { ActionForm } from "./ui";
 import { useReport } from "./useReport";
 export default function Reports() {
+  const tutorial = useTimberTutorial();
   const { run, busy } = useWorkspace(),
-    [from, setFrom] = useState(today().slice(0, 7) + "-01"),
+    [from, setFrom] = useState(
+      tutorial?.active
+        ? tutorial.state.session!.startedOn
+        : today().slice(0, 7) + "-01",
+    ),
     [to, setTo] = useState(today()),
     { report, error, refresh } = useReport(from, to);
   return (
@@ -64,7 +70,7 @@ export default function Reports() {
                 ).toFixed(2) + " %"
               : "Sin ventas netas"}
           </p>
-          <div className="metric-grid">
+          <div data-tutorial="reports" className="metric-grid">
             {[
               ["Ventas netas", report.salesMinor],
               ["Costo vendido neto", report.costMinor],
@@ -112,6 +118,7 @@ export default function Reports() {
           <div className="actions">
             <ActionForm
               disabled={busy}
+              dataTutorial="result-report"
               label="Emitir informe de resultados PDF"
               onSave={() =>
                 run({
@@ -124,6 +131,7 @@ export default function Reports() {
             </ActionForm>
             <ActionForm
               disabled={busy}
+              dataTutorial="inventory-report"
               label="Emitir informe de inventario PDF"
               onSave={() =>
                 run({

@@ -1,3 +1,5 @@
+import { useTimberTutorial } from "./tutorial/context";
+import TutorialEntry from "./tutorial/TutorialEntry";
 import { useState } from "react";
 import type { CashSession } from "../../../shared/workspace/model";
 import { ReportChart } from "../commerce/ReportChart";
@@ -9,10 +11,13 @@ import { bob, localDate, today } from "./format";
 import { useWorkspaceNavigation } from "./navigation";
 import { useReport } from "./useReport";
 export default function Dashboard() {
+  const tutorial = useTimberTutorial();
   const { business } = useWorkspace(),
     { go } = useWorkspaceNavigation(),
     [period] = useState(() => ({
-      from: today().slice(0, 7) + "-01",
+      from: tutorial?.active
+        ? tutorial.state.session!.startedOn
+        : today().slice(0, 7) + "-01",
       to: today(),
     })),
     { report, error, loading, refresh } = useReport(period.from, period.to),
@@ -54,7 +59,8 @@ export default function Dashboard() {
           Abrir guía y herramientas del rubro
         </button>
       </div>
-      <section className="dashboard-welcome">
+      <TutorialEntry />
+      <section data-tutorial="dashboard" className="dashboard-welcome">
         <div>
           <span className="eyebrow">VAMOS PASO A PASO</span>
           <h2>Una mirada a tu negocio</h2>

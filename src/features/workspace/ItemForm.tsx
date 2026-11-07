@@ -1,3 +1,9 @@
+import {
+  dimensionLabel,
+  dimensionToMm,
+  dimensionInputFromMm,
+  minimumInput,
+} from "../../../shared/workspace/timber-measures";
 import { EMPTY_DETAILS } from "../../../shared/workspace/operations";
 import { useState } from "react";
 import type { ReactNode } from "react";
@@ -37,6 +43,19 @@ export default function ItemForm({
           ? "timber-volume"
           : suggestedKind(business.industryId!)),
     );
+  const system = business.timberSystem ?? "imperial",
+    dimensionKeys = ["lengthMm", "widthMm", "thicknessMm"];
+  const [rawDimensions, setRawDimensions] = useState<Record<string, string>>(
+    () =>
+      Object.fromEntries(
+        dimensionKeys.map((key) => [
+          key,
+          initial?.fields[key]
+            ? dimensionInputFromMm(initial.fields[key]!, key, system)
+            : "",
+        ]),
+      ),
+  );
   const defaults = (next: ItemKind) =>
     Object.fromEntries(
       ITEM_MODELS[next].fields.map((f) => [
@@ -82,6 +101,7 @@ export default function ItemForm({
   return (
     <ActionForm
       disabled={busy}
+      dataTutorial="item-form"
       label={label}
       onSave={async (d) => {
         const input = itemDraft({
@@ -96,13 +116,26 @@ export default function ItemForm({
           fields: Object.fromEntries(
             ITEM_MODELS[kind].fields.map((f) => [
               f.key,
-              String(d.get(f.key) ?? ""),
+              kind === "timber-piece" && dimensionKeys.includes(f.key)
+                ? initial?.fields[f.key] &&
+                  String(d.get(f.key)) ===
+                    dimensionInputFromMm(initial.fields[f.key]!, f.key, system)
+                  ? initial.fields[f.key]
+                  : dimensionToMm(String(d.get(f.key)), f.key, system)
+                : String(d.get(f.key) ?? ""),
             ]),
           ),
           barcode: String(d.get("barcode") ?? ""),
           priceMinor: cents(d.get("price")),
           priceUnit: String(d.get("priceUnit")),
-          minimum: q(d.get("minimum")),
+          minimum:
+            kind === "timber-volume"
+              ? minimumInput(
+                  { kind, minimum: { n: "0", d: "1" } },
+                  String(d.get("minimum")),
+                  system,
+                )
+              : q(d.get("minimum")),
           serviceCostMinor:
             kind === "service" ? cents(d.get("serviceCost")) : 0,
         });
@@ -112,10 +145,12 @@ export default function ItemForm({
       <label>
         Ficha de producto
         <select
+          name="item-kind"
           value={kind}
           onChange={(e) => {
             setKind(e.target.value as ItemKind);
             setFields(defaults(e.target.value as ItemKind));
+            setRawDimensions({});
           }}
         >
           {kindsFor(business).map((k) => (
@@ -156,13 +191,23 @@ export default function ItemForm({
       </details>
       {ITEM_MODELS[kind].fields.map((f) => (
         <label key={`${kind}-${f.key}`}>
-          {f.label}
+          {kind === "timber-piece" && dimensionKeys.includes(f.key)
+            ? dimensionLabel(f.key, system)
+            : f.label}
           <input
             name={f.key}
             type="text"
-            inputMode={f.type === "number" ? "decimal" : "text"}
+            inputMode={
+              kind === "timber-piece" && system === "imperial"
+                ? "text"
+                : f.type === "number"
+                  ? "decimal"
+                  : "text"
+            }
             value={
-              fields[f.key] ??
+              (kind === "timber-piece" && dimensionKeys.includes(f.key)
+                ? rawDimensions[f.key]
+                : fields[f.key]) ??
               (["packSize", "piecesPerBox"].includes(f.key)
                 ? "1"
                 : f.key === "warrantyMonths"
@@ -177,9 +222,19 @@ export default function ItemForm({
             }
             required={f.required}
             maxLength={80}
-            onChange={(e) =>
-              setFields((old) => ({ ...old, [f.key]: e.target.value }))
-            }
+            onChange={(e) => {
+              const value = e.target.value;
+              if (kind === "timber-piece" && dimensionKeys.includes(f.key)) {
+                setRawDimensions((old) => ({ ...old, [f.key]: value }));
+                let mm = "";
+                try {
+                  mm = dimensionToMm(value, f.key, system);
+                } catch {
+                  /* El guardado vuelve a validar la entrada original. */
+                }
+                setFields((old) => ({ ...old, [f.key]: mm }));
+              } else setFields((old) => ({ ...old, [f.key]: value }));
+            }}
           />
         </label>
       ))}
@@ -204,7 +259,14 @@ export default function ItemForm({
           <select
             name="priceUnit"
             key={kind + units.join()}
-            defaultValue={initial?.priceUnit ?? units[0]}
+            defaultValue={
+              initial?.priceUnit ??
+              (["timber-piece", "timber-volume"].includes(kind)
+                ? system === "imperial"
+                  ? "boardFoot"
+                  : "m3"
+                : units[0])
+            }
           >
             {units.map((u) => (
               <option key={u} value={u}>
@@ -215,7 +277,14 @@ export default function ItemForm({
         </label>
         <Field
           name="minimum"
-          label={`Existencia mínima en ${ITEM_MODELS[kind].base}`}
+          label={
+            "Existencia mínima en " +
+            (kind === "timber-volume"
+              ? system === "imperial"
+                ? "pies tablares"
+                : "m³"
+              : ITEM_MODELS[kind].base)
+          }
           value="0"
         />
         <>

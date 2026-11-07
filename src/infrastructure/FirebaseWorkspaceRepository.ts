@@ -1,3 +1,7 @@
+import type {
+  TutorialRequest,
+  TutorialReply,
+} from "../../shared/workspace/timber-tutorial";
 import { httpsCallable } from "firebase/functions";
 import type { Functions } from "firebase/functions";
 import type {
@@ -17,6 +21,9 @@ export class FirebaseWorkspaceRepository implements WorkspaceRepository {
   constructor(private readonly functions: Functions) {}
   private async call<T>(name: string, input: unknown): Promise<T> {
     return (await httpsCallable<unknown, T>(this.functions, name)(input)).data;
+  }
+  tutorial(request: TutorialRequest) {
+    return this.call<TutorialReply>("timberTutorial", request);
   }
   businesses(cursor = "") {
     return this.call<Page<WorkspaceBusiness>>("workspaceAccount", {

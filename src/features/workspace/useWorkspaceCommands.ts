@@ -62,7 +62,11 @@ export function useWorkspaceCommands(
     setCanRetry(false);
     setNotice(result.message + cleanup);
     setRevision((n) => n + 1);
-    if (command.kind === "confirm-type" || command.kind === "preferences") {
+    if (
+      command.kind === "confirm-type" ||
+      command.kind === "preferences" ||
+      command.kind === "timber-preferences"
+    ) {
       try {
         const business = await repository.business(service.context.businessId);
         if (alive.current) onBusiness(business);

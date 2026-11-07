@@ -1,3 +1,5 @@
+import { authorizePracticeRead } from "./TutorialAccess.js";
+import type { PracticeAccess } from "./TutorialAccess.js";
 import { normalizeSearch } from "../../../shared/workspace/search.js";
 import type {
   DocumentData,
@@ -81,11 +83,21 @@ export function serialize(value: unknown): unknown {
   return value;
 }
 export class WorkspaceQueries {
-  constructor(readonly db: Firestore) {}
+  constructor(
+    readonly db: Firestore,
+    private readonly practiceAccess?: PracticeAccess,
+  ) {}
   async owner(uid: string, businessId: string) {
     const doc = await this.db.doc(`businesses/${identifier(businessId)}`).get();
     if (!doc.exists || doc.data()?.ownerUid !== uid)
       throw new Error("No tienes acceso a este negocio.");
+    await authorizePracticeRead(
+      this.db,
+      uid,
+      businessId,
+      doc.data()!,
+      this.practiceAccess,
+    );
     return businessView(doc.id, doc.data()!);
   }
   async list(uid: string, raw: unknown) {

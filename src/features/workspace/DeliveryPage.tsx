@@ -4,7 +4,7 @@ import type { SaleV2 } from "../../../shared/workspace/model";
 import { useRecords, useWorkspace } from "./context";
 import { ActionForm, Field, Pager } from "./ui";
 import { Panel } from "./Panel";
-import { localDate, today } from "./format";
+import { bob, statusLabel, localDate, today } from "./format";
 const labels: Record<Delivery["status"], string> = {
   pending: "Pendiente",
   prepared: "Preparada",
@@ -18,12 +18,16 @@ export default function DeliveryPage() {
     [selected, setSelected] = useState<Delivery | null | undefined>();
   return (
     <>
-      <h2>Entregas</h2>
+      <h2 data-tutorial="deliveries">Entregas</h2>
       <p>
         Seguimiento de una venta confirmada. Entregar no descuenta stock de
         nuevo; cancelar la entrega no anula la venta.
       </p>
-      <button className="primary" onClick={() => setSelected(null)}>
+      <button
+        data-tutorial="new-delivery"
+        className="primary"
+        onClick={() => setSelected(null)}
+      >
         Programar entrega
       </button>
       <Pager page={page} />
@@ -79,7 +83,8 @@ export default function DeliveryPage() {
                     .filter((s) => s.status === "active")
                     .map((s) => (
                       <option key={s.id} value={s.id}>
-                        {s.number} · {s.customerName}
+                        {s.number} · {s.customerName} · {bob(s.totalMinor)} ·{" "}
+                        {statusLabel(s.method)}
                       </option>
                     ))}
               </select>

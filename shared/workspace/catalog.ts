@@ -56,9 +56,9 @@ export const ITEM_MODELS: Record<
     label: "Madera por piezas y medidas",
     fields: [
       field("species", "Especie"),
-      numeric("lengthMm", "Largo (mm)", 100000, 3),
-      numeric("widthMm", "Ancho (mm)", 10000, 3),
-      numeric("thicknessMm", "Espesor (mm)", 10000, 3),
+      numeric("lengthMm", "Largo (mm)", 100000, 6),
+      numeric("widthMm", "Ancho (mm)", 10000, 6),
+      numeric("thicknessMm", "Espesor (mm)", 10000, 6),
     ],
     base: "piezas",
   },
@@ -201,8 +201,8 @@ export function itemUnits(item: ItemDraft): {
   switch (item.kind) {
     case "timber-piece": {
       const volume = mul(
-        mul(decimal(f.lengthMm!, 3), decimal(f.widthMm!, 3)),
-        decimal(f.thicknessMm!, 3),
+        mul(decimal(f.lengthMm!, 6), decimal(f.widthMm!, 6)),
+        decimal(f.thicknessMm!, 6),
       );
       return {
         baseUnit: "piezas",

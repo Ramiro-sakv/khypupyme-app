@@ -412,3 +412,36 @@ Hashes también en artifacts/SHA256SUMS-beta5.txt; instaladores excluidos de Git
 La incidencia previa de **reingreso Windows/WebKit sigue pendiente, sin corrección acreditada**. No se acredita uso comercial, funcionamiento en dispositivos físicos ni operación cloud. Sin push, despliegue, publicación o accesos nuevos de escritorio.
 
 Código fuente respecto de d2fce15 (0.4 beta 3): **44 archivos, +3886 / -243 líneas físicas**, incluidas definiciones de guías y datos ficticios. No equivale a funciones nuevas por línea. Revisión final de archivos preparados: sin patrones de credenciales/IDs personales conocidos ni artefactos/datos locales incluidos.
+
+
+## Tutorial práctico de maderas 0.5.0-beta.2 — 07/11/2026
+
+### Alcance y verificación permitida
+
+- Lint final: pnpm lint aprobado, salida 0. TypeScript estricto y Vite: pnpm build aprobado, salida 0. Functions: pnpm build:functions aprobado, salida 0. Un ajuste final del registro local se volvió a verificar con lint, tipos y compilación web.
+- Siete capítulos y 32 pasos declarados en el código. Revisión estática del contexto inmutable, validaciones del ejercicio, checkpoint en la misma transacción y recuperación manual. No se ejecutó ninguna sesión de tutorial para verificar estos comportamientos.
+- Consulta de solo lectura a Firestore local demo-khypupyme: los 21 identificadores de ejemplo originales siguen presentes; 126 artículos y 153 ventas; cero espacios de práctica. No se alteraron cuenta, contraseña, datos del usuario ni exportación persistente.
+- firestore.rules, shared/workspace/exact.ts y CashService no cambian. Las operaciones financieras reutilizan los servicios existentes; únicamente se añade autorización/checkpoint del tutorial y presentación documental. La precisión dimensional y validación del mínimo interno por volumen se amplían de forma explícita, sin migrar documentos ni cantidades.
+- No se ejecutaron pnpm check, tests unitarios/integración/emuladores, capturas, vídeos ni recorridos automáticos. No se instalaron ni abrieron los paquetes. No se reiniciaron los servicios del propietario. No se acredita funcionamiento en dispositivos físicos o producción.
+- Advertencia de Vite: bloques diferidos de pdfmake y sus fuentes superiores a 500 kB; sin nuevas dependencias ni cambios en ese generador.
+
+### Revisión funcional posterior
+
+- Dos cuentas y múltiples negocios: canales normal/práctica, referencias cruzadas y espacio oculto; rechazo de operaciones ajenas al paso y solicitudes manipuladas.
+- Avance con operación confirmada, idempotencia y respuesta incierta; concurrencia entre pestañas, revisión de sesión y recuperación del borrador original.
+- Pausa/reanudación y cotización vencida; expiración tras siete días sin actividad; limpieza interrumpida, reanudada y completa de raíz, subcolecciones, claves y datos locales, conservando los 21 negocios.
+- Captura decimal/fraccionaria en pulgadas/pies, métrico, límites dimensionales, conversiones exactas, dimensiones antiguas aproximadas y conservación de precios/documentos históricos.
+- Los 32 pasos, estados vacíos/errores, paneles, teclado/táctil y accesibilidad; guardar/cancelar/compartir PDF de práctica y su marca, sin repetir registros ni eliminar archivos externos.
+
+La incidencia de **reingreso Windows/WebKit permanece abierta, sin corrección acreditada**. Sin push, despliegue, publicación ni accesos nuevos de escritorio.
+
+Código fuente respecto de 4be1d81: **58 archivos, +3333 / -155 líneas físicas**, excluyendo documentación, metadatos, paquetes y archivos generados. No equivale a funcionalidad verificada por línea.
+
+### Instaladores finales
+
+Android final: assembleDebug aprobado (BUILD SUCCESSFUL, 30 s, versionCode 50002). Windows final: compilación Tauri release y generación NSIS x64 aprobadas; versión 0.5.0-beta.2. Ambos paquetes se regeneraron después del último ajuste del control local. Instaladores de prueba exclusivamente local, sin publicación ni firma comercial.
+
+Hashes conservados también en artifacts/SHA256SUMS-beta5b2.txt, fuera de Git:
+
+- KhypuPyme-0.5.0-beta.2-android-debug.apk: **5637105 bytes**, SHA-256 e4823f6903a34a74a4c42b0bc9d2eaac275bfbed56be3cc8e269ecf48ce2421b.
+- KhypuPyme-0.5.0-beta.2-windows-x64-setup.exe: **2486432 bytes**, SHA-256 f2ef6ccabce926c01b9d587259abb8d5f0072ed38d543f115cbcf213fc1a176d.

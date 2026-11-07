@@ -1,3 +1,5 @@
+import { timberDimensions } from "../../../shared/workspace/timber-measures";
+import type { TimberSystem } from "../../../shared/workspace/timber-measures";
 import { amount, decimal, fraction } from "../../../shared/workspace/exact";
 import { ITEM_MODELS } from "../../../shared/workspace/catalog";
 import type { ItemDraft } from "../../../shared/workspace/model";
@@ -106,17 +108,24 @@ export function statusLabel(value: string) {
 
 export function itemDetails(
   item: Pick<ItemDraft, "kind" | "fields" | "details">,
+  system: TimberSystem = "imperial",
 ) {
   return [
-    ITEM_MODELS[item.kind].fields
-      .filter((field) => item.fields[field.key])
-      .map(
-        (field) =>
-          field.label.replace(": si o no", "").replace(": pieza o par", "") +
-          ": " +
-          item.fields[field.key],
-      )
-      .join(" · "),
+    ...(item.kind === "timber-piece"
+      ? [item.fields.species, timberDimensions(item.fields, system)]
+      : [
+          ITEM_MODELS[item.kind].fields
+            .filter((field) => item.fields[field.key])
+            .map(
+              (field) =>
+                field.label
+                  .replace(": si o no", "")
+                  .replace(": pieza o par", "") +
+                ": " +
+                item.fields[field.key],
+            )
+            .join(" · "),
+        ]),
     ...Object.values(item.details ?? {}).filter(Boolean),
   ]
     .filter(Boolean)

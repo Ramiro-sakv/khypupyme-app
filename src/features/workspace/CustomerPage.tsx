@@ -15,8 +15,11 @@ export function Customers() {
         key={edit?.id ?? "new"}
         open={edit ? true : undefined}
       >
-        <summary>{edit ? "Editar cliente" : "Nuevo cliente"}</summary>
+        <summary data-tutorial="new-customer">
+          {edit ? "Editar cliente" : "Nuevo cliente"}
+        </summary>
         <ActionForm
+          dataTutorial="customer-form"
           disabled={busy}
           label={edit ? "Guardar cliente" : "Crear cliente"}
           onSave={async (d) => {

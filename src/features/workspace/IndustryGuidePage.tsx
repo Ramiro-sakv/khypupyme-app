@@ -1,3 +1,5 @@
+import TimberVisual from "./TimberVisual";
+import TutorialEntry from "./tutorial/TutorialEntry";
 import { useState } from "react";
 import { INDUSTRY_GUIDES } from "../../../shared/workspace/industry-workflows";
 import { INDUSTRIES } from "../../../shared/business-industries";
@@ -67,7 +69,14 @@ export default function IndustryGuidePage() {
           Preparar catálogo
         </button>
       </div>
-      <VisualExplainer key={business.industryId} guide={guide} />
+      <TutorialEntry />
+      <div data-tutorial="industry-guide">
+        {business.industryId === "timber" ? (
+          <TimberVisual key={business.timberSystem ?? "imperial"} />
+        ) : (
+          <VisualExplainer key={business.industryId} guide={guide} />
+        )}
+      </div>
       <section className="card">
         <h3>Tu guía de uso</h3>
         <ol>

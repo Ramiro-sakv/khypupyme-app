@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.5.0-beta.2 - 2026-11-07 (local, sin push)
+
+- Tutorial práctico de maderas en los formularios habituales: 32 pasos, siete capítulos, progreso confirmado, pausa y reanudación. Espacio temporal oculto, canal autorizado separado y eliminación limitada a la práctica.
+- Pulgadas/pies predeterminados, preferencia métrica y captura de fracciones, conversiones exactas con precisión dimensional canónica de seis decimales. Tarifa y documentos anteriores conservados.
+- Documentos de práctica identificados, borradores y solicitudes duraderos, actualización manual entre pestañas y recuperación de cotización vencida.
+- Conservados los 21 ejemplos: consulta de solo lectura, sin generar operaciones de práctica. Compilaciones e instaladores locales; pruebas y revisión visual no ejecutadas. Reingreso Windows/WebKit sigue abierto.
+
 ## 0.5.0-beta.1 - 2026-11-07 (local, sin push)
 
 - Guías propias para 21 rubros, simuladores e ilustraciones SVG locales, matriz de variantes, lotes/vencimientos y búsqueda paginada de catálogo.

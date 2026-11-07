@@ -1,6 +1,6 @@
 # KhypuPyme
 
-Cuaderno digital para negocios de Bolivia. Beta local **0.5.0-beta.1**, sin publicación ni conexión cloud activa.
+Cuaderno digital para negocios de Bolivia. Beta local **0.5.0-beta.2**, sin publicación ni conexión cloud activa.
 
 Una cuenta administra varios negocios independientes. Después de ingresar se crea un espacio, se responde el cuestionario y se confirma un rubro fijo. Cada negocio conserva catálogo, clientes, compras, ventas, fiados, caja y documentos propios. Se abre el último negocio autorizado; **Cambiar negocio** vuelve al selector.
 
@@ -15,6 +15,18 @@ Los negocios anteriores conservan sus rutas e identificadores. Confirman el rubr
 Las solicitudes sin confirmación se conservan en IndexedDB por cuenta/negocio, sin cola offline ni reintento automático. **Consultar confirmación** precede al reintento manual. La operación conserva su negocio original aunque cambies de espacio.
 
 React + TypeScript + Vite + Firebase Functions/Firestore/Auth locales; Android con Capacitor y Windows con Tauri. Los paquetes locales aún necesitan los emuladores encendidos en el PC. Android usa el host 10.0.2.2 del emulador Android; no está preparado para teléfonos físicos. Esta entrega se compiló sin ejecutar pruebas por instrucción del propietario; no se acredita uso comercial.
+
+## Tutorial práctico de maderas · 0.5 beta 2
+
+En un negocio de maderas confirmado, abre **Inicio** o **Cómo trabajar aquí → Aprender usando la aplicación**. El instructor acompaña los formularios habituales, resalta campos y espera cada registro confirmado: siete capítulos, 32 pasos, desde catálogo/cliente y compras hasta cotización, venta, devolución, fiado, cortes, entregas, documentos y cierre. No rellena ni envía operaciones automáticamente.
+
+La práctica empieza vacía en un espacio temporal que no aparece en el selector. **Pausar** conserva el avance; **Reanudar** recupera el último paso confirmado. Las solicitudes inciertas requieren consulta y reintento manual con su contenido original. **Actualizar progreso** recupera cambios de otra pestaña. Una cotización vencida devuelve el ejercicio al paso de cotizar, sin emitir una oferta automáticamente.
+
+**Finalizar y borrar práctica** o **Abandonar práctica** bloquea registros nuevos y elimina exclusivamente ese espacio, sus subcolecciones, claves de operaciones y borradores/solicitudes locales. La confirmación «Práctica eliminada» aparece después de completar la limpieza; conserva un comprobante mínimo de versión/fecha. Tras siete días sin actividad se limpia al siguiente acceso. Una limpieza interrumpida se reanuda desde Consultar progreso. Los 21 negocios y sus historiales se conservan. Los PDF de práctica llevan **PRÁCTICA — DATOS FICTICIOS**; los archivos guardados fuera de la aplicación no se eliminan.
+
+**Mi negocio → Medidas de madera** permite pulgadas/pies (predeterminado) o métrico. Acepta decimales y fracciones como 1/2, 3/4 y 1 1/2, con denominadores 2, 4, 8 y 16. Las dimensiones canónicas admiten seis decimales en mm para conservar conversiones exactas; esa representación interna no cambia la captura elegida. Cambiar preferencias no reescribe existencias, costos, tarifas ni documentos históricos. La presentación aproximada de dimensiones antiguas se señala con ≈. No se infieren medidas reales a partir de nominales ni se vende por pie lineal.
+
+Referencias: [pie tablar de Virginia Forestry](https://www.dof.virginia.gov/glossary/board-foot/) y [equivalencias de longitud de NIST](https://www.nist.gov/pml/owm/si-units-length). El ejemplo declarado de 2″ × 6″ × 10′ representa 10 pies tablares. Verificación de esta entrega limitada a lint, TypeScript, compilación e instaladores; aislamiento, limpieza y recorrido práctico requieren revisión funcional posterior, sin pruebas ni capturas ejecutadas.
 
 ## Rubros y ejemplos 0.5
 

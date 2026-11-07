@@ -177,7 +177,11 @@ export function useTradeDraft(
     setRestoring(true);
     try {
       const restored = await session.inspect();
-      if (restored.priceChanges.length || restored.serialsCleared)
+      if (
+        restored.priceChanges.length ||
+        restored.serialsCleared ||
+        restored.requiresNewQuote
+      )
         setReview(restored);
       else accept(restored);
     } catch (e) {

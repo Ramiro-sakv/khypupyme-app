@@ -64,7 +64,7 @@ export const INDUSTRIES = {
     profile: "retail",
     productKind: "timber",
     description:
-      "De las dimensiones a la cotización. Una tabla de 3000 × 200 × 25 mm contiene 0,015 m³.",
+      "De las dimensiones a la cotización. Espesor y ancho en pulgadas, largo en pies y volumen en pies tablares; medidas métricas opcionales.",
   },
   ceramics: {
     name: "Cerámicas y revestimientos",

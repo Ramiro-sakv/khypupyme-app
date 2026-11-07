@@ -19,7 +19,7 @@ export function SalesHistory() {
     [sale, setSale] = useState<SaleV2 | null>(null);
   return (
     <>
-      <h2>Ventas y devoluciones</h2>
+      <h2 data-tutorial="sales-history">Ventas y devoluciones</h2>
       <Pager page={page} />
       <div className="table-scroll desktop-records">
         <table>

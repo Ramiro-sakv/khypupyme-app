@@ -46,7 +46,7 @@ export default function PurchaseHistory() {
       ? page.items.find((row) => row.id === selectedId)
       : undefined;
   return (
-    <section className="purchase-history">
+    <section data-tutorial="purchase-history" className="purchase-history">
       <h2>Compras registradas</h2>
       <div className="actions">
         <label>

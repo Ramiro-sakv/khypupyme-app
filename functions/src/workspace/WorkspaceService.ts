@@ -1,3 +1,10 @@
+import { timberStockText } from "../../../shared/workspace/timber-measures.js";
+import {
+  loadPractice,
+  preparePractice,
+  checkpointPractice,
+} from "./TutorialAccess.js";
+import type { PracticeAccess } from "./TutorialAccess.js";
 import { OperationalService } from "./OperationalService.js";
 import { searchPrefixes } from "../../../shared/workspace/search.js";
 import type { Firestore } from "firebase-admin/firestore";
@@ -15,7 +22,10 @@ import type {
   Item,
   WorkspaceReport,
 } from "../../../shared/workspace/model.js";
-import { validateWorkspaceCommand } from "../../../shared/workspace/validation.js";
+import {
+  validateItemMinimum,
+  validateWorkspaceCommand,
+} from "../../../shared/workspace/validation.js";
 import { UnitOfWork } from "./UnitOfWork.js";
 import { businessView } from "./AccountService.js";
 import { Documents } from "./Documents.js";
@@ -41,7 +51,10 @@ interface Expense {
   createdAt: string;
 }
 export class WorkspaceService {
-  constructor(private readonly db: Firestore) {}
+  constructor(
+    private readonly db: Firestore,
+    private readonly practiceAccess?: PracticeAccess,
+  ) {}
   async execute(uid: string, raw: unknown): Promise<CommandResult> {
     const command = validateWorkspaceCommand(raw),
       signature = canonical(command);
@@ -83,6 +96,7 @@ export class WorkspaceService {
       );
       if (!parent || parent.ownerUid !== uid)
         throw new Error("No tienes acceso a este negocio.");
+      const practice = await loadPractice(work, parent, this.practiceAccess);
       const keyPath = `users/${uid}/operationKeys/${command.operationId}`,
         previous = await work.getPath<{
           businessId: string;
@@ -99,6 +113,7 @@ export class WorkspaceService {
           );
         return previous.result;
       }
+      preparePractice(practice, command);
       const business = businessView(command.businessId, parent);
       if (
         !business.typeConfirmed &&
@@ -121,6 +136,15 @@ export class WorkspaceService {
       let document: BusinessDocument | undefined,
         resultId = command.operationId;
       switch (command.kind) {
+        case "timber-preferences":
+          if (business.industryId !== "timber")
+            throw new Error("Estas medidas corresponden a maderas.");
+          work.setPath("businesses/" + business.id, {
+            ...parent,
+            timberSystem: command.input.system,
+            updatedAt: work.now,
+          });
+          break;
         case "appointment":
         case "work-order":
         case "delivery":
@@ -192,6 +216,7 @@ export class WorkspaceService {
           break;
         case "edit-item": {
           const item = await inventory.item(command.input.id);
+          validateItemMinimum(item.kind, command.input.minimum);
           if (isDiscrete(item) && command.input.minimum.d !== "1")
             throw new Error("El mínimo debe usar unidades completas.");
           work.set("items", item.id, {
@@ -482,13 +507,10 @@ export class WorkspaceService {
           await legacy.recover(command.input.request);
           break;
         case "report-document": {
-          const report = await new WorkspaceQueries(this.db).report(
-            uid,
-            business.id,
-            command.input.from,
-            command.input.to,
-            tx,
-          );
+          const report = await new WorkspaceQueries(
+            this.db,
+            this.practiceAccess,
+          ).report(uid, business.id, command.input.from, command.input.to, tx);
           document = await this.reportDocument(
             documents,
             report,
@@ -503,6 +525,7 @@ export class WorkspaceService {
         ...(document ? { documentId: document.id } : {}),
         message: "Operación confirmada.",
       };
+      checkpointPractice(work, practice, result);
       work.set("operationsV2", command.operationId, {
         id: command.operationId,
         signature,
@@ -540,7 +563,8 @@ export class WorkspaceService {
         .filter((item) => item.kind !== "service")
         .map((item) => [
           item.name,
-          `${showQuantity(item.balance)} ${item.baseUnit}`,
+          timberStockText(item, documents.timberSystem) ??
+            showQuantity(item.balance) + " " + item.baseUnit,
           (item.valueMinor / 100).toFixed(2),
         ]);
       for (const item of old)

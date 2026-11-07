@@ -1,3 +1,5 @@
+import { timberDimensions } from "../../../shared/workspace/timber-measures.js";
+import type { TimberSystem } from "../../../shared/workspace/timber-measures.js";
 import { canonical, today } from "../../../shared/commerce.js";
 import {
   add,
@@ -77,12 +79,16 @@ function deliveryText(line: SaleLineV2) {
       : "")
   );
 }
-function detailText(line: SaleLineV2) {
+function detailText(line: SaleLineV2, system: TimberSystem = "imperial") {
   return [
-    ITEM_MODELS[line.kind].fields
-      .filter((f) => line.fields[f.key])
-      .map((f) => f.label + ": " + line.fields[f.key])
-      .join(" · "),
+    ...(line.kind === "timber-piece"
+      ? [line.fields.species, timberDimensions(line.fields, system)]
+      : [
+          ITEM_MODELS[line.kind].fields
+            .filter((f) => line.fields[f.key])
+            .map((f) => f.label + ": " + line.fields[f.key])
+            .join(" · "),
+        ]),
     ...Object.values(line.details ?? {}).filter(Boolean),
   ]
     .filter(Boolean)
@@ -235,7 +241,11 @@ export class TradeService {
       "Cotización",
       ["Producto", "Solicitado", "Entrega", "Importe"],
       data.lines.map((line) => [
-        line.name,
+        line.kind === "timber-piece"
+          ? line.name +
+            " · " +
+            timberDimensions(line.fields, this.documents.timberSystem)
+          : line.name,
         `${showQuantity(line.requested)} ${UNITS[line.requestedUnit]}`,
         deliveryText(line),
         displayMoney(line.netMinor),
@@ -303,7 +313,7 @@ export class TradeService {
       "Comprobante de venta",
       ["Producto y detalle", "Cantidad entregada", "Precio", "Importe"],
       data.lines.map((line) => [
-        `${line.name} · ${detailText(line)}${line.allocations.some((a) => a.serial) ? " · Series: " + line.allocations.map((a) => a.serial).join(", ") : ""}${line.warrantyUntil ? " · Garantía declarada hasta " + line.warrantyUntil : ""}`,
+        `${line.name} · ${detailText(line, this.documents.timberSystem)}${line.allocations.some((a) => a.serial) ? " · Series: " + line.allocations.map((a) => a.serial).join(", ") : ""}${line.warrantyUntil ? " · Garantía declarada hasta " + line.warrantyUntil : ""}`,
         deliveryText(line),
         displayMoney(line.priceMinor) + "/" + UNITS[line.priceUnit],
         displayMoney(line.netMinor),
@@ -384,7 +394,11 @@ export class TradeService {
       "Registro de compra",
       ["Producto", "Cantidad", "Costo unitario", "Importe"],
       lines.map((line) => [
-        line.name,
+        line.fields.lengthMm
+          ? line.name +
+            " · " +
+            timberDimensions(line.fields, this.documents.timberSystem)
+          : line.name,
         `${showQuantity(line.qty)} ${UNITS[line.unit]}`,
         displayMoney(line.unitCostMinor),
         displayMoney(line.totalMinor),

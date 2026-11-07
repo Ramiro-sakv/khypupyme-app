@@ -108,7 +108,8 @@ export default function Trade({
       setValidUntil(saved.validUntil);
       setRestoredNotice(
         restored.requiresNewQuote
-          ? "Los precios cambiaron. Se prepara una nueva cotización; revisa su vigencia."
+          ? (restored.quoteIssue ??
+              "Los precios cambiaron. Se prepara una nueva cotización; revisa su vigencia.")
           : restored.serialsCleared
             ? "Borrador restaurado. Selecciona otra vez las series de salida."
             : "Borrador restaurado con el catálogo actual.",
@@ -262,13 +263,15 @@ export default function Trade({
                 .map((item) => (
                   <button
                     disabled={busy || !draft.editable}
+                    data-tutorial="pick-item"
+                    data-item-id={item.id}
                     key={item.id}
                     onClick={() => addItem(item)}
                   >
                     <strong>{item.name}</strong>
                     <small>
-                      {itemDetails(item)} · {bob(item.priceMinor)}/
-                      {UNITS[item.priceUnit]}
+                      {itemDetails(item, business.timberSystem ?? "imperial")} ·{" "}
+                      {bob(item.priceMinor)}/{UNITS[item.priceUnit]}
                     </small>
                   </button>
                 ))}
@@ -276,6 +279,7 @@ export default function Trade({
           </div>
         </section>
         <ActionForm
+          dataTutorial="trade-form"
           className="trade-form"
           dirty={lines.length > 0}
           disabled={busy || !draft.editable || !lines.length}

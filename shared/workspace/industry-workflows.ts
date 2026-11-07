@@ -118,9 +118,10 @@ export const INDUSTRY_GUIDES: Record<IndustryId, IndustryGuide> = {
       "Cotizar por pieza, m³ o pie tablar",
       "Registrar un corte como servicio u orden",
     ],
-    example: "Una tabla de 3000 × 200 × 25 mm contiene 0,015 m³.",
+    example:
+      "Una tabla de 2 pulgadas de espesor, 6 pulgadas de ancho y 10 pies de largo contiene 10 pies tablares.",
     caution:
-      "Las dimensiones de la ficha son reales e inmutables; un corte no genera automáticamente piezas nuevas.",
+      "Las dimensiones declaradas de la ficha son inmutables; un corte no genera automáticamente piezas nuevas.",
   },
   ceramics: {
     title: "De la superficie a las cajas",

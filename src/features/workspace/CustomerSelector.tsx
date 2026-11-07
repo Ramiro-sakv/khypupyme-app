@@ -23,6 +23,7 @@ export function CustomerSelector({
       <label>
         Cliente de este negocio
         <select
+          name="customerId"
           required={required}
           value={value}
           onChange={(e) =>

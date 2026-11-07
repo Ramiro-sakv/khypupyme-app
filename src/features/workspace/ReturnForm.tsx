@@ -32,6 +32,7 @@ export default function ReturnForm({
   return (
     <Panel title={sale.number + " · Devoluciones y cambios"} onClose={close}>
       <ActionForm
+        dataTutorial="return-form"
         disabled={busy}
         label={exchange ? "Confirmar cambio atómico" : "Confirmar devolución"}
         onSave={async (d) => {
@@ -83,6 +84,7 @@ export default function ReturnForm({
               <label>
                 Cantidad a devolver
                 <input
+                  name="return-qty"
                   value={value.qty}
                   onChange={(e) =>
                     setSelected((old) => ({
@@ -116,6 +118,7 @@ export default function ReturnForm({
               <label>
                 <input
                   type="checkbox"
+                  name="return-restock"
                   checked={value.restock}
                   onChange={(e) =>
                     setSelected((old) => ({

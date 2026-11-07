@@ -44,7 +44,7 @@ export function WorkspaceApp({
             KhypuPyme
           </Link>
           <div className="header-actions">
-            <span className="version-label">0.5 beta 1</span>
+            <span className="version-label">0.5 beta 2</span>
             {user && (
               <button
                 onClick={() => {

@@ -1,3 +1,5 @@
+import TimberTutorialHost from "./tutorial/TimberTutorialHost";
+import TutorialCoach from "./tutorial/TutorialCoach";
 import { lazy, useMemo } from "react";
 import { industryLabel } from "../../../shared/workspace/catalog";
 import type { WorkspaceBusiness } from "../../../shared/workspace/model";
@@ -12,7 +14,7 @@ import { WorkspaceContext } from "./context";
 import { confirmDiscardChanges } from "./navigation";
 import { useWorkspaceCommands } from "./useWorkspaceCommands";
 const WorkspaceHome = lazy(() => import("./WorkspaceHome"));
-export default function Workspace({
+function WorkspaceContent({
   uid,
   business,
   repository,
@@ -70,6 +72,16 @@ export default function Workspace({
         className="business-workspace"
         data-industry={business.industryId ?? "general"}
       >
+        {business.tutorialSessionId && (
+          <div className="notice sample-banner">
+            <strong>PRÁCTICA — DATOS FICTICIOS</strong>
+            <span>
+              Estos movimientos se borrarán al finalizar. Tu negocio permanece
+              separado.
+            </span>
+          </div>
+        )}
+        <TutorialCoach />
         {business.sampleData && (
           <div className="notice sample-banner" role="status">
             <strong>NEGOCIO DE EJEMPLO · DATOS FICTICIOS</strong>
@@ -94,12 +106,15 @@ export default function Workspace({
               {online ? "Con conexión" : "Sin conexión"}
             </span>
             <button
+              disabled={!!business.tutorialSessionId && busy}
               onClick={() => {
                 if (confirmDiscardChanges()) onExit();
               }}
             >
               <Icon name="grid" />
-              Cambiar negocio
+              {business.tutorialSessionId
+                ? "Pausar y volver al negocio"
+                : "Cambiar negocio"}
             </button>
           </div>
         </div>
@@ -169,4 +184,10 @@ export default function Workspace({
       </div>
     </WorkspaceContext>
   );
+}
+
+export default function Workspace(
+  props: Parameters<typeof WorkspaceContent>[0],
+) {
+  return <TimberTutorialHost {...props} component={WorkspaceContent} />;
 }

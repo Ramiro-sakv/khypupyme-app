@@ -1,3 +1,4 @@
+import { useTimberTutorial } from "./tutorial/context";
 import { useState } from "react";
 import type { BusinessDocument } from "../../../shared/workspace/model";
 import { useRecords } from "./context";
@@ -6,6 +7,7 @@ import { Icon } from "./Icon";
 import { Panel } from "./Panel";
 import { Pager } from "./ui";
 export default function Documents() {
+  const tutorial = useTimberTutorial();
   const page = useRecords<BusinessDocument>("documentsV2"),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(""),
@@ -16,7 +18,9 @@ export default function Documents() {
     setError("");
     try {
       const module = await import("./pdf");
-      await module.saveDocument(document);
+      const outcome = await module.saveDocument(document);
+      if (outcome === "cancelled") return;
+      if (tutorial?.active) await tutorial.pdfDone();
       setGenerated((old) =>
         old.includes(document.id) ? old : [...old, document.id],
       );
@@ -68,7 +72,11 @@ export default function Documents() {
             <button onClick={() => setSelected(d)}>
               Ver datos conservados
             </button>
-            <button disabled={!!busy} onClick={() => void exportDocument(d)}>
+            <button
+              disabled={!!busy}
+              data-tutorial="pdf-export"
+              onClick={() => void exportDocument(d)}
+            >
               {busy === d.id ? "Preparando PDF…" : "Guardar / compartir PDF"}
             </button>
           </article>
@@ -124,6 +132,7 @@ export default function Documents() {
           <button
             className="primary"
             disabled={!!busy}
+            data-tutorial="pdf-export"
             onClick={() => void exportDocument(selected)}
           >
             {busy === selected.id

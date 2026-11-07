@@ -10,6 +10,7 @@ export interface TutorialRuntime {
   fieldIndex: number;
   setFieldIndex: (n: number) => void;
   start: () => Promise<void>;
+  chooseModule: (id: string) => Promise<void>;
   pause: () => Promise<void>;
   advance: () => Promise<void>;
   finish: (abandon?: boolean) => Promise<void>;

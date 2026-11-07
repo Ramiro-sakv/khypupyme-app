@@ -1,3 +1,8 @@
+import type { TimberSelection } from "../../../shared/workspace/model";
+import {
+  timberSelectionText,
+  timberTotals,
+} from "../../../shared/workspace/timber-groups";
 import { useState } from "react";
 import { UNITS } from "../../../shared/workspace/catalog";
 import type { Quantity } from "../../../shared/workspace/exact";
@@ -19,6 +24,8 @@ interface PurchaseRecord {
     name: string;
     qty: Quantity;
     unit: Unit;
+    timber?: TimberSelection;
+    fields?: Record<string, string>;
     unitCostMinor: number;
     totalMinor: number;
     lot?: string;
@@ -165,7 +172,18 @@ export default function PurchaseHistory() {
             <section className="card list-card" key={index}>
               <h3>{line.name}</h3>
               <p>
-                {showQuantity(line.qty)} {UNITS[line.unit]} ×{" "}
+                {line.timber && line.fields
+                  ? timberSelectionText(line.fields.thicknessMm!, line.timber) +
+                    " · " +
+                    showQuantity(
+                      timberTotals(line.fields.thicknessMm!, line.timber)
+                        .boardFeet,
+                    ) +
+                    " pies tablares × "
+                  : showQuantity(line.qty) +
+                    " " +
+                    UNITS[line.unit] +
+                    " × "}{" "}
                 {bob(line.unitCostMinor)}
               </p>
               <strong>{bob(line.totalMinor)}</strong>

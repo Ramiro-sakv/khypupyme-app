@@ -1,3 +1,6 @@
+import { timberTotals } from "../../../shared/workspace/timber-groups";
+import TimberReturnFields from "./TimberReturnFields";
+import type { TimberSelection } from "../../../shared/workspace/model";
 import { useState } from "react";
 import { UNITS } from "../../../shared/workspace/catalog";
 import { compare, showQuantity, ZERO } from "../../../shared/workspace/exact";
@@ -24,7 +27,15 @@ export default function ReturnForm({
 }) {
   const { run, busy } = useWorkspace(),
     [selected, setSelected] = useState<
-      Record<number, { qty: string; restock: boolean; serials: string[] }>
+      Record<
+        number,
+        {
+          qty: string;
+          restock: boolean;
+          serials: string[];
+          timber?: TimberSelection;
+        }
+      >
     >({}),
     [exchange, setExchange] = useState(false),
     [replacements, setReplacements] = useState<CartLine[]>([]),
@@ -39,9 +50,12 @@ export default function ReturnForm({
           const lines: ReturnInput[] = Object.entries(selected)
             .filter(([, v]) => v.qty && compare(q(v.qty), ZERO) > 0)
             .map(([i, v]) => ({
+              ...(v.timber ? { timber: v.timber } : {}),
               line: Number(i),
               qty: q(v.qty),
-              unit: String(d.get("returnUnit" + i)) as Unit,
+              unit: v.timber
+                ? "piece"
+                : (String(d.get("returnUnit" + i)) as Unit),
               restock: v.restock,
               serials: v.serials,
             }));
@@ -78,43 +92,73 @@ export default function ReturnForm({
           return (
             <div key={i}>
               <strong>
-                {l.name} · vendido {showQuantity(l.delivered)} {l.baseUnit} · ya
-                devuelto {showQuantity(l.returned)}
+                {l.name} ·{" "}
+                {l.timber
+                  ? "vendido " +
+                    timberTotals(l.fields.thicknessMm!, l.timber).pieces +
+                    " piezas en este grupo"
+                  : "vendido " +
+                    showQuantity(l.delivered) +
+                    " " +
+                    l.baseUnit +
+                    " · ya devuelto " +
+                    showQuantity(l.returned)}
               </strong>
-              <label>
-                Cantidad a devolver
-                <input
-                  name="return-qty"
-                  value={value.qty}
-                  onChange={(e) =>
+              {l.timber ? (
+                <TimberReturnFields
+                  line={l}
+                  selection={value.timber}
+                  onChange={(timber) =>
                     setSelected((old) => ({
                       ...old,
-                      [i]: { ...value, qty: e.target.value },
+                      [i]: {
+                        ...value,
+                        timber,
+                        qty: String(
+                          timber.widths.reduce((n, r) => n + r.pieces, 0),
+                        ),
+                      },
                     }))
                   }
-                  inputMode="decimal"
                 />
-              </label>
-              <label>
-                Unidad original
-                <select
-                  name={"returnUnit" + i}
-                  defaultValue={
-                    Object.entries(l.units).find(
-                      ([unit, factor]) =>
-                        factor?.n === "1" &&
-                        factor.d === "1" &&
-                        ["piece", "pair", "bag", "service"].includes(unit),
-                    )?.[0] ?? l.requestedUnit
-                  }
-                >
-                  {Object.keys(l.units).map((unit) => (
-                    <option key={unit} value={unit}>
-                      {UNITS[unit as Unit]}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              ) : (
+                <>
+                  <label>
+                    Cantidad a devolver
+                    <input
+                      name="return-qty"
+                      value={value.qty}
+                      onChange={(e) =>
+                        setSelected((old) => ({
+                          ...old,
+                          [i]: { ...value, qty: e.target.value },
+                        }))
+                      }
+                      inputMode="decimal"
+                    />
+                  </label>
+                  <label>
+                    Unidad original
+                    <select
+                      name={"returnUnit" + i}
+                      defaultValue={
+                        Object.entries(l.units).find(
+                          ([unit, factor]) =>
+                            factor?.n === "1" &&
+                            factor.d === "1" &&
+                            ["piece", "pair", "bag", "service"].includes(unit),
+                        )?.[0] ?? l.requestedUnit
+                      }
+                    >
+                      {Object.keys(l.units).map((unit) => (
+                        <option key={unit} value={unit}>
+                          {UNITS[unit as Unit]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </>
+              )}
               <label>
                 <input
                   type="checkbox"

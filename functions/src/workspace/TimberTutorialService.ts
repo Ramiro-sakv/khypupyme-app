@@ -2,8 +2,9 @@ import type { Firestore } from "firebase-admin/firestore";
 import { canonical, today } from "../../../shared/commerce.js";
 import { DEFAULT_ANSWERS } from "../../../shared/workspace/catalog.js";
 import {
-  TIMBER_STEPS,
   TUTORIAL_VERSION,
+  TUTORIAL_MODULES,
+  tutorialSteps,
 } from "../../../shared/workspace/timber-tutorial.js";
 import type {
   TutorialControl,
@@ -33,9 +34,10 @@ const view = (data: Partial<StoredTutorial>): TutorialSession => ({
   practiceBusinessId: data.practiceBusinessId ?? null,
   version: data.version!,
   status: data.status!,
-  stepIndex: data.stepIndex ?? TIMBER_STEPS.length,
+  stepIndex: data.stepIndex ?? tutorialSteps(data.version ?? 1).length,
   revision: data.revision ?? 0,
   references: data.references ?? {},
+  ...(data.doneSteps ? { doneSteps: data.doneSteps } : {}),
   startedOn: data.startedOn ?? "",
   expiresAt: data.expiresAt ?? "",
   finishedAt: data.finishedAt ?? null,
@@ -144,7 +146,9 @@ export class TimberTutorialService {
   ): Promise<StoredTutorial> {
     if (
       !["active", "paused"].includes(s.status) ||
-      TIMBER_STEPS[s.stepIndex]?.id !== "sale" ||
+      !["sale", "convert"].includes(
+        tutorialSteps(s.version)[s.stepIndex]?.id ?? "",
+      ) ||
       !s.references.quote ||
       !s.practiceBusinessId
     )
@@ -155,7 +159,9 @@ export class TimberTutorialService {
         latest = doc.data() as StoredTutorial;
       if (
         !["active", "paused"].includes(latest.status) ||
-        TIMBER_STEPS[latest.stepIndex]?.id !== "sale" ||
+        !["sale", "convert"].includes(
+          tutorialSteps(latest.version)[latest.stepIndex]?.id ?? "",
+        ) ||
         !latest.references.quote ||
         !latest.practiceBusinessId
       )
@@ -174,7 +180,9 @@ export class TimberTutorialService {
       const next: StoredTutorial = {
         ...latest,
         references,
-        stepIndex: TIMBER_STEPS.findIndex((step) => step.id === "quote"),
+        stepIndex: tutorialSteps(latest.version).findIndex(
+          (step) => step.id === "quote",
+        ),
         revision: latest.revision + 1,
       };
       tx.set(ref, next);
@@ -212,7 +220,18 @@ export class TimberTutorialService {
     input: unknown,
   ): Promise<TutorialReply> {
     const c = object(input, {
-      kind: oneOf(["start", "resume", "pause", "advance", "finish", "abandon"]),
+      kind: oneOf([
+        "start",
+        "resume",
+        "pause",
+        "advance",
+        "finish",
+        "abandon",
+        "module",
+      ]),
+      ...(input && typeof input === "object" && Object.hasOwn(input, "moduleId")
+        ? { moduleId: identifier }
+        : {}),
       operationId: (v) => {
         const id = identifier(v);
         if (id.length > 80)
@@ -289,6 +308,7 @@ export class TimberTutorialService {
           stepIndex: 0,
           revision: 0,
           references: {},
+          doneSteps: [],
           startedOn: today(),
           expiresAt: sevenDays(now),
           finishedAt: null,
@@ -340,12 +360,71 @@ export class TimberTutorialService {
         throw new Error(
           "La práctica cambió en otra pestaña. Consulta el progreso antes de continuar.",
         );
-      const step = TIMBER_STEPS[s.stepIndex];
-      if (c.kind === "finish" && s.stepIndex !== TIMBER_STEPS.length)
+      const steps = tutorialSteps(s.version),
+        step = steps[s.stepIndex];
+      let targetIndex = s.stepIndex;
+      if (c.kind === "module") {
+        if (
+          s.version !== TUTORIAL_VERSION ||
+          !TUTORIAL_MODULES.some((m) => m.id === c.moduleId)
+        )
+          throw new Error("Elige un recorrido del tutorial nuevo.");
+        const module = TUTORIAL_MODULES.find((m) => m.id === c.moduleId)!;
+        if (module.needsStock) {
+          const items = await tx.get(
+            this.db
+              .collection("businesses/" + s.practiceBusinessId + "/items")
+              .where("active", "==", true)
+              .limit(1001),
+          );
+          if (
+            !items.docs.some(
+              (d) =>
+                String(d.data().kind).startsWith("timber-") &&
+                d.data().balance?.n !== "0",
+            )
+          )
+            throw new Error(
+              "Primero completa Preparar inventario: registra madera y una entrada con costo.",
+            );
+        }
+        const first = steps.findIndex(
+          (x) => x.module === c.moduleId && !(s.doneSteps ?? []).includes(x.id),
+        );
+        targetIndex =
+          first < 0 ? steps.findIndex((x) => x.module === c.moduleId) : first;
+      }
+      let cashReviewed = false;
+      if (c.kind === "advance" && s.version > 1 && step?.id === "cash-open") {
+        const control = await tx.get(
+          this.db.doc(
+            "businesses/" + s.practiceBusinessId + "/cashControl/current",
+          ),
+        );
+        if (control.data()?.activeId) {
+          const cash = await tx.get(
+            this.db.doc(
+              "businesses/" +
+                s.practiceBusinessId +
+                "/cashSessions/" +
+                identifier(control.data()!.activeId),
+            ),
+          );
+          cashReviewed = cash.data()?.status === "open";
+        }
+      }
+      if (
+        c.kind === "finish" &&
+        s.version === 1 &&
+        s.stepIndex !== steps.length
+      )
         throw new Error("Completa los capítulos antes de finalizar.");
       if (
         c.kind === "advance" &&
-        (s.status !== "active" || !step || step.id !== c.stepId || step.kind)
+        (s.status !== "active" ||
+          !step ||
+          step.id !== c.stepId ||
+          (step.kind && !cashReviewed))
       )
         throw new Error(
           "Completa primero la acción confirmada del paso actual.",
@@ -368,7 +447,15 @@ export class TimberTutorialService {
             : c.kind === "resume"
               ? "active"
               : s.status,
-        stepIndex: s.stepIndex + (c.kind === "advance" ? 1 : 0),
+        stepIndex: targetIndex + (c.kind === "advance" ? 1 : 0),
+        ...(s.version > 1
+          ? {
+              doneSteps:
+                c.kind === "advance" && step
+                  ? [...new Set([...(s.doneSteps ?? []), step.id])]
+                  : (s.doneSteps ?? []),
+            }
+          : {}),
         revision: s.revision + 1,
         controlOperations: {
           ...s.controlOperations,

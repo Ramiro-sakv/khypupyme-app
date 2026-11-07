@@ -52,6 +52,14 @@ export const ITEM_MODELS: Record<
     ],
     base: "piezas",
   },
+  "timber-grouped": {
+    label: "Madera por especie, espesor y medidas agrupadas",
+    fields: [
+      field("species", "Especie"),
+      numeric("thicknessMm", "Espesor (mm)", 10000, 6),
+    ],
+    base: "mm³",
+  },
   "timber-piece": {
     label: "Madera por piezas y medidas",
     fields: [
@@ -141,7 +149,7 @@ export function kindsFor(
   const shared: ItemKind[] = ["general", "service"];
   switch (business.industryId) {
     case "timber":
-      return ["timber-piece", "timber-volume", ...shared];
+      return ["timber-grouped", "timber-piece", "timber-volume", ...shared];
     case "clothing":
     case "footwear":
       return ["apparel", ...shared];
@@ -168,7 +176,7 @@ export function suggestedKind(industryId: IndustryId): ItemKind {
   return (
     (
       {
-        timber: "timber-piece",
+        timber: "timber-grouped",
         clothing: "apparel",
         footwear: "apparel",
         appliances: "appliance",
@@ -213,6 +221,7 @@ export function itemUnits(item: ItemDraft): {
         },
       };
     }
+    case "timber-grouped":
     case "timber-volume":
       return {
         baseUnit: "mm³",
@@ -260,7 +269,7 @@ export function itemUnits(item: ItemDraft): {
 }
 export function isDiscrete(item: Pick<ItemDraft, "kind" | "fields">): boolean {
   return (
-    !["timber-volume", "cement-bulk"].includes(item.kind) &&
+    !["timber-grouped", "timber-volume", "cement-bulk"].includes(item.kind) &&
     !(item.kind === "grocery" && item.fields.weighted === "si")
   );
 }

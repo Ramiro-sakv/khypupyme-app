@@ -29,18 +29,19 @@ export default function ItemForm({
   label = "Crear producto",
   initial,
   children,
+  allowGrouped = true,
 }: {
   onSave: (item: ItemDraft, data: FormData) => Promise<unknown>;
   label?: string;
   initial?: ItemDraft;
   children?: ReactNode;
+  allowGrouped?: boolean;
 }) {
   const { business, busy } = useWorkspace(),
     [kind, setKind] = useState<ItemKind>(
       initial?.kind ??
-        (business.industryId === "timber" &&
-        business.answers.timberMode === "volume"
-          ? "timber-volume"
+        (!allowGrouped && business.industryId === "timber"
+          ? "timber-piece"
           : suggestedKind(business.industryId!)),
     );
   const system = business.timberSystem ?? "imperial",
@@ -91,13 +92,13 @@ export default function ItemForm({
       }).units,
     ) as Unit[];
   } catch {
-    units =
-      kind === "timber-piece"
-        ? ["piece", "m3", "boardFoot"]
-        : kind === "ceramic"
-          ? ["piece", "box", "m2"]
-          : ["piece"];
+    units = ["timber-piece", "timber-grouped"].includes(kind)
+      ? ["piece", "m3", "boardFoot"]
+      : kind === "ceramic"
+        ? ["piece", "box", "m2"]
+        : ["piece"];
   }
+  if (kind === "timber-grouped") units = ["boardFoot"];
   return (
     <ActionForm
       disabled={busy}
@@ -116,7 +117,8 @@ export default function ItemForm({
           fields: Object.fromEntries(
             ITEM_MODELS[kind].fields.map((f) => [
               f.key,
-              kind === "timber-piece" && dimensionKeys.includes(f.key)
+              ["timber-piece", "timber-grouped"].includes(kind) &&
+              dimensionKeys.includes(f.key)
                 ? initial?.fields[f.key] &&
                   String(d.get(f.key)) ===
                     dimensionInputFromMm(initial.fields[f.key]!, f.key, system)
@@ -128,14 +130,13 @@ export default function ItemForm({
           barcode: String(d.get("barcode") ?? ""),
           priceMinor: cents(d.get("price")),
           priceUnit: String(d.get("priceUnit")),
-          minimum:
-            kind === "timber-volume"
-              ? minimumInput(
-                  { kind, minimum: { n: "0", d: "1" } },
-                  String(d.get("minimum")),
-                  system,
-                )
-              : q(d.get("minimum")),
+          minimum: ["timber-volume", "timber-grouped"].includes(kind)
+            ? minimumInput(
+                { kind, minimum: { n: "0", d: "1" } },
+                String(d.get("minimum")),
+                system,
+              )
+            : q(d.get("minimum")),
           serviceCostMinor:
             kind === "service" ? cents(d.get("serviceCost")) : 0,
         });
@@ -153,11 +154,13 @@ export default function ItemForm({
             setRawDimensions({});
           }}
         >
-          {kindsFor(business).map((k) => (
-            <option key={k} value={k}>
-              {ITEM_MODELS[k].label}
-            </option>
-          ))}
+          {kindsFor(business)
+            .filter((k) => allowGrouped || k !== "timber-grouped")
+            .map((k) => (
+              <option key={k} value={k}>
+                {ITEM_MODELS[k].label}
+              </option>
+            ))}
         </select>
       </label>
       <Field
@@ -191,21 +194,24 @@ export default function ItemForm({
       </details>
       {ITEM_MODELS[kind].fields.map((f) => (
         <label key={`${kind}-${f.key}`}>
-          {kind === "timber-piece" && dimensionKeys.includes(f.key)
+          {["timber-piece", "timber-grouped"].includes(kind) &&
+          dimensionKeys.includes(f.key)
             ? dimensionLabel(f.key, system)
             : f.label}
           <input
             name={f.key}
             type="text"
             inputMode={
-              kind === "timber-piece" && system === "imperial"
+              ["timber-piece", "timber-grouped"].includes(kind) &&
+              system === "imperial"
                 ? "text"
                 : f.type === "number"
                   ? "decimal"
                   : "text"
             }
             value={
-              (kind === "timber-piece" && dimensionKeys.includes(f.key)
+              (["timber-piece", "timber-grouped"].includes(kind) &&
+              dimensionKeys.includes(f.key)
                 ? rawDimensions[f.key]
                 : fields[f.key]) ??
               (["packSize", "piecesPerBox"].includes(f.key)
@@ -224,7 +230,10 @@ export default function ItemForm({
             maxLength={80}
             onChange={(e) => {
               const value = e.target.value;
-              if (kind === "timber-piece" && dimensionKeys.includes(f.key)) {
+              if (
+                ["timber-piece", "timber-grouped"].includes(kind) &&
+                dimensionKeys.includes(f.key)
+              ) {
                 setRawDimensions((old) => ({ ...old, [f.key]: value }));
                 let mm = "";
                 try {
@@ -261,11 +270,15 @@ export default function ItemForm({
             key={kind + units.join()}
             defaultValue={
               initial?.priceUnit ??
-              (["timber-piece", "timber-volume"].includes(kind)
-                ? system === "imperial"
-                  ? "boardFoot"
-                  : "m3"
-                : units[0])
+              (kind === "timber-grouped"
+                ? "boardFoot"
+                : ["timber-piece", "timber-volume", "timber-grouped"].includes(
+                      kind,
+                    )
+                  ? system === "imperial"
+                    ? "boardFoot"
+                    : "m3"
+                  : units[0])
             }
           >
             {units.map((u) => (
@@ -279,7 +292,7 @@ export default function ItemForm({
           name="minimum"
           label={
             "Existencia mínima en " +
-            (kind === "timber-volume"
+            (["timber-volume", "timber-grouped"].includes(kind)
               ? system === "imperial"
                 ? "pies tablares"
                 : "m³"

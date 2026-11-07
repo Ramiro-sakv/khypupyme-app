@@ -1,6 +1,13 @@
+import { timberTotals } from "../../../shared/workspace/timber-groups";
 import { useCallback, useState } from "react";
 import { UNITS } from "../../../shared/workspace/catalog";
-import { amount, div } from "../../../shared/workspace/exact";
+import {
+  amount,
+  div,
+  add,
+  ZERO,
+  showQuantity,
+} from "../../../shared/workspace/exact";
 import type {
   Item,
   Method,
@@ -61,6 +68,11 @@ export default function Trade({
   const draftInput: TradeDraftInput = {
     ...(source ? { origin: source } : {}),
     lines: lines.map((line) => ({
+      id: line.id,
+      timber: line.timber,
+      lengthInput: line.lengthInput,
+      widthInput: line.widthInput,
+      priceInput: line.priceInput,
       itemId: line.item.id,
       priceMinor: line.item.priceMinor,
       qty: line.qty,
@@ -142,7 +154,19 @@ export default function Trade({
     }
   }
   function addItem(item: Item) {
-    if (lines.some((l) => l.item.id === item.id)) return;
+    if (
+      item.kind !== "timber-grouped" &&
+      lines.some((l) => l.item.id === item.id)
+    ) {
+      setLines((old) =>
+        old.map((l) =>
+          l.item.id === item.id
+            ? { ...l, qty: String(Number(l.qty || "0") + 1) }
+            : l,
+        ),
+      );
+      return;
+    }
     if (lines.length >= 20) {
       setError("Máximo 20 productos por operación. Divide la compra o venta.");
       return;
@@ -150,13 +174,21 @@ export default function Trade({
     setLines((old) => [
       ...old,
       {
+        id: crypto.randomUUID(),
+        ...(item.kind === "timber-grouped"
+          ? {
+              timber: { lengthMm: "", widths: [], priceMinor: item.priceMinor },
+            }
+          : {}),
         item,
-        qty: "1",
-        unit: purchase
-          ? item.kind === "appliance"
-            ? "piece"
-            : item.priceUnit
-          : item.priceUnit,
+        qty: item.kind === "timber-grouped" ? "0" : "1",
+        unit: ["timber-grouped", "timber-piece"].includes(item.kind)
+          ? "piece"
+          : purchase
+            ? item.kind === "appliance"
+              ? "piece"
+              : item.priceUnit
+            : item.priceUnit,
         cost: "",
         lot: "",
         expiresOn: "",
@@ -166,16 +198,45 @@ export default function Trade({
       },
     ]);
   }
-  let total = 0;
+  let total = 0,
+    timberPieces = 0,
+    timberFeet = ZERO;
+  for (const line of lines) {
+    try {
+      if (line.item.kind === "timber-grouped" && line.timber) {
+        const t = timberTotals(line.item.fields.thicknessMm!, line.timber);
+        timberPieces += t.pieces;
+        timberFeet = add(timberFeet, t.boardFeet);
+      } else if (line.item.kind === "timber-volume") {
+        timberFeet = add(
+          timberFeet,
+          div(delivered(line), line.item.units.boardFoot!),
+        );
+      } else if (line.item.kind === "timber-piece") {
+        timberPieces += Number(delivered(line).n);
+        timberFeet = add(
+          timberFeet,
+          div(delivered(line), line.item.units.boardFoot!),
+        );
+      }
+    } catch {
+      /* Medidas aún incompletas. */
+    }
+  }
   try {
     total =
       lines.reduce(
         (s, l) =>
           s +
           (purchase
-            ? amount(cents(l.cost || "0"), q(l.qty))
+            ? amount(
+                cents(l.cost || "0"),
+                l.timber
+                  ? timberTotals(l.item.fields.thicknessMm!, l.timber).boardFeet
+                  : q(l.qty),
+              )
             : amount(
-                l.item.priceMinor,
+                l.timber?.priceMinor ?? l.item.priceMinor,
                 div(delivered(l), l.item.units[l.item.priceUnit]!),
               )),
         0,
@@ -280,7 +341,10 @@ export default function Trade({
         </section>
         <ActionForm
           dataTutorial="trade-form"
-          className="trade-form"
+          className={
+            "trade-form" +
+            (business.industryId === "timber" ? " timber-fast-form" : "")
+          }
           dirty={lines.length > 0}
           disabled={busy || !draft.editable || !lines.length}
           label={
@@ -353,7 +417,7 @@ export default function Trade({
           )}
           {lines.map((line, index) => (
             <CartEditor
-              key={line.item.id}
+              key={line.id ?? line.item.id}
               line={line}
               purchase={purchase}
               quote={isQuote}
@@ -367,33 +431,44 @@ export default function Trade({
               }
             />
           ))}
-          <div className="card cart-summary">
+          <div className="card cart-summary" data-tutorial="trade-summary">
             <h3>Revisar importe: {bob(total)}</h3>
+            {business.industryId === "timber" && (
+              <p className="timber-grand-total">
+                {timberPieces} piezas registradas · {showQuantity(timberFeet)}{" "}
+                pies tablares · {bob(total)} en toda la operación
+              </p>
+            )}
             {!purchase && (
               <>
                 <CustomerSelector
                   value={customerId}
+                  required={!isQuote && payment === "credit"}
+                  allowCreate={business.industryId === "timber"}
                   onChange={(id, name) => {
                     setCustomerId(id);
                     setCustomerName(name);
                   }}
                 />
-                <label>
-                  Cliente (obligatorio para fiado)
-                  <input
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    maxLength={80}
-                  />
-                </label>
-                <label>
-                  Descuento total (BOB)
-                  <input
-                    value={discount}
-                    onChange={(e) => setDiscount(e.target.value)}
-                    inputMode="decimal"
-                  />
-                </label>
+                <details>
+                  <summary>Nombre para el comprobante y descuento</summary>
+                  <label>
+                    Nombre para el comprobante (opcional)
+                    <input
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      maxLength={80}
+                    />
+                  </label>
+                  <label>
+                    Descuento total (BOB)
+                    <input
+                      value={discount}
+                      onChange={(e) => setDiscount(e.target.value)}
+                      inputMode="decimal"
+                    />
+                  </label>
+                </details>
               </>
             )}
             {purchase && (
@@ -423,17 +498,72 @@ export default function Trade({
                   value={date}
                   onValueChange={setDate}
                 />
-                <MethodField
-                  credit={!purchase}
-                  value={payment}
-                  onValueChange={setPayment}
-                />
+                {business.industryId !== "timber" && (
+                  <MethodField
+                    credit={!purchase}
+                    value={payment}
+                    onValueChange={setPayment}
+                  />
+                )}
               </>
             )}
-            <label>
-              <input name="review" type="checkbox" required />
-              He revisado cantidades e importe de {bob(total)}.
-            </label>
+            <div
+              className={
+                business.industryId === "timber" ? "timber-checkout-bar" : ""
+              }
+            >
+              {business.industryId === "timber" && (
+                <>
+                  <strong>
+                    {timberPieces} piezas · {showQuantity(timberFeet)} pies
+                    tablares · {bob(total)}
+                  </strong>
+                  {!isQuote && (
+                    <MethodField
+                      credit={!purchase}
+                      value={payment}
+                      onValueChange={setPayment}
+                    />
+                  )}
+                </>
+              )}
+              <label>
+                <input
+                  key={
+                    business.industryId === "timber"
+                      ? JSON.stringify([
+                          total,
+                          lines.map((l) => [
+                            l.item.id,
+                            l.qty,
+                            l.unit,
+                            l.timber,
+                          ]),
+                        ])
+                      : "review"
+                  }
+                  name="review"
+                  type="checkbox"
+                  required
+                />
+                He revisado cantidades e importe de {bob(total)}.
+              </label>
+              {business.industryId === "timber" && (
+                <button
+                  type="submit"
+                  className="primary"
+                  data-tutorial="confirm-trade"
+                >
+                  {busy
+                    ? "Procesando…"
+                    : purchase
+                      ? "Confirmar compra y pago"
+                      : isQuote
+                        ? "Emitir cotización"
+                        : "Confirmar venta"}
+                </button>
+              )}
+            </div>
           </div>
         </ActionForm>
       </div>
@@ -443,6 +573,8 @@ export default function Trade({
             if (!confirmDiscardChanges()) return;
             setLines(
               quote.lines.map((l) => ({
+                id: crypto.randomUUID(),
+                ...(l.timber ? { timber: l.timber } : {}),
                 item: l.item,
                 qty: l.qty,
                 unit: l.unit,

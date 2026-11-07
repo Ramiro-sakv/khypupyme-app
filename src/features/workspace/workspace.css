@@ -1485,3 +1485,187 @@
     scroll-margin-top: 290px;
   }
 }
+/* Maderas: grupos compactos y resumen de cobro visible. */
+.timber-sale-group {
+  border: 1px solid #ded8c9;
+  border-radius: 12px;
+  padding: 14px;
+  background: #fff;
+  margin-bottom: 12px;
+}
+.timber-group-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.timber-width-table {
+  width: 100%;
+  min-width: 320px;
+}
+.timber-width-table input {
+  width: 95px;
+  min-height: 44px;
+}
+.timber-stock-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.timber-stock-picker button {
+  min-height: 44px;
+}
+.timber-group-total,
+.timber-grand-total {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #155139;
+}
+[data-industry="timber"] .product-picker {
+  gap: 6px;
+}
+[data-industry="timber"] .product-picker button {
+  padding: 10px;
+  min-height: 44px;
+}
+.timber-fast-form .cart-summary {
+  position: sticky;
+  bottom: 12px;
+  z-index: 3;
+  box-shadow: 0 -4px 24px #12352318;
+}
+.customer-quick-select {
+  display: grid;
+  gap: 8px;
+}
+/* El hueco conserva los controles reales; lo demás queda inerte, sin clics sintéticos. */
+.tutorial-mask > div {
+  position: fixed;
+  z-index: 1090;
+  background: rgba(8, 22, 18, 0.7);
+}
+.tutorial-spotlight {
+  position: fixed;
+  z-index: 1100;
+  top: auto;
+  right: 18px;
+  bottom: 18px;
+  width: min(420px, calc(100vw - 36px));
+  max-height: 46vh;
+  overflow: auto;
+  overscroll-behavior: contain;
+  margin: 0;
+  background: #fff;
+  border-color: #17684e;
+  box-shadow: 0 10px 45px #0005;
+}
+.tutorial-spotlight .actions {
+  gap: 6px;
+}
+.tutorial-spotlight button {
+  min-height: 44px;
+}
+.business-workspace:has(.tutorial-spotlight:not(.tutorial-coach-hidden)),
+.panel-body:has(.tutorial-spotlight:not(.tutorial-coach-hidden)) {
+  padding-bottom: 50vh;
+}
+@media (max-width: 767px) {
+  .timber-group-fields {
+    grid-template-columns: 1fr;
+  }
+  .timber-fast-form .cart-summary {
+    bottom: 72px;
+  }
+  .tutorial-spotlight {
+    right: 8px;
+    bottom: 8px;
+    width: calc(100vw - 16px);
+    max-height: 44vh;
+  }
+  .timber-sale-group {
+    padding: 10px;
+  }
+  .timber-width-table {
+    min-width: 290px;
+  }
+}
+.timber-fast-form {
+  padding-bottom: 210px;
+}
+.timber-fast-form .cart-summary {
+  position: static;
+  box-shadow: none;
+}
+.timber-fast-form > fieldset > .form-submit {
+  display: none;
+}
+.timber-checkout-bar {
+  position: fixed;
+  bottom: 14px;
+  right: 24px;
+  width: min(470px, calc(100vw - 48px));
+  z-index: 14;
+  background: #fff;
+  border: 1px solid #c2d3c7;
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow: 0 5px 30px #0c281e30;
+  display: grid;
+  gap: 8px;
+}
+.timber-checkout-bar > strong {
+  font-variant-numeric: tabular-nums;
+}
+.timber-checkout-bar > label {
+  margin: 0;
+}
+.timber-checkout-bar button {
+  min-height: 44px;
+}
+@media (max-width: 767px) {
+  .timber-checkout-bar {
+    left: 8px;
+    right: 8px;
+    bottom: 70px;
+    width: auto;
+    padding: 10px;
+    gap: 5px;
+  }
+  .timber-fast-form {
+    padding-bottom: 245px;
+  }
+  .timber-checkout-bar > strong {
+    font-size: 0.92rem;
+  }
+}
+.tutorial-spotlight {
+  top: 10px;
+  bottom: auto;
+  max-height: 43vh;
+}
+.tutorial-is-compact > :not(.section-heading) {
+  display: none;
+}
+.tutorial-is-compact .section-heading {
+  margin: 0;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.tutorial-is-compact .section-heading > span {
+  display: none;
+}
+.tutorial-is-compact {
+  max-height: 105px;
+  padding: 8px 12px;
+}
+@media (max-width: 767px) {
+  .tutorial-spotlight {
+    top: 8px;
+    bottom: auto;
+  }
+  .tutorial-is-compact {
+    max-height: 130px;
+  }
+  .tutorial-is-compact .section-heading strong {
+    font-size: 0.85rem;
+  }
+}

@@ -57,6 +57,15 @@ function WorkspaceContent({
       value={{
         identity: commandService.context,
         pending: !!pending,
+        processing: busy,
+        commandError: error,
+        canRetryPending: canRetry,
+        consultPending: async () => {
+          await resolve();
+        },
+        retryPending: async () => {
+          await retry();
+        },
         confirmedOperationId,
         rejectedOperationId,
         prepare,

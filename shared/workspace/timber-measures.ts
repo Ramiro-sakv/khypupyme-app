@@ -109,9 +109,15 @@ export function dimensionInputFromMm(
       ).replace(",", ".");
 }
 export function timberStockText(
-  item: Pick<Item, "kind" | "fields" | "balance">,
+  item: Pick<Item, "kind" | "fields" | "balance" | "pieces">,
   system: TimberSystem = "imperial",
-) {
+): string | null {
+  if (item.kind === "timber-grouped")
+    return (
+      (item.pieces ?? 0) +
+      " piezas · " +
+      timberStockText({ ...item, kind: "timber-volume" }, system)
+    );
   if (item.kind === "timber-volume")
     return (
       showQuantity(
@@ -140,7 +146,7 @@ export function minimumText(
   system: TimberSystem = "imperial",
 ) {
   return showQuantity(
-    item.kind === "timber-volume"
+    ["timber-volume", "timber-grouped"].includes(item.kind)
       ? div(
           item.minimum,
           system === "imperial" ? BOARD_FOOT_MM3 : fraction(1000000000n),
@@ -156,7 +162,7 @@ export function minimumInput(
   if (raw.trim().replace(".", ",") === minimumText(item, system))
     return item.minimum;
   const value = decimal(raw);
-  return item.kind === "timber-volume"
+  return ["timber-volume", "timber-grouped"].includes(item.kind)
     ? mul(value, system === "imperial" ? BOARD_FOOT_MM3 : fraction(1000000000n))
     : value;
 }

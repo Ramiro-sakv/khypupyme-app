@@ -1,3 +1,8 @@
+import {
+  timberTotals,
+  timberSelectionText,
+  timberVolumeLabel,
+} from "../../../shared/workspace/timber-groups.js";
 import { timberDimensions } from "../../../shared/workspace/timber-measures.js";
 import type { TimberSystem } from "../../../shared/workspace/timber-measures.js";
 import { canonical, today } from "../../../shared/commerce.js";
@@ -62,6 +67,12 @@ interface Quote {
 const displayMoney = (minor: number) =>
   `Bs ${(minor / 100).toFixed(2).replace(".", ",")}`;
 function deliveryText(line: SaleLineV2) {
+  if (line.timber)
+    return (
+      timberTotals(line.fields.thicknessMm!, line.timber).pieces +
+      " piezas · " +
+      timberVolumeLabel(line.delivered)
+    );
   const byVolume =
     ["timber-volume", "cement-bulk"].includes(line.kind) ||
     (line.kind === "grocery" && line.fields.weighted === "si");
@@ -80,6 +91,12 @@ function deliveryText(line: SaleLineV2) {
   );
 }
 function detailText(line: SaleLineV2, system: TimberSystem = "imperial") {
+  if (line.timber)
+    return (
+      line.fields.species +
+      " · " +
+      timberSelectionText(line.fields.thicknessMm!, line.timber, system)
+    );
   return [
     ...(line.kind === "timber-piece"
       ? [line.fields.species, timberDimensions(line.fields, system)]
@@ -124,6 +141,60 @@ export class TradeService {
       throw new Error(
         `Cambió el precio de ${item.name}. Actualiza y confirma el nuevo importe.`,
       );
+    if (item.kind === "timber-grouped") {
+      if (
+        !input.timber ||
+        input.unit !== "piece" ||
+        input.serials.length ||
+        input.fullBoxes ||
+        input.wastePercent
+      )
+        throw new Error("Revisa las medidas de la madera.");
+      const totals = this.inventory.timber.validate(
+        item,
+        input.timber,
+        input.qty,
+      );
+      const stock = consume
+        ? await this.inventory.timber.consume(
+            item,
+            input.timber,
+            input.qty,
+            saleId,
+          )
+        : { costMinor: 0, allocations: [] };
+      const grossMinor = money(
+        amount(input.timber.priceMinor, totals.boardFeet),
+        false,
+      );
+      return {
+        itemId: item.id,
+        name: item.name,
+        ...(item.details ? { details: item.details } : {}),
+        kind: item.kind,
+        fields: item.fields,
+        timber: input.timber,
+        units: item.units,
+        requested: input.qty,
+        requestedUnit: "piece",
+        delivered: totals.volume,
+        baseUnit: item.baseUnit,
+        charged: totals.boardFeet,
+        priceUnit: "boardFoot",
+        priceMinor: input.timber.priceMinor,
+        catalogPriceMinor: item.priceMinor,
+        grossMinor,
+        netMinor: grossMinor,
+        costMinor: stock.costMinor,
+        allocations: stock.allocations,
+        returned: ZERO,
+        refundedMinor: 0,
+        restoredCostMinor: 0,
+        warrantyUntil: "",
+      };
+    }
+    if (input.timber)
+      throw new Error("Este producto no admite medidas agrupadas.");
     let requested = input.qty;
     if (item.kind === "ceramic" && input.unit === "m2")
       requested = mul(
@@ -191,8 +262,11 @@ export class TradeService {
     consume: boolean,
     id: string,
   ) {
-    if (new Set(inputs.map((line) => line.itemId)).size !== inputs.length)
-      throw new Error("Agrupa cada producto en una sola línea de la venta.");
+    const plain = inputs.filter((line) => !line.timber);
+    if (new Set(plain.map((line) => line.itemId)).size !== plain.length)
+      throw new Error(
+        "Agrupa cada producto convencional en una sola línea de la venta.",
+      );
     const lines: SaleLineV2[] = [];
     for (const input of inputs)
       lines.push(await this.planLine(input, consume, id));
@@ -275,7 +349,10 @@ export class TradeService {
       input.customerId,
       input.customerName,
     );
-    if (input.method === "credit" && customerName.length < 2)
+    if (
+      input.method === "credit" &&
+      (!input.customerId || customerName.length < 2)
+    )
       throw new Error("Indica el cliente de la venta fiada.");
     if (input.quoteId) {
       const quote = await this.work.get<Quote>("quotes", input.quoteId);
@@ -394,13 +471,25 @@ export class TradeService {
       "Registro de compra",
       ["Producto", "Cantidad", "Costo unitario", "Importe"],
       lines.map((line) => [
-        line.fields.lengthMm
+        line.timber
           ? line.name +
             " · " +
-            timberDimensions(line.fields, this.documents.timberSystem)
-          : line.name,
-        `${showQuantity(line.qty)} ${UNITS[line.unit]}`,
-        displayMoney(line.unitCostMinor),
+            timberSelectionText(
+              line.fields.thicknessMm!,
+              line.timber,
+              this.documents.timberSystem,
+            )
+          : line.fields.lengthMm
+            ? line.name +
+              " · " +
+              timberDimensions(line.fields, this.documents.timberSystem)
+            : line.name,
+        line.timber
+          ? timberTotals(line.fields.thicknessMm!, line.timber).pieces +
+            " piezas · " +
+            timberVolumeLabel(line.baseQty)
+          : `${showQuantity(line.qty)} ${UNITS[line.unit]}`,
+        displayMoney(line.unitCostMinor) + (line.timber ? " / pie tablar" : ""),
         displayMoney(line.totalMinor),
       ]),
       [{ label: "Total pagado", minor: totalMinor }],
@@ -435,17 +524,33 @@ export class TradeService {
     for (const input of inputs) {
       const line = sale.lines[input.line];
       if (!line) throw new Error("Línea de venta inexistente.");
-      const item = await this.inventory.item(line.itemId),
-        conversion = line.units[input.unit];
-      if (!conversion)
-        throw new Error(
-          "Unidad de devolución incompatible con la venta original.",
+      const item = await this.inventory.item(line.itemId);
+      let baseQty;
+      if (line.kind === "timber-grouped") {
+        if (
+          !input.timber ||
+          input.unit !== "piece" ||
+          !line.timber ||
+          input.serials.length ||
+          input.timber.lengthMm !== line.timber.lengthMm
+        )
+          throw new Error(
+            "Selecciona las medidas vendidas que devuelve el cliente.",
+          );
+        baseQty = this.inventory.timber.validate(
+          item,
+          input.timber,
+          input.qty,
+        ).volume;
+      } else {
+        if (input.timber || !line.units[input.unit])
+          throw new Error("Unidad de devolución incompatible.");
+        baseQty = this.inventory.toBase(
+          { ...item, units: line.units },
+          input.qty,
+          input.unit,
         );
-      const baseQty = this.inventory.toBase(
-        { ...item, units: line.units },
-        input.qty,
-        input.unit,
-      );
+      }
       if (isDiscrete(item) && !whole(baseQty))
         throw new Error("Devuelve piezas completas.");
       const cumulative = add(line.returned, baseQty);
@@ -471,6 +576,16 @@ export class TradeService {
       if (line.kind === "service") {
         if (input.restock)
           throw new Error("Los servicios no reingresan al inventario.");
+      } else if (line.kind === "timber-grouped") {
+        await this.inventory.timber.restock(
+          item,
+          input.timber!,
+          input.qty,
+          cost,
+          line.allocations,
+          input.restock,
+          saleId,
+        );
       } else
         await this.inventory.restock(
           item.id,
@@ -490,7 +605,15 @@ export class TradeService {
       costMinor = money(costMinor + cost);
       if (!input.restock) lossMinor = money(lossMinor + cost);
       rows.push([
-        line.name,
+        line.name +
+          (input.timber
+            ? " · " +
+              timberSelectionText(
+                line.fields.thicknessMm!,
+                input.timber,
+                this.documents.timberSystem,
+              )
+            : ""),
         `${showQuantity(div(baseQty, line.units[line.priceUnit]!))} ${UNITS[line.priceUnit]}`,
         input.restock
           ? line.kind === "appliance"

@@ -1,4 +1,7 @@
-import { timberDimensions } from "../../../shared/workspace/timber-measures";
+import {
+  timberDimensions,
+  dimensionInputFromMm,
+} from "../../../shared/workspace/timber-measures";
 import type { TimberSystem } from "../../../shared/workspace/timber-measures";
 import { amount, decimal, fraction } from "../../../shared/workspace/exact";
 import { ITEM_MODELS } from "../../../shared/workspace/catalog";
@@ -110,6 +113,14 @@ export function itemDetails(
   item: Pick<ItemDraft, "kind" | "fields" | "details">,
   system: TimberSystem = "imperial",
 ) {
+  if (item.kind === "timber-grouped")
+    return (
+      item.fields.species +
+      " · " +
+      dimensionInputFromMm(item.fields.thicknessMm!, "thicknessMm", system) +
+      (system === "imperial" ? "″" : " mm") +
+      " · medidas agrupadas"
+    );
   return [
     ...(item.kind === "timber-piece"
       ? [item.fields.species, timberDimensions(item.fields, system)]

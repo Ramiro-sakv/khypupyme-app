@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ComponentType } from "react";
 import { useSearchParams } from "react-router";
-import { TIMBER_STEPS } from "../../../../shared/workspace/timber-tutorial";
+import {
+  tutorialSteps,
+  TUTORIAL_VERSION,
+} from "../../../../shared/workspace/timber-tutorial";
 import type {
   TutorialControl,
   TutorialReply,
@@ -206,7 +209,10 @@ export default function TimberTutorialHost({
         setActive(true);
         setNotice("");
         setParams({
-          vista: TIMBER_STEPS[reply.state.session.stepIndex]?.view ?? "inicio",
+          vista:
+            tutorialSteps(reply.state.session.version)[
+              reply.state.session.stepIndex
+            ]?.view ?? "inicio",
         });
       }
       if (request.kind === "pause") {
@@ -216,7 +222,7 @@ export default function TimberTutorialHost({
       }
     }
   }
-  async function control(kind: TutorialControl["kind"]) {
+  async function control(kind: TutorialControl["kind"], moduleId?: string) {
     await perform(async () => {
       if (pending)
         throw new Error(
@@ -230,10 +236,14 @@ export default function TimberTutorialHost({
       const id = crypto.randomUUID(),
         request: TutorialControl = {
           kind,
+          ...(moduleId ? { moduleId } : {}),
           operationId: id,
           sessionId: kind === "start" ? id : (state.session?.id ?? ""),
           expectedRevision: state.session?.revision ?? 0,
-          stepId: TIMBER_STEPS[state.session?.stepIndex ?? 0]?.id ?? "",
+          stepId:
+            tutorialSteps(state.session?.version ?? TUTORIAL_VERSION)[
+              state.session?.stepIndex ?? 0
+            ]?.id ?? "",
         };
       await tutorialControlStore.save(uid, sourceId, request);
       setPending(request);
@@ -268,6 +278,9 @@ export default function TimberTutorialHost({
           ? "resume"
           : "start",
       );
+    },
+    chooseModule: async (id: string) => {
+      if (confirmDiscardChanges()) await control("module", id);
     },
     pause: async () => {
       if (confirmDiscardChanges()) await control("pause");
@@ -309,7 +322,10 @@ export default function TimberTutorialHost({
       });
     },
     pdfDone: async () => {
-      if (state.session && TIMBER_STEPS[state.session.stepIndex]?.pdf)
+      if (
+        state.session &&
+        tutorialSteps(state.session.version)[state.session.stepIndex]?.pdf
+      )
         await control("advance");
     },
   };

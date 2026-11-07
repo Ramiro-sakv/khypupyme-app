@@ -1,4 +1,4 @@
-import { TIMBER_STEPS } from "../../../../shared/workspace/timber-tutorial";
+import { tutorialSteps } from "../../../../shared/workspace/timber-tutorial";
 import { useWorkspace } from "../context";
 import { useTimberTutorial } from "./context";
 export default function TutorialEntry() {
@@ -20,8 +20,26 @@ export default function TutorialEntry() {
         ["active", "paused"].includes(tutorial.state.session.status) && (
           <p>
             Capítulo guardado · paso {tutorial.state.session.stepIndex + 1} de{" "}
-            {TIMBER_STEPS.length}. Puedes reanudar.
+            {tutorialSteps(tutorial.state.session.version).length}. Puedes
+            reanudar.
           </p>
+        )}
+      {tutorial.state.session?.version === 1 &&
+        ["active", "paused"].includes(tutorial.state.session.status) && (
+          <p role="status">
+            Tienes una práctica del tutorial anterior. Puedes continuar con su
+            contrato original o abandonarla expresamente para iniciar la guía
+            nueva; tus negocios no se eliminan.
+          </p>
+        )}
+      {tutorial.state.session &&
+        ["active", "paused"].includes(tutorial.state.session.status) && (
+          <button
+            disabled={tutorial.loading || busy}
+            onClick={() => void tutorial.finish(true)}
+          >
+            Abandonar esta práctica y poder iniciar otra
+          </button>
         )}
       {tutorial.pendingControl ? (
         <div className="actions">

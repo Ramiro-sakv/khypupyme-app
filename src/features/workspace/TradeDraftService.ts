@@ -132,7 +132,14 @@ export class TradeDraftService {
           throw new Error(
             "Un producto del borrador no existe o está archivado. Revisa el catálogo antes de restaurar.",
           );
-        if (!item.units[line.unit])
+        if (
+          !item.units[line.unit] &&
+          !(
+            item.kind === "timber-grouped" &&
+            line.timber &&
+            line.unit === "piece"
+          )
+        )
           throw new Error(
             "Una unidad del borrador ya no es compatible. No se modificó el original.",
           );
@@ -143,6 +150,11 @@ export class TradeDraftService {
             after: item.priceMinor,
           });
         return {
+          id: line.id,
+          timber: line.timber,
+          lengthInput: line.lengthInput,
+          widthInput: line.widthInput,
+          priceInput: line.priceInput,
           item,
           qty: line.qty,
           unit: line.unit,

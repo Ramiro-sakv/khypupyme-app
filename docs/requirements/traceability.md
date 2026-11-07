@@ -103,3 +103,20 @@ Alcance autorizado por el plan del propietario; no se atribuye al dossier ni se 
 | Conservación de ejemplos | Consulta de solo lectura a demo-khypupyme | 21 IDs originales presentes, 126 artículos y 153 ventas; cero espacios de práctica creados por el agente |
 
 No cambian firestore.rules, CashService ni algoritmos monetarios exactos. El contrato v2 se amplía con una preferencia opcional y un canal de tutorial separado. Reingreso Windows/WebKit continúa abierto; no se acredita seguridad ni funcionamiento completo mediante compilación.
+
+
+## Maderas rápidas y tutorial 0.5.0-beta.3 — 07/11/2026
+
+Plan explícito del propietario posterior al tutorial beta 2. No se atribuye al dossier ni se crean nuevos códigos RF/RNF.
+
+| Necesidad | Implementación | Evidencia / límite |
+|---|---|---|
+| Especie/espesor con medidas internas | timber-grouped, timberGroups y TimberStockService | Análisis estático, tipos y compilación; sin migrar productos anteriores |
+| Piezas y volumen exactos | timber-groups/timber-measures, cantidades enteras de piezas y fracciones de volumen | Cálculo compartido; casos numéricos y concurrencia pendientes de revisión funcional |
+| Compra/venta mixta y tarifa por grupo | líneas timber opcionales, snapshots y asignaciones, Trade/TimberLineEditor | Contratos anteriores conservados; transacción y redondeo en servidor; sin pruebas ejecutadas |
+| Devolver medidas originales | TimberReturnFields y restitución de asignaciones en TimberStockService | Validación física y costo histórico en código; ataques y repetición pendientes |
+| Cobro y clientes rápidos | barra visible, búsqueda paginada, alta de cliente en panel separado | Cliente ocasional al contado; crédito nuevo requiere cliente registrado |
+| Tutorial sencillo | manifiestos v1/v2, siete recorridos, máscara/foco y controles reales | Datos sugeridos libres; confirmación del servidor y reintento manual; accesibilidad/recorridos pendientes |
+| Compatibilidad y aislamiento | contexto original, sesiones v1, diarios y limpieza existentes | Sin modificar reglas, negocios, registros históricos ni servicios habituales |
+
+La búsqueda de clientes admite hasta 10.000 registros y falla expresamente si se supera; no modifica documentos anteriores. La entrega no incorpora facturación fiscal ni despiece automático. Los instaladores siguen siendo locales y la incidencia Windows/WebKit permanece abierta.

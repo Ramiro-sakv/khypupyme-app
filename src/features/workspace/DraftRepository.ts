@@ -1,3 +1,4 @@
+import type { TimberSaleSelection } from "../../../shared/workspace/model";
 import type {
   Method,
   Unit,
@@ -6,6 +7,11 @@ import type {
 import type { WorkspaceIdentity } from "./WorkspaceCommandService";
 export type DraftKind = "sale" | "purchase" | "quote";
 export interface DraftLine {
+  id?: string | undefined;
+  timber?: TimberSaleSelection | undefined;
+  lengthInput?: string | undefined;
+  widthInput?: string | undefined;
+  priceInput?: string | undefined;
   itemId: string;
   priceMinor: number;
   qty: string;

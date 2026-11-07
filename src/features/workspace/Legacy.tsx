@@ -96,6 +96,7 @@ export default function Legacy() {
               : "Producto anterior sin ficha especializada."}
           </p>
           <ItemForm
+            allowGrouped={false}
             label="Confirmar conversión y conservar valor total"
             onSave={async (item, d) => {
               const result = await run({

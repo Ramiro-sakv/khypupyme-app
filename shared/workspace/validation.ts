@@ -1,3 +1,5 @@
+import { exactDecimal } from "./timber-measures.js";
+import { compare, decimal, ZERO } from "./exact.js";
 import { operationalSchemas } from "./operations-validation.js";
 import type { OperationalKind } from "./operations.js";
 import { INDUSTRY_IDS } from "../business-industries.js";
@@ -83,6 +85,49 @@ export function list(decode: Decode, max = 20, min = 1): Decode {
     return raw.map(decode);
   };
 }
+
+function dimensional(value: unknown, max: string) {
+  const v = decimal(text(value, 1, 30), 6);
+  if (compare(v, ZERO) <= 0 || compare(v, decimal(max)) > 0)
+    throw new Error("Medida fuera de límites.");
+  return exactDecimal(v);
+}
+export const timberSelection = (raw: unknown) =>
+  object(raw, {
+    lengthMm: (v) => dimensional(v, "100000"),
+    widths: list(
+      (v) =>
+        object(v, {
+          widthMm: (v) => dimensional(v, "10000"),
+          pieces: (v) => {
+            if (
+              typeof v !== "number" ||
+              !Number.isSafeInteger(v) ||
+              v < 1 ||
+              v > 1000000
+            )
+              throw new Error("Indica de 1 a 1.000.000 de piezas enteras.");
+            return v;
+          },
+        }),
+      100,
+    ),
+  });
+function timberField(raw: unknown, sale = false): Record<string, Decode> {
+  if (!raw || typeof raw !== "object" || !Object.hasOwn(raw, "timber"))
+    return {};
+  return {
+    timber: (v: unknown) =>
+      sale
+        ? object(v, {
+            lengthMm: (x) => dimensional(x, "100000"),
+            widths: (x) => timberSelection({ lengthMm: "1", widths: x }).widths,
+            priceMinor: (x) => money(x, false),
+          })
+        : timberSelection(v),
+  };
+}
+
 const strings = list((value) => text(value, 1, 80), 100, 0);
 export const answers = (raw: unknown): BusinessAnswers =>
   object(raw, {
@@ -126,7 +171,13 @@ export function itemDraft(raw: unknown): ItemDraft {
   )
     throw new Error("Ficha inválida.");
   item.fields = validItemFields(item.kind, item.fields);
+  if (item.kind === "timber-grouped")
+    item.fields.thicknessMm = exactDecimal(
+      decimal(item.fields.thicknessMm!, 6),
+    );
   validateItemMinimum(item.kind, item.minimum);
+  if (item.kind === "timber-grouped" && item.priceUnit !== "boardFoot")
+    throw new Error("La tarifa de madera agrupada se declara por pie tablar.");
   if (!itemUnits(item).units[item.priceUnit])
     throw new Error("Unidad de precio incompatible.");
   return item;
@@ -143,6 +194,7 @@ export function commercialQuantity(value: unknown, allowZero = true) {
 const qty: Decode = (value) => commercialQuantity(value, false);
 const opening = (raw: unknown) =>
   object(raw, {
+    ...timberField(raw, false),
     qty: (v) => commercialQuantity(v),
     unit,
     unitCostMinor: money,
@@ -152,6 +204,7 @@ const opening = (raw: unknown) =>
   });
 const purchaseLine = (raw: unknown) =>
   object(raw, {
+    ...timberField(raw, false),
     itemId: identifier,
     qty,
     unit,
@@ -162,6 +215,7 @@ const purchaseLine = (raw: unknown) =>
   });
 const saleLine = (raw: unknown) =>
   object(raw, {
+    ...timberField(raw, true),
     itemId: identifier,
     qty,
     unit,
@@ -176,6 +230,7 @@ const saleLine = (raw: unknown) =>
   });
 const returnLine = (raw: unknown) =>
   object(raw, {
+    ...timberField(raw, false),
     line: (v) => {
       if (typeof v !== "number" || !Number.isInteger(v) || v < 0 || v >= 20)
         throw new Error("Línea inválida.");
@@ -337,10 +392,10 @@ export function validateWorkspaceCommand(raw: unknown): WorkspaceCommand {
   });
   return {
     ...envelope,
-    input: object(
-      envelope.input,
-      allSchemas[envelope.kind as WorkspaceCommand["kind"]]!,
-    ),
+    input: object(envelope.input, {
+      ...allSchemas[envelope.kind as WorkspaceCommand["kind"]]!,
+      ...(envelope.kind === "stock-adjust" ? timberField(envelope.input) : {}),
+    }),
   } as WorkspaceCommand;
 }
 
@@ -348,7 +403,7 @@ export function validateItemMinimum(
   kind: ItemKind,
   value: { n: string; d: string },
 ) {
-  if (kind === "timber-volume") {
+  if (["timber-volume", "timber-grouped"].includes(kind)) {
     if (BigInt(value.n) > 999999999000000000n * BigInt(value.d))
       throw new Error("El mínimo supera el límite permitido.");
   } else commercialQuantity(value);

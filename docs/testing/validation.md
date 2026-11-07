@@ -445,3 +445,40 @@ Hashes conservados también en artifacts/SHA256SUMS-beta5b2.txt, fuera de Git:
 
 - KhypuPyme-0.5.0-beta.2-android-debug.apk: **5637105 bytes**, SHA-256 e4823f6903a34a74a4c42b0bc9d2eaac275bfbed56be3cc8e269ecf48ce2421b.
 - KhypuPyme-0.5.0-beta.2-windows-x64-setup.exe: **2486432 bytes**, SHA-256 f2ef6ccabce926c01b9d587259abb8d5f0072ed38d543f115cbcf213fc1a176d.
+
+
+## Maderas rápidas y tutorial 0.5.0-beta.3 — 07/11/2026
+
+### Verificación realizada
+
+- pnpm lint: aprobado, salida 0, sin relajar reglas. Se corrigieron durante la implementación un campo opcional estricto, imports sin usar y una asignación local redundante detectados por TypeScript/lint.
+- pnpm typecheck: aprobado en la revisión intermedia; la versión final volvió a pasar TypeScript estricto dentro de pnpm build. pnpm build y pnpm build:functions: aprobados, salida 0.
+- Revisión estática: entradas/consumos/devoluciones agrupados reutilizan UnitOfWork, autorización, idempotencia, dinero entero y costo promedio exacto. El servidor deriva volumen y piezas, conserva la tarifa del catálogo y aplicada, y comprueba las medidas originales en devoluciones. El índice privado impide duplicar nuevas familias de especie/espesor. No cambian firestore.rules ni shared/workspace/exact.ts.
+- Los modelos anteriores conservan rutas, cantidades, conversiones y tarifas. El contrato v2 acepta líneas antiguas y añade timber opcional; crédito nuevo exige cliente registrado. Las sesiones y solicitudes del tutorial v1 conservan manifiesto/política anteriores; el tutorial v2 elimina valores sugeridos obligatorios y permite recorridos elegibles.
+- Consulta de solo lectura a demo-khypupyme: 21 negocios de ejemplo originales presentes, 126 artículos, 153 ventas y un espacio de práctica existente conservado. El agente no creó movimientos, sesiones ni datos de ejemplo, no limpió la práctica del usuario y no cambió su cuenta, exportación o servicios.
+- No se ejecutaron pnpm check, tests, capturas, vídeos ni recorridos automáticos. No se instalaron ni abrieron los paquetes. Las compilaciones no acreditan seguridad ni funcionamiento financiero, visual o en dispositivos físicos.
+- Advertencia de Vite: pdfmake y fuentes diferidas superan 500 kB. No se añadieron dependencias.
+
+### Revisión funcional diferida
+
+- Pino 2 pulgadas, largo 10 pies, anchos 6;8;10 a Bs 10/pie: tres piezas, 40 pies tablares, Bs 400; mezclar más largos, especies y otros productos en un comprobante.
+- Anchos repetidos, pegado, coma decimal/fracciones, corrección, métrico, redondeos al centavo, límites 20 líneas/100 grupos y tarifas independientes del catálogo.
+- Entradas con costo, disponibilidad por largo/ancho, ventas simultáneas, ajustes de pérdidas, inexistencia de stock negativo o piezas inventadas; peticiones manipuladas y aislamiento cuenta/negocio/práctica.
+- Devolución parcial por medidas, repetición, agotamiento de lo vendido, descuentos y costo histórico; cambio atómico con nueva madera.
+- Cliente ocasional, alta/búsqueda/selección sin perder carrito, crédito con cliente registrado y borrador con medidas/tarifa cambiadas.
+- Tutorial con valores distintos de las sugerencias, recorridos y requisitos, acciones auxiliares, teclado/móvil, paneles, pausa, finalización y limpieza, sesión v1 y recuperación de solicitudes inciertas con la máscara activa.
+
+La incidencia previa de reingreso Windows/WebKit **sigue abierta, sin corrección acreditada**. Sin push, publicación, servicios cloud ni accesos nuevos de escritorio.
+
+### Paquetes finales y líneas
+
+Código fuente respecto de 14c7a3c: **39 archivos, +2942 / -734 líneas físicas**, sin contar documentación, metadatos ni archivos generados. Incluye código reorganizado y no representa funcionalidad verificada por línea.
+
+La revisión final también conservó los modelos anteriores del formulario de conversión y añadió alias de medidas en pulgadas/pies a la búsqueda derivada del catálogo. Lint/tipos/web se repitieron después del ajuste de compatibilidad; lint/Functions se repitieron después del ajuste de búsqueda.
+
+Android final: assembleDebug aprobado (BUILD SUCCESSFUL, 32 s, versionCode 50003). Windows final: Tauri release y NSIS x64 aprobados. Ambos paquetes regenerados con el último ajuste de compatibilidad; los cambios finales adicionales fueron exclusivamente de Functions, compilados aparte. Versión 0.5.0-beta.3, paquetes de prueba local sin publicar ni instalar.
+
+Hashes también en artifacts/SHA256SUMS-beta5b3.txt, fuera de Git:
+
+- KhypuPyme-0.5.0-beta.3-android-debug.apk: **5644549 bytes**, SHA-256 5057c1a9781255ee0ad06c454dca38dffcc86c9aa0adbd831614472c8304efda.
+- KhypuPyme-0.5.0-beta.3-windows-x64-setup.exe: **2493127 bytes**, SHA-256 08126edfcb6374c1090bc7e11b7117ec2eac5d8ee197dacd7a3e11665706fdf5.

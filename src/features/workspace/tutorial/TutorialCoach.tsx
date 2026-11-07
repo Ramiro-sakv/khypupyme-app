@@ -1,311 +1,18 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
-import { TIMBER_STEPS } from "../../../../shared/workspace/timber-tutorial";
+import {
+  tutorialSteps,
+  TUTORIAL_MODULES,
+} from "../../../../shared/workspace/timber-tutorial";
 import { useWorkspace } from "../context";
 import { useTimberTutorial } from "./context";
-interface Hint {
-  selector: string;
-  text: string;
-}
-function hints(id: string, refs: Record<string, string>): Hint[] {
-  const target = (tag: string) => '[data-tutorial="' + tag + '"]',
-    field = (name: string, scope = "") => scope + ' [name="' + name + '"]';
-  const item = target("item-form"),
-    trade = target("trade-form"),
-    pick =
-      target("pick-item") +
-      '[data-item-id="' +
-      (id === "order-sale" ? refs.service : refs.wood) +
-      '"]';
-  const save = (scope: string) => ({
-    selector: scope + ' button[type="submit"]',
-    text: "Revisa y confirma el formulario. El tutorial espera la respuesta del servidor.",
-  });
-  if (["wood", "cut-service"].includes(id))
-    return [
-      {
-        selector: target("new-item"),
-        text: "Pulsa Nuevo producto o servicio.",
-      },
-      {
-        selector: field("item-kind", item),
-        text:
-          id === "wood"
-            ? "Elige Madera por piezas y medidas."
-            : "Elige Servicio o trabajo.",
-      },
-      {
-        selector: field("name", item),
-        text: id === "wood" ? "Nombre: Tabla de pino." : "Nombre: Corte.",
-      },
-      ...(id === "wood"
-        ? [
-            { selector: field("species", item), text: "Especie: Pino." },
-            {
-              selector: field("lengthMm", item),
-              text: "Largo: 10 pies (3048 en métrico).",
-            },
-            {
-              selector: field("widthMm", item),
-              text: "Ancho: 6 pulgadas (152,4 en métrico).",
-            },
-            {
-              selector: field("thicknessMm", item),
-              text: "Espesor: 2 pulgadas (50,8 en métrico).",
-            },
-          ]
-        : []),
-      {
-        selector: field("price", item),
-        text: id === "wood" ? "Precio: Bs 10." : "Precio: Bs 20.",
-      },
-      {
-        selector: field("priceUnit", item),
-        text:
-          id === "wood"
-            ? "Precio por pies tablares. Cada tabla equivale a 10 pies tablares."
-            : "Precio por servicios.",
-      },
-      {
-        selector: field("minimum", item),
-        text: id === "wood" ? "Mínimo: 3 piezas." : "Mínimo: 0.",
-      },
-      ...(id === "cut-service"
-        ? [
-            {
-              selector: field("serviceCost", item),
-              text: "Costo directo: Bs 5.",
-            },
-          ]
-        : []),
-      save(item),
-    ];
-  if (["purchase", "quote", "credit", "order-sale"].includes(id))
-    return [
-      { selector: pick, text: "Selecciona el producto o servicio indicado." },
-      {
-        selector: field("line-unit", trade),
-        text: id === "order-sale" ? "Unidad: servicios." : "Unidad: piezas.",
-      },
-      {
-        selector: field("line-qty", trade),
-        text:
-          "Cantidad: " +
-          (id === "purchase" ? "10" : id === "quote" ? "2" : "1") +
-          ".",
-      },
-      ...(id === "purchase"
-        ? [
-            {
-              selector: field("line-cost", trade),
-              text: "Costo por pieza: Bs 50. Total: Bs 500.",
-            },
-          ]
-        : [
-            {
-              selector: field("customerId", trade),
-              text: "Selecciona Cliente de práctica.",
-            },
-          ]),
-      ...(id === "quote"
-        ? []
-        : [
-            {
-              selector: field("method", trade),
-              text:
-                id === "credit"
-                  ? "Forma de pago: Fiado."
-                  : "Forma de pago: Efectivo.",
-            },
-          ]),
-      {
-        selector: field("review", trade),
-        text: "Revisa el total y marca la confirmación del importe.",
-      },
-      save(trade),
-    ];
-  if (id === "customer")
-    return [
-      { selector: target("new-customer"), text: "Abre Nuevo cliente." },
-      {
-        selector: field("name", target("customer-form")),
-        text: "Nombre: Cliente de práctica. No uses datos reales.",
-      },
-      save(target("customer-form")),
-    ];
-  if (id === "units")
-    return [
-      {
-        selector: field("system", target("timber-preferences")),
-        text: "Elige Pulgadas y pies o Métrico.",
-      },
-      save(target("timber-preferences")),
-    ];
-  if (id === "sale")
-    return [
-      {
-        selector: target("quote-history"),
-        text: "Abre Cotizaciones anteriores y Revisar y convertir a venta.",
-      },
-      {
-        selector: field("method", trade),
-        text: "Selecciona Efectivo. Conserva los datos de la oferta.",
-      },
-      {
-        selector: field("review", trade),
-        text: "Confirma el importe de Bs 200.",
-      },
-      save(trade),
-    ];
-  if (id === "cash-open")
-    return [
-      {
-        selector: '[data-tutorial-page="caja"] [name="amount"]',
-        text: "Fondo inicial: Bs 1.000.",
-      },
-      {
-        selector: '[data-tutorial-page="caja"] button[type="submit"]',
-        text: "Confirma la apertura.",
-      },
-    ];
-  if (id === "cash-close")
-    return [
-      {
-        selector: '[name="counted"]',
-        text: "Efectivo contado: Bs 700. Comprueba que coincide con lo esperado.",
-      },
-      {
-        selector:
-          '[data-tutorial-page="caja"] .cash-current button[type="submit"]',
-        text: "Confirma Cerrar caja y emitir comprobante.",
-      },
-    ];
-  if (id === "expense")
-    return [
-      {
-        selector: field("description", target("expense-form")),
-        text: "Concepto: Transporte de práctica.",
-      },
-      {
-        selector: field("category", target("expense-form")),
-        text: "Categoría: Transporte.",
-      },
-      {
-        selector: field("amount", target("expense-form")),
-        text: "Importe: Bs 20.",
-      },
-      {
-        selector: field("method", target("expense-form")),
-        text: "Forma de pago: Efectivo.",
-      },
-      save(target("expense-form")),
-    ];
-  if (id === "return")
-    return [
-      {
-        selector: target("sales-history"),
-        text: "Abre Detalle y devolución de la venta al contado.",
-      },
-      { selector: field("return-qty"), text: "Cantidad a devolver: 1." },
-      { selector: field("returnUnit0"), text: "Unidad original: piezas." },
-      {
-        selector: field("return-restock"),
-        text: "Deja marcado Reingresa al inventario.",
-      },
-      { selector: field("reason"), text: "Motivo: Devolución de práctica." },
-      save(target("return-form")),
-    ];
-  if (id === "collect")
-    return [
-      {
-        selector: field("method", target("collect-form")),
-        text: "Selecciona Efectivo. El saldo completo es Bs 100.",
-      },
-      save(target("collect-form")),
-    ];
-  if (id === "order")
-    return [
-      { selector: target("new-order"), text: "Pulsa Nueva orden." },
-      {
-        selector: field("customerId"),
-        text: "Selecciona Cliente de práctica.",
-      },
-      { selector: field("title"), text: "Título: Corte de práctica." },
-      {
-        selector: field("description"),
-        text: "Describe un corte ficticio; el trabajo no consume piezas automáticamente.",
-      },
-      { selector: field("budget"), text: "Presupuesto: Bs 20." },
-      { selector: field("status"), text: "Estado: Recibido." },
-      {
-        selector: 'dialog[open] button[type="submit"]',
-        text: "Guarda la orden.",
-      },
-    ];
-  if (id.startsWith("order-") && id !== "order-sale")
-    return [
-      {
-        selector: target("work-orders"),
-        text: "Abre Ver / actualizar de Corte de práctica.",
-      },
-      {
-        selector: field("status"),
-        text:
-          (
-            {
-              "order-quote": "Selecciona Presupuestado.",
-              "order-approve": "Selecciona Aprobado.",
-              "order-work": "Selecciona En trabajo.",
-              "order-ready": "Selecciona Listo.",
-            } as Record<string, string>
-          )[id] ?? "",
-      },
-      {
-        selector: 'dialog[open] button[type="submit"]',
-        text: "Guarda el nuevo estado. No se registra un cobro.",
-      },
-    ];
-  if (id === "delivery")
-    return [
-      { selector: target("new-delivery"), text: "Pulsa Programar entrega." },
-      {
-        selector: field("sale"),
-        text: "Selecciona la venta a crédito de Bs 100 ya cobrada, no la venta del servicio Corte.",
-      },
-      { selector: field("address"), text: "Dirección: Obra de práctica." },
-      { selector: field("day"), text: "Elige la fecha programada." },
-      {
-        selector: 'dialog[open] button[type="submit"]',
-        text: "Guarda la entrega pendiente.",
-      },
-    ];
-  if (id.startsWith("delivery-"))
-    return [
-      {
-        selector: target("deliveries"),
-        text: "Abre Ver / actualizar de la entrega.",
-      },
-      {
-        selector: field("status"),
-        text:
-          id === "delivery-prepared"
-            ? "Selecciona Preparada."
-            : "Selecciona Entregada.",
-      },
-      {
-        selector: 'dialog[open] button[type="submit"]',
-        text: "Guarda el nuevo estado de entrega.",
-      },
-    ];
-  if (id === "inventory-document" || id === "result-document")
-    return [
-      save(
-        target(
-          id === "inventory-document" ? "inventory-report" : "result-report",
-        ),
-      ),
-    ];
-  return [];
+interface Box {
+  top: number;
+  left: number;
+  right: number;
+  bottom: number;
+  width: number;
+  height: number;
 }
 export default function TutorialCoach({
   inPanel = false,
@@ -314,57 +21,117 @@ export default function TutorialCoach({
 }) {
   const tutorial = useTimberTutorial(),
     workspace = useWorkspace(),
-    [params, setParams] = useSearchParams(),
-    ref = useRef<HTMLElement>(null),
-    [visible, setVisible] = useState(false),
-    [hasAnchor, setHasAnchor] = useState(false),
-    anchorRef = useRef<Element | null>(null);
+    [params, setParams] = useSearchParams();
+  const ref = useRef<HTMLElement>(null),
+    target = useRef<HTMLElement | null>(null);
+  const [box, setBox] = useState<Box | null>(null),
+    [visible, setVisible] = useState(false);
+  const [compactState, setCompactState] = useState({ key: "", value: false });
   const session = tutorial?.state.session,
-    step = session ? TIMBER_STEPS[session.stepIndex] : undefined,
-    stepId = step?.id ?? "",
-    referenceKey = JSON.stringify(session?.references ?? {}),
-    fields = useMemo(
-      () => (stepId ? hints(stepId, JSON.parse(referenceKey)) : []),
-      [stepId, referenceKey],
-    ),
-    index = Math.min(tutorial?.fieldIndex ?? 0, Math.max(fields.length - 1, 0)),
-    hint = fields[index],
-    selector =
-      hint?.selector ?? (step ? '[data-tutorial="' + step.target + '"]' : "");
+    steps = tutorialSteps(session?.version ?? 2),
+    step = session ? steps[session.stepIndex] : undefined;
+  const lastNavigation = useRef(""),
+    navigation = useRef(setParams);
+  useEffect(() => {
+    navigation.current = setParams;
+  }, [setParams]);
+  const stepKey = (session?.id ?? "") + ":" + (session?.stepIndex ?? 0),
+    view = params.get("vista") ?? "inicio";
   useEffect(() => {
     if (!tutorial?.active) return;
-    let previous: Element | null = null;
+    const inert = new Map<Element, boolean>();
+    let previous: HTMLElement | null = null;
+    function restore() {
+      for (const [node, had] of inert) if (!had) node.removeAttribute("inert");
+      inert.clear();
+    }
     const update = () => {
-      const panels =
+      const dialogs =
           document.querySelectorAll<HTMLDialogElement>("dialog[open]"),
-        panel = panels.item(panels.length - 1),
-        mine = ref.current?.closest("dialog"),
-        show = inPanel ? !!panel && mine === panel : !panel;
+        panel = dialogs.item(dialogs.length - 1),
+        mine = ref.current?.closest("dialog");
+      const show = inPanel ? !!panel && mine === panel : !panel;
       setVisible(show);
-      const root = inPanel
-        ? mine
-        : document.querySelector(".business-workspace");
-      let node =
-        show && root && selector
-          ? root.matches(selector)
-            ? root
-            : root.querySelector(selector)
-          : null;
-      if (show && inPanel && !node && index === 0 && fields.length > 1) {
-        const next = fields.findIndex((f) => !!root?.querySelector(f.selector));
-        if (next > 0) tutorial.setFieldIndex(next);
+      restore();
+      if (!show) {
+        previous?.classList.remove("tutorial-target");
+        target.current = null;
+        setBox(null);
+        return;
       }
-      if (show && !node && !step?.kind && !step?.pdf)
-        node =
-          root?.querySelector('[data-tutorial-page="' + step?.view + '"]') ??
-          null;
+      const root = (
+        inPanel ? mine : document.querySelector(".business-workspace")
+      ) as HTMLElement | null;
+      let node: HTMLElement | null = null;
+      if (inPanel) node = root;
+      else if (root && step) {
+        node = root.querySelector<HTMLElement>(
+          '[data-tutorial="' + step.target + '"]',
+        );
+        if (
+          [
+            "sales-history",
+            "purchase-history",
+            "work-orders",
+            "deliveries",
+            "debts",
+            "reports",
+          ].includes(step.target)
+        )
+          node = root.querySelector<HTMLElement>(
+            '[data-tutorial-page="' + view + '"]',
+          );
+        if (step.target === "quote-history")
+          node = node?.closest<HTMLElement>("details") ?? node;
+        if (node?.matches("form.trade-form"))
+          node = node.closest<HTMLElement>(".trade-layout") ?? node;
+        node ??= root.querySelector<HTMLElement>(
+          '[data-tutorial-page="' + view + '"]',
+        );
+      }
+      if (!inPanel && workspace.pending)
+        node = root?.querySelector<HTMLElement>(".pending-request") ?? node;
+      node ??= root;
       if (previous !== node) {
         previous?.classList.remove("tutorial-target");
-        if (show) node?.classList.add("tutorial-target");
+        node?.classList.add("tutorial-target");
         previous = node;
       }
-      anchorRef.current = node || null;
-      setHasAnchor(!!node);
+      target.current = node;
+      if (!node) {
+        setBox(null);
+        return;
+      }
+      const r = node.getBoundingClientRect(),
+        next = {
+          top: Math.max(0, r.top - 5),
+          left: Math.max(0, r.left - 5),
+          right: Math.min(innerWidth, r.right + 5),
+          bottom: Math.min(innerHeight, r.bottom + 5),
+          width: innerWidth,
+          height: innerHeight,
+        };
+      setBox((old) =>
+        old &&
+        Object.keys(next).every(
+          (k) => old[k as keyof Box] === next[k as keyof Box],
+        )
+          ? old
+          : next,
+      );
+      const allow = ref.current;
+      function block(parent: Element) {
+        for (const child of parent.children) {
+          if (child === node || child === allow) continue;
+          if (child.contains(node) || (!!allow && child.contains(allow))) {
+            block(child);
+            continue;
+          }
+          inert.set(child, child.hasAttribute("inert"));
+          child.setAttribute("inert", "");
+        }
+      }
+      block(document.body);
     };
     update();
     const observer = new MutationObserver(update);
@@ -374,13 +141,25 @@ export default function TutorialCoach({
       attributes: true,
       attributeFilter: ["open"],
     });
+    const focus = (e: FocusEvent) => {
+      if (!target.current) return;
+      const el = e.target as Node;
+      if (target.current?.contains(el) || ref.current?.contains(el)) return;
+      ref.current?.querySelector<HTMLElement>("button,select")?.focus();
+    };
+    document.addEventListener("focusin", focus);
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
     return () => {
       observer.disconnect();
+      restore();
       previous?.classList.remove("tutorial-target");
-      anchorRef.current = null;
+      document.removeEventListener("focusin", focus);
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+      target.current = null;
     };
-  }, [tutorial?.active, inPanel, selector, index, fields, step, tutorial]);
-  const view = params.get("vista") ?? "inicio";
+  }, [tutorial?.active, inPanel, stepKey, step, view, workspace.pending]);
   useEffect(() => {
     if (
       !inPanel &&
@@ -389,154 +168,246 @@ export default function TutorialCoach({
       !tutorial.pendingControl &&
       !workspace.busy &&
       step &&
-      view !== step.view &&
-      !(step.id === "order-sale" && view === "cobrar-trabajo")
-    )
-      setParams({ vista: step.view });
+      lastNavigation.current !== stepKey
+    ) {
+      lastNavigation.current = stepKey;
+      navigation.current({ vista: step.view });
+    }
   }, [
     inPanel,
+    stepKey,
     tutorial?.active,
     tutorial?.loading,
     tutorial?.pendingControl,
     workspace.busy,
     step,
-    view,
-    setParams,
   ]);
   if (!tutorial?.active) return null;
+  const compact =
+    compactState.key === stepKey &&
+    compactState.value &&
+    !tutorial.pendingControl &&
+    !workspace.pending &&
+    !tutorial.error &&
+    !workspace.commandError;
   const disabled =
     tutorial.loading || workspace.busy || tutorial.pendingControl;
-  function focus() {
-    const anchor = anchorRef.current;
-    if (!(anchor instanceof HTMLElement)) return;
-    for (
-      let parent = anchor.parentElement;
-      parent;
-      parent = parent.parentElement
-    )
-      if (parent instanceof HTMLDetailsElement) parent.setAttribute("open", "");
-    anchor.scrollIntoView({
-      block: "center",
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-        ? "instant"
-        : "smooth",
-    });
-    const input = anchor.matches("input,select,button,textarea,summary")
-      ? anchor
-      : anchor.querySelector<HTMLElement>(
-          "input,select,button,textarea,summary",
-        );
-    input?.focus({ preventScroll: true });
-  }
+  const go = (next: string) => setParams({ vista: next });
   return (
-    <aside
-      ref={ref}
-      className={"tutorial-coach " + (!visible ? " tutorial-coach-hidden" : "")}
-      aria-label="Instructor de práctica"
-    >
-      <div className="section-heading">
-        <strong>{step?.chapter ?? "Práctica completa"}</strong>
-        <span>
-          {Math.min((session?.stepIndex ?? 0) + 1, TIMBER_STEPS.length)} /{" "}
-          {TIMBER_STEPS.length}
-        </span>
+    <>
+      <div
+        className={!visible ? "tutorial-coach-hidden" : "tutorial-mask"}
+        aria-hidden="true"
+      >
+        {box && (
+          <>
+            <div style={{ top: 0, left: 0, width: "100%", height: box.top }} />
+            <div
+              style={{
+                top: box.top,
+                left: 0,
+                width: box.left,
+                height: Math.max(0, box.bottom - box.top),
+              }}
+            />
+            <div
+              style={{
+                top: box.top,
+                left: box.right,
+                right: 0,
+                height: Math.max(0, box.bottom - box.top),
+              }}
+            />
+            <div
+              style={{ top: box.bottom, left: 0, width: "100%", bottom: 0 }}
+            />
+          </>
+        )}
       </div>
-      <progress
-        value={session?.stepIndex ?? 0}
-        max={TIMBER_STEPS.length}
-        aria-label="Progreso"
-      />
-      <h3>{step?.title ?? "Finaliza y borra la práctica"}</h3>
-      <p role="status">
-        {step?.text ?? "Finalizar elimina únicamente este ejercicio."}
-      </p>
-      {hint && (
-        <p className="tutorial-field-hint">
-          <strong>
-            Campo {index + 1}/{fields.length}:
-          </strong>{" "}
-          {hint.text}
-        </p>
-      )}
-      {tutorial.error && <p role="alert">{tutorial.error}</p>}
-      {tutorial.pendingControl ? (
-        <div className="actions">
-          <button
-            disabled={tutorial.loading}
-            onClick={() => void tutorial.consult()}
-          >
-            Consultar estado
-          </button>
-          <button
-            disabled={tutorial.loading}
-            onClick={() => void tutorial.retry()}
-          >
-            Reintentar solicitud original
-          </button>
-        </div>
-      ) : (
-        <div className="actions">
-          {hasAnchor && (
-            <button type="button" onClick={focus}>
-              Ir al campo indicado
-            </button>
-          )}
-          {fields.length > 1 && (
+      <aside
+        ref={ref}
+        className={
+          "tutorial-coach tutorial-spotlight" +
+          (compact ? " tutorial-is-compact" : "") +
+          (!visible ? " tutorial-coach-hidden" : "")
+        }
+        aria-label="Guía de práctica"
+      >
+        <div className="section-heading">
+          <strong>{step?.chapter ?? "Recorrido completo"}</strong>
+          <span>
+            {session?.version === 1
+              ? "Guía anterior"
+              : (session?.doneSteps?.length ?? 0) + " pasos realizados"}
+          </span>
+          {compact && (
             <>
               <button
-                disabled={index === 0}
-                onClick={() => tutorial.setFieldIndex(index - 1)}
+                type="button"
+                onClick={() => setCompactState({ key: stepKey, value: false })}
               >
-                Campo anterior
+                Mostrar guía
               </button>
-              <button
-                disabled={index >= fields.length - 1}
-                onClick={() => tutorial.setFieldIndex(index + 1)}
-              >
-                Siguiente campo
+              <button disabled={disabled} onClick={() => void tutorial.pause()}>
+                Pausar
               </button>
             </>
           )}
-          {step && !step.kind && !step.pdf && (
-            <button
-              className="primary"
-              disabled={disabled || !hasAnchor}
-              onClick={() => void tutorial.advance()}
-            >
-              Revisado · siguiente paso
-            </button>
-          )}
-          {!step && (
-            <button
-              className="primary"
-              disabled={disabled}
-              onClick={() => void tutorial.finish()}
-            >
-              Finalizar y borrar práctica
-            </button>
-          )}
-          <button disabled={disabled} onClick={() => void tutorial.pause()}>
-            Pausar
-          </button>
-          <button disabled={disabled} onClick={() => void tutorial.consult()}>
-            Actualizar progreso
-          </button>
-          <button
-            onClick={() => {
-              tutorial.setFieldIndex(0);
-              ref.current?.scrollIntoView({ block: "start" });
-            }}
-          >
-            Repetir explicación
-          </button>
-          <button
-            disabled={disabled}
-            onClick={() => void tutorial.finish(true)}
-          >
-            Abandonar práctica
-          </button>
         </div>
-      )}
-    </aside>
+        <h3>{step?.title ?? "Puedes elegir otro recorrido o terminar"}</h3>
+        <p role="status">
+          {step?.text ??
+            "Terminar elimina exclusivamente los datos de esta práctica."}
+        </p>
+        {session?.version !== 1 && (
+          <label>
+            Elegir recorrido
+            <select
+              disabled={disabled}
+              value={step?.module ?? ""}
+              onChange={(e) => void tutorial.chooseModule(e.target.value)}
+            >
+              <option value="" disabled>
+                Elige un recorrido
+              </option>
+              {TUTORIAL_MODULES.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.title}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {tutorial.error && <p role="alert">{tutorial.error}</p>}
+        {workspace.commandError && <p role="alert">{workspace.commandError}</p>}
+        {workspace.pending && (
+          <div className="notice notice-warning">
+            <p>
+              Conserva la operación original. Consulta su confirmación antes de
+              continuar.
+            </p>
+            <button
+              disabled={workspace.processing || tutorial.loading}
+              onClick={() => void workspace.consultPending?.().catch(() => {})}
+            >
+              Consultar confirmación de la operación
+            </button>
+            {workspace.canRetryPending && (
+              <button
+                disabled={workspace.processing || tutorial.loading}
+                onClick={() => void workspace.retryPending?.().catch(() => {})}
+              >
+                Reintentar operación original
+              </button>
+            )}
+          </div>
+        )}
+        {workspace.busy && (
+          <small>
+            Espera la confirmación o resuelve la solicitud pendiente de la
+            operación.
+          </small>
+        )}
+        <div className="actions">
+          {tutorial.pendingControl ? (
+            <>
+              <button
+                disabled={tutorial.loading}
+                onClick={() => void tutorial.consult()}
+              >
+                Consultar estado
+              </button>
+              <button
+                disabled={tutorial.loading}
+                onClick={() => void tutorial.retry()}
+              >
+                Reintentar solicitud original
+              </button>
+            </>
+          ) : (
+            <>
+              {step &&
+                (!step.kind ||
+                  (session?.version !== 1 && step.id === "cash-open")) &&
+                !step.pdf && (
+                  <button
+                    className="primary"
+                    disabled={disabled}
+                    onClick={() => void tutorial.advance()}
+                  >
+                    {step.id === "cash-open"
+                      ? "Ya tengo caja abierta · continuar"
+                      : "Entendido · continuar"}
+                  </button>
+                )}
+              {(step?.kind || step?.pdf) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCompactState({ key: stepKey, value: true });
+                    const node = target.current;
+                    node?.scrollIntoView({
+                      block: "center",
+                      behavior: matchMedia("(prefers-reduced-motion: reduce)")
+                        .matches
+                        ? "instant"
+                        : "smooth",
+                    });
+                    (node?.matches("input,select,button")
+                      ? node
+                      : node?.querySelector<HTMLElement>("input,select,button")
+                    )?.focus();
+                  }}
+                >
+                  Entendido · completar en la aplicación
+                </button>
+              )}
+              {session?.version !== 1 && step?.kind && (
+                <>
+                  <button disabled={disabled} onClick={() => go("caja")}>
+                    Necesito abrir caja
+                  </button>
+                  <button disabled={disabled} onClick={() => go("inventario")}>
+                    Ver inventario
+                  </button>
+                  <button disabled={disabled} onClick={() => go(step.view)}>
+                    Volver al paso
+                  </button>
+                </>
+              )}
+              <button
+                disabled={disabled}
+                onClick={() => void tutorial.consult()}
+              >
+                Actualizar
+              </button>
+              <button disabled={disabled} onClick={() => void tutorial.pause()}>
+                Pausar
+              </button>
+              <button
+                type="button"
+                onClick={() => ref.current?.scrollIntoView({ block: "center" })}
+              >
+                Repetir explicación
+              </button>
+              {(!step || session?.version !== 1) && (
+                <button
+                  disabled={disabled}
+                  onClick={() => void tutorial.finish()}
+                >
+                  Terminar y borrar práctica
+                </button>
+              )}
+              <button
+                disabled={disabled}
+                onClick={() => void tutorial.finish(true)}
+              >
+                Abandonar
+              </button>
+            </>
+          )}
+        </div>
+      </aside>
+    </>
   );
 }

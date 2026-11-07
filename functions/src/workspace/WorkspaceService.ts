@@ -30,7 +30,7 @@ import { UnitOfWork } from "./UnitOfWork.js";
 import { businessView } from "./AccountService.js";
 import { Documents } from "./Documents.js";
 import { InventoryServiceV2 } from "./InventoryService.js";
-import { hashKey } from "./InventoryService.js";
+import { hashKey, inventorySearchTerms } from "./InventoryService.js";
 import type { Serial } from "./InventoryService.js";
 import { CashService } from "./CashService.js";
 import { pastDate, TradeService } from "./TradeService.js";
@@ -225,6 +225,7 @@ export class WorkspaceService {
             searchPrefixes: searchPrefixes([
               command.input.name,
               item.barcode,
+              ...inventorySearchTerms(item),
               ...Object.values(item.fields),
               ...Object.values(item.details ?? {}),
             ]),
@@ -424,6 +425,24 @@ export class WorkspaceService {
             await inventory.receive(input.itemId, input, input.reason);
           else {
             const item = await inventory.item(input.itemId);
+            if (item.kind === "timber-grouped") {
+              if (
+                !input.timber ||
+                input.unit !== "piece" ||
+                input.serials.length
+              )
+                throw new Error("Selecciona las medidas a retirar.");
+              await inventory.timber.consume(
+                item,
+                input.timber,
+                input.qty,
+                input.reason,
+                "loss",
+              );
+              break;
+            }
+            if (input.timber)
+              throw new Error("Este producto no admite medidas agrupadas.");
             const outgoing: string[] = [];
             for (const serial of input.serials) {
               const index = await work.get<{
@@ -525,7 +544,7 @@ export class WorkspaceService {
         ...(document ? { documentId: document.id } : {}),
         message: "Operación confirmada.",
       };
-      checkpointPractice(work, practice, result);
+      checkpointPractice(work, practice, result, command);
       work.set("operationsV2", command.operationId, {
         id: command.operationId,
         signature,

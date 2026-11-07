@@ -1,3 +1,5 @@
+import { timberTotals } from "../../../shared/workspace/timber-groups";
+import type { TimberSaleSelection } from "../../../shared/workspace/model";
 import { ceil, div, fraction, mul } from "../../../shared/workspace/exact";
 import type {
   Item,
@@ -8,6 +10,12 @@ import type {
 import { cents, q } from "./format";
 
 export interface CartLine {
+  id?: string | undefined;
+  timber?: TimberSaleSelection | undefined;
+  lengthInput?: string | undefined;
+  widthInput?: string | undefined;
+  priceInput?: string | undefined;
+  timberError?: string;
   item: Item;
   qty: string;
   unit: Unit;
@@ -19,6 +27,11 @@ export interface CartLine {
   wastePercent: number;
 }
 export function delivered(line: CartLine) {
+  if (line.item.kind === "timber-grouped") {
+    if (!line.timber?.widths.length)
+      throw new Error("Añade las medidas de la madera.");
+    return timberTotals(line.item.fields.thicknessMm!, line.timber).volume;
+  }
   let requested = mul(q(line.qty), line.item.units[line.unit]!);
   if (line.item.kind === "ceramic" && line.unit === "m2")
     requested = mul(requested, fraction(BigInt(100 + line.wastePercent), 100n));
@@ -33,6 +46,7 @@ export function delivered(line: CartLine) {
 }
 export function saleInputs(lines: CartLine[]): SaleLineInputV2[] {
   return lines.map((l) => ({
+    ...(l.timber ? { timber: l.timber } : {}),
     itemId: l.item.id,
     qty: q(l.qty),
     unit: l.unit,
@@ -44,6 +58,9 @@ export function saleInputs(lines: CartLine[]): SaleLineInputV2[] {
 }
 export function receiptInputs(lines: CartLine[]): ReceiptLineInput[] {
   return lines.map((l) => ({
+    ...(l.timber
+      ? { timber: { lengthMm: l.timber.lengthMm, widths: l.timber.widths } }
+      : {}),
     itemId: l.item.id,
     qty: q(l.qty),
     unit: l.unit,

@@ -1,4 +1,7 @@
-import { TIMBER_STEPS } from "../../../shared/workspace/timber-tutorial.js";
+import {
+  TIMBER_STEPS,
+  LEGACY_TIMBER_STEPS,
+} from "../../../shared/workspace/timber-tutorial.js";
 import type { TutorialSession } from "../../../shared/workspace/timber-tutorial.js";
 import type { WorkspaceCommand } from "../../../shared/workspace/model.js";
 import { today } from "../../../shared/commerce.js";
@@ -10,11 +13,54 @@ const qty = (a: { n: string; d: string }, value: string) => {
   const b = decimal(value);
   return a.n === b.n && a.d === b.d;
 };
+export function practiceCompletes(
+  session: TutorialSession,
+  c: WorkspaceCommand,
+) {
+  if (session.version === 1) return true;
+  const step = TIMBER_STEPS[session.stepIndex];
+  if (
+    !step ||
+    !step.kind ||
+    (c.kind !== step.kind &&
+      !(step.id === "supply" && c.kind === "stock-adjust"))
+  )
+    return false;
+  if (c.kind === "work-order") return c.input.status === "ready";
+  if (c.kind === "delivery") return c.input.status === "delivered";
+  if (step.id === "supply" && c.kind === "stock-adjust")
+    return c.input.direction === "in";
+  return true;
+}
 export function validateTutorialAction(
   session: TutorialSession,
   c: WorkspaceCommand,
 ) {
-  const step = TIMBER_STEPS[session.stepIndex],
+  if (session.version !== 1) {
+    const current = TIMBER_STEPS[session.stepIndex];
+    ensure(
+      session.status === "active" &&
+        current?.kind &&
+        (current.allowedKinds ?? [current.kind]).includes(c.kind),
+      "Sigue la acción indicada o elige otro recorrido desde el instructor.",
+    );
+    if (current.id === "catalogue" && c.kind === "create-item")
+      ensure(
+        c.input.item.kind.startsWith("timber-"),
+        "En este paso registra madera; los datos sugeridos son libres.",
+      );
+    if (current.id === "service" && c.kind === "create-item")
+      ensure(c.input.item.kind === "service", "Selecciona la ficha Servicio.");
+    if (current.id === "credit" && c.kind === "sale")
+      ensure(
+        c.input.method === "credit",
+        "Elige Fiado para practicar este recorrido.",
+      );
+    if (current.id === "convert" && c.kind === "sale")
+      ensure(!!c.input.quoteId, "Convierte una cotización desde su registro.");
+    return;
+  }
+  const step = LEGACY_TIMBER_STEPS[session.stepIndex],
     r = session.references;
   ensure(
     session.status === "active",

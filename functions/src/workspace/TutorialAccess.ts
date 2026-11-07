@@ -1,8 +1,8 @@
 import type { Firestore } from "firebase-admin/firestore";
 import type { UnitOfWork } from "./UnitOfWork.js";
 import type { TutorialSession } from "../../../shared/workspace/timber-tutorial.js";
-import { TIMBER_STEPS } from "../../../shared/workspace/timber-tutorial.js";
-import { validateTutorialAction } from "./TutorialPolicy.js";
+import { tutorialSteps } from "../../../shared/workspace/timber-tutorial.js";
+import { validateTutorialAction, practiceCompletes } from "./TutorialPolicy.js";
 import type {
   CommandResult,
   WorkspaceCommand,
@@ -100,15 +100,25 @@ export function checkpointPractice(
   work: UnitOfWork,
   session: StoredTutorial | null,
   result: CommandResult,
+  command: WorkspaceCommand,
 ) {
   if (!session) return;
-  const step = TIMBER_STEPS[session.stepIndex]!,
+  const step = tutorialSteps(session.version)[session.stepIndex]!,
     references = { ...session.references };
-  if (step.reference) references[step.reference] = result.id;
+  const complete = practiceCompletes(session, command);
+  if (step.reference && (complete || command.kind === step.kind))
+    references[step.reference] = result.id;
   work.setPath(sessionPath(work.uid, session.id), {
     ...session,
     references,
-    stepIndex: session.stepIndex + 1,
+    stepIndex: session.stepIndex + (complete ? 1 : 0),
+    ...(session.version > 1
+      ? {
+          doneSteps: complete
+            ? [...new Set([...(session.doneSteps ?? []), step.id])]
+            : (session.doneSteps ?? []),
+        }
+      : {}),
     revision: session.revision + 1,
     lastActivityAt: work.now,
     expiresAt: new Date(Date.parse(work.now) + 7 * 86400000).toISOString(),

@@ -1,6 +1,6 @@
 # KhypuPyme
 
-Cuaderno digital para negocios de Bolivia. Beta local **0.5.0-beta.2**, sin publicación ni conexión cloud activa.
+Cuaderno digital para negocios de Bolivia. Beta local **0.5.0-beta.3**, sin publicación ni conexión cloud activa.
 
 Una cuenta administra varios negocios independientes. Después de ingresar se crea un espacio, se responde el cuestionario y se confirma un rubro fijo. Cada negocio conserva catálogo, clientes, compras, ventas, fiados, caja y documentos propios. Se abre el último negocio autorizado; **Cambiar negocio** vuelve al selector.
 
@@ -16,17 +16,23 @@ Las solicitudes sin confirmación se conservan en IndexedDB por cuenta/negocio, 
 
 React + TypeScript + Vite + Firebase Functions/Firestore/Auth locales; Android con Capacitor y Windows con Tauri. Los paquetes locales aún necesitan los emuladores encendidos en el PC. Android usa el host 10.0.2.2 del emulador Android; no está preparado para teléfonos físicos. Esta entrega se compiló sin ejecutar pruebas por instrucción del propietario; no se acredita uso comercial.
 
-## Tutorial práctico de maderas · 0.5 beta 2
+## Maderas rápidas y tutorial · 0.5 beta 3
 
-En un negocio de maderas confirmado, abre **Inicio** o **Cómo trabajar aquí → Aprender usando la aplicación**. El instructor acompaña los formularios habituales, resalta campos y espera cada registro confirmado: siete capítulos, 32 pasos, desde catálogo/cliente y compras hasta cotización, venta, devolución, fiado, cortes, entregas, documentos y cierre. No rellena ni envía operaciones automáticamente.
+Crea un producto **Madera por especie, espesor y medidas agrupadas**. Desde Compras o una entrada manual con costo, registra grupos con largo y anchos; repetir un ancho aumenta piezas, sin crear productos nuevos. Cada producto conserva piezas, volumen exacto y valor; la venta comprueba disponibilidad de cada medida.
 
-La práctica empieza vacía en un espacio temporal que no aparece en el selector. **Pausar** conserva el avance; **Reanudar** recupera el último paso confirmado. Las solicitudes inciertas requieren consulta y reintento manual con su contenido original. **Actualizar progreso** recupera cambios de otra pestaña. Una cotización vencida devuelve el ejercicio al paso de cotizar, sin emitir una oferta automáticamente.
+En una misma venta puedes añadir varios grupos, especies, largos y otros productos. Cada grupo calcula piezas, pies tablares e importe. Ejemplo sugerido: Pino, espesor 2 pulgadas, largo 10 pies, anchos 6; 8; 10, tarifa Bs 10/pie tablar: tres piezas, 40 pies tablares, Bs 400. La tarifa parte del catálogo y puede cambiar solo para ese grupo; el registro conserva tarifa original y aplicada. En compras y entradas agrupadas el costo se declara **por pie tablar**. Pegar anchos admite punto y coma o saltos de línea; la coma decimal y fracciones como 1 1/2 no se usan como separadores.
 
-**Finalizar y borrar práctica** o **Abandonar práctica** bloquea registros nuevos y elimina exclusivamente ese espacio, sus subcolecciones, claves de operaciones y borradores/solicitudes locales. La confirmación «Práctica eliminada» aparece después de completar la limpieza; conserva un comprobante mínimo de versión/fecha. Tras siete días sin actividad se limpia al siguiente acceso. Una limpieza interrumpida se reanuda desde Consultar progreso. Los 21 negocios y sus historiales se conservan. Los PDF de práctica llevan **PRÁCTICA — DATOS FICTICIOS**; los archivos guardados fuera de la aplicación no se eliminan.
+**Mi negocio → Medidas de madera** conserva pulgadas/pies o métrico. El catálogo anterior mantiene sus identificadores, unidades, tarifas e historiales; no se convierte automáticamente al modelo agrupado. Las devoluciones del nuevo modelo eligen las medidas originales y sus piezas pendientes, con costo histórico. Los documentos siguen siendo no fiscales.
 
-**Mi negocio → Medidas de madera** permite pulgadas/pies (predeterminado) o métrico. Acepta decimales y fracciones como 1/2, 3/4 y 1 1/2, con denominadores 2, 4, 8 y 16. Las dimensiones canónicas admiten seis decimales en mm para conservar conversiones exactas; esa representación interna no cambia la captura elegida. Cambiar preferencias no reescribe existencias, costos, tarifas ni documentos históricos. La presentación aproximada de dimensiones antiguas se señala con ≈. No se infieren medidas reales a partir de nominales ni se vende por pie lineal.
+El cliente es opcional al contado; un fiado nuevo requiere cliente registrado. Desde la venta puedes buscar clientes de todo el negocio o crear uno sin perder el carrito. Nombre obligatorio y teléfono opcional. La búsqueda compatible con clientes antiguos tiene un límite explícito de 10.000 registros, sin reescribirlos.
 
-Referencias: [pie tablar de Virginia Forestry](https://www.dof.virginia.gov/glossary/board-foot/) y [equivalencias de longitud de NIST](https://www.nist.gov/pml/owm/si-units-length). El ejemplo declarado de 2″ × 6″ × 10′ representa 10 pies tablares. Verificación de esta entrega limitada a lint, TypeScript, compilación e instaladores; aislamiento, limpieza y recorrido práctico requieren revisión funcional posterior, sin pruebas ni capturas ejecutadas.
+En **Inicio** o **Cómo trabajar aquí → Aprender usando la aplicación**, la guía nueva oscurece el fondo y mantiene activo el control o formulario indicado. Ofrece siete recorridos cortos elegibles: inventario; venta; clientes/fiados; cotizaciones/devoluciones; caja/gastos; cortes/entregas; informes/documentos. Los datos son sugerencias libres; los importes y existencias proceden de tus registros. Los pasos comerciales avanzan tras confirmación del servidor. No rellena ni envía formularios automáticamente.
+
+La práctica empieza vacía en un espacio temporal oculto y separado. Puedes pausar, reanudar, cambiar de recorrido o terminar. Los recorridos de venta requieren registrar madera y una entrada con costo primero. Si hace falta caja, el instructor permite abrirla y volver al paso. Las solicitudes inciertas conservan contenido e identificador originales y solo se reintentan manualmente.
+
+Terminar o abandonar bloquea nuevas operaciones y elimina exclusivamente esa práctica, sus subcolecciones, claves y datos locales. Tras siete días sin actividad se limpia al siguiente acceso; una limpieza fallida se puede reanudar. Conserva los 21 negocios. Los PDF llevan **PRÁCTICA — DATOS FICTICIOS**; los archivos guardados fuera de la app no se eliminan. Una práctica del tutorial anterior puede continuar con su contrato original o abandonarse expresamente antes de iniciar la nueva.
+
+Referencias de cálculo: [pie tablar de Virginia Forestry](https://www.dof.virginia.gov/glossary/board-foot/) y [longitud de NIST](https://www.nist.gov/pml/owm/si-units-length). No se infieren medidas reales a partir de nominales ni se vende por pie lineal. Esta entrega se verifica solo mediante lint, tipos, compilaciones e instaladores, sin pruebas ni recorridos automáticos.
 
 ## Rubros y ejemplos 0.5
 

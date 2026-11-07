@@ -5,7 +5,7 @@ import type {
   WorkspaceQuery,
   WorkspaceReport,
 } from "./model.js";
-export const TUTORIAL_VERSION = 1;
+export const TUTORIAL_VERSION = 2;
 export interface TutorialStep {
   id: string;
   chapter: string;
@@ -16,6 +16,8 @@ export interface TutorialStep {
   kind?: WorkspaceCommand["kind"];
   reference?: string;
   pdf?: boolean;
+  module?: string;
+  allowedKinds?: WorkspaceCommand["kind"][];
 }
 const step = (
   id: string,
@@ -36,7 +38,7 @@ const step = (
   ...(kind ? { kind } : {}),
   ...(reference ? { reference } : {}),
 });
-export const TIMBER_STEPS: TutorialStep[] = [
+export const LEGACY_TIMBER_STEPS: TutorialStep[] = [
   step(
     "welcome",
     "1 · Conocer el negocio",
@@ -329,6 +331,254 @@ export const TIMBER_STEPS: TutorialStep[] = [
     "Revisa los indicadores del ejercicio: stock, fiados ya cobrados, resultado y caja cerrada. Pulsa Siguiente y luego Finalizar y borrar práctica para regresar a tu negocio sin estos movimientos.",
   ),
 ];
+export const TUTORIAL_MODULES = [
+  { id: "inventory", title: "Preparar inventario", needsStock: false },
+  { id: "selling", title: "Vender madera", needsStock: true },
+  { id: "clients", title: "Clientes y fiados", needsStock: true },
+  { id: "quotes", title: "Cotizaciones y devoluciones", needsStock: true },
+  { id: "cash", title: "Caja y gastos", needsStock: false },
+  { id: "work", title: "Cortes y entregas", needsStock: true },
+  { id: "reports", title: "Informes y documentos", needsStock: false },
+];
+const lesson = (
+  module: string,
+  id: string,
+  title: string,
+  view: string,
+  target: string,
+  text: string,
+  kind?: WorkspaceCommand["kind"],
+  reference?: string,
+  allowedKinds?: WorkspaceCommand["kind"][],
+): TutorialStep => ({
+  ...step(
+    id,
+    TUTORIAL_MODULES.find((m) => m.id === module)!.title,
+    title,
+    view,
+    target,
+    text,
+    kind,
+    reference,
+  ),
+  module,
+  ...(allowedKinds ? { allowedKinds } : {}),
+});
+export const TIMBER_STEPS: TutorialStep[] = [
+  lesson(
+    "inventory",
+    "orientation",
+    "Tu espacio de práctica",
+    "inicio",
+    "dashboard",
+    "Estas pantallas son las mismas de tu negocio, pero los datos de esta práctica están separados. Puedes elegir un recorrido, pausar o terminar cuando quieras.",
+  ),
+  lesson(
+    "inventory",
+    "catalogue",
+    "Registra una especie y espesor",
+    "inventario",
+    "new-item",
+    "Elige madera por medidas agrupadas. Sugerencia: Pino de 2 pulgadas. El nombre, especie, espesor y tarifa los eliges tú; todavía no se crean existencias.",
+    "create-item",
+    "wood",
+  ),
+  lesson(
+    "inventory",
+    "supply",
+    "Registra las medidas recibidas",
+    "compras",
+    "trade-form",
+    "Selecciona la madera y añade grupos de largos y anchos, con su costo. Sugerencia: largo 10 pies; anchos 6; 8; 10. Si pagas en efectivo, abre primero la caja. También puedes registrar una entrada con costo y motivo desde Inventario.",
+    "purchase",
+    undefined,
+    ["purchase", "stock-adjust", "open-cash"],
+  ),
+  lesson(
+    "selling",
+    "sell",
+    "Prepara y confirma una venta",
+    "ventas",
+    "trade-form",
+    "Añade una especie y espesor, el largo y los anchos de las piezas disponibles. Otro largo o especie va en otro grupo del mismo comprobante. Revisa piezas, pies tablares e importe. Cliente ocasional está permitido al contado.",
+    "sale",
+    "cashSale",
+    ["sale", "customer", "open-cash"],
+  ),
+  lesson(
+    "selling",
+    "sale-result",
+    "Consulta lo registrado",
+    "ventas",
+    "sales-history",
+    "Consulta el comprobante y las existencias que realmente quedaron. Los totales dependen de las medidas y cantidades que elegiste.",
+  ),
+  lesson(
+    "clients",
+    "customer",
+    "Registra un cliente",
+    "clientes",
+    "new-customer",
+    "Sugerencia: usa un nombre ficticio. El nombre es libre y el teléfono opcional. Al vender también puedes crear y seleccionar al cliente sin perder el carrito.",
+    "customer",
+    "customer",
+  ),
+  lesson(
+    "clients",
+    "credit",
+    "Registra una venta fiada",
+    "ventas",
+    "trade-form",
+    "Selecciona madera disponible y un cliente registrado. Elige Fiado. Las existencias disminuyen, pero el efectivo todavía no entra.",
+    "sale",
+    "creditSale",
+    ["sale", "customer"],
+  ),
+  lesson(
+    "clients",
+    "collect",
+    "Cobra el saldo completo",
+    "fiados",
+    "debts",
+    "Selecciona el fiado y cobra el saldo que aparece. No escribas un importe de ejemplo: el saldo procede de tu venta. Abre caja si eliges efectivo.",
+    "collect",
+    undefined,
+    ["collect", "open-cash"],
+  ),
+  lesson(
+    "quotes",
+    "quote",
+    "Prepara una oferta",
+    "cotizaciones",
+    "trade-form",
+    "Elige medidas, tarifa, cliente ocasional o registrado y vigencia. Son datos libres. La cotización no reserva existencias.",
+    "quote",
+    "quote",
+    ["quote", "customer"],
+  ),
+  lesson(
+    "quotes",
+    "convert",
+    "Convierte tu oferta",
+    "cotizaciones",
+    "quote-history",
+    "Abre Cotizaciones anteriores y revisa la oferta antes de convertirla. Se comprueban de nuevo precio y disponibilidad; una oferta vencida necesita nueva cotización.",
+    "sale",
+    "quotedSale",
+    ["sale", "open-cash"],
+  ),
+  lesson(
+    "quotes",
+    "return",
+    "Registra una devolución",
+    "ventas",
+    "sales-history",
+    "Abre Detalle y devolución. Elige las medidas y piezas realmente devueltas, su destino y motivo. El reintegro se calcula desde la venta original, sin superar lo vendido.",
+    "return",
+    undefined,
+    ["return", "open-cash"],
+  ),
+  lesson(
+    "cash",
+    "cash-open",
+    "Abre o consulta la caja",
+    "caja",
+    "cash-form",
+    "Sugerencia: declara un fondo ficticio que permita pagar tus operaciones. Si ya hay caja abierta, revisa su saldo y continúa desde el instructor.",
+    "open-cash",
+  ),
+  lesson(
+    "cash",
+    "expense",
+    "Registra un gasto",
+    "gastos",
+    "expense-form",
+    "Sugerencia: Transporte. El concepto, categoría e importe son libres. El efectivo requiere caja abierta y saldo suficiente; una compra de madera no es un gasto operativo.",
+    "expense",
+    undefined,
+    ["expense", "open-cash"],
+  ),
+  lesson(
+    "cash",
+    "cash-close",
+    "Cuenta y cierra la caja",
+    "caja",
+    "cash-form",
+    "Usa el efectivo esperado que aparece en pantalla y registra lo que contaste. Si hay diferencia, explica el motivo. No se exige un importe fijo.",
+    "close-cash",
+  ),
+  lesson(
+    "work",
+    "service",
+    "Prepara un servicio de corte",
+    "inventario",
+    "new-item",
+    "Elige Servicio. Sugerencia: Corte, con el precio y costo directo que quieras practicar. El servicio no crea piezas ni descuenta madera automáticamente.",
+    "create-item",
+    "service",
+  ),
+  lesson(
+    "work",
+    "order",
+    "Recibe y sigue una orden",
+    "ordenes",
+    "work-orders",
+    "Crea una orden con cliente, descripción y presupuesto. Registra sus avances hasta Listo. Guardar estados no mueve dinero ni inventario.",
+    "work-order",
+    "order",
+    ["work-order", "customer"],
+  ),
+  lesson(
+    "work",
+    "order-sale",
+    "Cobra el trabajo",
+    "ordenes",
+    "work-orders",
+    "En la orden lista, pulsa Preparar venta de este trabajo. Añade el servicio realizado y confirma su cobro. La misma orden no puede facturarse dos veces.",
+    "operational-sale",
+    undefined,
+    ["operational-sale", "open-cash"],
+  ),
+  lesson(
+    "work",
+    "delivery",
+    "Programa y completa una entrega",
+    "entregas",
+    "deliveries",
+    "Elige una venta de productos válida, completa la dirección y sigue los estados hasta Entregada. Esto no vuelve a cobrar ni descontar existencias.",
+    "delivery",
+  ),
+  lesson(
+    "reports",
+    "report-view",
+    "Lee tus resultados",
+    "informes",
+    "reports",
+    "Elige el periodo de esta práctica. Las ventas, costos, gastos, resultado e inventario son los calculados desde tus registros; no hay una cifra fija que debas conseguir.",
+  ),
+  lesson(
+    "reports",
+    "report-document",
+    "Emite un informe",
+    "informes",
+    "reports",
+    "Elige el informe de inventario o resultados. Generar documentos no repite operaciones comerciales.",
+    "report-document",
+  ),
+  {
+    ...lesson(
+      "reports",
+      "pdf",
+      "Guarda un documento",
+      "documentos",
+      "pdf-export",
+      "Revisa un documento y pulsa Guardar o compartir. Lleva PRÁCTICA — DATOS FICTICIOS. El archivo guardado fuera de la app no se elimina al terminar.",
+    ),
+    pdf: true,
+  },
+];
+export const tutorialSteps = (version: number) =>
+  version === 1 ? LEGACY_TIMBER_STEPS : TIMBER_STEPS;
 export interface TutorialSession {
   id: string;
   sourceBusinessId: string;
@@ -338,6 +588,7 @@ export interface TutorialSession {
   stepIndex: number;
   revision: number;
   references: Record<string, string>;
+  doneSteps?: string[];
   startedOn: string;
   expiresAt: string;
   finishedAt: string | null;
@@ -347,7 +598,15 @@ export interface TutorialState {
   business: WorkspaceBusiness | null;
 }
 export interface TutorialControl {
-  kind: "start" | "resume" | "pause" | "advance" | "finish" | "abandon";
+  kind:
+    | "start"
+    | "resume"
+    | "pause"
+    | "advance"
+    | "finish"
+    | "abandon"
+    | "module";
+  moduleId?: string;
   operationId: string;
   sessionId: string;
   expectedRevision: number;

@@ -47,6 +47,7 @@ export const RESOURCES: WorkspaceResource[] = [
   "warrantyClaims",
   "movementsV2",
   "serials",
+  "timberGroups",
   "lots",
   "inventoryMovements",
   "products",
@@ -114,6 +115,7 @@ export class WorkspaceQueries {
             "id",
             "cursor",
             "itemId",
+            "lengthMm",
             "from",
             "to",
             "barcode",
@@ -177,6 +179,33 @@ export class WorkspaceQueries {
         .where("expiresOn", "<=", date(input.expiresBefore))
         .orderBy("expiresOn", "asc");
     }
+    if (input.search && input.resource === "customersV2") {
+      const needle = normalizeSearch(text(input.search, 2, 40));
+      const all = await root.orderBy("name").limit(10001).get();
+      if (all.size > 10000)
+        throw new Error(
+          "La búsqueda de clientes supera el límite de 10.000 registros.",
+        );
+      const matches = all.docs.filter(
+        (doc) =>
+          (input.active === undefined || doc.data().active === input.active) &&
+          normalizeSearch(String(doc.data().name))
+            .split(/\s+/)
+            .some((_, i, a) => a.slice(i).join(" ").startsWith(needle)),
+      );
+      const offset = input.cursor
+        ? matches.findIndex((doc) => doc.id === identifier(input.cursor)) + 1
+        : 0;
+      if (input.cursor && !offset)
+        throw new Error("La lista cambió. Reinicia la búsqueda.");
+      const page = matches.slice(offset, offset + 26);
+      return {
+        items: page
+          .slice(0, 25)
+          .map((doc) => ({ ...(serialize(doc.data()) as object), id: doc.id })),
+        next: page.length > 25 ? page[24]!.id : null,
+      };
+    }
     if (input.search) {
       if (input.resource !== "items")
         throw new Error("La búsqueda solo admite catálogo.");
@@ -185,6 +214,16 @@ export class WorkspaceQueries {
         "array-contains",
         normalizeSearch(text(input.search, 2, 40)),
       );
+    }
+    if (input.lengthMm) {
+      if (
+        input.resource !== "timberGroups" ||
+        !/^\d{1,6}(\.\d{1,6})?$/.test(input.lengthMm) ||
+        Number(input.lengthMm) <= 0 ||
+        Number(input.lengthMm) > 100000
+      )
+        throw new Error("Largo de búsqueda inválido.");
+      query = query.where("lengthMm", "==", input.lengthMm);
     }
     if (input.itemId)
       query =

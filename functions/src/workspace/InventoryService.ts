@@ -1,4 +1,9 @@
-import { searchPrefixes } from "../../../shared/workspace/search.js";
+import { dimensionInputFromMm } from "../../../shared/workspace/timber-measures.js";
+import { TimberStockService } from "./TimberStockService.js";
+import {
+  searchPrefixes,
+  normalizeSearch,
+} from "../../../shared/workspace/search.js";
 import { createHash } from "node:crypto";
 import { today } from "../../../shared/commerce.js";
 import {
@@ -54,13 +59,35 @@ export const hashKey = (value: string) =>
   createHash("sha256")
     .update(value.normalize("NFKC").toUpperCase())
     .digest("hex");
+export function inventorySearchTerms(item: Pick<ItemDraft, "kind" | "fields">) {
+  if (!item.kind.startsWith("timber-")) return [];
+  const size = (key: string) =>
+    item.fields[key]
+      ? dimensionInputFromMm(item.fields[key]!, key, "imperial")
+      : "";
+  const t = size("thicknessMm"),
+    w = size("widthMm"),
+    l = size("lengthMm");
+  return [
+    t && t + " pulgadas",
+    t && t + '"',
+    t && item.fields.species + " " + t + " pulgadas",
+    w && w + " pulgadas",
+    l && l + " pies",
+    l && l + "'",
+    t && w && l && t + "x" + w + "x" + l,
+  ].filter(Boolean);
+}
 export class InventoryServiceV2 {
   private sequence = 0;
+  readonly timber: TimberStockService;
   constructor(
     readonly work: UnitOfWork,
     private readonly business: WorkspaceBusiness,
     private readonly operationId: string,
-  ) {}
+  ) {
+    this.timber = new TimberStockService(work, operationId);
+  }
   async item(id: string): Promise<Item> {
     const item = await this.work.get<Item>("items", id);
     if (!item) throw new Error("No se encontró el producto en este negocio.");
@@ -97,6 +124,16 @@ export class InventoryServiceV2 {
       throw new Error("La venta por peso no está habilitada en este negocio.");
     if (await this.work.get("items", id))
       throw new Error("El producto ya existe.");
+    if (draft.kind === "timber-grouped") {
+      const key = hashKey(
+        normalizeSearch(draft.fields.species!) + "|" + draft.fields.thicknessMm,
+      );
+      if (await this.work.get("timberFamilyIndex", key))
+        throw new Error(
+          "Ya existe esa especie y espesor. Añade medidas desde Compras o reactiva el producto existente.",
+        );
+      this.work.set("timberFamilyIndex", key, { itemId: id });
+    }
     if (draft.barcode) {
       const index = hashKey(draft.barcode);
       if (await this.work.get("barcodeIndex", index))
@@ -128,6 +165,7 @@ export class InventoryServiceV2 {
       id,
       active: true,
       balance: ZERO,
+      ...(draft.kind === "timber-grouped" ? { pieces: 0 } : {}),
       valueMinor: 0,
       createdAt: this.work.now,
       updatedAt: this.work.now,
@@ -137,6 +175,7 @@ export class InventoryServiceV2 {
       searchPrefixes: searchPrefixes([
         item.name,
         item.barcode,
+        ...inventorySearchTerms(item),
         ...Object.values(item.fields),
         ...Object.values(item.details ?? {}),
       ]),
@@ -191,6 +230,27 @@ export class InventoryServiceV2 {
     let item = await this.item(id);
     if (!item.active || item.kind === "service")
       throw new Error("El producto debe estar activo y ser inventariable.");
+    if (item.kind === "timber-grouped") {
+      if (
+        !input.timber ||
+        input.unit !== "piece" ||
+        input.serials.length ||
+        input.expiresOn
+      )
+        throw new Error("Indica las medidas y piezas de la entrada de madera.");
+      const totals = this.timber.validate(item, input.timber, input.qty);
+      const totalMinor =
+        totalOverride ?? money(amount(input.unitCostMinor, totals.boardFeet));
+      return this.timber.receive(
+        item,
+        input.timber,
+        input.qty,
+        totalMinor,
+        reference,
+      );
+    }
+    if (input.timber)
+      throw new Error("Este producto no admite medidas agrupadas.");
     const baseQty = this.toBase(item, input.qty, input.unit);
     this.checkBase(item, baseQty);
     const totalMinor =

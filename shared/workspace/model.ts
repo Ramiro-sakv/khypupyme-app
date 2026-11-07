@@ -5,6 +5,7 @@ import type { Quantity } from "./exact.js";
 
 export type ItemKind =
   | "general"
+  | "timber-grouped"
   | "timber-piece"
   | "timber-volume"
   | "apparel"
@@ -50,6 +51,23 @@ export interface WorkspaceBusiness {
   sampleData?: { version: string; setId: string };
   createdAt: string;
 }
+export interface TimberSelection {
+  lengthMm: string;
+  widths: { widthMm: string; pieces: number }[];
+}
+export interface TimberSaleSelection extends TimberSelection {
+  priceMinor: number;
+}
+export interface TimberStockGroup {
+  id: string;
+  itemId: string;
+  lengthMm: string;
+  widthMm: string;
+  pieces: number;
+  available: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
 export interface ItemDraft {
   details?: ItemDetails;
   name: string;
@@ -62,6 +80,7 @@ export interface ItemDraft {
   serviceCostMinor: number;
 }
 export interface Item extends ItemDraft {
+  pieces?: number;
   id: string;
   active: boolean;
   baseUnit: string;
@@ -72,6 +91,7 @@ export interface Item extends ItemDraft {
   updatedAt: string;
 }
 export interface ReceiptLineInput {
+  timber?: TimberSelection;
   itemId: string;
   qty: Quantity;
   unit: Unit;
@@ -81,6 +101,7 @@ export interface ReceiptLineInput {
   serials: string[];
 }
 export interface SaleLineInputV2 {
+  timber?: TimberSaleSelection;
   itemId: string;
   qty: Quantity;
   unit: Unit;
@@ -90,12 +111,15 @@ export interface SaleLineInputV2 {
   expectedPriceMinor: number;
 }
 export interface Allocation {
+  timber?: { lengthMm: string; widthMm: string; pieces: number };
   stockId: string;
   qty: Quantity;
   serial: string;
   returned: Quantity;
 }
 export interface SaleLineV2 {
+  catalogPriceMinor?: number;
+  timber?: TimberSaleSelection;
   details?: ItemDetails;
   itemId: string;
   name: string;
@@ -119,6 +143,7 @@ export interface SaleLineV2 {
   warrantyUntil: string;
 }
 export interface PurchaseLineV2 {
+  timber?: TimberSelection;
   itemId: string;
   name: string;
   fields: Record<string, string>;
@@ -179,6 +204,7 @@ export interface BusinessDocument {
   createdAt: string;
 }
 export interface ReturnInput {
+  timber?: TimberSelection;
   line: number;
   qty: Quantity;
   unit: Unit;
@@ -186,6 +212,7 @@ export interface ReturnInput {
   serials: string[];
 }
 export interface Opening {
+  timber?: TimberSelection;
   qty: Quantity;
   unit: Unit;
   unitCostMinor: number;
@@ -320,6 +347,7 @@ export type WorkspaceAction =
       kind: "stock-adjust";
       input: {
         itemId: string;
+        timber?: TimberSelection;
         direction: "in" | "out";
         qty: Quantity;
         unit: Unit;
@@ -391,6 +419,7 @@ export type WorkspaceResource =
   | "warrantyClaims"
   | "movementsV2"
   | "serials"
+  | "timberGroups"
   | "lots"
   | "inventoryMovements"
   | "products"
@@ -405,6 +434,7 @@ export interface WorkspaceQuery {
   id?: string;
   cursor?: string;
   itemId?: string;
+  lengthMm?: string;
   from?: string;
   to?: string;
   barcode?: string;

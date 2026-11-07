@@ -1,3 +1,5 @@
+import TimberAdjustment from "./TimberAdjustment";
+import { dimensionInputFromMm } from "../../../shared/workspace/timber-measures";
 import {
   timberStockText,
   minimumText,
@@ -33,12 +35,13 @@ export default function Catalog() {
     [newItem, setNewItem] = useState(false),
     [archived, setArchived] = useState(false),
     [search, setSearch] = useState(""),
-    [selected, setSelected] = useState<Item | null>(null),
+    [selection, setSelected] = useState<Item | null>(null),
     page = useRecords<Item>("items", {
       active: !archived,
       ...(search.trim().length >= 2 ? { search: search.trim() } : {}),
     });
   const visible = page.items;
+  const selected = page.items.find((i) => i.id === selection?.id) ?? selection;
   return (
     <>
       <div className="workspace-heading">
@@ -319,7 +322,7 @@ export default function Catalog() {
               name="minimum"
               label={
                 "Mínimo en " +
-                (selected.kind === "timber-volume"
+                (["timber-volume", "timber-grouped"].includes(selected.kind)
                   ? business.timberSystem === "metric"
                     ? "m³"
                     : "pies tablares"
@@ -345,70 +348,74 @@ export default function Catalog() {
           </ActionForm>
           {selected.kind !== "service" && (
             <>
-              <details className="correction-actions">
-                <summary>Entrada o salida manual con motivo</summary>
-                <ActionForm
-                  disabled={busy}
-                  onSave={(d) =>
-                    run({
-                      kind: "stock-adjust",
-                      input: {
-                        itemId: selected.id,
-                        direction: String(d.get("direction")) as "in" | "out",
-                        qty: q(d.get("qty")),
-                        unit: String(d.get("unit")) as Unit,
-                        unitCostMinor: cents(d.get("cost")),
-                        reason: String(d.get("reason")),
-                        lot: String(d.get("lot") ?? ""),
-                        expiresOn: String(d.get("expires") ?? ""),
-                        serials: serials(String(d.get("serials") ?? "")),
-                      },
-                    })
-                  }
-                >
-                  <label>
-                    Movimiento
-                    <select name="direction">
-                      <option value="in">Entrada con costo declarado</option>
-                      <option value="out">Salida con pérdida de valor</option>
-                    </select>
-                  </label>
-                  <Field name="qty" label="Cantidad" />
-                  <label>
-                    Unidad
-                    <select name="unit">
-                      {Object.keys(selected.units).map((u) => (
-                        <option key={u} value={u}>
-                          {UNITS[u as Unit]}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <Field
-                    name="cost"
-                    label="Costo por unidad elegida (BOB, entradas)"
-                    value="0"
-                  />
-                  <Field
-                    name="reason"
-                    label="Motivo obligatorio"
-                    maxLength={200}
-                  />
-                  <Field name="lot" label="Lote" required={false} />
-                  <Field
-                    name="expires"
-                    label="Vencimiento"
-                    type="date"
-                    required={false}
-                  />
-                  {selected.kind === "appliance" && (
+              {selected.kind === "timber-grouped" ? (
+                <TimberAdjustment item={selected} />
+              ) : (
+                <details className="correction-actions">
+                  <summary>Entrada o salida manual con motivo</summary>
+                  <ActionForm
+                    disabled={busy}
+                    onSave={(d) =>
+                      run({
+                        kind: "stock-adjust",
+                        input: {
+                          itemId: selected.id,
+                          direction: String(d.get("direction")) as "in" | "out",
+                          qty: q(d.get("qty")),
+                          unit: String(d.get("unit")) as Unit,
+                          unitCostMinor: cents(d.get("cost")),
+                          reason: String(d.get("reason")),
+                          lot: String(d.get("lot") ?? ""),
+                          expiresOn: String(d.get("expires") ?? ""),
+                          serials: serials(String(d.get("serials") ?? "")),
+                        },
+                      })
+                    }
+                  >
                     <label>
-                      Números de serie recibidos o retirados
-                      <textarea name="serials" />
+                      Movimiento
+                      <select name="direction">
+                        <option value="in">Entrada con costo declarado</option>
+                        <option value="out">Salida con pérdida de valor</option>
+                      </select>
                     </label>
-                  )}
-                </ActionForm>
-              </details>
+                    <Field name="qty" label="Cantidad" />
+                    <label>
+                      Unidad
+                      <select name="unit">
+                        {Object.keys(selected.units).map((u) => (
+                          <option key={u} value={u}>
+                            {UNITS[u as Unit]}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <Field
+                      name="cost"
+                      label="Costo por unidad elegida (BOB, entradas)"
+                      value="0"
+                    />
+                    <Field
+                      name="reason"
+                      label="Motivo obligatorio"
+                      maxLength={200}
+                    />
+                    <Field name="lot" label="Lote" required={false} />
+                    <Field
+                      name="expires"
+                      label="Vencimiento"
+                      type="date"
+                      required={false}
+                    />
+                    {selected.kind === "appliance" && (
+                      <label>
+                        Números de serie recibidos o retirados
+                        <textarea name="serials" />
+                      </label>
+                    )}
+                  </ActionForm>
+                </details>
+              )}
               <StockDetail item={selected} />
             </>
           )}
@@ -419,24 +426,56 @@ export default function Catalog() {
   );
 }
 function StockDetail({ item }: { item: Item }) {
-  const { run, busy } = useWorkspace(),
+  const { run, busy, business } = useWorkspace(),
     page = useRecords<{
       id: string;
+      lengthMm?: string;
+      widthMm?: string;
+      pieces?: number;
       serial?: string;
       lot?: string;
       expiresOn?: string;
       status?: string;
       balance?: { n: string; d: string };
       costMinor?: number;
-    }>(item.kind === "appliance" ? "serials" : "lots", { itemId: item.id });
+    }>(
+      item.kind === "timber-grouped"
+        ? "timberGroups"
+        : item.kind === "appliance"
+          ? "serials"
+          : "lots",
+      { itemId: item.id },
+    );
   return (
     <>
-      <h3>{item.kind === "appliance" ? "Unidades y series" : "Lotes"}</h3>
+      <h3>
+        {item.kind === "timber-grouped"
+          ? "Medidas disponibles"
+          : item.kind === "appliance"
+            ? "Unidades y series"
+            : "Lotes"}
+      </h3>
       <Pager page={page} />
       <ul>
         {page.items.map((row) => (
           <li key={row.id}>
-            {row.serial ?? row.lot ?? "Sin referencia"} ·{" "}
+            {row.lengthMm && row.widthMm
+              ? dimensionInputFromMm(
+                  row.lengthMm,
+                  "lengthMm",
+                  business.timberSystem ?? "imperial",
+                ) +
+                (business.timberSystem === "metric" ? " mm × " : "′ × ") +
+                dimensionInputFromMm(
+                  row.widthMm,
+                  "widthMm",
+                  business.timberSystem ?? "imperial",
+                ) +
+                (business.timberSystem === "metric" ? " mm · " : "″ · ") +
+                row.pieces +
+                " piezas"
+              : (row.serial ?? row.lot ?? "Sin referencia")}{" "}
+            ·{" "}
             {row.status
               ? statusLabel(row.status)
               : row.balance

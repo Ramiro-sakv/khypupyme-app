@@ -11,6 +11,11 @@ import type { WorkspaceRepository } from "./WorkspaceRepository";
 export interface WorkspaceContextValue {
   identity: Readonly<{ uid: string; businessId: string }>;
   pending: boolean;
+  processing?: boolean;
+  commandError?: string;
+  canRetryPending?: boolean;
+  consultPending?: () => Promise<void>;
+  retryPending?: () => Promise<void>;
   confirmedOperationId: string;
   rejectedOperationId: string;
   prepare: (action: WorkspaceAction, id?: string) => WorkspaceCommand;

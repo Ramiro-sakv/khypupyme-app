@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.5.0-beta.3 - 2026-11-07 (local, sin push)
+
+- Madera agrupada por especie/espesor, largos y anchos con piezas y volumen exacto; entrada, venta y devolución física por medida en transacciones existentes. Tarifa acordada por grupo sin modificar catálogo.
+- Compra/venta mixta en un comprobante, edición compacta para medidas nuevas y fijas anteriores, listas de anchos y resumen de piezas/pies/importe.
+- Cliente ocasional al contado, búsqueda completa compatible y alta de cliente dentro de la venta; fiados nuevos con cliente registrado.
+- Tutorial versión 2 con fondo oscurecido, controles reales activos, siete recorridos elegibles y datos sugeridos libres. Sesiones anteriores conservan su contrato original; reanudación y limpieza aislada mantenidas.
+- Sin migrar los 21 ejemplos, pruebas, capturas o recorridos. Incidencia Windows/WebKit vigente; paquetes únicamente locales.
+
 ## 0.5.0-beta.2 - 2026-11-07 (local, sin push)
 
 - Tutorial práctico de maderas en los formularios habituales: 32 pasos, siete capítulos, progreso confirmado, pausa y reanudación. Espacio temporal oculto, canal autorizado separado y eliminación limitada a la práctica.

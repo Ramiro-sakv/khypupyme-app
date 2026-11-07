@@ -1,3 +1,5 @@
+import TimberFixedLineEditor from "./TimberFixedLineEditor";
+import TimberLineEditor from "./TimberLineEditor";
 import { UNITS } from "../../../shared/workspace/catalog";
 import { div, showQuantity } from "../../../shared/workspace/exact";
 import type { Unit } from "../../../shared/workspace/model";
@@ -26,6 +28,24 @@ export default function CartEditor({
     { itemId: line.item.id, status: "available" },
     line.item.kind === "appliance" && !purchase && !quote,
   );
+  if (line.item.kind === "timber-grouped")
+    return (
+      <TimberLineEditor
+        line={line}
+        update={update}
+        remove={remove}
+        purchase={purchase}
+      />
+    );
+  if (line.item.kind === "timber-piece")
+    return (
+      <TimberFixedLineEditor
+        line={line}
+        update={update}
+        remove={remove}
+        purchase={purchase}
+      />
+    );
   let coverage: string;
   try {
     coverage = `Entrega: ${showQuantity(delivered(line))} ${line.item.baseUnit}`;

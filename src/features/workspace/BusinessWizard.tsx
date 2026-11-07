@@ -115,7 +115,7 @@ export default function BusinessWizard({
           }}
         >
           <h2>{industryLabel(industry)}</h2>
-          {industry === "convenience" && (
+          {["convenience", "grocery", "pets"].includes(industry) && (
             <label>
               <input
                 type="checkbox"
@@ -206,8 +206,8 @@ export default function BusinessWizard({
             <p>
               Internet requerido. Documentos no fiscales.{" "}
               {specialized(industry)
-                ? "Modelo especializado habilitado."
-                : "Núcleo común; sin procesos especializados para este rubro."}
+                ? "Guía y herramientas de este rubro habilitadas."
+                : "Herramientas de trabajo y guía adaptadas a este rubro."}
             </p>
           </div>
           <label>

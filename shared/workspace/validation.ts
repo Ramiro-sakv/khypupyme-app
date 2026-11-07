@@ -1,3 +1,5 @@
+import { operationalSchemas } from "./operations-validation.js";
+import type { OperationalKind } from "./operations.js";
 import { INDUSTRY_IDS } from "../business-industries.js";
 import { validCalendarDate } from "../product-specification.js";
 import { ITEM_MODELS, itemUnits, UNITS, validItemFields } from "./catalog.js";
@@ -92,7 +94,21 @@ export const answers = (raw: unknown): BusinessAnswers =>
     phone: (v) => text(v, 0, 30),
   }) as unknown as BusinessAnswers;
 export function itemDraft(raw: unknown): ItemDraft {
+  const hasDetails =
+    !!raw && typeof raw === "object" && Object.hasOwn(raw, "details");
   const item = object(raw, {
+    ...(hasDetails
+      ? {
+          details: (v: unknown) =>
+            object(v, {
+              brand: (v) => text(v, 0, 80),
+              location: (v) => text(v, 0, 80),
+              description: (v) => text(v, 0, 200),
+              equivalents: (v) => text(v, 0, 200),
+              compatibility: (v) => text(v, 0, 200),
+            }),
+        }
+      : {}),
     name: (v) => text(v, 2, 80),
     kind: oneOf(Object.keys(ITEM_MODELS) as ItemKind[]),
     fields: (v) => v,
@@ -171,7 +187,10 @@ const returnLine = (raw: unknown) =>
   });
 const customerName = (v: unknown) => text(v, 0, 80),
   reason = (v: unknown) => text(v, 3, 200);
-const schemas: Record<WorkspaceCommand["kind"], Record<string, Decode>> = {
+const schemas: Record<
+  Exclude<WorkspaceCommand["kind"], OperationalKind>,
+  Record<string, Decode>
+> = {
   "confirm-type": { industryId, answers },
   preferences: {
     name: (v) => text(v, 2, 80),
@@ -295,6 +314,10 @@ const schemas: Record<WorkspaceCommand["kind"], Record<string, Decode>> = {
   "report-document": { from: date, to: date, inventory: boolean },
 };
 export function validateWorkspaceCommand(raw: unknown): WorkspaceCommand {
+  const allSchemas: Record<string, Record<string, Decode>> = {
+    ...schemas,
+    ...operationalSchemas(schemas.sale),
+  };
   const envelope = object(raw, {
     apiVersion: (v) => {
       if (v !== 2) throw new Error("Actualiza la aplicación.");
@@ -307,14 +330,14 @@ export function validateWorkspaceCommand(raw: unknown): WorkspaceCommand {
         throw new Error("Identificador de operación demasiado largo.");
       return id;
     },
-    kind: oneOf(Object.keys(schemas) as WorkspaceCommand["kind"][]),
+    kind: oneOf(Object.keys(allSchemas) as WorkspaceCommand["kind"][]),
     input: (v) => v,
   });
   return {
     ...envelope,
     input: object(
       envelope.input,
-      schemas[envelope.kind as WorkspaceCommand["kind"]],
+      allSchemas[envelope.kind as WorkspaceCommand["kind"]]!,
     ),
   } as WorkspaceCommand;
 }

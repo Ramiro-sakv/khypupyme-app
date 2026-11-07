@@ -70,6 +70,14 @@ export default function Workspace({
         className="business-workspace"
         data-industry={business.industryId ?? "general"}
       >
+        {business.sampleData && (
+          <div className="notice sample-banner" role="status">
+            <strong>NEGOCIO DE EJEMPLO · DATOS FICTICIOS</strong>
+            <span>
+              Practica aquí. Sus operaciones e informes no son registros reales.
+            </span>
+          </div>
+        )}
         <span className="active-business-label" title={business.name}>
           <span className="sr-only">Negocio activo: </span>
           {business.name}

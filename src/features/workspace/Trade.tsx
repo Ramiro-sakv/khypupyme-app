@@ -24,19 +24,30 @@ import Quotes from "./QuoteHistory";
 export default function Trade({
   purchase = false,
   initialQuote = false,
+  origin,
+  initialClient,
 }: {
   purchase?: boolean;
   initialQuote?: boolean;
+  origin?: { kind: "appointment" | "work-order"; id: string; revision: number };
+  initialClient?: { id: string; name: string };
 }) {
   const { business, repository, run, busy, prepare } = useWorkspace(),
-    page = useRecords<Item>("items"),
+    [catalogSearch, setCatalogSearch] = useState(""),
+    page = useRecords<Item>("items", {
+      active: true,
+      ...(catalogSearch.trim().length >= 2
+        ? { search: catalogSearch.trim() }
+        : {}),
+    }),
+    [source, setSource] = useState(origin ?? null),
     [lines, setLines] = useState<CartLine[]>([]),
     [barcode, setBarcode] = useState(""),
     [error, setError] = useState(""),
     [isQuote, setIsQuote] = useState(initialQuote),
     [quoteId, setQuoteId] = useState(""),
-    [customerName, setCustomerName] = useState(""),
-    [customerId, setCustomerId] = useState(""),
+    [customerName, setCustomerName] = useState(initialClient?.name ?? ""),
+    [customerId, setCustomerId] = useState(initialClient?.id ?? ""),
     [discount, setDiscount] = useState("0"),
     [validUntil, setValidUntil] = useState(() =>
       new Date(Date.parse(today() + "T12:00:00Z") + 7 * 86400000)
@@ -48,6 +59,7 @@ export default function Trade({
     [reference, setReference] = useState(""),
     [restoredNotice, setRestoredNotice] = useState("");
   const draftInput: TradeDraftInput = {
+    ...(source ? { origin: source } : {}),
     lines: lines.map((line) => ({
       itemId: line.item.id,
       priceMinor: line.item.priceMinor,
@@ -72,6 +84,7 @@ export default function Trade({
   };
   const resetConfirmed = useCallback(() => {
     setLines([]);
+    setSource(null);
     setQuoteId("");
     setDiscount("0");
     setRestoredNotice("");
@@ -82,6 +95,7 @@ export default function Trade({
     draftInput,
     (restored) => {
       const saved = restored.draft.input;
+      setSource(saved.origin ?? null);
       setLines(restored.lines);
       setIsQuote(restored.requiresNewQuote ? true : saved.isQuote);
       setQuoteId(restored.requiresNewQuote ? "" : saved.quoteId);
@@ -103,10 +117,22 @@ export default function Trade({
     resetConfirmed,
   );
   async function submitAction(action: WorkspaceAction) {
-    const command = prepare(action);
+    const outgoing: WorkspaceAction =
+      action.kind === "sale" && source
+        ? {
+            kind: "operational-sale",
+            input: {
+              sourceKind: source.kind,
+              sourceId: source.id,
+              expectedRevision: source.revision,
+              sale: action.input,
+            },
+          }
+        : action;
+    const command = prepare(outgoing);
     await draft.beforeSubmit(command, draftInput);
     try {
-      const result = await run(action, command.operationId);
+      const result = await run(outgoing, command.operationId);
       if (result) await draft.confirmed(command);
       return result;
     } catch (cause) {
@@ -174,6 +200,12 @@ export default function Trade({
               ? "Revisa la cotización original y confirma la venta con las existencias actuales."
               : "Selecciona productos y servicios. Revisa las cantidades y el total antes de confirmar."}
       </p>
+      {source && (
+        <p className="notice">
+          Venta vinculada a una atención u orden. Conserva el cliente y confirma
+          solo los productos y servicios realmente entregados.
+        </p>
+      )}
       <IndustryHelp mode={purchase ? "purchase" : "sale"} />
       <DraftStatus draft={draft} />
       {restoredNotice && (
@@ -184,6 +216,14 @@ export default function Trade({
       <div className="trade-layout">
         <section className="trade-picker">
           <div className="card">
+            <label>
+              Buscar en todo el catálogo (desde 2 caracteres)
+              <input
+                value={catalogSearch}
+                onChange={(e) => setCatalogSearch(e.target.value)}
+                maxLength={40}
+              />
+            </label>
             <div className="section-heading">
               <h3>Seleccionar productos</h3>
               <Icon name="box" />

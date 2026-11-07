@@ -1,6 +1,6 @@
 # KhypuPyme
 
-Cuaderno digital para negocios de Bolivia. Beta local **0.4.0-beta.3**, sin publicación ni conexión cloud activa.
+Cuaderno digital para negocios de Bolivia. Beta local **0.5.0-beta.1**, sin publicación ni conexión cloud activa.
 
 Una cuenta administra varios negocios independientes. Después de ingresar se crea un espacio, se responde el cuestionario y se confirma un rubro fijo. Cada negocio conserva catálogo, clientes, compras, ventas, fiados, caja y documentos propios. Se abre el último negocio autorizado; **Cambiar negocio** vuelve al selector.
 
@@ -15,6 +15,18 @@ Los negocios anteriores conservan sus rutas e identificadores. Confirman el rubr
 Las solicitudes sin confirmación se conservan en IndexedDB por cuenta/negocio, sin cola offline ni reintento automático. **Consultar confirmación** precede al reintento manual. La operación conserva su negocio original aunque cambies de espacio.
 
 React + TypeScript + Vite + Firebase Functions/Firestore/Auth locales; Android con Capacitor y Windows con Tauri. Los paquetes locales aún necesitan los emuladores encendidos en el PC. Android usa el host 10.0.2.2 del emulador Android; no está preparado para teléfonos físicos. Esta entrega se compiló sin ejecutar pruebas por instrucción del propietario; no se acredita uso comercial.
+
+## Rubros y ejemplos 0.5
+
+Los 21 rubros tienen una guía propia en **Cómo trabajar aquí**, con pasos, ejemplos, advertencias e ilustraciones SVG locales. Moda muestra una matriz de variantes; madera, cerámicas y cemento incluyen simuladores sin guardado. Las simulaciones no representan stock ni registran operaciones.
+
+Agenda única para belleza; órdenes para maderas, limpieza, servicios profesionales, reparación y artesanía; entregas de ventas en muebles/materiales/bebidas; y préstamos/devoluciones de envases en bebidas. Los registros tienen revisión e historial. Planificar o cambiar estados no cobra ni mueve productos: la venta vinculada lo hace en una transacción y solo una vez. Cancelar una entrega no anula una venta. Los envases controlan cantidades propias, sin depósitos monetarios.
+
+Catálogo con búsqueda por prefijo (desde dos caracteres) de nombre, código o referencia, paginación y datos descriptivos congelados con la ficha. Lotes/peso y equipos serializados se habilitan también en los rubros relacionados. Se conserva la lectura de contratos v2 anteriores.
+
+Los espacios **Ejemplo · datos ficticios** contienen catálogos, clientes, compras cuando corresponden, ventas, gastos, cotizaciones, fiados, cajas, documentos y casos del rubro. Sus números proceden de operaciones ficticias registradas mediante los servicios; no son cifras comerciales reales. La cuenta y su contraseña no se sustituyen. Estudio y límites: [industry-study.md](docs/requirements/industry-study.md).
+
+La herramienta administrativa scripts/seed-industry-examples.mjs exige un archivo local de autorización con UID y cuatro identificadores explícitos; autorización, manifiesto y resumen se guardan en artifacts/ y quedan fuera de Git. --inspect solo lee; --apply ejecuta la sustitución autorizada, conserva solicitudes originales para reanudar y exporta a .emulator-data sin detener servicios. Rechaza otras cuentas, proyectos, negocios inesperados o destinos remotos. No es una función pública de eliminación ni una herramienta para producción.
 
 ## Continuidad beta 3
 

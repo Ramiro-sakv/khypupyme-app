@@ -45,6 +45,11 @@ export class Documents {
         rows,
         totals,
         notes: [
+          ...(this.business.sampleData
+            ? [
+                "EJEMPLO · DATOS FICTICIOS. No corresponde a operaciones reales.",
+              ]
+            : []),
           notes,
           this.business.answers.documentFooter,
           "Documento no fiscal.",
@@ -59,6 +64,8 @@ export class Documents {
       );
     this.work.set("documentsV2", id, {
       ...document,
+      // Firestore no admite arrays directamente anidados; el contrato público mantiene filas de celdas.
+      rows: document.rows.map((cells) => ({ cells })),
       signature: canonical(document),
     });
     return document;

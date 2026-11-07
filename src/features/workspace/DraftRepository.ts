@@ -18,6 +18,7 @@ export interface DraftLine {
   wastePercent: number;
 }
 export interface TradeDraftInput {
+  origin?: { kind: "appointment" | "work-order"; id: string; revision: number };
   lines: DraftLine[];
   isQuote: boolean;
   quoteId: string;

@@ -3,7 +3,7 @@ export default function Convenience({ children }: { children: ReactNode }) {
   return (
     <>
       <section className="model-note">
-        <h2>Tienda 24/7</h2>
+        <h2>Lotes y presentaciones</h2>
         <p>
           Busca por código o usa un lector como teclado. El servidor entrega
           primero el lote con vencimiento más próximo y excluye lotes vencidos.

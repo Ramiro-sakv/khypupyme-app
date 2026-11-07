@@ -1,3 +1,4 @@
+import { resetLocalWorkspace } from "./resetLocalWorkspace";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { industryLabel } from "../../../shared/workspace/catalog";
@@ -38,10 +39,11 @@ export default function Account({
     );
   const load = useCallback(async () => {
     const page = await repository.businesses();
+    await resetLocalWorkspace(uid, page.reset);
     setBusinesses(page.items);
     setNext(page.next);
     return page;
-  }, [repository]);
+  }, [repository, uid]);
   useEffect(() => {
     let active = true;
     mounted.current = true;

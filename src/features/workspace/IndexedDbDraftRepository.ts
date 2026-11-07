@@ -223,6 +223,23 @@ export class IndexedDbDraftRepository implements DraftRepository {
       return { value: null, result: undefined };
     });
   }
+  async purgeRemoved(uid: string, ids: string[]) {
+    const db = await this.open();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction("drafts", "readwrite"),
+        store = tx.objectStore("drafts");
+      for (const businessId of ids)
+        for (const kind of ["sale", "purchase", "quote"] as const)
+          store.delete(this.scope({ uid, businessId }, kind));
+      tx.oncomplete = () => resolve();
+      tx.onabort = tx.onerror = () =>
+        reject(
+          new Error(
+            "No se pudieron retirar los borradores de negocios eliminados.",
+          ),
+        );
+    });
+  }
   async removeLinked(context: WorkspaceIdentity, operationId: string) {
     for (const kind of ["sale", "purchase", "quote"] as const)
       await this.change(context, kind, (current) => ({

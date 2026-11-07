@@ -1,3 +1,4 @@
+import { EMPTY_DETAILS } from "../../../shared/workspace/operations";
 import { useState } from "react";
 import type { ReactNode } from "react";
 import {
@@ -85,6 +86,12 @@ export default function ItemForm({
       onSave={async (d) => {
         const input = itemDraft({
           name: String(d.get("name")),
+          details: Object.fromEntries(
+            Object.keys(EMPTY_DETAILS).map((key) => [
+              key,
+              String(d.get("detail-" + key) ?? ""),
+            ]),
+          ),
           kind,
           fields: Object.fromEntries(
             ITEM_MODELS[kind].fields.map((f) => [
@@ -124,6 +131,29 @@ export default function ItemForm({
         value={initial?.name ?? ""}
         maxLength={80}
       />
+      <details>
+        <summary>Marca, ubicación y datos del rubro</summary>
+        {Object.keys(EMPTY_DETAILS).map((key) => (
+          <Field
+            key={key}
+            name={"detail-" + key}
+            label={
+              (
+                {
+                  brand: "Marca adicional",
+                  location: "Ubicación / estante",
+                  description: "Medidas o presentación descriptiva",
+                  equivalents: "Referencias equivalentes",
+                  compatibility: "Compatibilidad: marca, modelo y años",
+                } as Record<string, string>
+              )[key]!
+            }
+            value={initial?.details?.[key as keyof typeof EMPTY_DETAILS] ?? ""}
+            required={false}
+            maxLength={key === "brand" || key === "location" ? 80 : 200}
+          />
+        ))}
+      </details>
       {ITEM_MODELS[kind].fields.map((f) => (
         <label key={`${kind}-${f.key}`}>
           {f.label}

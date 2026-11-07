@@ -349,3 +349,66 @@ Revisión funcional diferida, **no ejecutada**:
 Código fuente respecto de a49e087: **40 archivos, +4.023 / -1.859 líneas físicas**, incluyendo traslados y reorganización; no equivale a líneas nuevas de funcionalidad. El registro de solicitudes conserva su base/esquema anterior y el almacén de borradores es independiente.
 
 La incidencia previa de **reingreso Windows/WebKit continúa pendiente, sin corrección acreditada**. No se ejecutó `pnpm check` porque incluye pruebas. No se modificaron los servicios interactivos ni los datos del propietario; sin push, despliegue o publicación.
+
+
+## 0.5.0-beta.1 — 07/11/2026: rubros y ejemplos
+
+Por instrucción del propietario **no se ejecutaron tests unitarios, integración, reglas, E2E, capturas, vídeos, recorridos automáticos, revisión visual ni instalación/arranque de paquetes**. La carga solicitada y la consulta de sus registros son evidencia de población de ejemplos, no una certificación funcional o de seguridad comercial.
+
+### Compilaciones y revisión estática
+
+- pnpm lint: aprobado, salida 0 en el cierre final. Un ajuste intermedio de carga diferida del historial dejó una variable sin usar; se corrigió antes de las compilaciones finales.
+- pnpm build: TypeScript estricto y Vite aprobados, 193 módulos. pnpm build:functions: aprobado tras corregir la persistencia de tablas de documentos.
+- Android final: assembleDebug aprobado, BUILD SUCCESSFUL en 37 s, versionCode 50001, versionName 0.5.0-beta.1.
+- Windows final: Tauri release y NSIS x64 aprobados. No se instaló ni se abrió el ejecutable.
+- Revisión de diff: reglas Firestore, cálculo exacto y CashService sin cambios; nuevas operaciones reutilizan UnitOfWork y TradeService. Este último solo añade copias descriptivas y su presentación. Índices de consulta y contratos v2 se amplían de manera compatible.
+- No se ejecutó pnpm check porque incluye tests. Advertencias de construcción: bloques de pdfmake/fuentes mayores de 500 kB (carga por demanda), flatDir y XML SDK de herramientas Android; no bloquearon los paquetes.
+
+### Incidencias encontradas durante la carga real solicitada
+
+1. Firestore rechazó la primera compra porque las tablas de documentos se guardaban como arrays directamente anidados. La transacción se rechazó sin confirmar esa compra. Se corrigió el almacenamiento a filas con propiedad cells; las consultas reconstruyen las matrices públicas anteriores. No cambia el cálculo ni se reescriben documentos anteriores.
+2. Windows devolvió EPERM al reemplazar brevemente el manifiesto local. Se añadieron reintentos acotados para bloqueos transitorios. La reanudación conserva la solicitud previa al envío y recupera resultados por el mismo ID, incluso si el guardado del resultado se interrumpió.
+3. La carga se reanudó sin volver a borrar negocios ni sustituir solicitudes financieras. Terminó con salida 0 y exportación local actualizada. No se realizaron nuevas instalaciones ni se reiniciaron los emuladores.
+
+### Inspección de los datos cargados
+
+Misma cuenta Auth, con el mismo UID; los cuatro identificadores autorizados anteriores ya no existen. Hay exactamente 21 negocios, todos del propietario y marcados permanentemente como ejemplo. La herramienta no ejecuta cambios de Auth ni de contraseña. UID, identificadores locales, autorización, manifiesto y resumen se mantienen fuera de Git.
+
+| Registro | Cantidad |
+|---|---:|
+| items | 126 |
+| customersV2 | 63 |
+| purchasesV2 | 54 |
+| salesV2 | 153 |
+| quotes | 42 |
+| expensesV2 | 42 |
+| debts | 42 |
+| cashSessions | 42 |
+| documentsV2 | 393 |
+| appointments | 2 |
+| workOrders | 10 |
+| deliveries | 12 |
+| containerTypes | 1 |
+
+Inspección adicional: 21 cajas abiertas y 21 cerradas; 21 fiados pendientes y 21 pagados. Lectura mediante WorkspaceQueries de los 393 documentos conservados, con 3.285 celdas de tabla recuperadas como matrices públicas; no se generaron ni inspeccionaron archivos PDF. La exportación habitual .emulator-data se actualizó sin detener los servicios. Los informes y precios son ficticios y se identifican como tales.
+
+Resumen por rubro y manifiesto: artifacts/industry-demo-v05-summary.local.json y artifacts/industry-demo-v05.local.json (ignorados por Git). Exportación completada: 2026-11-07T18:13:18.676Z.
+
+### Paquetes locales
+
+Hashes también en artifacts/SHA256SUMS-beta5.txt; instaladores excluidos de Git:
+
+- KhypuPyme-0.5.0-beta.1-android-debug.apk: **5615611 bytes**, SHA-256 918c95868d98b23b6307673f946cc848d4f403a723721bb5c064eace7c6b61a2.
+- KhypuPyme-0.5.0-beta.1-windows-x64-setup.exe: **2472450 bytes**, SHA-256 1f28db3a92da268df6f9fd2e410ef562de3d16f77a153f744afd038015e62692.
+
+### Revisión funcional diferida
+
+- Dos cuentas/varios negocios: autorización de nuevos recursos, búsquedas y referencias cruzadas, borradores y recuperación de solicitudes.
+- Reservas concurrentes, cambio de día, cancelaciones y rechazo de cruces en agenda vacía o existente; venta concurrente única desde una cita/orden.
+- Revisiones de órdenes y entregas, envases prestados/devueltos simultáneamente, límites y estados terminales.
+- Compatibilidad de contratos v2 anteriores, respuestas inciertas, limpieza local limitada a negocios eliminados y manifiesto tras interrupciones.
+- Lectura/búsqueda paginada, vencimientos, simuladores, matriz de variantes, móvil, accesibilidad y generación/guardado/paginación de PDF.
+
+La incidencia previa de **reingreso Windows/WebKit sigue pendiente, sin corrección acreditada**. No se acredita uso comercial, funcionamiento en dispositivos físicos ni operación cloud. Sin push, despliegue, publicación o accesos nuevos de escritorio.
+
+Código fuente respecto de d2fce15 (0.4 beta 3): **44 archivos, +3886 / -243 líneas físicas**, incluidas definiciones de guías y datos ficticios. No equivale a funciones nuevas por línea. Revisión final de archivos preparados: sin patrones de credenciales/IDs personales conocidos ni artefactos/datos locales incluidos.

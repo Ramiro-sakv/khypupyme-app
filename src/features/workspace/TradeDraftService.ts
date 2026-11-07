@@ -89,6 +89,33 @@ export class TradeDraftService {
     const business = await this.repository.business(this.context.businessId);
     if (business.ownerUid !== this.context.uid)
       throw new Error("El negocio no corresponde a esta cuenta.");
+    if (draft.input.origin) {
+      const origin = draft.input.origin;
+      const record = (
+        await this.repository.list<{
+          revision: number;
+          saleId?: string;
+          customerId: string;
+          customerName: string;
+        }>({
+          apiVersion: 2,
+          businessId: this.context.businessId,
+          resource:
+            origin.kind === "appointment" ? "appointments" : "workOrders",
+          id: origin.id,
+        })
+      ).items[0];
+      if (
+        !record ||
+        record.saleId ||
+        record.revision !== origin.revision ||
+        record.customerId !== draft.input.customerId ||
+        record.customerName !== draft.input.customerName
+      )
+        throw new Error(
+          "La atención u orden del borrador cambió o ya fue vendida. Conserva este borrador y vuelve a revisar su origen.",
+        );
+    }
     const priceChanges: RestoredTrade["priceChanges"] = [];
     const lines = await Promise.all(
       draft.input.lines.map(async (line) => {

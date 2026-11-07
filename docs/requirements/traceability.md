@@ -72,3 +72,19 @@ Pruebas omitidas por la instrucción más reciente del propietario: no trasladar
 - Responsabilidades: WorkspaceCommandService, AccountCreationService y pantallas separadas de cuenta/espacio/ventas/compras/cotizaciones/devoluciones/clientes/caja/garantías. Contratos Firebase y servidor financiero conservados.
 - Ayuda/detalles: GettingStarted deriva pasos de registros existentes; IndustryHelp aporta indicaciones del modelo actual; PurchaseHistory usa una consulta filtrada/paginada; DocumentsPage conserva detalle histórico y exportación separada.
 - No se incorporan módulos comerciales ni nuevos identificadores RF/RNF. Verificación limitada a análisis estático y construcción de paquetes; aislamiento entre cuentas/negocios, conflictos entre pestañas, precios, respuestas inciertas y PDF quedan para revisión funcional posterior. Windows/WebKit sigue sin corrección acreditada.
+
+## Rubros y ejemplos 0.5.0-beta.1 — 07/11/2026
+
+Ampliación expresa del propietario, derivada de su solicitud de 21 rubros con procesos propios y sustitución de los cuatro negocios locales por ejemplos en la misma cuenta. No se inventan identificadores RF/RNF ni se atribuye este alcance al dossier.
+
+| Necesidad | Implementación | Verificación prevista en esta entrega |
+|---|---|---|
+| Guía propia y apoyo visual | industry-workflows, IndustryGuidePage, VisualExplainer, IndustryHelp | Compilación; revisión visual diferida |
+| Agenda única | OperationalService, appointments/calendarDays, AppointmentPage | Análisis estático; concurrencia diferida |
+| Órdenes y venta única | workOrders/workflowEvents, operational-sale, WorkOrderPage/OperationalSalePage | Tipos/compilación; aislamiento y concurrencia diferidos |
+| Entregas y envases | deliveries, containerTypes/Balances/Movements y pantallas propias | Compilación; recorridos y límites diferidos |
+| Búsqueda y descripción por rubro | searchPrefixes, consultas paginadas, ItemDetails opcional, modelos existentes habilitados | Tipos/índices; contratos anteriores conservados |
+| Sustitución y ejemplos | herramienta local, autorización por cuatro IDs, manifiesto reanudable y exportación | Inspección de carga solicitada; sin tests automáticos |
+| Paquetes | Android/Windows locales 0.5 beta | Compilación sin instalar/arrancar |
+
+El estudio de capacidades anteriores, mejoras, límites y fuentes está en industry-study.md. Los datos de autorización/manifiesto/resumen, datos del emulador e instaladores están excluidos de Git. No se acredita corrección de reingreso Windows/WebKit.

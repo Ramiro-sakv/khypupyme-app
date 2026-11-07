@@ -1,3 +1,4 @@
+import type { ItemDetails, OperationalAction } from "./operations.js";
 import type { IndustryId } from "../business-industries.js";
 import type { Quantity } from "./exact.js";
 
@@ -42,9 +43,11 @@ export interface WorkspaceBusiness {
   timeZone: "America/La_Paz";
   answers: BusinessAnswers;
   legacy: boolean;
+  sampleData?: { version: string; setId: string };
   createdAt: string;
 }
 export interface ItemDraft {
+  details?: ItemDetails;
   name: string;
   kind: ItemKind;
   fields: Record<string, string>;
@@ -89,6 +92,7 @@ export interface Allocation {
   returned: Quantity;
 }
 export interface SaleLineV2 {
+  details?: ItemDetails;
   itemId: string;
   name: string;
   kind: ItemKind;
@@ -185,7 +189,17 @@ export interface Opening {
   expiresOn: string;
   serials: string[];
 }
+export interface SaleInput {
+  lines: SaleLineInputV2[];
+  method: Method | "credit";
+  date: string;
+  customerId: string;
+  customerName: string;
+  discountMinor: number;
+  quoteId: string;
+}
 export type WorkspaceAction =
+  | OperationalAction
   | {
       kind: "confirm-type";
       input: { industryId: IndustryId; answers: BusinessAnswers };
@@ -221,18 +235,7 @@ export type WorkspaceAction =
         reference: string;
       };
     }
-  | {
-      kind: "sale";
-      input: {
-        lines: SaleLineInputV2[];
-        method: Method | "credit";
-        date: string;
-        customerId: string;
-        customerName: string;
-        discountMinor: number;
-        quoteId: string;
-      };
-    }
+  | { kind: "sale"; input: SaleInput }
   | {
       kind: "quote";
       input: {
@@ -360,6 +363,13 @@ export interface CommandResult {
   message: string;
 }
 export type WorkspaceResource =
+  | "appointments"
+  | "workOrders"
+  | "workflowEvents"
+  | "deliveries"
+  | "containerTypes"
+  | "containerBalances"
+  | "containerMovements"
   | "items"
   | "salesV2"
   | "purchasesV2"
@@ -394,6 +404,10 @@ export interface WorkspaceQuery {
   to?: string;
   barcode?: string;
   status?: string;
+  search?: string;
+  recordId?: string;
+  expiresBefore?: string;
+  active?: boolean;
 }
 export interface WorkspaceReport {
   pendingValuationCount: number;
@@ -410,4 +424,10 @@ export interface WorkspaceReport {
   inventoryMinor: number;
   days: { date: string; salesMinor: number; expensesMinor: number }[];
   byUnit: { unit: string; quantity: Quantity }[];
+}
+
+export interface WorkspaceReset {
+  id: string;
+  removedBusinessIds: string[];
+  removedCreationOperationIds: string[];
 }

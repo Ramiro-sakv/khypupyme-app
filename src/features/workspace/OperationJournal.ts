@@ -99,6 +99,28 @@ export class OperationJournal implements PendingRequestStore {
     });
   }
 
+  async purgeRemoved(uid: string, ids: string[], creationIds: string[]) {
+    const db = await this.open();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction("requests", "readwrite"),
+        store = tx.objectStore("requests");
+      for (const id of ids) store.delete(this.scope(uid, id));
+      const key = this.scope(uid, "new"),
+        read = store.get(key);
+      read.onsuccess = () => {
+        const saved = read.result as SavedRequest | undefined;
+        if (saved?.creation && creationIds.includes(saved.request.operationId))
+          store.delete(key);
+      };
+      tx.oncomplete = () => resolve();
+      tx.onabort = tx.onerror = () =>
+        reject(
+          new Error(
+            "No se pudieron retirar las referencias de negocios eliminados.",
+          ),
+        );
+    });
+  }
   async clear(
     uid: string,
     businessId: string,

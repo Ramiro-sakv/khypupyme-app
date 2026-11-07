@@ -25,19 +25,15 @@ import { Panel } from "./Panel";
 import { ActionForm, Field, Pager } from "./ui";
 export default function Catalog() {
   const { run, busy } = useWorkspace(),
-    page = useRecords<Item>("items"),
     [newItem, setNewItem] = useState(false),
     [archived, setArchived] = useState(false),
     [search, setSearch] = useState(""),
-    [selected, setSelected] = useState<Item | null>(null);
-  const visible = page.items.filter(
-    (i) =>
-      i.active !== archived &&
-      [i.name, ...Object.values(i.fields)]
-        .join(" ")
-        .toLowerCase()
-        .includes(search.toLowerCase()),
-  );
+    [selected, setSelected] = useState<Item | null>(null),
+    page = useRecords<Item>("items", {
+      active: !archived,
+      ...(search.trim().length >= 2 ? { search: search.trim() } : {}),
+    });
+  const visible = page.items;
   return (
     <>
       <div className="workspace-heading">
@@ -79,8 +75,12 @@ export default function Catalog() {
       )}
       <div className="catalog-toolbar">
         <label>
-          Buscar en esta página
-          <input value={search} onChange={(e) => setSearch(e.target.value)} />
+          Buscar en todo el catálogo (desde 2 caracteres)
+          <input
+            value={search}
+            maxLength={40}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </label>
         <label>
           <input

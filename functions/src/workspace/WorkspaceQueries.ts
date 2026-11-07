@@ -1,3 +1,4 @@
+import { normalizeSearch } from "../../../shared/workspace/search.js";
 import type {
   DocumentData,
   Firestore,
@@ -21,6 +22,13 @@ import { businessView } from "./AccountService.js";
 import { CommerceQueries } from "../CommerceQueries.js";
 
 export const RESOURCES: WorkspaceResource[] = [
+  "appointments",
+  "workOrders",
+  "workflowEvents",
+  "deliveries",
+  "containerTypes",
+  "containerBalances",
+  "containerMovements",
   "items",
   "salesV2",
   "purchasesV2",
@@ -54,10 +62,22 @@ export function serialize(value: unknown): unknown {
   )
     return value.toDate().toISOString();
   if (Array.isArray(value)) return value.map(serialize);
-  if (value && typeof value === "object")
-    return Object.fromEntries(
+  if (value && typeof value === "object") {
+    const result = Object.fromEntries(
       Object.entries(value).map(([k, v]) => [k, serialize(v)]),
     );
+    if (Array.isArray(result.columns) && Array.isArray(result.rows))
+      result.rows = result.rows.map((row: unknown) =>
+        row &&
+        typeof row === "object" &&
+        !Array.isArray(row) &&
+        "cells" in row &&
+        Array.isArray(row.cells)
+          ? row.cells
+          : row,
+      );
+    return result;
+  }
   return value;
 }
 export class WorkspaceQueries {
@@ -86,6 +106,10 @@ export class WorkspaceQueries {
             "to",
             "barcode",
             "status",
+            "search",
+            "recordId",
+            "expiresBefore",
+            "active",
           ].includes(key),
       ) ||
       input.apiVersion !== 2 ||
@@ -122,6 +146,34 @@ export class WorkspaceQueries {
       };
     }
     let query: Query = root;
+    if (input.active !== undefined) {
+      if (input.resource !== "items" || typeof input.active !== "boolean")
+        throw new Error("Filtro de catálogo inválido.");
+      query = query.where("active", "==", input.active);
+    }
+    if (input.recordId) {
+      if (input.resource !== "workflowEvents")
+        throw new Error("Filtro de historial inválido.");
+      query = query.where("recordId", "==", identifier(input.recordId));
+    }
+    if (input.expiresBefore) {
+      if (input.resource !== "lots" || input.from || input.to)
+        throw new Error("Filtro de vencimiento inválido.");
+      query = query
+        .where("available", "==", true)
+        .where("expiresOn", ">", "")
+        .where("expiresOn", "<=", date(input.expiresBefore))
+        .orderBy("expiresOn", "asc");
+    }
+    if (input.search) {
+      if (input.resource !== "items")
+        throw new Error("La búsqueda solo admite catálogo.");
+      query = query.where(
+        "searchPrefixes",
+        "array-contains",
+        normalizeSearch(text(input.search, 2, 40)),
+      );
+    }
     if (input.itemId)
       query =
         input.resource === "purchasesV2"
@@ -133,10 +185,25 @@ export class WorkspaceQueries {
             );
     if (input.status) {
       if (
-        !["serials", "debts", "cashSessions", "warrantyClaims"].includes(
-          input.resource,
-        ) ||
         ![
+          "serials",
+          "debts",
+          "cashSessions",
+          "warrantyClaims",
+          "appointments",
+          "workOrders",
+          "deliveries",
+        ].includes(input.resource) ||
+        ![
+          "scheduled",
+          "attended",
+          "no-show",
+          "quoted",
+          "approved",
+          "in-progress",
+          "ready",
+          "delivered",
+          "prepared",
           "available",
           "sold",
           "inspection",
@@ -162,6 +229,8 @@ export class WorkspaceQueries {
         .where("date", "<=", input.to)
         .orderBy("date", "desc");
     }
+    if (input.resource === "appointments" && input.from)
+      query = query.orderBy("startAt", "asc");
     query = query
       .orderBy("createdAt", "desc")
       .orderBy("__name__", "desc")

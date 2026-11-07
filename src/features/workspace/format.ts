@@ -104,14 +104,21 @@ export function statusLabel(value: string) {
   );
 }
 
-export function itemDetails(item: Pick<ItemDraft, "kind" | "fields">) {
-  return ITEM_MODELS[item.kind].fields
-    .filter((field) => item.fields[field.key])
-    .map(
-      (field) =>
-        field.label.replace(": si o no", "").replace(": pieza o par", "") +
-        ": " +
-        item.fields[field.key],
-    )
+export function itemDetails(
+  item: Pick<ItemDraft, "kind" | "fields" | "details">,
+) {
+  return [
+    ITEM_MODELS[item.kind].fields
+      .filter((field) => item.fields[field.key])
+      .map(
+        (field) =>
+          field.label.replace(": si o no", "").replace(": pieza o par", "") +
+          ": " +
+          item.fields[field.key],
+      )
+      .join(" · "),
+    ...Object.values(item.details ?? {}).filter(Boolean),
+  ]
+    .filter(Boolean)
     .join(" · ");
 }

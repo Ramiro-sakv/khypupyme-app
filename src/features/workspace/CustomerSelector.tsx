@@ -5,18 +5,25 @@ import { Pager } from "./ui";
 export function CustomerSelector({
   value,
   onChange,
+  required = false,
 }: {
   value: string;
+  required?: boolean;
   onChange: (id: string, name: string) => void;
 }) {
   const page = useRecords<Customer>("customersV2");
   return (
-    <details>
-      <summary>Seleccionar cliente registrado</summary>
+    <details open={required}>
+      <summary>
+        {required
+          ? "Seleccionar cliente registrado (obligatorio)"
+          : "Seleccionar cliente registrado"}
+      </summary>
       <Pager page={page} />
       <label>
         Cliente de este negocio
         <select
+          required={required}
           value={value}
           onChange={(e) =>
             onChange(
@@ -25,7 +32,11 @@ export function CustomerSelector({
             )
           }
         >
-          <option value="">Cliente ocasional / escribir nombre</option>
+          <option value="">
+            {required
+              ? "Selecciona un cliente activo"
+              : "Cliente ocasional / escribir nombre"}
+          </option>
           {value && !page.items.some((c) => c.id === value) && (
             <option value={value}>Cliente seleccionado</option>
           )}

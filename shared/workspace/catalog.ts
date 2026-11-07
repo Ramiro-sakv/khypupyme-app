@@ -145,8 +145,13 @@ export function kindsFor(
     case "clothing":
     case "footwear":
       return ["apparel", ...shared];
+    case "electronics":
     case "appliances":
       return ["appliance", ...shared];
+    case "grocery":
+    case "beverages":
+    case "cosmetics":
+    case "pets":
     case "convenience":
       return ["grocery", ...shared];
     case "ceramics":
@@ -168,6 +173,14 @@ export function suggestedKind(industryId: IndustryId): ItemKind {
         footwear: "apparel",
         appliances: "appliance",
         convenience: "grocery",
+        grocery: "grocery",
+        beverages: "grocery",
+        cosmetics: "grocery",
+        pets: "grocery",
+        electronics: "appliance",
+        beauty: "service",
+        cleaning: "service",
+        professional: "service",
         ceramics: "ceramic",
         cement: "cement-bag",
       } as Partial<Record<IndustryId, ItemKind>>
@@ -175,15 +188,7 @@ export function suggestedKind(industryId: IndustryId): ItemKind {
   );
 }
 export function specialized(industryId: IndustryId): boolean {
-  return [
-    "timber",
-    "clothing",
-    "footwear",
-    "appliances",
-    "convenience",
-    "ceramics",
-    "cement",
-  ].includes(industryId);
+  return Object.hasOwn(INDUSTRIES, industryId);
 }
 export function industryLabel(industryId: IndustryId | null): string {
   return industryId ? INDUSTRIES[industryId].name : "Negocio anterior";

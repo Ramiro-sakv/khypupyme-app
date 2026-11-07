@@ -48,6 +48,12 @@ export default function Dashboard() {
     : [];
   return (
     <>
+      <div className="notice">
+        <strong>Tu negocio tiene su propia forma de trabajar.</strong>
+        <button onClick={() => go("guia")}>
+          Abrir guía y herramientas del rubro
+        </button>
+      </div>
       <section className="dashboard-welcome">
         <div>
           <span className="eyebrow">VAMOS PASO A PASO</span>

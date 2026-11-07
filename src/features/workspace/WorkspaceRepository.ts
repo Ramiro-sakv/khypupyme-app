@@ -1,4 +1,5 @@
 import type {
+  WorkspaceReset,
   BusinessAnswers,
   CommandResult,
   WorkspaceBusiness,
@@ -9,6 +10,7 @@ import type {
 import type { IndustryId } from "../../../shared/business-industries";
 
 export interface Page<T> {
+  reset?: WorkspaceReset;
   items: T[];
   next: string | null;
 }

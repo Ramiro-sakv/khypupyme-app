@@ -31,6 +31,14 @@ export function businessView(
     currency: "BOB",
     timeZone: "America/La_Paz",
     answers: data.answers ?? { ...DEFAULT_ANSWERS, address: "", phone: "" },
+    ...(data.sampleData
+      ? {
+          sampleData: {
+            setId: String(data.sampleData.setId),
+            version: String(data.sampleData.version),
+          },
+        }
+      : {}),
     legacy: data.legacy === true || data.workspaceVersion !== 2,
     createdAt:
       typeof data.createdAt === "string"
@@ -60,7 +68,11 @@ export class AccountService {
       entries = page.docs.slice(0, 25),
       refs = entries.map((doc) => this.db.doc(`businesses/${doc.id}`));
     const docs = refs.length ? await this.db.getAll(...refs) : [];
+    const account = await this.db.doc("users/" + uid).get();
     return {
+      ...(account.data()?.workspaceReset
+        ? { reset: account.data()!.workspaceReset }
+        : {}),
       items: docs
         .filter((doc) => doc.exists && doc.data()?.ownerUid === uid)
         .map((doc) => businessView(doc.id, doc.data()!)),

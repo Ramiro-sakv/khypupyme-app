@@ -1,3 +1,8 @@
+import {
+  hasAgenda,
+  hasDelivery,
+  workKindFor,
+} from "../../../shared/workspace/operations";
 import type { ComponentType, ReactNode } from "react";
 import { lazy, Suspense, useState } from "react";
 import { Navigate } from "react-router";
@@ -7,6 +12,12 @@ import type { IconName } from "./Icon";
 import { Icon } from "./Icon";
 import { useWorkspaceNavigation } from "./navigation";
 import { Panel } from "./Panel";
+const IndustryGuide = lazy(() => import("./IndustryGuidePage")),
+  AppointmentPage = lazy(() => import("./AppointmentPage")),
+  WorkOrderPage = lazy(() => import("./WorkOrderPage")),
+  DeliveryPage = lazy(() => import("./DeliveryPage")),
+  ContainerPage = lazy(() => import("./ContainerPage")),
+  OperationalSalePage = lazy(() => import("./OperationalSalePage"));
 const Catalog = lazy(() => import("./Catalog")),
   SalesPage = lazy(() => import("./SalesPage")),
   PurchasePage = lazy(() => import("./PurchasePage")),
@@ -32,6 +43,11 @@ const Cash = lazy(() =>
     import("./PreferencesPage").then((m) => ({ default: m.Preferences })),
   );
 const models: Record<string, ComponentType<{ children: ReactNode }>> = {
+  grocery: lazy(() => import("./modules/Convenience")),
+  beverages: lazy(() => import("./modules/Convenience")),
+  cosmetics: lazy(() => import("./modules/Convenience")),
+  pets: lazy(() => import("./modules/Convenience")),
+  electronics: lazy(() => import("./modules/Appliances")),
   timber: lazy(() => import("./modules/Timber")),
   clothing: lazy(() => import("./modules/Fashion")),
   footwear: lazy(() => import("./modules/Fashion")),
@@ -46,7 +62,10 @@ const groups: {
 }[] = [
   {
     label: "Tu negocio",
-    items: [{ id: "inicio", label: "Inicio", icon: "home" }],
+    items: [
+      { id: "inicio", label: "Inicio", icon: "home" },
+      { id: "guia", label: "Cómo trabajar aquí", icon: "document" },
+    ],
   },
   {
     label: "Operaciones",
@@ -82,7 +101,25 @@ export default function WorkspaceHome() {
     Model = models[business.industryId ?? ""];
   const sections = [
     ...groups.flatMap((g) => g.items),
-    ...(business.industryId === "appliances"
+    ...(hasAgenda(business.industryId)
+      ? [{ id: "agenda", label: "Agenda", icon: "history" as const }]
+      : []),
+    ...(workKindFor(business.industryId)
+      ? [
+          {
+            id: "ordenes",
+            label: "Órdenes y trabajos",
+            icon: "document" as const,
+          },
+        ]
+      : []),
+    ...(hasDelivery(business.industryId)
+      ? [{ id: "entregas", label: "Entregas", icon: "box" as const }]
+      : []),
+    ...(business.industryId === "beverages"
+      ? [{ id: "envases", label: "Envases", icon: "box" as const }]
+      : []),
+    ...(["appliances", "electronics"].includes(business.industryId ?? "")
       ? [{ id: "garantias", label: "Garantías", icon: "shield" as const }]
       : []),
     ...(business.legacy
@@ -95,10 +132,28 @@ export default function WorkspaceHome() {
         ]
       : []),
   ];
-  if (!sections.some((s) => s.id === view))
+  if (view !== "cobrar-trabajo" && !sections.some((s) => s.id === view))
     return <Navigate to="?vista=inicio" replace />;
   let content: ReactNode;
   switch (view) {
+    case "guia":
+      content = <IndustryGuide />;
+      break;
+    case "agenda":
+      content = <AppointmentPage />;
+      break;
+    case "ordenes":
+      content = <WorkOrderPage />;
+      break;
+    case "entregas":
+      content = <DeliveryPage />;
+      break;
+    case "envases":
+      content = <ContainerPage />;
+      break;
+    case "cobrar-trabajo":
+      content = <OperationalSalePage />;
+      break;
     case "inventario":
       content = <Catalog />;
       break;
@@ -178,6 +233,11 @@ export default function WorkspaceHome() {
               {g.items.map((s) => item(s.id))}
             </section>
           ))}
+          {sections
+            .filter((s) =>
+              ["agenda", "ordenes", "entregas", "envases"].includes(s.id),
+            )
+            .map((s) => item(s.id))}
           {sections.some((s) => s.id === "garantias") && item("garantias")}
           {business.legacy && item("anteriores")}
         </nav>

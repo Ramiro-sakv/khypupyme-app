@@ -78,9 +78,14 @@ function deliveryText(line: SaleLineV2) {
   );
 }
 function detailText(line: SaleLineV2) {
-  return ITEM_MODELS[line.kind].fields
-    .filter((f) => line.fields[f.key])
-    .map((f) => f.label + ": " + line.fields[f.key])
+  return [
+    ITEM_MODELS[line.kind].fields
+      .filter((f) => line.fields[f.key])
+      .map((f) => f.label + ": " + line.fields[f.key])
+      .join(" · "),
+    ...Object.values(line.details ?? {}).filter(Boolean),
+  ]
+    .filter(Boolean)
     .join(" · ");
 }
 export function pastDate(date: string) {
@@ -153,6 +158,7 @@ export class TradeService {
     return {
       itemId: item.id,
       name: item.name,
+      ...(item.details ? { details: item.details } : {}),
       kind: item.kind,
       fields: item.fields,
       units: item.units,
@@ -363,6 +369,7 @@ export class TradeService {
         ...entry,
         ...received,
         name: item.name,
+        ...(item.details ? { details: item.details } : {}),
         fields: item.fields,
       });
     }

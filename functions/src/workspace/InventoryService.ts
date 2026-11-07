@@ -1,3 +1,4 @@
+import { searchPrefixes } from "../../../shared/workspace/search.js";
 import { createHash } from "node:crypto";
 import { today } from "../../../shared/commerce.js";
 import {
@@ -131,7 +132,15 @@ export class InventoryServiceV2 {
       createdAt: this.work.now,
       updatedAt: this.work.now,
     };
-    this.work.set("items", id, item);
+    this.work.set("items", id, {
+      ...item,
+      searchPrefixes: searchPrefixes([
+        item.name,
+        item.barcode,
+        ...Object.values(item.fields),
+        ...Object.values(item.details ?? {}),
+      ]),
+    });
     this.movement(item, ZERO, 0, "opening", "Creación de producto", id);
     return item;
   }
@@ -162,7 +171,16 @@ export class InventoryServiceV2 {
     });
   }
   private save(item: Item) {
-    this.work.set("items", item.id, { ...item, updatedAt: this.work.now });
+    this.work.set("items", item.id, {
+      ...item,
+      searchPrefixes: searchPrefixes([
+        item.name,
+        item.barcode,
+        ...Object.values(item.fields),
+        ...Object.values(item.details ?? {}),
+      ]),
+      updatedAt: this.work.now,
+    });
   }
   async receive(
     id: string,

@@ -1,3 +1,5 @@
+import { OperationalService } from "./OperationalService.js";
+import { searchPrefixes } from "../../../shared/workspace/search.js";
 import type { Firestore } from "firebase-admin/firestore";
 import { canonical, today } from "../../../shared/commerce.js";
 import {
@@ -119,6 +121,21 @@ export class WorkspaceService {
       let document: BusinessDocument | undefined,
         resultId = command.operationId;
       switch (command.kind) {
+        case "appointment":
+        case "work-order":
+        case "delivery":
+        case "container-type":
+        case "container-move":
+        case "operational-sale": {
+          const result = await new OperationalService(
+            work,
+            business,
+            command.operationId,
+          ).execute(command, trade);
+          resultId = result.id;
+          if ("document" in result) document = result.document;
+          break;
+        }
         case "confirm-type":
           if (business.typeConfirmed)
             throw new Error("El rubro ya fue confirmado y no puede cambiarse.");
@@ -180,6 +197,12 @@ export class WorkspaceService {
           work.set("items", item.id, {
             ...item,
             ...command.input,
+            searchPrefixes: searchPrefixes([
+              command.input.name,
+              item.barcode,
+              ...Object.values(item.fields),
+              ...Object.values(item.details ?? {}),
+            ]),
             updatedAt: work.now,
           });
           resultId = item.id;

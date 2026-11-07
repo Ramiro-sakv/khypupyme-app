@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.5.0-beta.1 - 2026-11-07 (local, sin push)
+
+- Guías propias para 21 rubros, simuladores e ilustraciones SVG locales, matriz de variantes, lotes/vencimientos y búsqueda paginada de catálogo.
+- Agenda única, órdenes auditadas, venta vinculada atómica, entregas y control de envases por cliente. Nuevas colecciones cerradas al acceso directo del cliente; Functions comprueba propietario, revisión y solicitud original.
+- Datos descriptivos opcionales de producto y modelos existentes habilitados en rubros relacionados, manteniendo documentos y cálculos anteriores.
+- Herramienta administrativa de sustitución limitada a cuatro IDs autorizados, misma cuenta, 21 ejemplos y exportación local reanudable.
+- Sin tests, capturas ni recorridos por instrucción expresa. Evidencia en docs/testing/validation.md; incidencia Windows/WebKit vigente.
+
 ## 0.4.0-beta.3 - 2026-11-07 (local, sin push)
 
 - Borradores de ventas/cotizaciones/compras por cuenta y negocio en IndexedDB separado, con revisión de precios, conflictos entre pestañas y recuperación manual de solicitudes originales.

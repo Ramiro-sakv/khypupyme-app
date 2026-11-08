@@ -1,6 +1,6 @@
 import {
   timberDimensions,
-  dimensionInputFromMm,
+  dimensionDisplayFromMm as dimensionInputFromMm,
 } from "../../../shared/workspace/timber-measures";
 import type { TimberSystem } from "../../../shared/workspace/timber-measures";
 import { amount, decimal, fraction } from "../../../shared/workspace/exact";

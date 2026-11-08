@@ -1,3 +1,4 @@
+import { displayQuantity } from "./presentation.js";
 import {
   add,
   decimal,
@@ -59,32 +60,35 @@ export function dimensionLabel(key: string, system: TimberSystem) {
         : " (pulgadas)")
   );
 }
+export function dimensionDisplayFromMm(
+  raw: string,
+  key: string,
+  system: TimberSystem,
+) {
+  const value = decimal(raw, 6),
+    converted =
+      system === "metric"
+        ? value
+        : div(value, key === "lengthMm" ? FOOT_MM : INCH_MM),
+    text = displayQuantity(converted),
+    rounded = decimal(text, 2);
+  return (
+    (BigInt(rounded.n) * BigInt(converted.d) ===
+    BigInt(converted.n) * BigInt(rounded.d)
+      ? ""
+      : "≈") + text
+  );
+}
 export function timberDimensions(
   fields: Record<string, string>,
   system: TimberSystem = "imperial",
 ) {
   if (!fields.lengthMm || !fields.widthMm || !fields.thicknessMm) return "";
-  const display = (key: string) => {
-    const value = decimal(fields[key]!, 6);
-    if (system === "metric") return showQuantity(value) + " mm";
-    const converted = div(value, key === "lengthMm" ? FOOT_MM : INCH_MM),
-      text = showQuantity(converted);
-    const exact = decimal(text, 6);
-    return (
-      (BigInt(exact.n) * BigInt(converted.d) ===
-      BigInt(converted.n) * BigInt(exact.d)
-        ? ""
-        : "≈") +
-      text +
-      (key === "lengthMm" ? "′" : "″")
-    );
-  };
+  const show = (key: string) =>
+    dimensionDisplayFromMm(fields[key]!, key, system) +
+    (system === "metric" ? " mm" : key === "lengthMm" ? "′" : "″");
   return (
-    display("thicknessMm") +
-    " × " +
-    display("widthMm") +
-    " × " +
-    display("lengthMm")
+    show("thicknessMm") + " × " + show("widthMm") + " × " + show("lengthMm")
   );
 }
 export function timberVolume(fields: Record<string, string>) {
@@ -120,7 +124,7 @@ export function timberStockText(
     );
   if (item.kind === "timber-volume")
     return (
-      showQuantity(
+      displayQuantity(
         div(
           item.balance,
           system === "imperial" ? BOARD_FOOT_MM3 : fraction(1000000000n),
@@ -129,9 +133,9 @@ export function timberStockText(
     );
   if (item.kind === "timber-piece")
     return (
-      showQuantity(item.balance) +
+      displayQuantity(item.balance) +
       " piezas · " +
-      showQuantity(
+      displayQuantity(
         div(
           mul(item.balance, timberVolume(item.fields)),
           system === "imperial" ? BOARD_FOOT_MM3 : fraction(1000000000n),

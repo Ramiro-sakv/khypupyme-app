@@ -1,3 +1,4 @@
+import { displayQuantity as showQuantity } from "../../../shared/workspace/presentation.js";
 import {
   timberTotals,
   timberSelectionText,
@@ -16,7 +17,6 @@ import {
   mul,
   whole,
   ZERO,
-  showQuantity,
 } from "../../../shared/workspace/exact.js";
 
 import {

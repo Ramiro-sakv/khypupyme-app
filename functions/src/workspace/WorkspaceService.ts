@@ -1,3 +1,4 @@
+import { displayQuantity as showQuantity } from "../../../shared/workspace/presentation.js";
 import { timberStockText } from "../../../shared/workspace/timber-measures.js";
 import {
   loadPractice,
@@ -9,11 +10,7 @@ import { OperationalService } from "./OperationalService.js";
 import { searchPrefixes } from "../../../shared/workspace/search.js";
 import type { Firestore } from "firebase-admin/firestore";
 import { canonical, today } from "../../../shared/commerce.js";
-import {
-  compare,
-  showQuantity,
-  ZERO,
-} from "../../../shared/workspace/exact.js";
+import { compare, ZERO } from "../../../shared/workspace/exact.js";
 import { isDiscrete } from "../../../shared/workspace/catalog.js";
 import type {
   BusinessDocument,

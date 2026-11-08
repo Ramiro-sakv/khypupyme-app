@@ -86,7 +86,11 @@ export class InventoryServiceV2 {
     private readonly business: WorkspaceBusiness,
     private readonly operationId: string,
   ) {
-    this.timber = new TimberStockService(work, operationId);
+    this.timber = new TimberStockService(
+      work,
+      operationId,
+      business.timberSystem ?? "imperial",
+    );
   }
   async item(id: string): Promise<Item> {
     const item = await this.work.get<Item>("items", id);

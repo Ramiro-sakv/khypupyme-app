@@ -1,13 +1,10 @@
+import { displayQuantity as showQuantity } from "../../../shared/workspace/presentation";
+import { AppError } from "../../../shared/app-errors";
+import { requireTimber, resolveTimber } from "./TimberWidthEntry";
 import { timberTotals } from "../../../shared/workspace/timber-groups";
 import { useCallback, useState } from "react";
 import { UNITS } from "../../../shared/workspace/catalog";
-import {
-  amount,
-  div,
-  add,
-  ZERO,
-  showQuantity,
-} from "../../../shared/workspace/exact";
+import { amount, div, add, ZERO } from "../../../shared/workspace/exact";
 import type {
   Item,
   Method,
@@ -64,10 +61,12 @@ export default function Trade({
   const [date, setDate] = useState(today),
     [payment, setPayment] = useState<Method | "credit">("cash"),
     [reference, setReference] = useState(""),
-    [restoredNotice, setRestoredNotice] = useState("");
+    [restoredNotice, setRestoredNotice] = useState(""),
+    [checkoutExpanded, setCheckoutExpanded] = useState(true);
   const draftInput: TradeDraftInput = {
     ...(source ? { origin: source } : {}),
     lines: lines.map((line) => ({
+      widthsEntry: line.widthsEntry,
       id: line.id,
       timber: line.timber,
       lengthInput: line.lengthInput,
@@ -177,6 +176,12 @@ export default function Trade({
         id: crypto.randomUUID(),
         ...(item.kind === "timber-grouped"
           ? {
+              widthsEntry: {
+                version: 2,
+                system: business.timberSystem ?? "imperial",
+                text: "",
+                source: "text",
+              },
               timber: { lengthMm: "", widths: [], priceMinor: item.priceMinor },
             }
           : {}),
@@ -198,13 +203,25 @@ export default function Trade({
       },
     ]);
   }
+  const widthInvalid = lines.some((line) => {
+    if (line.item.kind !== "timber-grouped") return false;
+    try {
+      requireTimber(line);
+      return false;
+    } catch {
+      return true;
+    }
+  });
   let total = 0,
     timberPieces = 0,
     timberFeet = ZERO;
   for (const line of lines) {
     try {
       if (line.item.kind === "timber-grouped" && line.timber) {
-        const t = timberTotals(line.item.fields.thicknessMm!, line.timber);
+        const t = timberTotals(
+          line.item.fields.thicknessMm!,
+          resolveTimber(line),
+        );
         timberPieces += t.pieces;
         timberFeet = add(timberFeet, t.boardFeet);
       } else if (line.item.kind === "timber-volume") {
@@ -232,7 +249,8 @@ export default function Trade({
             ? amount(
                 cents(l.cost || "0"),
                 l.timber
-                  ? timberTotals(l.item.fields.thicknessMm!, l.timber).boardFeet
+                  ? timberTotals(l.item.fields.thicknessMm!, requireTimber(l))
+                      .boardFeet
                   : q(l.qty),
               )
             : amount(
@@ -341,6 +359,10 @@ export default function Trade({
         </section>
         <ActionForm
           dataTutorial="trade-form"
+          onInvalidField={(name) => {
+            if (name === "review" || name === "method")
+              setCheckoutExpanded(true);
+          }}
           className={
             "trade-form" +
             (business.industryId === "timber" ? " timber-fast-form" : "")
@@ -355,10 +377,30 @@ export default function Trade({
                 : "Confirmar venta"
           }
           onSave={async (d) => {
+            if (business.industryId === "timber") {
+              if (!checkoutExpanded) {
+                setCheckoutExpanded(true);
+                throw new AppError(
+                  "Abre el cobro y revisa la forma de pago y el importe antes de confirmar.",
+                  400,
+                  "CHECKOUT_REVIEW",
+                  "review",
+                );
+              }
+              for (const line of lines)
+                if (line.item.kind === "timber-grouped") requireTimber(line);
+            }
             if (total <= 0)
               throw new Error("Revisa cantidades, precios y descuento.");
-            if (d.get("review") !== "on")
-              throw new Error("Confirma el importe antes de guardar.");
+            if (d.get("review") !== "on") {
+              setCheckoutExpanded(true);
+              throw new AppError(
+                "Confirma el importe antes de guardar.",
+                400,
+                "CHECKOUT_REVIEW",
+                "review",
+              );
+            }
             let result;
             if (purchase)
               result = await submitAction({
@@ -421,6 +463,37 @@ export default function Trade({
               line={line}
               purchase={purchase}
               quote={isQuote}
+              duplicate={
+                line.item.kind === "timber-grouped"
+                  ? () => {
+                      if (lines.length >= 20) {
+                        setError(
+                          "Máximo 20 grupos; divide la operación. [400]",
+                        );
+                        return;
+                      }
+                      setLines((old) => [
+                        ...old,
+                        {
+                          ...line,
+                          id: crypto.randomUUID(),
+                          qty: "0",
+                          widthInput: "",
+                          widthsEntry: {
+                            version: 2,
+                            system:
+                              line.widthsEntry?.system ??
+                              business.timberSystem ??
+                              "imperial",
+                            text: "",
+                            source: "text",
+                          },
+                          timber: { ...line.timber!, widths: [] },
+                        },
+                      ]);
+                    }
+                  : undefined
+              }
               update={(patch) =>
                 setLines((old) =>
                   old.map((l, i) => (i === index ? { ...l, ...patch } : l)),
@@ -508,61 +581,92 @@ export default function Trade({
               </>
             )}
             <div
+              hidden={business.industryId === "timber" && !lines.length}
               className={
-                business.industryId === "timber" ? "timber-checkout-bar" : ""
+                business.industryId === "timber"
+                  ? "timber-checkout-bar" +
+                    (!checkoutExpanded ? " checkout-minimized" : "")
+                  : ""
               }
             >
               {business.industryId === "timber" && (
-                <>
-                  <strong>
-                    {timberPieces} piezas · {showQuantity(timberFeet)} pies
-                    tablares · {bob(total)}
-                  </strong>
-                  {!isQuote && (
-                    <MethodField
-                      credit={!purchase}
-                      value={payment}
-                      onValueChange={setPayment}
-                    />
-                  )}
-                </>
-              )}
-              <label>
-                <input
-                  key={
-                    business.industryId === "timber"
-                      ? JSON.stringify([
-                          total,
-                          lines.map((l) => [
-                            l.item.id,
-                            l.qty,
-                            l.unit,
-                            l.timber,
-                          ]),
-                        ])
-                      : "review"
-                  }
-                  name="review"
-                  type="checkbox"
-                  required
-                />
-                He revisado cantidades e importe de {bob(total)}.
-              </label>
-              {business.industryId === "timber" && (
                 <button
-                  type="submit"
-                  className="primary"
-                  data-tutorial="confirm-trade"
+                  type="button"
+                  className="checkout-toggle"
+                  aria-expanded={checkoutExpanded}
+                  aria-controls="timber-checkout-fields"
+                  onClick={() => setCheckoutExpanded((value) => !value)}
                 >
-                  {busy
-                    ? "Procesando…"
-                    : purchase
-                      ? "Confirmar compra y pago"
-                      : isQuote
-                        ? "Emitir cotización"
-                        : "Confirmar venta"}
+                  {checkoutExpanded ? "Minimizar" : "Mostrar cobro"}
                 </button>
               )}
+
+              {business.industryId === "timber" && (
+                <>
+                  <strong>
+                    {checkoutExpanded ? (
+                      <>
+                        {timberPieces} piezas · {showQuantity(timberFeet)} pies
+                        tablares · {bob(total)}
+                      </>
+                    ) : (
+                      <>Total: {bob(total)}</>
+                    )}
+                  </strong>
+                </>
+              )}
+              <div
+                id="timber-checkout-fields"
+                hidden={business.industryId === "timber" && !checkoutExpanded}
+              >
+                {business.industryId === "timber" && !isQuote && (
+                  <MethodField
+                    credit={!purchase}
+                    value={payment}
+                    onValueChange={setPayment}
+                  />
+                )}
+                <label>
+                  <input
+                    key={
+                      business.industryId === "timber"
+                        ? JSON.stringify([
+                            total,
+                            lines.map((l) => [
+                              l.item.id,
+                              l.qty,
+                              l.unit,
+                              l.timber,
+                            ]),
+                          ])
+                        : "review"
+                    }
+                    name="review"
+                    type="checkbox"
+                    required={
+                      business.industryId !== "timber" ||
+                      (checkoutExpanded && lines.length > 0)
+                    }
+                  />
+                  He revisado cantidades e importe de {bob(total)}.
+                </label>
+                {business.industryId === "timber" && (
+                  <button
+                    type="submit"
+                    className="primary"
+                    data-tutorial="confirm-trade"
+                    disabled={busy || !lines.length || widthInvalid}
+                  >
+                    {busy
+                      ? "Procesando…"
+                      : purchase
+                        ? "Confirmar compra y pago"
+                        : isQuote
+                          ? "Emitir cotización"
+                          : "Confirmar venta"}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </ActionForm>

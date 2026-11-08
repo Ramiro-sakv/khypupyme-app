@@ -1,7 +1,8 @@
+import { displayQuantity as showQuantity } from "../../../shared/workspace/presentation";
 import TimberFixedLineEditor from "./TimberFixedLineEditor";
 import TimberLineEditor from "./TimberLineEditor";
 import { UNITS } from "../../../shared/workspace/catalog";
-import { div, showQuantity } from "../../../shared/workspace/exact";
+import { div } from "../../../shared/workspace/exact";
 import type { Unit } from "../../../shared/workspace/model";
 import { useRecords, useWorkspace } from "./context";
 import { bob, itemDetails, serials } from "./format";
@@ -15,12 +16,14 @@ export default function CartEditor({
   remove,
   purchase,
   quote = false,
+  duplicate,
 }: {
   line: CartLine;
   update: (patch: Partial<CartLine>) => void;
   remove: () => void;
   purchase: boolean;
   quote?: boolean;
+  duplicate?: (() => void) | undefined;
 }) {
   const { business } = useWorkspace();
   const available = useRecords<{ id: string; serial: string }>(
@@ -35,6 +38,7 @@ export default function CartEditor({
         update={update}
         remove={remove}
         purchase={purchase}
+        duplicate={duplicate}
       />
     );
   if (line.item.kind === "timber-piece")

@@ -1,12 +1,5 @@
-import {
-  add,
-  decimal,
-  div,
-  fraction,
-  mul,
-  showQuantity,
-  ZERO,
-} from "./exact.js";
+import { displayQuantity as showQuantity } from "./presentation.js";
+import { add, decimal, div, fraction, mul, ZERO } from "./exact.js";
 import { BOARD_FOOT_MM3, timberDimensions } from "./timber-measures.js";
 import type { TimberSelection } from "./model.js";
 import type { Quantity } from "./exact.js";

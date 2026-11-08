@@ -161,8 +161,13 @@ export class WorkspaceQueries {
     }
     let query: Query = root;
     if (input.active !== undefined) {
-      if (input.resource !== "items" || typeof input.active !== "boolean")
-        throw new Error("Filtro de catálogo inválido.");
+      if (
+        !["items", "customersV2", "timberGroups"].includes(input.resource) ||
+        typeof input.active !== "boolean"
+      )
+        throw new Error(
+          "El filtro de activos solo admite catálogo, clientes o medidas, con valor verdadero o falso.",
+        );
       query = query.where("active", "==", input.active);
     }
     if (input.recordId) {

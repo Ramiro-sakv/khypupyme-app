@@ -1,3 +1,5 @@
+import { errorMessage } from "../../shared/errors";
+import { displayQuantity as showQuantity } from "../../../shared/workspace/presentation";
 import { useState } from "react";
 import {
   BOARD_FOOT_MM3,
@@ -5,7 +7,7 @@ import {
   timberDimensions,
   timberVolume,
 } from "../../../shared/workspace/timber-measures";
-import { div, fraction, showQuantity } from "../../../shared/workspace/exact";
+import { div, fraction } from "../../../shared/workspace/exact";
 import { useWorkspace } from "./context";
 export default function TimberVisual() {
   const { business } = useWorkspace(),
@@ -35,7 +37,7 @@ export default function TimberVisual() {
       ) +
       (system === "imperial" ? " pies tablares" : " m³");
   } catch (e) {
-    error = e instanceof Error ? e.message : "Revisa las medidas.";
+    error = errorMessage(e, "Revisa las medidas.");
   }
   return (
     <section className="card visual-explainer">

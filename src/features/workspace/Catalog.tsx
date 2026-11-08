@@ -1,5 +1,6 @@
+import { displayQuantity as showQuantity } from "../../../shared/workspace/presentation";
 import TimberAdjustment from "./TimberAdjustment";
-import { dimensionInputFromMm } from "../../../shared/workspace/timber-measures";
+import { dimensionDisplayFromMm as dimensionInputFromMm } from "../../../shared/workspace/timber-measures";
 import {
   timberStockText,
   minimumText,
@@ -7,12 +8,7 @@ import {
 } from "../../../shared/workspace/timber-measures";
 import { useState } from "react";
 import { ITEM_MODELS, UNITS } from "../../../shared/workspace/catalog";
-import {
-  compare,
-  div,
-  showQuantity,
-  ZERO,
-} from "../../../shared/workspace/exact";
+import { compare, div, ZERO } from "../../../shared/workspace/exact";
 import type { Item, Unit } from "../../../shared/workspace/model";
 import { useRecords, useWorkspace } from "./context";
 import {

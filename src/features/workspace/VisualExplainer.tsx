@@ -1,3 +1,5 @@
+import { errorMessage } from "../../shared/errors";
+import { displayQuantity as showQuantity } from "../../../shared/workspace/presentation";
 import { useState } from "react";
 import {
   compare,
@@ -6,7 +8,6 @@ import {
   div,
   fraction,
   mul,
-  showQuantity,
 } from "../../../shared/workspace/exact";
 import type { IndustryGuide } from "../../../shared/workspace/industry-workflows";
 export default function VisualExplainer({ guide }: { guide: IndustryGuide }) {
@@ -62,7 +63,7 @@ export default function VisualExplainer({ guide }: { guide: IndustryGuide }) {
         " kg después de abrir las bolsas; conserva el valor total.";
     }
   } catch (e) {
-    error = e instanceof Error ? e.message : "Revisa los valores.";
+    error = errorMessage(e, "Revisa los valores.");
   }
   const calculator = ["timber", "ceramics", "cement"].includes(guide.visual);
   return (

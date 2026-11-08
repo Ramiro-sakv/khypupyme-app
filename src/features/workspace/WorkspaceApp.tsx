@@ -1,3 +1,4 @@
+import { errorMessage } from "../../shared/errors";
 import { useState } from "react";
 import { Link, Navigate, Route, Routes } from "react-router";
 import { useAuth } from "../auth/auth-context";
@@ -7,7 +8,7 @@ import { confirmDiscardChanges, useDraftProtection } from "./navigation";
 import "./workspace.css";
 import type { WorkspaceRepository } from "./WorkspaceRepository";
 const message = (e: unknown) =>
-  e instanceof Error ? e.message : "No se pudo completar la solicitud.";
+  errorMessage(e, "No se pudo completar la solicitud.");
 
 import Account from "./AccountPage";
 export function WorkspaceApp({
@@ -44,7 +45,7 @@ export function WorkspaceApp({
             KhypuPyme
           </Link>
           <div className="header-actions">
-            <span className="version-label">0.5 beta 3</span>
+            <span className="version-label">0.5 beta 4</span>
             {user && (
               <button
                 onClick={() => {

@@ -130,7 +130,7 @@ function WorkspaceContent({
         {!online && (
           <p role="alert">
             Sin conexión. No se guardan operaciones ni se reenvían
-            automáticamente.
+            automáticamente. [503]
           </p>
         )}
         {error && (

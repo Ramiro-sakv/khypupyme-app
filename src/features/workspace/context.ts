@@ -1,3 +1,4 @@
+import { errorMessage } from "../../shared/errors";
 import { createContext, useContext, useEffect, useState } from "react";
 import type {
   CommandResult,
@@ -79,7 +80,7 @@ export function useRecords<T>(
             key,
             items: [],
             next: null,
-            error: e instanceof Error ? e.message : "No se pudo cargar.",
+            error: errorMessage(e, "No se pudo cargar."),
           });
       });
     return () => {

@@ -1,5 +1,6 @@
+import { displayQuantity as showQuantity } from "../../../shared/workspace/presentation";
 import { UNITS } from "../../../shared/workspace/catalog";
-import { amount, div, showQuantity } from "../../../shared/workspace/exact";
+import { amount, div } from "../../../shared/workspace/exact";
 import type { Unit } from "../../../shared/workspace/model";
 import type { CartLine } from "./Cart";
 import { delivered } from "./Cart";

@@ -1,7 +1,10 @@
+import { AppError } from "../../../shared/app-errors";
+import { errorMessage } from "../../shared/errors";
+import { displayQuantity as showQuantity } from "../../../shared/workspace/presentation";
 import type { ReactNode, SubmitEvent } from "react";
 import { useId, useRef, useState } from "react";
 import type { Quantity } from "../../../shared/workspace/exact";
-import { showQuantity } from "../../../shared/workspace/exact";
+
 import type { Method } from "../../../shared/workspace/model";
 import { Icon } from "./Icon";
 export function Field({
@@ -99,6 +102,7 @@ export function ActionForm({
   dirty = false,
   protectDraft = true,
   dataTutorial,
+  onInvalidField,
 }: {
   children: ReactNode;
   onSave: (data: FormData) => Promise<unknown>;
@@ -108,6 +112,7 @@ export function ActionForm({
   dirty?: boolean;
   protectDraft?: boolean;
   dataTutorial?: string;
+  onInvalidField?: (field: string) => void;
 }) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -125,7 +130,24 @@ export function ActionForm({
       setChanged(false);
       setInvalid(false);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "No se pudo guardar.");
+      setError(errorMessage(cause, "No se pudo guardar."));
+      const details =
+        cause && typeof cause === "object" && "details" in cause
+          ? (cause.details as { field?: unknown })
+          : undefined;
+      const field =
+        cause instanceof AppError
+          ? cause.field
+          : typeof details?.field === "string"
+            ? details.field
+            : undefined;
+      if (field) {
+        onInvalidField?.(field);
+        window.requestAnimationFrame(() => {
+          const element = formRef.current?.elements.namedItem(field);
+          if (element instanceof HTMLElement) element.focus();
+        });
+      }
     } finally {
       setBusy(false);
     }
@@ -140,7 +162,45 @@ export function ActionForm({
       data-dirty={protectDraft && (changed || dirty) ? "true" : "false"}
       data-invalid={invalid ? "true" : undefined}
       onChange={() => setChanged(true)}
-      onInvalid={() => setInvalid(true)}
+      onInvalid={(event) => {
+        setInvalid(true);
+        const field = event.target;
+        if (
+          field instanceof HTMLInputElement ||
+          field instanceof HTMLSelectElement ||
+          field instanceof HTMLTextAreaElement
+        ) {
+          const label =
+            field.getAttribute("aria-label") ||
+            field.labels?.[0]?.querySelector("span")?.textContent ||
+            [...(field.labels?.[0]?.childNodes ?? [])]
+              .filter((n) => n.nodeType === Node.TEXT_NODE)
+              .map((n) => n.textContent)
+              .join(" ")
+              .trim() ||
+            field.name ||
+            "el campo señalado";
+          const input = field instanceof HTMLInputElement ? field : null;
+          const reason = field.validity.rangeUnderflow
+            ? "el mínimo es " + input?.min
+            : field.validity.rangeOverflow
+              ? "el máximo es " + input?.max
+              : field.validity.stepMismatch
+                ? "usa incrementos de " + input?.step
+                : field.validity.typeMismatch || field.validity.badInput
+                  ? "usa el formato indicado"
+                  : field.validationMessage;
+          const message = field.validity.valueMissing
+            ? "Falta indicar " + label + "."
+            : "Revisa " + label + ": " + reason;
+          setError(
+            errorMessage(
+              new AppError(message, 400, "FIELD_INVALID", field.name),
+            ),
+          );
+          onInvalidField?.(field.name);
+        }
+      }}
     >
       <fieldset disabled={busy || disabled}>
         {children}
@@ -148,7 +208,7 @@ export function ActionForm({
           <div role="alert" className="notice notice-error">
             <Icon name="shield" />
             <span>
-              {error || "Revisa los campos señalados antes de continuar."}
+              {error || "Revisa los campos señalados antes de continuar. [400]"}
             </span>
           </div>
         )}

@@ -150,9 +150,10 @@ export class TradeDraftService {
             after: item.priceMinor,
           });
         return {
+          widthsEntry: line.widthsEntry,
           id: line.id,
           timber: line.timber,
-          lengthInput: line.lengthInput,
+          lengthInput: line.widthsEntry ? line.lengthInput : undefined,
           widthInput: line.widthInput,
           priceInput: line.priceInput,
           item,

@@ -1,3 +1,5 @@
+import { requireTimber } from "./TimberWidthEntry";
+import { timberTotals } from "../../../shared/workspace/timber-groups";
 import { useState } from "react";
 import type { Item } from "../../../shared/workspace/model";
 import type { CartLine } from "./Cart";
@@ -6,7 +8,7 @@ import { useWorkspace } from "./context";
 import { ActionForm, Field } from "./ui";
 import { cents, q } from "./format";
 export default function TimberAdjustment({ item }: { item: Item }) {
-  const { run, busy } = useWorkspace();
+  const { run, busy, business } = useWorkspace();
   const [direction, setDirection] = useState<"in" | "out">("in"),
     [line, setLine] = useState<CartLine>({
       item,
@@ -18,6 +20,12 @@ export default function TimberAdjustment({ item }: { item: Item }) {
       serials: [],
       fullBoxes: false,
       wastePercent: 0,
+      widthsEntry: {
+        version: 2,
+        system: business.timberSystem ?? "imperial",
+        text: "",
+        source: "text",
+      },
       timber: { lengthMm: "", widths: [], priceMinor: item.priceMinor },
     });
   return (
@@ -27,18 +35,19 @@ export default function TimberAdjustment({ item }: { item: Item }) {
         disabled={busy}
         label="Confirmar movimiento de estas medidas"
         onSave={async (d) => {
-          if (!line.timber?.widths.length)
-            throw new Error("Añade las medidas.");
+          const timber = requireTimber(line);
           const result = await run({
             kind: "stock-adjust",
             input: {
               itemId: item.id,
               direction,
-              qty: q(line.qty),
+              qty: q(
+                String(timberTotals(item.fields.thicknessMm!, timber).pieces),
+              ),
               unit: "piece",
               timber: {
-                lengthMm: line.timber.lengthMm,
-                widths: line.timber.widths,
+                lengthMm: timber.lengthMm,
+                widths: timber.widths,
               },
               unitCostMinor: cents(line.cost),
               reason: String(d.get("reason")),
@@ -52,6 +61,12 @@ export default function TimberAdjustment({ item }: { item: Item }) {
               ...old,
               qty: "0",
               timber: { lengthMm: "", widths: [], priceMinor: item.priceMinor },
+              widthsEntry: {
+                version: 2,
+                system: business.timberSystem ?? "imperial",
+                text: "",
+                source: "text",
+              },
               widthInput: "",
               lengthInput: "",
             }));
@@ -74,6 +89,16 @@ export default function TimberAdjustment({ item }: { item: Item }) {
             setLine((old) => ({
               ...old,
               qty: "0",
+              widthsEntry: {
+                version: 2,
+                system:
+                  old.widthsEntry?.system ??
+                  business.timberSystem ??
+                  "imperial",
+                text: "",
+                source: "text",
+              },
+              widthInput: "",
               timber: { lengthMm: "", widths: [], priceMinor: item.priceMinor },
             }))
           }

@@ -1,3 +1,4 @@
+import { errorMessage } from "../../shared/errors";
 import { useState } from "react";
 import { showQuantity } from "../../../shared/workspace/exact";
 import type { Item, SaleLineInputV2 } from "../../../shared/workspace/model";
@@ -66,9 +67,7 @@ export default function Quotes({
                     ),
                   });
                 } catch (e) {
-                  setError(
-                    e instanceof Error ? e.message : "No se pudo cargar.",
-                  );
+                  setError(errorMessage(e, "No se pudo cargar."));
                 }
               })();
             }}

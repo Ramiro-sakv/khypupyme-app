@@ -1,3 +1,4 @@
+import { AppError } from "../../shared/app-errors.js";
 import { TimberTutorialService } from "./workspace/TimberTutorialService.js";
 import { AccountService } from "./workspace/AccountService.js";
 import { WorkspaceService } from "./workspace/WorkspaceService.js";
@@ -129,6 +130,23 @@ export const workspaceAccount = onCall(options, async (request) => {
   }
 });
 function workspaceFailure(cause: unknown): never {
+  if (cause instanceof AppError) {
+    const codes: Record<number, ConstructorParameters<typeof HttpsError>[0]> = {
+      400: "invalid-argument",
+      401: "unauthenticated",
+      403: "permission-denied",
+      404: "not-found",
+      409: "already-exists",
+      429: "resource-exhausted",
+      500: "internal",
+      503: "unavailable",
+      504: "deadline-exceeded",
+    };
+    throw new HttpsError(codes[cause.status] ?? "internal", cause.message, {
+      appCode: cause.appCode,
+      field: cause.field ?? "",
+    });
+  }
   if (cause instanceof HttpsError) throw cause;
   // Errores de dominio son mensajes propios; fallos del SDK conservan respuesta incierta.
   if (cause instanceof Error && !("code" in cause))

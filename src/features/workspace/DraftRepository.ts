@@ -1,3 +1,5 @@
+import { AppError } from "../../../shared/app-errors";
+import type { TimberWidthEntry } from "../../../shared/workspace/timber-width-entry";
 import type { TimberSaleSelection } from "../../../shared/workspace/model";
 import type {
   Method,
@@ -7,6 +9,7 @@ import type {
 import type { WorkspaceIdentity } from "./WorkspaceCommandService";
 export type DraftKind = "sale" | "purchase" | "quote";
 export interface DraftLine {
+  widthsEntry?: TimberWidthEntry | undefined;
   id?: string | undefined;
   timber?: TimberSaleSelection | undefined;
   lengthInput?: string | undefined;
@@ -50,10 +53,12 @@ export interface TradeDraft extends DraftVersion {
   input: TradeDraftInput;
   submitted: WorkspaceCommand | null;
 }
-export class DraftConflict extends Error {
+export class DraftConflict extends AppError {
   constructor(readonly current: TradeDraft | null) {
     super(
       "Otra pestaña cambió este borrador. Tu trabajo actual se conserva en esta pantalla.",
+      409,
+      "DRAFT_CONFLICT",
     );
   }
 }

@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.5.0-beta.4 - 2026-11-08 (local, sin push)
+
+- Anchos calculados al escribir: comas, listas y cantidad x ancho; normalización comercial entera hacia abajo solo en pulgadas. Captura versionada y selección antigua conservada.
+- Resultados con máximo dos decimales y cálculo monetario exacto; cobro minimizable y oculto con carrito vacío, duplicación de grupo sin anchos y vaciado explícito.
+- Corregido filtro de activos para clientes y medidas; errores de disponibilidad con medidas/cantidades y mensajes con código en las pantallas compartidas, manteniendo la clasificación de respuestas inciertas.
+- Sin migrar datos, reglas nuevas ni dependencias. Verificación estática y paquetes locales; sin pruebas, capturas ni recorridos. Windows/WebKit sigue pendiente.
+
 ## 0.5.0-beta.3 - 2026-11-07 (local, sin push)
 
 - Madera agrupada por especie/espesor, largos y anchos con piezas y volumen exacto; entrada, venta y devolución física por medida en transacciones existentes. Tarifa acordada por grupo sin modificar catálogo.

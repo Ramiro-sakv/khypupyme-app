@@ -1,3 +1,4 @@
+import { errorMessage } from "../../shared/errors";
 import { useEffect, useRef, useState } from "react";
 import type {
   WorkspaceAction,
@@ -27,7 +28,7 @@ export function useWorkspaceCommands(
     [rejectedOperationId, setRejectedOperationId] = useState(""),
     alive = useRef(true);
   const message = (e: unknown) =>
-    e instanceof Error ? e.message : "No se pudo completar la solicitud.";
+    errorMessage(e, "No se pudo completar la solicitud.");
   useEffect(() => {
     let active = true;
     alive.current = true;

@@ -1,3 +1,4 @@
+import { errorMessage } from "../../shared/errors";
 import { resetLocalWorkspace } from "./resetLocalWorkspace";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
@@ -12,7 +13,7 @@ import { operationJournal } from "./OperationJournal";
 import type { NewBusiness, WorkspaceRepository } from "./WorkspaceRepository";
 import Workspace from "./Workspace";
 const message = (e: unknown) =>
-  e instanceof Error ? e.message : "No se pudo completar la solicitud.";
+  errorMessage(e, "No se pudo completar la solicitud.");
 
 export default function Account({
   uid,

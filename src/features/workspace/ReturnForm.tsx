@@ -1,9 +1,10 @@
+import { displayQuantity as showQuantity } from "../../../shared/workspace/presentation";
 import { timberTotals } from "../../../shared/workspace/timber-groups";
 import TimberReturnFields from "./TimberReturnFields";
 import type { TimberSelection } from "../../../shared/workspace/model";
 import { useState } from "react";
 import { UNITS } from "../../../shared/workspace/catalog";
-import { compare, showQuantity, ZERO } from "../../../shared/workspace/exact";
+import { compare, ZERO } from "../../../shared/workspace/exact";
 import type {
   Item,
   ReturnInput,

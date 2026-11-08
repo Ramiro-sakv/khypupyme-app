@@ -1,3 +1,4 @@
+import { errorMessage } from "../../../shared/errors";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ComponentType } from "react";
 import { useSearchParams } from "react-router";
@@ -119,11 +120,7 @@ export default function TimberTutorialHost({
         })
         .catch((e) => {
           if (current)
-            setError(
-              e instanceof Error
-                ? e.message
-                : "No se pudo consultar el tutorial.",
-            );
+            setError(errorMessage(e, "No se pudo consultar el tutorial."));
         });
     }
     return () => {
@@ -150,11 +147,7 @@ export default function TimberTutorialHost({
       practiceRepo?.subscribe((next) => {
         void accept(next).catch((e) => {
           if (alive.current)
-            setError(
-              e instanceof Error
-                ? e.message
-                : "No se pudo actualizar el tutorial.",
-            );
+            setError(errorMessage(e, "No se pudo actualizar el tutorial."));
         });
       }),
     [practiceRepo, accept],
@@ -173,9 +166,7 @@ export default function TimberTutorialHost({
       await task();
     } catch (e) {
       if (alive.current)
-        setError(
-          e instanceof Error ? e.message : "No se pudo completar el tutorial.",
-        );
+        setError(errorMessage(e, "No se pudo completar el tutorial."));
     } finally {
       locked.current = false;
       if (alive.current) setLoading(false);

@@ -1,3 +1,4 @@
+import { errorMessage } from "../../shared/errors";
 import { useTimberTutorial } from "./tutorial/context";
 import { useState } from "react";
 import type { BusinessDocument } from "../../../shared/workspace/model";
@@ -26,9 +27,10 @@ export default function Documents() {
       );
     } catch (cause) {
       setError(
-        cause instanceof Error
-          ? cause.message
-          : "No se pudo generar el documento. Puedes reintentar sin repetir la operación.",
+        errorMessage(
+          cause,
+          "No se pudo generar el documento. Puedes reintentar sin repetir la operación.",
+        ),
       );
     } finally {
       setBusy("");

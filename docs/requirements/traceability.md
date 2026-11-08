@@ -120,3 +120,20 @@ Plan explícito del propietario posterior al tutorial beta 2. No se atribuye al 
 | Compatibilidad y aislamiento | contexto original, sesiones v1, diarios y limpieza existentes | Sin modificar reglas, negocios, registros históricos ni servicios habituales |
 
 La búsqueda de clientes admite hasta 10.000 registros y falla expresamente si se supera; no modifica documentos anteriores. La entrega no incorpora facturación fiscal ni despiece automático. Los instaladores siguen siendo locales y la incidencia Windows/WebKit permanece abierta.
+
+
+## Captura y cobro de madera 0.5.0-beta.4 — 08/11/2026
+
+Plan confirmado del propietario, basado en su calculadora y regla comercial de ancho en pulgadas enteras hacia abajo. No se presenta como normativa nacional ni se atribuye al dossier.
+
+| Necesidad | Implementación | Verificación / límite |
+|---|---|---|
+| Comas, listas y cantidad x ancho | timber-width-entry, TimberWidthEntry, TimberLineEditor y Cart | Tipos/compilación; casos numéricos y captura real pendientes |
+| Ancho comercial entero | Parser exacto solo en modo pulgadas y aviso de normalización | Sin cambiar espesor, métrico ni selección antigua |
+| Cálculo reactivo sin datos anteriores | Texto versionado y validación antes de generar el comando | Entrada inválida no reutiliza selección previa; sin envíos automáticos |
+| Máximo dos decimales visibles | presentation, etiquetas y documentos nuevos | Exactitud interna y entradas/cotizaciones conservadas; no cambia exact.ts |
+| Cobro minimizable y duplicación | Trade, controles accesibles y CSS | Oculto al vaciar; revisión previa al envío; duplicar deja anchos vacíos |
+| Clientes/medidas y errores | WorkspaceQueries, AppError, errorMessage, ActionForm | Filtro active por recurso, índice de clientes y mensajes con códigos; no cambia autorización |
+| Compatibilidad | Metadatos de borrador v2 y recuperación explícita del formato anterior | Sin migrar documentos, existencias ni solicitudes pendientes |
+
+No se ejecutan pruebas, capturas ni recorridos; los escenarios de aceptación se conservan para revisión posterior en validation.md. Instaladores exclusivamente locales, commit sin push y Windows/WebKit continúa pendiente.

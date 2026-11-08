@@ -482,3 +482,38 @@ Hashes también en artifacts/SHA256SUMS-beta5b3.txt, fuera de Git:
 
 - KhypuPyme-0.5.0-beta.3-android-debug.apk: **5644549 bytes**, SHA-256 5057c1a9781255ee0ad06c454dca38dffcc86c9aa0adbd831614472c8304efda.
 - KhypuPyme-0.5.0-beta.3-windows-x64-setup.exe: **2493127 bytes**, SHA-256 08126edfcb6374c1090bc7e11b7117ec2eac5d8ee197dacd7a3e11665706fdf5.
+
+
+## Captura, cobro y errores 0.5.0-beta.4 — 08/11/2026
+
+### Resultados reales
+
+- Lint final aprobado (pnpm lint, salida 0). TypeScript estricto y compilación web aprobados en pnpm build, salida 0; Functions aprobadas en pnpm build:functions, salida 0. Se corrigió una duplicación de propiedades detectada por el typecheck inicial antes de la verificación final.
+- Revisión estática de parser y compatibilidad: ancho comercial entero por división BigInt hacia abajo solo en captura imperial; listas y multiplicadores positivos; conteos/límites; metadatos v2 con unidad original y origen texto/selección. Cart revalida texto antes de generar una solicitud. El texto pendiente beta 3 no cambia de gramática automáticamente.
+- Revisión estática de presentación: la función exacta showQuantity y exactDecimal siguen sirviendo a conversiones/campos y reconstrucción de cotizaciones; displayQuantity se usa solo al presentar. Dinero se calcula desde fracciones originales, no desde pies redondeados. Los documentos anteriores no se reescriben.
+- Se corrigió el rechazo de active en customersV2 y timberGroups y se añadió el índice de clientes activos. Autorización y reglas sin cambios. Los mensajes se formatean en el punto de presentación; la excepción original del SDK sigue llegando a la clasificación de confirmación/reintento. WorkspaceCommandService y definitiveFailure no cambian.
+- Inspección de solo lectura a demo-khypupyme: presentes los 21 negocios originales, con 126 artículos y 153 ventas; 24 negocios ordinarios en total y dos espacios de práctica. El agente no ejecutó escrituras comerciales, limpieza ni normalización de registros del usuario; no modificó cuenta, exportación ni servicios habituales.
+- No se ejecutaron pnpm check, tests unitarios/integración/emuladores, capturas, vídeos ni recorridos automáticos. Los instaladores no se instalaron ni se abrieron. La compilación no acredita funcionamiento visual, financiero ni en dispositivos físicos.
+- Advertencia de Vite: los bloques diferidos de pdfmake y fuentes superan 500 kB; no se añadieron dependencias.
+
+### Escenarios pendientes de revisión funcional
+
+- 2 pulgadas × 10 pies, tarifa Bs 22; anchos 6, 10, 5, 3, 1, 3, 3: siete piezas, 51,67 pies tablares y Bs 1.136,67. Es un resultado esperado documentado, no una prueba ejecutada.
+- Mismos espesor/largo/tarifa; 5x10, 4x7, 7x3: 16 piezas, 165 pies tablares, Bs 3.630,00. X y ×, espacios, duplicados, saltos de línea y punto y coma.
+- Ancho 5.5 → 5 con aviso; una pieza de ancho 5, espesor 2 y largo 10 a Bs 22: mostrar 8,33 pies y Bs 183,33 sin recalcular desde 8,33. Rechazo de ancho menor de una pulgada, cero/negativos, multiplicadores fraccionarios y límites de piezas/grupos/líneas.
+- Expresiones incompletas (5x, separadores vacíos), corrección, vaciado y duplicación sin cantidades; no enviar ni reutilizar selección anterior. Métrico con punto decimal; espesor fraccionario intacto.
+- Medidas guardadas no enteras, borrador anterior con coma decimal pendiente, restauración con distinta preferencia de unidad y consulta/reintento de solicitud original sin reinterpretación.
+- Minimizar/expandir mediante teclado, conservar pago/cliente/revisión, ocultar con carrito vacío, revisión al cambiar importe y expansión/enfoque ante campos pendientes sin registrar nada.
+- Listar clientes activos y medidas, búsqueda paginada, filtro inválido por recurso, stock insuficiente con producto/medidas/cantidades y códigos 400/401/403/409/429/500/503/504 sin convertir todos a 400.
+- Aislamiento entre cuentas/negocios/prácticas, stock concurrente, conflictos de borradores y solicitudes inciertas; formato de documentos nuevos y conservación de documentos históricos.
+
+La incidencia anterior de reingreso Windows/WebKit **permanece abierta, sin corrección acreditada**. Sin push, publicación, despliegue, servicios externos ni accesos de escritorio.
+
+### Paquetes finales y recuento
+
+Código fuente respecto de 1a46ed7: **43 archivos, +1172 / -446 líneas físicas**, excluyendo documentación, metadatos y archivos generados. Incluye reorganización de presentación; no es una medida de funcionalidad verificada.
+
+Android final: assembleDebug aprobado (BUILD SUCCESSFUL, 31 s, versionCode 50004). Windows final: Tauri release y NSIS x64 aprobados, versión 0.5.0-beta.4. Ambos paquetes regenerados tras el último ajuste del resumen minimizado y validación del importe; no se instalaron ni se abrieron. Hashes también en artifacts/SHA256SUMS-beta5b4.txt, fuera de Git:
+
+- KhypuPyme-0.5.0-beta.4-android-debug.apk: **5648906 bytes**, SHA-256 1f75e29340c6b343517f588d7b6c7e906f05c6ac5583dfe8c2afae614249ad3e.
+- KhypuPyme-0.5.0-beta.4-windows-x64-setup.exe: **2498459 bytes**, SHA-256 d350aca7817f101f582e76eecaa7a7c41b10bcdd8bd1f7e1b642e27c4fc206a5.

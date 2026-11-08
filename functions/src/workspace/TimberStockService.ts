@@ -1,3 +1,6 @@
+import type { TimberSystem } from "../../../shared/workspace/timber-measures.js";
+import { AppError } from "../../../shared/app-errors.js";
+import { dimensionDisplayFromMm } from "../../../shared/workspace/timber-measures.js";
 import { today } from "../../../shared/commerce.js";
 import { createHash } from "node:crypto";
 import type {
@@ -27,6 +30,7 @@ export class TimberStockService {
   constructor(
     private readonly work: UnitOfWork,
     private readonly operationId: string,
+    private readonly system: TimberSystem = "imperial",
   ) {}
   private key(itemId: string, length: string, width: string) {
     return createHash("sha256")
@@ -67,10 +71,24 @@ export class TimberStockService {
         this.key(item.id, selection.lengthMm, row.widthMm),
       );
       if (!stock || stock.pieces < row.pieces)
-        throw new Error(
-          "No hay suficientes piezas de una de las medidas de " +
-            item.name +
-            ".",
+        throw new AppError(
+          item.name +
+            ", largo " +
+            dimensionDisplayFromMm(
+              selection.lengthMm,
+              "lengthMm",
+              this.system,
+            ) +
+            (this.system === "imperial" ? "′, ancho " : " mm, ancho ") +
+            dimensionDisplayFromMm(row.widthMm, "widthMm", this.system) +
+            (this.system === "imperial" ? "″: solicitas " : " mm: solicitas ") +
+            row.pieces +
+            " piezas y quedan " +
+            (stock?.pieces ?? 0) +
+            ". Registra una entrada si recibiste más madera.",
+          400,
+          "STOCK_INSUFFICIENT",
+          "timber-widths",
         );
     }
     return totals;

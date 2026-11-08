@@ -1,3 +1,4 @@
+import { errorMessage } from "../../shared/errors";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { WorkspaceCommand } from "../../../shared/workspace/model";
 import type { DraftKind, TradeDraft, TradeDraftInput } from "./DraftRepository";
@@ -52,7 +53,7 @@ export function useTradeDraft(
     latest = useRef(input);
   const serialized = JSON.stringify(input),
     message = (e: unknown) =>
-      e instanceof Error ? e.message : "No se pudo guardar el borrador.";
+      errorMessage(e, "No se pudo guardar el borrador.");
   useEffect(() => {
     latest.current = input;
   }, [input]);

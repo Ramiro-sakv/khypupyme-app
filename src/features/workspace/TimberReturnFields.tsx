@@ -1,16 +1,11 @@
+import { displayQuantity as showQuantity } from "../../../shared/workspace/presentation";
 import type {
   SaleLineV2,
   TimberSelection,
 } from "../../../shared/workspace/model";
-import {
-  add,
-  amount,
-  div,
-  showQuantity,
-  ZERO,
-} from "../../../shared/workspace/exact";
+import { add, amount, div, ZERO } from "../../../shared/workspace/exact";
 import { timberTotals } from "../../../shared/workspace/timber-groups";
-import { dimensionInputFromMm } from "../../../shared/workspace/timber-measures";
+import { dimensionDisplayFromMm as dimensionInputFromMm } from "../../../shared/workspace/timber-measures";
 import { useWorkspace } from "./context";
 import { bob } from "./format";
 export default function TimberReturnFields({

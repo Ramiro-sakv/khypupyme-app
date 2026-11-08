@@ -1,6 +1,6 @@
 # KhypuPyme
 
-Cuaderno digital para negocios de Bolivia. Beta local **0.5.0-beta.3**, sin publicación ni conexión cloud activa.
+Cuaderno digital para negocios de Bolivia. Beta local **0.5.0-beta.4**, sin publicación ni conexión cloud activa.
 
 Una cuenta administra varios negocios independientes. Después de ingresar se crea un espacio, se responde el cuestionario y se confirma un rubro fijo. Cada negocio conserva catálogo, clientes, compras, ventas, fiados, caja y documentos propios. Se abre el último negocio autorizado; **Cambiar negocio** vuelve al selector.
 
@@ -16,15 +16,19 @@ Las solicitudes sin confirmación se conservan en IndexedDB por cuenta/negocio, 
 
 React + TypeScript + Vite + Firebase Functions/Firestore/Auth locales; Android con Capacitor y Windows con Tauri. Los paquetes locales aún necesitan los emuladores encendidos en el PC. Android usa el host 10.0.2.2 del emulador Android; no está preparado para teléfonos físicos. Esta entrega se compiló sin ejecutar pruebas por instrucción del propietario; no se acredita uso comercial.
 
-## Maderas rápidas y tutorial · 0.5 beta 3
+## Maderas rápidas y tutorial · 0.5 beta 4
 
 Crea un producto **Madera por especie, espesor y medidas agrupadas**. Desde Compras o una entrada manual con costo, registra grupos con largo y anchos; repetir un ancho aumenta piezas, sin crear productos nuevos. Cada producto conserva piezas, volumen exacto y valor; la venta comprueba disponibilidad de cada medida.
 
-En una misma venta puedes añadir varios grupos, especies, largos y otros productos. Cada grupo calcula piezas, pies tablares e importe. Ejemplo sugerido: Pino, espesor 2 pulgadas, largo 10 pies, anchos 6; 8; 10, tarifa Bs 10/pie tablar: tres piezas, 40 pies tablares, Bs 400. La tarifa parte del catálogo y puede cambiar solo para ese grupo; el registro conserva tarifa original y aplicada. En compras y entradas agrupadas el costo se declara **por pie tablar**. Pegar anchos admite punto y coma o saltos de línea; la coma decimal y fracciones como 1 1/2 no se usan como separadores.
+En una misma venta puedes añadir varios grupos, especies, largos y otros productos. Cada grupo calcula piezas, pies tablares e importe. Ejemplo sugerido: Pino, espesor 2 pulgadas, largo 10 pies, anchos 6; 8; 10, tarifa Bs 10/pie tablar: tres piezas, 40 pies tablares, Bs 400. La tarifa parte del catálogo y puede cambiar solo para ese grupo; el registro conserva tarifa original y aplicada. En compras y entradas agrupadas el costo se declara **por pie tablar**. La captura calcula al escribir: comas, punto y coma o saltos de línea separan piezas; 5x10 significa cinco piezas de ancho diez, y también admite X o ×. En pulgadas, el ancho comercial descarta la fracción: 5.5 se usa como 5, con aviso; anchos menores de una pulgada se rechazan. El espesor conserva sus fracciones. En métrico el ancho conserva decimales con punto. Se agrupan anchos repetidos y una entrada incompleta no se envía. Los resultados muestran máximo dos decimales, sin redondear el cálculo interno del precio.
+
+El panel de cobro permite **Minimizar / Mostrar cobro**, conserva sus campos y se oculta cuando el carrito queda vacío. Confirmar exige abrirlo y revisar el importe vigente. **Duplicar grupo** conserva producto, largo y tarifa con anchos vacíos; **Vaciar anchos** limpia solo esa captura.
+
+Los borradores incorporan una captura versión 2 separada del contrato financiero. Un texto pendiente anterior conserva sus separadores originales y requiere recuperarlo o descartarlo expresamente. La selección de medidas existentes mantiene sus valores canónicos, incluidas medidas antiguas no enteras; no se normalizan historiales ni solicitudes enviadas.
 
 **Mi negocio → Medidas de madera** conserva pulgadas/pies o métrico. El catálogo anterior mantiene sus identificadores, unidades, tarifas e historiales; no se convierte automáticamente al modelo agrupado. Las devoluciones del nuevo modelo eligen las medidas originales y sus piezas pendientes, con costo histórico. Los documentos siguen siendo no fiscales.
 
-El cliente es opcional al contado; un fiado nuevo requiere cliente registrado. Desde la venta puedes buscar clientes de todo el negocio o crear uno sin perder el carrito. Nombre obligatorio y teléfono opcional. La búsqueda compatible con clientes antiguos tiene un límite explícito de 10.000 registros, sin reescribirlos.
+El cliente es opcional al contado; un fiado nuevo requiere cliente registrado. Desde la venta puedes buscar clientes de todo el negocio o crear uno sin perder el carrito. Nombre obligatorio y teléfono opcional. La búsqueda compatible con clientes antiguos tiene un límite explícito de 10.000 registros, sin reescribirlos. El filtro de activos admite catálogo, clientes y medidas. Los errores muestran el dato que falta o la operación fallida y su código; la validación local utiliza categorías de aplicación, sin fingir una petición HTTP. La presentación no sustituye las excepciones originales ni altera consultas y reintentos manuales.
 
 En **Inicio** o **Cómo trabajar aquí → Aprender usando la aplicación**, la guía nueva oscurece el fondo y mantiene activo el control o formulario indicado. Ofrece siete recorridos cortos elegibles: inventario; venta; clientes/fiados; cotizaciones/devoluciones; caja/gastos; cortes/entregas; informes/documentos. Los datos son sugerencias libres; los importes y existencias proceden de tus registros. Los pasos comerciales avanzan tras confirmación del servidor. No rellena ni envía formularios automáticamente.
 

@@ -1,3 +1,4 @@
+import { errorMessage } from "../../shared/errors";
 import { useState } from "react";
 import { Icon } from "./Icon";
 import { useWorkspace } from "./context";
@@ -167,9 +168,7 @@ export default function DraftStatus({
                     })
                     .catch((e) =>
                       setStatusError(
-                        e instanceof Error
-                          ? e.message
-                          : "No se pudo recuperar la solicitud.",
+                        errorMessage(e, "No se pudo recuperar la solicitud."),
                       ),
                     )
                     .finally(() => setChecking(false));

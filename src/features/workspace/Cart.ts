@@ -1,3 +1,5 @@
+import type { TimberWidthEntry } from "../../../shared/workspace/timber-width-entry";
+import { requireTimber } from "./TimberWidthEntry";
 import { timberTotals } from "../../../shared/workspace/timber-groups";
 import type { TimberSaleSelection } from "../../../shared/workspace/model";
 import { ceil, div, fraction, mul } from "../../../shared/workspace/exact";
@@ -10,6 +12,7 @@ import type {
 import { cents, q } from "./format";
 
 export interface CartLine {
+  widthsEntry?: TimberWidthEntry | undefined;
   id?: string | undefined;
   timber?: TimberSaleSelection | undefined;
   lengthInput?: string | undefined;
@@ -28,9 +31,8 @@ export interface CartLine {
 }
 export function delivered(line: CartLine) {
   if (line.item.kind === "timber-grouped") {
-    if (!line.timber?.widths.length)
-      throw new Error("Añade las medidas de la madera.");
-    return timberTotals(line.item.fields.thicknessMm!, line.timber).volume;
+    return timberTotals(line.item.fields.thicknessMm!, requireTimber(line))
+      .volume;
   }
   let requested = mul(q(line.qty), line.item.units[line.unit]!);
   if (line.item.kind === "ceramic" && line.unit === "m2")
@@ -45,28 +47,40 @@ export function delivered(line: CartLine) {
   return requested;
 }
 export function saleInputs(lines: CartLine[]): SaleLineInputV2[] {
-  return lines.map((l) => ({
-    ...(l.timber ? { timber: l.timber } : {}),
-    itemId: l.item.id,
-    qty: q(l.qty),
-    unit: l.unit,
-    fullBoxes: l.fullBoxes,
-    wastePercent: l.wastePercent,
-    serials: l.serials,
-    expectedPriceMinor: l.item.priceMinor,
-  }));
+  return lines.map((l) => {
+    const timber =
+      l.item.kind === "timber-grouped" ? requireTimber(l) : undefined;
+    return {
+      ...(timber ? { timber } : {}),
+      itemId: l.item.id,
+      qty: timber
+        ? q(String(timberTotals(l.item.fields.thicknessMm!, timber).pieces))
+        : q(l.qty),
+      unit: l.unit,
+      fullBoxes: l.fullBoxes,
+      wastePercent: l.wastePercent,
+      serials: l.serials,
+      expectedPriceMinor: l.item.priceMinor,
+    };
+  });
 }
 export function receiptInputs(lines: CartLine[]): ReceiptLineInput[] {
-  return lines.map((l) => ({
-    ...(l.timber
-      ? { timber: { lengthMm: l.timber.lengthMm, widths: l.timber.widths } }
-      : {}),
-    itemId: l.item.id,
-    qty: q(l.qty),
-    unit: l.unit,
-    unitCostMinor: cents(l.cost),
-    lot: l.lot,
-    expiresOn: l.expiresOn,
-    serials: l.serials,
-  }));
+  return lines.map((l) => {
+    const timber =
+      l.item.kind === "timber-grouped" ? requireTimber(l) : undefined;
+    return {
+      ...(timber
+        ? { timber: { lengthMm: timber.lengthMm, widths: timber.widths } }
+        : {}),
+      itemId: l.item.id,
+      qty: timber
+        ? q(String(timberTotals(l.item.fields.thicknessMm!, timber).pieces))
+        : q(l.qty),
+      unit: l.unit,
+      unitCostMinor: cents(l.cost),
+      lot: l.lot,
+      expiresOn: l.expiresOn,
+      serials: l.serials,
+    };
+  });
 }

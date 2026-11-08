@@ -1,3 +1,4 @@
+import { displayQuantity as showQuantity } from "../../../shared/workspace/presentation";
 import type { TimberSelection } from "../../../shared/workspace/model";
 import {
   timberSelectionText,
@@ -6,7 +7,7 @@ import {
 import { useState } from "react";
 import { UNITS } from "../../../shared/workspace/catalog";
 import type { Quantity } from "../../../shared/workspace/exact";
-import { showQuantity } from "../../../shared/workspace/exact";
+
 import type { Item, Method, Unit } from "../../../shared/workspace/model";
 import { Panel } from "./Panel";
 import { useRecords } from "./context";

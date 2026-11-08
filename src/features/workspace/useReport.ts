@@ -1,3 +1,4 @@
+import { errorMessage } from "../../shared/errors";
 import { useEffect, useState } from "react";
 import type { WorkspaceReport } from "../../../shared/workspace/model";
 import { useWorkspace } from "./context";
@@ -22,8 +23,7 @@ export function useReport(from: string, to: string) {
           setResult({
             key,
             report: null,
-            error:
-              e instanceof Error ? e.message : "No se pudo cargar el informe.",
+            error: errorMessage(e, "No se pudo cargar el informe."),
           });
       });
     return () => {

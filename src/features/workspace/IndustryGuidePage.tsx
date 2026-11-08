@@ -1,10 +1,11 @@
+import { displayQuantity as showQuantity } from "../../../shared/workspace/presentation";
 import TimberVisual from "./TimberVisual";
 import TutorialEntry from "./tutorial/TutorialEntry";
 import { useState } from "react";
 import { INDUSTRY_GUIDES } from "../../../shared/workspace/industry-workflows";
 import { INDUSTRIES } from "../../../shared/business-industries";
 import type { Item } from "../../../shared/workspace/model";
-import { compare, showQuantity, ZERO } from "../../../shared/workspace/exact";
+import { compare, ZERO } from "../../../shared/workspace/exact";
 import { useRecords, useWorkspace } from "./context";
 import { bob, localDate, today } from "./format";
 import { Pager } from "./ui";

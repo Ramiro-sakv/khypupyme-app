@@ -54,6 +54,20 @@ export class IndexedDbDraftRepository implements DraftRepository {
       data.input.lines.length > 20
     )
       throw new Error("Borrador incompatible. No se cargó ni se modificó.");
+    for (const line of data.input.lines) {
+      const entry = line.widthsEntry;
+      if (
+        entry &&
+        (entry.version !== 2 ||
+          !["imperial", "metric"].includes(entry.system) ||
+          !["text", "selection"].includes(entry.source) ||
+          typeof entry.text !== "string" ||
+          entry.text.length > 20000)
+      )
+        throw new Error(
+          "La captura del borrador no es compatible. El original se conserva y no se enviará.",
+        );
+    }
     if (
       data.submitted &&
       validateWorkspaceCommand(data.submitted).businessId !== context.businessId

@@ -14,6 +14,7 @@ import type { WorkspaceRepository } from "./WorkspaceRepository";
 import { WorkspaceContext } from "./context";
 import { confirmDiscardChanges } from "./navigation";
 import { useWorkspaceCommands } from "./useWorkspaceCommands";
+import { useCorrectionAuthorization } from "./useCorrectionAuthorization";
 const WorkspaceHome = lazy(() => import("./WorkspaceHome"));
 function WorkspaceContent({
   uid,
@@ -37,6 +38,7 @@ function WorkspaceContent({
         }),
       [repository, uid, business.id],
     );
+  const protection = useCorrectionAuthorization(business, repository);
   const {
     pending,
     ready,
@@ -52,7 +54,7 @@ function WorkspaceContent({
     retry,
     prepare,
     recover,
-  } = useWorkspaceCommands(commandService, repository, onBusiness);
+  } = useWorkspaceCommands(commandService, repository, onBusiness, protection.authorize);
   return (
     <WorkspaceContext
       value={{
@@ -79,6 +81,7 @@ function WorkspaceContent({
       }}
     >
       <CashStateProvider>
+        {protection.dialog}
         <div
           className="business-workspace"
           data-industry={business.industryId ?? "general"}

@@ -62,6 +62,8 @@ export interface TimberSaleSelection extends TimberSelection {
 }
 export type TimberCategory = "superShort" | "short" | "long";
 export interface TimberSpecies {
+  species?: string;
+  code?: string;
   id: string;
   name: string;
   reference: string;
@@ -80,6 +82,15 @@ export interface TimberSummary {
   category: TimberCategory;
   pieces: number;
   volume: Quantity;
+}
+export interface TimberStockRow {
+  id: string;
+  lengthMm: string;
+  thicknessMm: string;
+  widthMm: string;
+  pieces: number;
+  volume: Quantity;
+  category: TimberCategory;
 }
 export interface TimberStockGroup {
   speciesId?: string;
@@ -257,7 +268,7 @@ export interface SaleInput {
   quoteId: string;
 }
 export type WorkspaceAction =
-  | { kind: "timber-species"; input: { id: string; name: string; reference: string; prices: Record<TimberCategory, number>; expectedRevision: number; active: boolean } }
+  | { kind: "timber-species"; input: { id: string; name: string; species?: string; code?: string; reference: string; prices: Record<TimberCategory, number>; expectedRevision: number; active: boolean } }
   | { kind: "timber-preferences"; input: { system: TimberSystem } }
   | OperationalAction
   | {
@@ -424,6 +435,8 @@ export interface CommandResult {
   message: string;
 }
 export type WorkspaceResource =
+  | "timberStock"
+  | "auditEvents"
   | "timberSummary"
   | "timberSpecies"
   | "appointments"
@@ -467,6 +480,7 @@ export interface WorkspaceQuery {
   itemId?: string;
   lengthMm?: string;
   thicknessMm?: string;
+  widthMm?: string;
   from?: string;
   to?: string;
   barcode?: string;

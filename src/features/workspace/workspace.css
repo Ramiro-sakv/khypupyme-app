@@ -1751,3 +1751,24 @@
 .timber-checkout-bar,
 .product-metrics > div,
 .cash-current { background: var(--soft); }
+
+/* Medidas disponibles: el detalle principal no requiere elegir primero un espesor. */
+.inventory-detail-panel { width: min(1160px, 100%); }
+.product-identity { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 24px; padding: 16px; background: var(--soft); border-radius: 10px; margin-bottom: 16px; }
+.product-identity strong { font-size: 1.15rem; }
+.stock-filters { display: grid; grid-template-columns: repeat(4, minmax(110px, 1fr)); gap: 12px; align-items: end; padding: 14px; background: var(--soft); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 14px; }
+.stock-filters label { margin: 0; }
+.stock-filters button { grid-column: 1 / -1; justify-self: start; }
+.timber-stock-table { min-width: 650px; }
+.timber-stock-table td { font-variant-numeric: tabular-nums; }
+.stock-group-heading th { background: var(--soft); color: var(--primary); text-align: left; font-weight: 700; }
+.timber-stock-detail .table-scroll { max-height: none; }
+@media (max-width: 767px) { .stock-filters { grid-template-columns: 1fr 1fr; } .inventory-detail-panel .panel-body { padding: 14px; } .product-identity { align-items: flex-start; flex-direction: column; gap: 6px; } }
+
+.report-chart-canvas { width: 100%; min-width: 0; }
+.report-chart-bars svg { display: block; width: 100%; height: auto; min-height: 230px; }
+.report-chart-bars g[role="button"] { cursor: pointer; }
+.report-chart-bars g[role="button"]:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.chart-selection { display: flex; flex-wrap: wrap; gap: 8px 24px; background: var(--soft); padding: 12px 16px; border-radius: 10px; margin: 6px 0 12px; font-variant-numeric: tabular-nums; }
+.chart-selection strong { width: 100%; }
+.chart-empty { display: grid; place-content: center; text-align: center; min-height: 230px; border: 1px dashed var(--line); border-radius: 12px; padding: 24px; margin: 16px 0; }

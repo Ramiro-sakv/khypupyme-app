@@ -599,3 +599,47 @@ Windows aprobado: Tauri release optimizado en 2 min 56 s y NSIS x64, salida 0. L
 - KhypuPyme-0.5.0-beta.6-windows-x64-setup.exe: **2502625 bytes**, SHA-256 2ec333e8c4475b848bc75c22fbd90f33f0c406105d8ccd1a0a15be038cc01113.
 
 Archivos principales: shared/workspace/timber-species.ts y model/validation; Functions TimberSpeciesService, InventoryService, TimberStockService, TradeService y WorkspaceQueries; interfaz TimberSpeciesCatalog, TimberSpeciesPicker, TimberLineEditor, Cart, carga de catálogo/borradores/cotizaciones y tutorial. Reglas y datos del propietario conservados, sin push, despliegue, publicación o accesos nuevos.
+
+
+## Inventario detallado y correcciones protegidas 0.5.0-beta.7 — 08/11/2026
+
+### Implementación y revisión estática
+
+- Nombre de producto, especie y código separados de referencia. Contrato anterior opcional compatible: fichas antiguas se presentan con especie por completar, sin inferencia ni migración. Código único en barcodeIndex dentro del negocio, generación con contador, revisión y conservación de snapshots históricos. Variantes existentes y sus IDs/costos no se consolidan ni reinterpretan; las operaciones nuevas copian la identidad vigente.
+- TimberStockQueries valida contexto y filtros, usa fracciones para ordenar largo/espesor/ancho/ID, devuelve 100 filas y cursor por tupla; calcula totales filtrados y falla explícitamente sobre 10.000 grupos. Carga acumulada por negocio/filtros/revisión, medidas visibles sin filtro previo y resumen secundario. Índices de combinaciones de filtros y auditoría incorporados; sin pruebas de consultas ejecutadas.
+- ReportChart usa barras y escala con cero/negativos, etiquetas de centavos/importes grandes, tamaño por ResizeObserver, agrupación diaria/semanal/mensual, valores seleccionables y tabla diaria. La cuenta mostrada es de días con netos distintos de cero, no número de operaciones ni actividad inventada.
+- SensitiveApprovalService recibe auth_time del contexto autenticado de Functions, nunca del comando. Preparación de cinco minutos, reautenticación posterior obligatoria, aprobación para UID/negocio/ID/digest por dos minutos, autenticación consumida para una sola aprobación y consumo con corrección/auditoría en la transacción. Se comprueba operación confirmada antes de consumir el permiso para conservar idempotencia. La contraseña solo pasa al SDK Firebase Auth; no se persiste ni se incluye en los endpoints comerciales.
+- Protecciones en WorkspaceService y CommerceService compatible; prácticas verificadas mantienen su aislamiento. legacyWrite=false cierra el acceso directo comercial antiguo; recuperación se realiza por Functions. No se añadieron rutas públicas de eliminación masiva ni empleados. Las herramientas locales con Admin SDK siguen fuera del instalador y no equivalen a permisos de usuario de la aplicación.
+- UnitOfWork conserva snapshots antes/después de campos relevantes para auditoría. Eventos vinculados a operación, motivo y autor, con lecturas del propietario. Los datos financieros existentes se corrigen mediante archivo/anulación/devolución, no borrado.
+- WorkspaceCommandService distingue CommandNotSentError de una solicitud financiera incierta. Al reintentar, primero consulta la operación; errores o cancelación del preflight de autorización no borran el diario de la solicitud original. No se altera el contenido/ID ni se reenvía automáticamente.
+
+### Revisión funcional y de seguridad diferida — no ejecutada
+
+- Fichas antiguas con especie ausente; productos distintos con igual especie/nombre y códigos diferentes; duplicados y asignación concurrente, edición de identidad con stock, búsqueda/lector y documentos históricos.
+- Orden 2/7/10/20 pies, espesores 1/1½/2, anchuras distintas y repetidas, filtros exactos, tablas móviles, 100/101/200 filas, carga acumulada y cambio de negocio/filtros. Cursores inválidos y medida agotada entre páginas; límites y totales.
+- Gráfica sin netos, un día, negativos, importes pequeños con centavos y grandes; 31/32/180/181 días, cambios de mes/año y conservación de sumas, teclado/ratón/dedo y tabla accesible. No se acredita verificación visual.
+- Contraseña errónea, cancelación, cambio de cuenta/negocio, reto caducado, permiso vencido/reutilizado, una autenticación reutilizada para aprobar otro comando, auth_time anterior o falsificado en el cuerpo, otra operación con el mismo ID, contenido cambiado y acceso cruzado.
+- Atomicidad de consumo/auditoría/corrección; reintento después de confirmación, timeout de ejecución, consulta previa y cancelación/fallo de autorización en un reintento incierto sin pérdida del diario. Borradores vinculados y recuperación compatible.
+- Rechazo de escritura/borrado directo en reglas, operaciones antiguas y todos los tipos de corrección. Motivos, historial antes/después, anulaciones sin duplicados, ajuste con fondos/stock insuficientes y corrección de caja con diferencia.
+
+No se ejecutaron tests unitarios, integración, reglas, emuladores, capturas, vídeos ni recorridos automáticos. No se instalaron ni abrieron los paquetes. No se ejecutaron limpiezas, migraciones, cargas de ejemplo ni solicitudes financieras sobre los datos del propietario; no se reiniciaron sus servicios habituales. La compilación no acredita seguridad funcional ni comportamiento en dispositivos. Incidencia Windows/WebKit abierta, sin corrección atribuida a esta entrega. Sin push/publicación/cloud.
+
+Referencias técnicas: Firebase Auth documenta reauthenticateWithCredential y el significado de auth_time en sus páginas de gestión de usuarios y validación de tokens. La duración del reto y del permiso es una política de esta aplicación, no un valor impuesto por Firebase.
+
+
+### Resultados reales de compilación beta 7
+
+- Lint final y compilación web con TypeScript estricto aprobados, salida 0; Functions aprobadas con su TypeScript propio. No se ejecutó pnpm check porque contiene pruebas excluidas por el propietario.
+- Las verificaciones iniciales detectaron findLastIndex fuera del nivel de biblioteca configurado, inferencia recursiva de tipos, condiciones JSX con unknown y conservación de la causa de un error. Se corrigieron antes de las compilaciones finales; no se debilitaron reglas ni pruebas.
+- Android final: assembleDebug aprobado (BUILD SUCCESSFUL en 48 s), versionCode 50007. Windows: Tauri release optimizado en 3 min 50 s y NSIS x64, salida 0. Ambos paquetes contienen la interfaz final con ajustes de ejes/centavos. No se instalaron ni se abrieron.
+- Advertencias no bloqueantes: bloques diferidos de pdfmake/fuentes mayores de 500 kB y avisos existentes de flatDir/XML del SDK Android. Durante la comprobación del entorno pnpm notificó recreación de algunos accesos binarios; las herramientas completaron las compilaciones. Lockfile de pnpm y dependencias conservados.
+- git diff --check aprobado; aritmética exacta y scripts de emuladores sin cambios. Los índices y las reglas nuevas quedan pendientes de revisión funcional, de ataques y de compatibilidad; no se presentan como pruebas de seguridad aprobadas.
+
+### Instaladores beta 7
+
+- KhypuPyme-0.5.0-beta.7-android-debug.apk: **5668494 bytes**, SHA-256 2b71e22acc655b95837e8f6fbb383c3a7193d9293ea2a844dc06eaee26775795.
+- KhypuPyme-0.5.0-beta.7-windows-x64-setup.exe: **2507554 bytes**, SHA-256 dfbb152feda06f0e1ce88b030f5448b203f5609be9deb0e14a9a819bfeddf378.
+
+Hashes en artifacts/SHA256SUMS-beta5b7.txt, fuera de Git. Archivos principales: modelo/validación/protection; TimberSpeciesService, TimberStockQueries y SensitiveApprovalService; UnitOfWork y adaptadores de comandos; TimberStockTable, ficha de madera, ReportChart, reautenticación y AuditHistory. Commit local, sin push ni publicación.
+
+Recuento respecto de 955b22d: **32 archivos de código, +785 / -212 líneas físicas**, incluidas reglas y estilos; excluye documentación, índices, versiones y generados. No representa funcionalidad probada.

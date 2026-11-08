@@ -1,3 +1,4 @@
+import AuditHistory from "./AuditHistory";
 import { useTimberTutorial } from "./tutorial/context";
 import { useState } from "react";
 import { ReportChart } from "../commerce/ReportChart";
@@ -145,6 +146,7 @@ export default function Reports() {
           </div>
         </>
       )}
+      <details><summary>Historial de correcciones protegidas</summary><AuditHistory /></details>
     </>
   );
 }

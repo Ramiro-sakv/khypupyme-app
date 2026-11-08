@@ -7,6 +7,8 @@ import type {
 import { validateWorkspaceCommand } from "../../../shared/workspace/validation";
 import type { PendingRequestStore } from "./PendingRequestStore";
 import type { WorkspaceRepository } from "./WorkspaceRepository";
+import { CommandNotSentError } from "./CommandNotSentError";
+import { errorMessage } from "../../shared/errors";
 export interface WorkspaceIdentity {
   readonly uid: string;
   readonly businessId: string;
@@ -17,6 +19,7 @@ export interface CommandConfirmation {
 }
 export function definitiveFailure(cause: unknown) {
   return (
+    cause instanceof CommandNotSentError || (
     !!cause &&
     typeof cause === "object" &&
     "code" in cause &&
@@ -26,7 +29,7 @@ export function definitiveFailure(cause: unknown) {
       "functions/permission-denied",
       "functions/unauthenticated",
       "functions/not-found",
-    ].includes(String(cause.code))
+    ].includes(String(cause.code)))
   );
 }
 export class WorkspaceCommandService {
@@ -157,7 +160,7 @@ export class WorkspaceCommandService {
       this.locked = false;
     }
   }
-  async retry(raw: WorkspaceCommand): Promise<CommandConfirmation> {
+  async retry(raw: WorkspaceCommand, authorize?: (command: WorkspaceCommand) => Promise<void>): Promise<CommandConfirmation> {
     const command = this.normalize(raw);
     if (this.locked) throw new Error("Ya hay una solicitud en curso.");
     this.locked = true;
@@ -170,6 +173,13 @@ export class WorkspaceCommandService {
         throw new Error("Conserva la solicitud pendiente original.");
       own = true;
       const confirmed = await this.repository.status(command);
+      if (!confirmed) {
+        try { await authorize?.(command); }
+        catch (cause) {
+          // Falló solo la nueva autorización, no se conoce aún el resultado del envío original.
+          throw new Error(errorMessage(cause), { cause });
+        }
+      }
       return await this.acknowledge(
         command,
         confirmed ?? (await this.repository.execute(command)),

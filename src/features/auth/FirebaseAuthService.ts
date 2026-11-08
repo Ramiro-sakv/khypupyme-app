@@ -1,4 +1,4 @@
-import { createUserWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { createUserWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail, signInWithEmailAndPassword, signOut, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import type { Auth } from 'firebase/auth';
 import type { AuthService, SessionUser } from './types';
 
@@ -19,6 +19,13 @@ export class FirebaseAuthService implements AuthService {
 
   logout(): Promise<void> {
     return signOut(this.auth);
+  }
+  async reauthenticate(password: string): Promise<void> {
+    const user = this.auth.currentUser;
+    if (!user?.email) throw new Error('Vuelve a ingresar con tu cuenta antes de confirmar.');
+    await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
+    await user.getIdToken(true);
+    if (this.auth.currentUser?.uid !== user.uid) throw new Error('La cuenta cambió. No se confirmó la operación.');
   }
 
   async resetPassword(email: string): Promise<void> {

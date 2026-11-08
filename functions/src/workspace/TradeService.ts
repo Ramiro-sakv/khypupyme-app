@@ -94,7 +94,7 @@ function deliveryText(line: SaleLineV2) {
 function detailText(line: SaleLineV2, system: TimberSystem = "imperial") {
   if (line.timber)
     return (
-      line.fields.species +
+      (line.fields.productCode ? line.fields.productCode + " · " : "") + line.fields.species +
       " · " +
       timberSelectionText(line.fields.thicknessMm!, line.timber, system)
     );

@@ -1,3 +1,4 @@
+import { SensitiveApprovalService, protectedOperation } from "./SensitiveApprovalService.js";
 import { displayQuantity as showQuantity } from "../../../shared/workspace/presentation.js";
 import { timberStockText, dimensionDisplayFromMm } from "../../../shared/workspace/timber-measures.js";
 import {
@@ -17,6 +18,7 @@ import type {
   CommandResult,
   Customer,
   Item,
+  TimberSpecies,
   WorkspaceReport,
 } from "../../../shared/workspace/model.js";
 import {
@@ -52,7 +54,7 @@ export class WorkspaceService {
     private readonly db: Firestore,
     private readonly practiceAccess?: PracticeAccess,
   ) {}
-  async execute(uid: string, raw: unknown): Promise<CommandResult> {
+  async execute(uid: string, raw: unknown, authTime?: number): Promise<CommandResult> {
     const command = validateWorkspaceCommand(raw),
       signature = canonical(command);
     if (
@@ -83,7 +85,8 @@ export class WorkspaceService {
       const result = await new CommerceService(this.db, {
         signature,
         recovery: command.kind === "recover-legacy",
-      }).execute(uid, original);
+        protectedOperation: protectedOperation(command),
+      }).execute(uid, original, authTime);
       return { id: result.id, message: "Registro anterior confirmado." };
     }
     return this.db.runTransaction(async (tx) => {
@@ -111,6 +114,8 @@ export class WorkspaceService {
         return previous.result;
       }
       preparePractice(practice, command);
+      const protection = new SensitiveApprovalService(this.db);
+      const approval = practice ? null : await protection.protect(work, command, authTime);
       const business = businessView(command.businessId, parent);
       if (
         !business.typeConfirmed &&
@@ -563,6 +568,7 @@ export class WorkspaceService {
         result,
         createdAt: work.now,
       });
+      if (approval) protection.audit(work, command, approval);
       work.flush();
       return result;
     });
@@ -581,14 +587,16 @@ export class WorkspaceService {
         inventoryValueMinor?: number;
         specification?: { unit: string };
       }>("products", [], 10000);
-      const rows = items
-        .filter((item) => item.kind !== "service")
-        .map((item) => [
-          item.timberSpeciesId ? item.name + " · espesor " + dimensionDisplayFromMm(item.fields.thicknessMm!, "thicknessMm", documents.timberSystem) + (documents.timberSystem === "imperial" ? " pulgadas" : " mm") : item.name,
-          timberStockText(item, documents.timberSystem) ??
-            showQuantity(item.balance) + " " + item.baseUnit,
+      const rows: string[][] = [];
+      for (const item of items.filter((value) => value.kind !== "service")) {
+        const product = item.timberSpeciesId ? await work.get<TimberSpecies>("timberSpecies", item.timberSpeciesId) : null;
+        const identity = product ? [product.code, product.name, product.species].filter(Boolean).join(" · ") : item.name;
+        rows.push([
+          item.timberSpeciesId ? identity + " · espesor " + dimensionDisplayFromMm(item.fields.thicknessMm!, "thicknessMm", documents.timberSystem) + (documents.timberSystem === "imperial" ? " pulgadas" : " mm") : identity,
+          timberStockText(item, documents.timberSystem) ?? showQuantity(item.balance) + " " + item.baseUnit,
           (item.valueMinor / 100).toFixed(2),
         ]);
+      }
       for (const item of old)
         if (item.stock > 0)
           rows.push([

@@ -15,6 +15,7 @@ import type { IndustryId } from "../../../shared/business-industries";
 
 export interface Page<T> {
   reset?: WorkspaceReset;
+  totals?: { pieces: number; volume: import("../../../shared/workspace/exact").Quantity; combinations: number };
   items: T[];
   next: string | null;
 }
@@ -25,6 +26,7 @@ export interface NewBusiness {
   answers: BusinessAnswers;
 }
 export interface WorkspaceRepository {
+  approval?: (phase: "prepare" | "approve", command: WorkspaceCommand, reason?: string) => Promise<import("../../../shared/workspace/protection").CorrectionChallenge | { approved: true }>;
   tutorial?: (request: TutorialRequest) => Promise<TutorialReply>;
   businesses(cursor?: string): Promise<Page<WorkspaceBusiness>>;
   business(id: string): Promise<WorkspaceBusiness>;

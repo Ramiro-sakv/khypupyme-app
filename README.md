@@ -1,6 +1,6 @@
 # KhypuPyme
 
-Cuaderno digital para negocios de Bolivia. Beta local **0.5.0-beta.6**, sin publicación ni conexión cloud activa.
+Cuaderno digital para negocios de Bolivia. Beta local **0.5.0-beta.7**, sin publicación ni conexión cloud activa.
 
 Una cuenta administra varios negocios independientes. Después de ingresar se crea un espacio, se responde el cuestionario y se confirma un rubro fijo. Cada negocio conserva catálogo, clientes, compras, ventas, fiados, caja y documentos propios. Se abre el último negocio autorizado; **Cambiar negocio** vuelve al selector.
 
@@ -15,6 +15,18 @@ Los negocios anteriores conservan sus rutas e identificadores. Confirman el rubr
 Las solicitudes sin confirmación se conservan en IndexedDB por cuenta/negocio, sin cola offline ni reintento automático. **Consultar confirmación** precede al reintento manual. La operación conserva su negocio original aunque cambies de espacio.
 
 React + TypeScript + Vite + Firebase Functions/Firestore/Auth locales; Android con Capacitor y Windows con Tauri. Los paquetes locales aún necesitan los emuladores encendidos en el PC. Android usa el host 10.0.2.2 del emulador Android; no está preparado para teléfonos físicos. Esta entrega se compiló sin ejecutar pruebas por instrucción del propietario; no se acredita uso comercial.
+
+## Inventario detallado y correcciones protegidas · 0.5 beta 7
+
+**Nuevo producto** separa nombre, especie, código único y referencia. Si no escribes código, se asigna MAD-000001 y siguientes dentro del negocio. Varios productos pueden compartir especie. Las fichas anteriores conservan su nombre y existencias; una especie que no estaba separada aparece por completar, sin inventarla. Las correcciones de identidad y tarifas se guardan con historial, sin cambiar documentos emitidos.
+
+El detalle muestra medidas disponibles por **largo → espesor → ancho**, con piezas y volumen por fila. Incluye filtros en servidor, totales filtrados y 100 combinaciones por carga; Cargar más conserva las anteriores. El resumen por categoría/espesor es secundario. Los filtros son exactos, los resultados se ordenan numéricamente y el cursor conserva la última combinación. El panel se amplía en escritorio y ocupa la pantalla móvil.
+
+La gráfica compara barras de ventas/gastos netos: diaria hasta 31 días, semanal hasta 180 y mensual después. Selecciona una barra por ratón, dedo o teclado para consultar valores; la tabla conserva cada día. Ceros y negativos se muestran sin inventar actividad ni tendencias.
+
+Las correcciones sensibles muestran negocio, registro y consecuencias, piden motivo y contraseña mediante Firebase Auth, y obtienen una autorización exclusiva de esa operación. Debe autenticarse después de preparar la revisión; la aprobación dura dos minutos y se consume con la corrección en la misma transacción. La contraseña no se guarda ni se envía a Functions comerciales. Los clientes no escriben directamente registros comerciales, tampoco mediante el contrato antiguo: la recuperación compatible pasa por Functions. El historial del propietario se consulta en Informes y en la ficha del producto. No hay empleados ni borrado comercial masivo desde la app.
+
+Se mantienen las solicitudes inciertas y su recuperación manual. Cancelar la nueva autorización durante un reintento no elimina la solicitud original. La práctica ficticia conserva su aislamiento y limpieza. Esto sigue siendo beta local: no se ha acreditado verificación funcional de contraseña, permisos o interfaz; Windows/WebKit continúa pendiente.
 
 ## Maderas por especie · 0.5 beta 6
 

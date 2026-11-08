@@ -1,5 +1,6 @@
 export interface SessionUser { uid: string; email: string | null }
 export interface AuthService {
+  reauthenticate?: (password: string) => Promise<void>;
   observe: (next: (user: SessionUser | null) => void, error: (error: unknown) => void) => () => void;
   register: (email: string, password: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;

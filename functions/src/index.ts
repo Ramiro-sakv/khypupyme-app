@@ -1,4 +1,6 @@
 import { AppError } from "../../shared/app-errors.js";
+import { SensitiveApprovalService, protectedOperation } from "./workspace/SensitiveApprovalService.js";
+import { sensitiveAction } from "../../shared/workspace/protection.js";
 import { TimberTutorialService } from "./workspace/TimberTutorialService.js";
 import { AccountService } from "./workspace/AccountService.js";
 import { WorkspaceService } from "./workspace/WorkspaceService.js";
@@ -75,9 +77,9 @@ export const commerceCommand = onCall(options, async (request) => {
         cause instanceof Error ? cause.message : "Solicitud inválida.",
       );
     }
-    return await services().commands.execute(request.auth.uid, command);
+    return await services().commands.execute(request.auth.uid, command, request.auth.token.auth_time);
   } catch (cause) {
-    return failure(cause);
+    return workspaceFailure(cause);
   }
 });
 export const commerceQuery = onCall(options, async (request) => {
@@ -156,10 +158,30 @@ function workspaceFailure(cause: unknown): never {
 export const workspaceCommand = onCall(options, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Inicia sesión.");
   try {
-    return await services().workspace.execute(request.auth.uid, request.data);
+    return await services().workspace.execute(request.auth.uid, request.data, request.auth.token.auth_time);
   } catch (cause) {
     return workspaceFailure(cause);
   }
+});
+export const workspaceApproval = onCall(options, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Inicia sesión.");
+  try {
+    services(); // Mantener la barrera demo/loopback para esta ruta administrativa.
+    const raw = request.data as Record<string, unknown>;
+    const envelope = object(raw, {
+      phase: oneOf(["prepare", "approve"]), protocol: oneOf(["workspace", "commerce"]), command: (value) => value,
+      ...(raw?.phase === "approve" ? { reason: (value: unknown) => value } : {}),
+    });
+    const command = envelope.protocol === "workspace" ? validateWorkspaceCommand(envelope.command) : validateCommand(envelope.command);
+    if (envelope.protocol === "workspace" && !sensitiveAction(command as import("../../shared/workspace/model.js").WorkspaceCommand)) throw new AppError("Esta operación no requiere una autorización de corrección.");
+    const operation = envelope.protocol === "workspace" ? protectedOperation(command as import("../../shared/workspace/model.js").WorkspaceCommand) : {
+      businessId: request.auth.uid, operationId: command.operationId, signature: canonical(command), kind: "legacy:" + command.kind, input: command.input as unknown as Record<string, unknown>,
+    };
+    const protection = new SensitiveApprovalService(getFirestore());
+    if (envelope.phase === "prepare") return await protection.prepare(request.auth.uid, operation, request.auth.token.auth_time);
+    await protection.approve(request.auth.uid, operation, request.auth.token.auth_time, envelope.reason);
+    return { approved: true };
+  } catch (cause) { return workspaceFailure(cause); }
 });
 export const workspaceQuery = onCall(options, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Inicia sesión.");

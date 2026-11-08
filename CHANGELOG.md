@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.5.0-beta.7 - 2026-11-08 (local, sin push)
+
+- Nombre, especie y código separados; códigos únicos por negocio con asignación automática, búsqueda/lector y documentos nuevos con identidad actual. Fichas e historiales anteriores conservados.
+- Existencias detalladas por largo/espesor/ancho, filtros en servidor y cursor numérico estable de 100 filas, carga acumulada, totales filtrados y panel amplio; resumen secundario.
+- Gráfica SVG responsive de barras diarias/semanales/mensuales, selección táctil/teclado, negativos, ceros y tabla diaria.
+- Correcciones protegidas por reautenticación posterior a la revisión, permiso ligado a la solicitud y vencimiento de dos minutos, consumo atómico y auditoría inmutable. Compatibilidad anterior protegida y escritura directa comercial cerrada. Sin empleados ni borrado masivo en la app.
+- Conserva consulta/reintento, incluyendo cancelación de autorización de pendientes. Solo lint, tipos, compilaciones e instaladores; sin pruebas/capturas/recorridos. Windows/WebKit sigue abierto.
+
+
 ## 0.5.0-beta.6 - 2026-11-08 (local, sin push)
 
 - Ficha de madera por especie con tres tarifas por pie tablar: supercorta 1–2, corta 3–6 y larga 7–20 pies enteros. Espesores libres indicados al recibir/vender, sin productos visibles duplicados.

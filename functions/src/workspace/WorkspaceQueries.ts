@@ -1,3 +1,5 @@
+import { TimberStockQueries } from "./TimberStockQueries.js";
+import { timberSpeciesItem } from "../../../shared/workspace/timber-species.js";
 import { timberVariantId } from "./TimberSpeciesService.js";
 import { timberThickness } from "../../../shared/workspace/timber-species.js";
 import { timberCategory } from "../../../shared/workspace/timber-species.js";
@@ -29,6 +31,8 @@ import { businessView } from "./AccountService.js";
 import { CommerceQueries } from "../CommerceQueries.js";
 
 export const RESOURCES: WorkspaceResource[] = [
+  "timberStock",
+  "auditEvents",
   "timberSummary",
   "appointments",
   "workOrders",
@@ -124,6 +128,7 @@ export class WorkspaceQueries {
             "itemId",
             "lengthMm",
             "thicknessMm",
+            "widthMm",
             "category",
             "from",
             "to",
@@ -140,6 +145,8 @@ export class WorkspaceQueries {
     )
       throw new Error("Consulta desconocida.");
     await this.owner(uid, input.businessId);
+    if (input.resource === "timberStock") return new TimberStockQueries(this.db).list(input);
+    if (input.widthMm !== undefined) throw new Error("El ancho solo filtra las existencias detalladas.");
     if (input.resource === "timberSummary") {
       if (!input.itemId || Object.keys(input).some((key) => !["apiVersion", "businessId", "resource", "itemId", "cursor", "category", "thicknessMm"].includes(key)))
         throw new Error("Indica la especie para consultar su resumen.");
@@ -185,7 +192,11 @@ export class WorkspaceQueries {
             `businesses/${input.businessId}/barcodeIndex/${hashKey(text(input.barcode, 1, 40))}`,
           )
           .get();
-      if (!index.exists) return { items: [], next: null };
+      if (!index.exists || index.data()!.retired) return { items: [], next: null };
+      if (index.data()!.timberSpeciesId) {
+        const product = await this.db.doc(`businesses/${input.businessId}/timberSpecies/${identifier(index.data()!.timberSpeciesId)}`).get();
+        return { items: product.exists ? [timberSpeciesItem({ ...product.data(), id: product.id } as import("../../../shared/workspace/model.js").TimberSpecies)] : [], next: null };
+      }
       const doc = await root.doc(index.data()!.itemId).get();
       return {
         items: doc.exists ? [{ ...doc.data(), id: doc.id }] : [],
@@ -269,8 +280,8 @@ export class WorkspaceQueries {
       ? timberVariantId(identifier(input.itemId), timberThickness(input.thicknessMm)) : input.itemId;
     if (queriedItem)
       query =
-        input.resource === "purchasesV2"
-          ? query.where("itemIds", "array-contains", identifier(queriedItem))
+        (["purchasesV2", "auditEvents"].includes(input.resource))
+          ? query.where(input.resource === "auditEvents" ? "targetIds" : "itemIds", "array-contains", identifier(queriedItem))
           : query.where(
               input.resource === "inventoryMovements" ? "productId" : "itemId",
               "==",

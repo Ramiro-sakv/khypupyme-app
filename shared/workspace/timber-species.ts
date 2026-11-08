@@ -21,7 +21,7 @@ export function timberThickness(value: string) {
 }
 /** Proyección de catálogo: no representa existencias ni crea una variante. */
 export function timberSpeciesItem(species: TimberSpecies, thicknessMm = ""): Item {
-  const draft = { name: species.name, kind: "timber-grouped" as const, fields: { species: species.name, thicknessMm }, barcode: species.reference, priceMinor: species.prices.short, priceUnit: "boardFoot" as const, minimum: ZERO, serviceCostMinor: 0 };
+  const draft = { name: species.name, kind: "timber-grouped" as const, fields: { species: species.species ?? "", thicknessMm, ...(species.code ? { productCode: species.code } : {}) }, barcode: species.code ?? species.reference, priceMinor: species.prices.short, priceUnit: "boardFoot" as const, minimum: ZERO, serviceCostMinor: 0 };
   return { ...draft, ...itemUnits(draft), id: species.id, active: species.active, pieces: species.pieces, balance: species.balance, valueMinor: species.valueMinor, createdAt: species.createdAt, updatedAt: species.updatedAt, timberSpecies: species };
 }
 export function timberCatalogPrice(item: Item, lengthMm?: string) {

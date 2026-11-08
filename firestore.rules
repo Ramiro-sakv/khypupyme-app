@@ -5,7 +5,8 @@ service cloud.firestore {
     function inventoryOwner(businessId) {
       return request.auth != null && exists(/databases/$(database)/documents/businesses/$(businessId)) && get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerUid == request.auth.uid;
     }
-    function legacyWrite(businessId) {return inventoryOwner(businessId) && get(/databases/$(database)/documents/businesses/$(businessId)).data.get('workspaceVersion',1) != 2;}
+    // Las correcciones antiguas también pasan por Functions y autorización puntual.
+    function legacyWrite(businessId) { return false; }
     function identifier(value) { return value is string && value.matches('^[a-zA-Z0-9_-]{1,128}$'); }
     function units(value) { return value is int && value >= 0 && value <= 1000000; }
     function money(value) { return value is int && value >= 0 && value <= 1000000000000; }

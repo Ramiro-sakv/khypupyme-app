@@ -147,3 +147,8 @@ Solicitud explícita 08/11/2026: desbloquear Caja, mover la guía y diferenciar 
 ### Incremento 0.5.0-beta.6 — especies, categorías y espesores
 
 Solicitud confirmada 08/11/2026: una ficha por especie, largos enteros 1–2/3–6/7–20 pies y precio únicamente por categoría, independiente del espesor. Modelo compartido timber-species, TimberSpeciesService, agregados transaccionales, catálogo/picker por especie y entradas/ventas por espesor. Conserva IDs/modelos anteriores, costos e historiales; sin migración automática. Nuevos índices locales, contratos opcionales y tutorial compatibles; aislamiento y recuperación originales. Validación estática y escenarios diferidos en docs/testing/validation.md. Sin pruebas/capturas/recorridos, publicación ni push. Windows/WebKit permanece abierto.
+
+
+### Incremento 0.5.0-beta.7 — detalle de madera y correcciones protegidas
+
+Plan confirmado 08/11/2026: campos separados de producto/especie/código, stock por largo/espesor/ancho con filtros y carga de 100, barras responsivas y protección del propietario. TimberStockQueries/Table, identidad compatible en timberSpecies y barcodeIndex, ReportChart, reautenticación Firebase, SensitiveApprovalService y auditoría atómica. El permiso se vincula a UID/negocio/operación/digest fuera del comando original; ninguna contraseña se envía a Functions comerciales. Se mantiene recuperación manual y se cierran escrituras comerciales directas antiguas. Sin empleados ni borrado masivo en app. Solo análisis estático/builds/instaladores; seguridad e interfaz pendientes de revisión funcional en docs/testing/validation.md. No ejecutar pruebas/capturas/recorridos, push ni nuevas limpiezas. Windows/WebKit sigue abierto.

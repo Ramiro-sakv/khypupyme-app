@@ -29,7 +29,7 @@ export function Panel({
     document.body.classList.add("panel-open");
     return () => {
       dialog.close();
-      document.body.classList.remove("panel-open");
+      if (!document.querySelector("dialog[open]")) document.body.classList.remove("panel-open");
       if (previous instanceof HTMLElement && previous.isConnected)
         previous.focus();
     };

@@ -403,6 +403,8 @@ export function validateWorkspaceCommand(raw: unknown): WorkspaceCommand {
   return {
     ...envelope,
     input: object(envelope.input, {
+      ...(envelope.kind === "timber-species" && envelope.input && typeof envelope.input === "object" && (Object.hasOwn(envelope.input, "species") || Object.hasOwn(envelope.input, "code"))
+        ? { species: (v: unknown) => text(v, 2, 80), code: (v: unknown) => { const code = text(v, 0, 40).toUpperCase(); if (code && !/^[A-Z0-9][A-Z0-9._-]*$/.test(code)) throw new Error("Código: usa letras, números, guiones o puntos."); return code; } } : {}),
       ...allSchemas[envelope.kind as WorkspaceCommand["kind"]]!,
       ...(envelope.kind === "stock-adjust" ? timberField(envelope.input) : {}),
     }),

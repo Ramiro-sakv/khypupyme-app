@@ -1,3 +1,6 @@
+import { SensitiveApprovalService } from "./workspace/SensitiveApprovalService.js";
+import type { ProtectedOperation } from "./workspace/SensitiveApprovalService.js";
+import { auditValues } from "./workspace/UnitOfWork.js";
 import { expired, validateSpecification } from '../../shared/product-specification.js';
 import type { ProductSpecification } from '../../shared/product-specification.js';
 import { FieldValue } from 'firebase-admin/firestore';
@@ -20,7 +23,7 @@ import {
 import type { Command, StoredSaleLine } from '../../shared/commerce.js';
 
 export class CommerceService {
-  constructor(private readonly db: Firestore, private readonly workspace?: {signature:string;recovery:boolean}) {}
+  constructor(private readonly db: Firestore, private readonly workspace?: {signature:string;recovery:boolean;protectedOperation?:ProtectedOperation}) {}
   private readonly cashContexts=new WeakMap<Transaction,{id:string;data:DocumentData;sequence:number}>();
 
   private ref(uid: string, collection: string, recordId: string): DocumentReference {
@@ -99,7 +102,7 @@ export class CommerceService {
       throw new DomainError('Selecciona un cliente activo.');
     return String(record.data()!.name);
   }
-  async execute(uid: string, command: Command): Promise<{ id: string }> {
+  async execute(uid: string, command: Command, authTime?:number): Promise<{ id: string }> {
     const signature = canonical(command),
       opRef = this.ref(uid, 'operations', command.operationId);
     return this.db.runTransaction(async (tx) => {
@@ -117,6 +120,15 @@ export class CommerceService {
           throw new DomainError('El identificador pertenece a otra solicitud.');
         if(this.workspace && !global?.exists)tx.create(globalRef,{businessId:uid,signature:this.workspace.signature,result:operation.data()!.result,createdAt:new Date().toISOString()});
         return operation.data()!.result as { id: string };
+      }
+      const protection = new SensitiveApprovalService(this.db);
+      const protectedCommand: ProtectedOperation = this.workspace?.protectedOperation ?? { businessId:uid, operationId:command.operationId, signature:canonical(command), kind:"legacy:"+command.kind, input:command.input as unknown as Record<string,unknown> };
+      const needsApproval = !!this.workspace || ["cancel-sale","cancel-expense","cancel-receivable","customer","service","configure-business","business-settings"].includes(command.kind);
+      const approval = needsApproval ? await protection.read(tx,uid,protectedCommand,authTime) : null;
+      const auditBefore: {collection:string;id:string;before:Record<string,unknown>|null}[]=[];
+      if(approval) for(const target of protection.targets(protectedCommand)) {
+        const record=await tx.get(this.ref(uid,target.collection,target.id));
+        auditBefore.push({...target,before:auditValues(record.data())});
       }
       if(this.workspace && !this.workspace.recovery){
         const control=await tx.get(this.ref(uid,'cashControl','current'));
@@ -242,6 +254,10 @@ export class CommerceService {
           break;
       }
       const result = { id: resultId };
+      if(approval) {
+        protection.consume(tx,uid,protectedCommand,approval);
+        tx.create(this.ref(uid,'auditEvents',command.operationId),{id:command.operationId,kind:command.kind,authorUid:uid,businessId:uid,operationId:command.operationId,reason:approval.reason,createdAt:new Date().toISOString(),targetIds:auditBefore.map(x=>x.id),changes:auditBefore.map(x=>({...x,after:auditValues({...x.before,...command.input,...(command.kind.startsWith('cancel-')?{status:'cancelled'}:{})})}))});
+      }
       tx.create(opRef, {
         signature,
         kind: command.kind,

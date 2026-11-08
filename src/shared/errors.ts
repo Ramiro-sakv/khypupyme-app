@@ -77,6 +77,8 @@ export function errorMessage(
     message =
       known?.[1] ??
       "No se pudo completar la autenticación. Vuelve a consultar antes de repetirla.";
+  } else if (["REAUTH_REQUIRED", "APPROVAL_REQUIRED", "APPROVAL_CONFLICT", "CORRECTION_EXISTS"].includes(String(raw?.details?.appCode ?? ""))) {
+    // Conservar la explicación concreta del servidor y el código real de la respuesta.
   } else if (bare === "unauthenticated")
     message = "Tu sesión caducó. Vuelve a ingresar.";
   else if (bare === "permission-denied")

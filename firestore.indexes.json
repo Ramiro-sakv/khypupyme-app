@@ -751,6 +751,216 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "timberGroups",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "speciesId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "active",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "timberGroups",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "speciesId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "active",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lengthMm",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "timberGroups",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "speciesId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "active",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "thicknessMm",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "timberGroups",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "speciesId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "active",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lengthMm",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "thicknessMm",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "timberGroups",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "speciesId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "active",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "widthMm",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "timberGroups",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "speciesId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "active",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lengthMm",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "widthMm",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "timberGroups",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "speciesId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "active",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "thicknessMm",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "widthMm",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "timberGroups",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "speciesId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "active",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lengthMm",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "thicknessMm",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "widthMm",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "auditEvents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "targetIds",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

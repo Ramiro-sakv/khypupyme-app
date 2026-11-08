@@ -8,6 +8,7 @@ import type {
 import { definitiveFailure } from "./WorkspaceCommandService";
 import { draftRepository } from "./IndexedDbDraftRepository";
 import type { SavedRequest } from "./OperationJournal";
+import { CommandNotSentError } from "./CommandNotSentError";
 import type {
   CommandConfirmation,
   WorkspaceCommandService,
@@ -16,6 +17,7 @@ export function useWorkspaceCommands(
   service: WorkspaceCommandService,
   repository: { business: (id: string) => Promise<WorkspaceBusiness> },
   onBusiness: (business: WorkspaceBusiness) => void,
+  authorize?: (command: WorkspaceCommand) => Promise<void>,
 ) {
   const [pending, setPending] = useState<SavedRequest | null>(null),
     [ready, setReady] = useState(false),
@@ -131,7 +133,10 @@ export function useWorkspaceCommands(
     rejectedOperationId,
     run: (action: WorkspaceAction, id?: string) => {
       const command = service.prepare(action, id);
-      return perform(() => service.send(command), command);
+      return perform(async () => {
+        try { await authorize?.(command); } catch (cause) { throw new CommandNotSentError(errorMessage(cause)); }
+        return service.send(command);
+      }, command);
     },
     prepare: (action: WorkspaceAction, id?: string) =>
       service.prepare(action, id),
@@ -149,7 +154,7 @@ export function useWorkspaceCommands(
         const saved = await service.pending();
         if (!saved || saved.creation)
           throw new Error("No hay una solicitud comercial pendiente.");
-        return service.retry(saved.request as CommandConfirmation["command"]);
+        return service.retry(saved.request as CommandConfirmation["command"], authorize);
       }),
   };
 }

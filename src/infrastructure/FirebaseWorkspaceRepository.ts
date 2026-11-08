@@ -25,6 +25,9 @@ export class FirebaseWorkspaceRepository implements WorkspaceRepository {
   tutorial(request: TutorialRequest) {
     return this.call<TutorialReply>("timberTutorial", request);
   }
+  approval(phase: "prepare" | "approve", command: WorkspaceCommand, reason?: string) {
+    return this.call<import("../../shared/workspace/protection").CorrectionChallenge | { approved: true }>("workspaceApproval", { phase, protocol: "workspace", command, ...(phase === "approve" ? { reason } : {}) });
+  }
   businesses(cursor = "") {
     return this.call<Page<WorkspaceBusiness>>("workspaceAccount", {
       kind: "list",

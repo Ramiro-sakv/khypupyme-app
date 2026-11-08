@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.5.0-beta.5 - 2026-11-08 (local, sin push)
+
+- Tutorial: objetivo sobre formularios reales de Caja, cierre accesible y formularios dentro de desplegables; consulta de caja compartida entre instructor/pantalla y continuación condicionada a caja abierta. Servidor conserva la validación y explica el requisito faltante.
+- Guía arrastrable con ratón/dedo y flechas, posición conservada entre pasos, límites de pantalla/panel, restauración y cabecera con minimizar/pausar; contenido desplazable.
+- Tarjetas crema, resúmenes cálidos y bordes diferenciados para todos los rubros, conservando campos blancos, verde y estados semánticos.
+- Sin cambios de contratos financieros, reglas o registros. Solo análisis estático, compilación e instaladores; sin tests/capturas/recorridos. Reingreso Windows/WebKit sigue abierto.
+
+
 ## 0.5.0-beta.4 - 2026-11-08 (local, sin push)
 
 - Anchos calculados al escribir: comas, listas y cantidad x ancho; normalización comercial entera hacia abajo solo en pulgadas. Captura versionada y selección antigua conservada.

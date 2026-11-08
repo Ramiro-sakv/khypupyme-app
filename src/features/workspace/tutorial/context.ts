@@ -1,6 +1,9 @@
 import { createContext, useContext } from "react";
+import type { RefObject } from "react";
+import type { GuidePosition } from "./useMovableGuide";
 import type { TutorialState } from "../../../../shared/workspace/timber-tutorial";
 export interface TutorialRuntime {
+  guidePosition: RefObject<GuidePosition | null>;
   state: TutorialState;
   active: boolean;
   loading: boolean;

@@ -1,6 +1,6 @@
 # KhypuPyme
 
-Cuaderno digital para negocios de Bolivia. Beta local **0.5.0-beta.4**, sin publicación ni conexión cloud activa.
+Cuaderno digital para negocios de Bolivia. Beta local **0.5.0-beta.5**, sin publicación ni conexión cloud activa.
 
 Una cuenta administra varios negocios independientes. Después de ingresar se crea un espacio, se responde el cuestionario y se confirma un rubro fijo. Cada negocio conserva catálogo, clientes, compras, ventas, fiados, caja y documentos propios. Se abre el último negocio autorizado; **Cambiar negocio** vuelve al selector.
 
@@ -15,6 +15,12 @@ Los negocios anteriores conservan sus rutas e identificadores. Confirman el rubr
 Las solicitudes sin confirmación se conservan en IndexedDB por cuenta/negocio, sin cola offline ni reintento automático. **Consultar confirmación** precede al reintento manual. La operación conserva su negocio original aunque cambies de espacio.
 
 React + TypeScript + Vite + Firebase Functions/Firestore/Auth locales; Android con Capacitor y Windows con Tauri. Los paquetes locales aún necesitan los emuladores encendidos en el PC. Android usa el host 10.0.2.2 del emulador Android; no está preparado para teléfonos físicos. Esta entrega se compiló sin ejecutar pruebas por instrucción del propietario; no se acredita uso comercial.
+
+## Tutorial y presentación · 0.5 beta 5
+
+La guía habilita los formularios completos de apertura/cierre de caja y de clientes. La opción para continuar con una caja abierta depende de la consulta del espacio de práctica; el servidor vuelve a comprobarla. Abrir caja avanza tras la confirmación existente, sin registrar acciones automáticamente.
+
+Arrastra **Mover guía** con ratón/dedo o utiliza las flechas del teclado desde ese botón. **Restablecer posición**, **Minimizar/Mostrar guía** y **Pausar** permanecen en la cabecera. La posición se conserva entre pasos de la misma sesión y se limita al espacio visible, incluido dentro de formularios. Las tarjetas y resúmenes comparten tonos crema suaves; campos blancos y verde principal se mantienen.
 
 ## Maderas rápidas y tutorial · 0.5 beta 4
 

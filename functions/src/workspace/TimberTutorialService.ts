@@ -1,4 +1,5 @@
 import type { Firestore } from "firebase-admin/firestore";
+import { AppError } from "../../../shared/app-errors.js";
 import { canonical, today } from "../../../shared/commerce.js";
 import { DEFAULT_ANSWERS } from "../../../shared/workspace/catalog.js";
 import {
@@ -426,8 +427,12 @@ export class TimberTutorialService {
           step.id !== c.stepId ||
           (step.kind && !cashReviewed))
       )
-        throw new Error(
-          "Completa primero la acción confirmada del paso actual.",
+        throw new AppError(
+          s.status === "active" && step?.id === c.stepId && step?.id === "cash-open" && s.version > 1
+            ? "Aún no hay una caja abierta en esta práctica. Abre la caja con el formulario resaltado y vuelve a consultar."
+            : "El paso todavía no está confirmado. Completa la acción indicada o actualiza la guía si la realizaste en otra pestaña.",
+          400,
+          "TUTORIAL_STEP_REQUIRED",
         );
       const closing = c.kind === "finish" || c.kind === "abandon";
       if (!closing && s.expiresAt < now)

@@ -137,3 +137,8 @@ Plan confirmado del propietario, basado en su calculadora y regla comercial de a
 | Compatibilidad | Metadatos de borrador v2 y recuperación explícita del formato anterior | Sin migrar documentos, existencias ni solicitudes pendientes |
 
 No se ejecutan pruebas, capturas ni recorridos; los escenarios de aceptación se conservan para revisión posterior en validation.md. Instaladores exclusivamente locales, commit sin push y Windows/WebKit continúa pendiente.
+
+
+### Incremento 0.5.0-beta.5 — tutorial y presentación
+
+Solicitud explícita 08/11/2026: desbloquear Caja, mover la guía y diferenciar tarjetas con crema tranquilo. CashState/cash-context comparten consulta; CashPage y TutorialCoach habilitan formularios completos, condicionan el avance a caja abierta y conservan confirmación del servidor. useMovableGuide limita arrastre/teclado a pantalla/panel sin comandos comerciales. styles.css/workspace.css comparten paleta crema. No hay migraciones ni cambios de reglas/contratos financieros; versiones y paquetes locales actualizados. Validación y revisión funcional diferida en docs/testing/validation.md; no pruebas/capturas/recorridos. Windows/WebKit sigue pendiente.

@@ -6,6 +6,8 @@ import {
 } from "../../../../shared/workspace/timber-tutorial";
 import { useWorkspace } from "../context";
 import { useTimberTutorial } from "./context";
+import { useCashState } from "../cash-context";
+import { useMovableGuide } from "./useMovableGuide";
 interface Box {
   top: number;
   left: number;
@@ -27,6 +29,7 @@ export default function TutorialCoach({
   const [box, setBox] = useState<Box | null>(null),
     [visible, setVisible] = useState(false);
   const [compactState, setCompactState] = useState({ key: "", value: false });
+  const cash = useCashState();
   const session = tutorial?.state.session,
     steps = tutorialSteps(session?.version ?? 2),
     step = session ? steps[session.stepIndex] : undefined;
@@ -37,6 +40,7 @@ export default function TutorialCoach({
   }, [setParams]);
   const stepKey = (session?.id ?? "") + ":" + (session?.stepIndex ?? 0),
     view = params.get("vista") ?? "inicio";
+  useMovableGuide(ref, tutorial?.guidePosition, session?.id, visible && !!tutorial?.active);
   useEffect(() => {
     if (!tutorial?.active) return;
     const inert = new Map<Element, boolean>();
@@ -66,7 +70,7 @@ export default function TutorialCoach({
       if (inPanel) node = root;
       else if (root && step) {
         node = root.querySelector<HTMLElement>(
-          '[data-tutorial="' + step.target + '"]',
+          '[data-tutorial="' + (step.id === "cash-close" ? "cash-close-form" : step.target) + '"]',
         );
         if (
           [
@@ -81,16 +85,22 @@ export default function TutorialCoach({
           node = root.querySelector<HTMLElement>(
             '[data-tutorial-page="' + view + '"]',
           );
-        if (step.target === "quote-history")
-          node = node?.closest<HTMLElement>("details") ?? node;
+        // Un summary solo habilita su cabecera; su details incluye también el formulario.
+        if (node?.matches("summary"))
+          node = node.closest<HTMLElement>("details") ?? node;
+        if (node?.matches("h1,h2,h3,h4"))
+          node = root.querySelector<HTMLElement>('[data-tutorial-page="' + view + '"]');
         if (node?.matches("form.trade-form"))
           node = node.closest<HTMLElement>(".trade-layout") ?? node;
+        else if (node?.matches("form"))
+          node = node.closest<HTMLElement>("details") ?? node;
         node ??= root.querySelector<HTMLElement>(
           '[data-tutorial-page="' + view + '"]',
         );
       }
       if (!inPanel && workspace.pending)
         node = root?.querySelector<HTMLElement>(".pending-request") ?? node;
+      // Sin objetivo disponible no bloquear la página: permite recuperar o completar requisitos.
       node ??= root;
       if (previous !== node) {
         previous?.classList.remove("tutorial-target");
@@ -139,7 +149,7 @@ export default function TutorialCoach({
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ["open"],
+      attributeFilter: ["open", "data-tutorial"],
     });
     const focus = (e: FocusEvent) => {
       if (!target.current) return;
@@ -159,7 +169,7 @@ export default function TutorialCoach({
       window.removeEventListener("scroll", update, true);
       target.current = null;
     };
-  }, [tutorial?.active, inPanel, stepKey, step, view, workspace.pending]);
+  }, [tutorial?.active, inPanel, stepKey, step, view, workspace.pending, cash.loading, cash.open?.id, cash.error]);
   useEffect(() => {
     if (
       !inPanel &&
@@ -233,179 +243,183 @@ export default function TutorialCoach({
         }
         aria-label="Guía de práctica"
       >
-        <div className="section-heading">
-          <strong>{step?.chapter ?? "Recorrido completo"}</strong>
-          <span>
-            {session?.version === 1
-              ? "Guía anterior"
-              : (session?.doneSteps?.length ?? 0) + " pasos realizados"}
-          </span>
-          {compact && (
-            <>
-              <button
-                type="button"
-                onClick={() => setCompactState({ key: stepKey, value: false })}
-              >
-                Mostrar guía
-              </button>
-              <button disabled={disabled} onClick={() => void tutorial.pause()}>
-                Pausar
-              </button>
-            </>
+        <header className="tutorial-guide-header">
+          <button type="button" className="tutorial-drag-handle" data-guide-handle aria-label="Mover guía: arrastra o usa las flechas del teclado" aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight">⠿ Mover guía</button>
+          <div className="tutorial-guide-controls">
+            <button type="button" data-guide-reset>Restablecer posición</button>
+            <button type="button" onClick={() => setCompactState({ key: stepKey, value: !compact })}>{compact ? "Mostrar guía" : "Minimizar"}</button>
+            <button type="button" disabled={disabled} onClick={() => void tutorial.pause()}>Pausar</button>
+          </div>
+        </header>
+        <div className="tutorial-guide-body" hidden={compact}>
+          <div className="section-heading">
+            <strong>{step?.chapter ?? "Recorrido completo"}</strong>
+            <span>
+              {session?.version === 1
+                ? "Guía anterior"
+                : (session?.doneSteps?.length ?? 0) + " pasos realizados"}
+            </span>
+          </div>
+          <h3>{step?.title ?? "Puedes elegir otro recorrido o terminar"}</h3>
+          <p role="status">
+            {step?.text ??
+              "Terminar elimina exclusivamente los datos de esta práctica."}
+          </p>
+          {(step?.id === "cash-open" || step?.id === "cash-close") && view === "caja" && (
+            <div role="status" className={cash.error ? "notice notice-error" : "notice"}>
+              {cash.loading ? "Consultando la caja de esta práctica…" : cash.error ? cash.error : cash.open ?
+                (step.id === "cash-open" ? "La caja está abierta. Revisa el saldo resaltado y pulsa continuar." : "Abre «Cerrar y conciliar esta caja», cuenta el efectivo y confirma el cierre.") :
+                "Aún no hay una caja abierta en esta práctica. Completa el fondo inicial y pulsa «Abrir caja» en el formulario resaltado."}
+              {cash.error && <button type="button" onClick={cash.refresh}>Volver a consultar caja</button>}
+            </div>
           )}
-        </div>
-        <h3>{step?.title ?? "Puedes elegir otro recorrido o terminar"}</h3>
-        <p role="status">
-          {step?.text ??
-            "Terminar elimina exclusivamente los datos de esta práctica."}
-        </p>
-        {session?.version !== 1 && (
-          <label>
-            Elegir recorrido
-            <select
-              disabled={disabled}
-              value={step?.module ?? ""}
-              onChange={(e) => void tutorial.chooseModule(e.target.value)}
-            >
-              <option value="" disabled>
-                Elige un recorrido
-              </option>
-              {TUTORIAL_MODULES.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.title}
+          {session?.version !== 1 && (
+            <label>
+              Elegir recorrido
+              <select
+                disabled={disabled}
+                value={step?.module ?? ""}
+                onChange={(e) => void tutorial.chooseModule(e.target.value)}
+              >
+                <option value="" disabled>
+                  Elige un recorrido
                 </option>
-              ))}
-            </select>
-          </label>
-        )}
-        {tutorial.error && <p role="alert">{tutorial.error}</p>}
-        {workspace.commandError && <p role="alert">{workspace.commandError}</p>}
-        {workspace.pending && (
-          <div className="notice notice-warning">
-            <p>
-              Conserva la operación original. Consulta su confirmación antes de
-              continuar.
-            </p>
-            <button
-              disabled={workspace.processing || tutorial.loading}
-              onClick={() => void workspace.consultPending?.().catch(() => {})}
-            >
-              Consultar confirmación de la operación
-            </button>
-            {workspace.canRetryPending && (
+                {TUTORIAL_MODULES.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {tutorial.error && <p role="alert">{tutorial.error}</p>}
+          {workspace.commandError && <p role="alert">{workspace.commandError}</p>}
+          {workspace.pending && (
+            <div className="notice notice-warning">
+              <p>
+                Conserva la operación original. Consulta su confirmación antes de
+                continuar.
+              </p>
               <button
                 disabled={workspace.processing || tutorial.loading}
-                onClick={() => void workspace.retryPending?.().catch(() => {})}
+                onClick={() => void workspace.consultPending?.().catch(() => {})}
               >
-                Reintentar operación original
+                Consultar confirmación de la operación
               </button>
-            )}
-          </div>
-        )}
-        {workspace.busy && (
-          <small>
-            Espera la confirmación o resuelve la solicitud pendiente de la
-            operación.
-          </small>
-        )}
-        <div className="actions">
-          {tutorial.pendingControl ? (
-            <>
-              <button
-                disabled={tutorial.loading}
-                onClick={() => void tutorial.consult()}
-              >
-                Consultar estado
-              </button>
-              <button
-                disabled={tutorial.loading}
-                onClick={() => void tutorial.retry()}
-              >
-                Reintentar solicitud original
-              </button>
-            </>
-          ) : (
-            <>
-              {step &&
-                (!step.kind ||
-                  (session?.version !== 1 && step.id === "cash-open")) &&
-                !step.pdf && (
+              {workspace.canRetryPending && (
+                <button
+                  disabled={workspace.processing || tutorial.loading}
+                  onClick={() => void workspace.retryPending?.().catch(() => {})}
+                >
+                  Reintentar operación original
+                </button>
+              )}
+            </div>
+          )}
+          {workspace.busy && (
+            <small>
+              Espera la confirmación o resuelve la solicitud pendiente de la
+              operación.
+            </small>
+          )}
+          <div className="actions">
+            {tutorial.pendingControl ? (
+              <>
+                <button
+                  disabled={tutorial.loading}
+                  onClick={() => void tutorial.consult()}
+                >
+                  Consultar estado
+                </button>
+                <button
+                  disabled={tutorial.loading}
+                  onClick={() => void tutorial.retry()}
+                >
+                  Reintentar solicitud original
+                </button>
+              </>
+            ) : (
+              <>
+                {step &&
+                  (!step.kind ||
+                    (session?.version !== 1 && step.id === "cash-open" && view === "caja" && !cash.loading && !cash.error && !!cash.open)) &&
+                  !step.pdf && (
+                    <button
+                      className="primary"
+                      disabled={disabled}
+                      onClick={() => void tutorial.advance()}
+                    >
+                      {step.id === "cash-open"
+                        ? "Ya tengo caja abierta · continuar"
+                        : "Entendido · continuar"}
+                    </button>
+                  )}
+                {(step?.kind || step?.pdf) && (
                   <button
-                    className="primary"
-                    disabled={disabled}
-                    onClick={() => void tutorial.advance()}
+                    type="button"
+                    onClick={() => {
+                      setCompactState({ key: stepKey, value: true });
+                      const node = target.current;
+                      node?.scrollIntoView({
+                        block: "center",
+                        behavior: matchMedia("(prefers-reduced-motion: reduce)")
+                          .matches
+                          ? "instant"
+                          : "smooth",
+                      });
+                      const control = node?.matches("details:not([open])")
+                        ? node.querySelector<HTMLElement>("summary")
+                        : node?.matches("input,select,button")
+                          ? node
+                          : node?.querySelector<HTMLElement>("input,select,button");
+                      control?.focus();
+                    }}
                   >
-                    {step.id === "cash-open"
-                      ? "Ya tengo caja abierta · continuar"
-                      : "Entendido · continuar"}
+                    Entendido · completar en la aplicación
                   </button>
                 )}
-              {(step?.kind || step?.pdf) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCompactState({ key: stepKey, value: true });
-                    const node = target.current;
-                    node?.scrollIntoView({
-                      block: "center",
-                      behavior: matchMedia("(prefers-reduced-motion: reduce)")
-                        .matches
-                        ? "instant"
-                        : "smooth",
-                    });
-                    (node?.matches("input,select,button")
-                      ? node
-                      : node?.querySelector<HTMLElement>("input,select,button")
-                    )?.focus();
-                  }}
-                >
-                  Entendido · completar en la aplicación
-                </button>
-              )}
-              {session?.version !== 1 && step?.kind && (
-                <>
-                  <button disabled={disabled} onClick={() => go("caja")}>
-                    Necesito abrir caja
-                  </button>
-                  <button disabled={disabled} onClick={() => go("inventario")}>
-                    Ver inventario
-                  </button>
-                  <button disabled={disabled} onClick={() => go(step.view)}>
-                    Volver al paso
-                  </button>
-                </>
-              )}
-              <button
-                disabled={disabled}
-                onClick={() => void tutorial.consult()}
-              >
-                Actualizar
-              </button>
-              <button disabled={disabled} onClick={() => void tutorial.pause()}>
-                Pausar
-              </button>
-              <button
-                type="button"
-                onClick={() => ref.current?.scrollIntoView({ block: "center" })}
-              >
-                Repetir explicación
-              </button>
-              {(!step || session?.version !== 1) && (
+                {session?.version !== 1 && step?.kind && (
+                  <>
+                    <button disabled={disabled} onClick={() => go("caja")}>
+                      Necesito abrir caja
+                    </button>
+                    <button disabled={disabled} onClick={() => go("inventario")}>
+                      Ver inventario
+                    </button>
+                    <button disabled={disabled} onClick={() => go(step.view)}>
+                      Volver al paso
+                    </button>
+                  </>
+                )}
                 <button
                   disabled={disabled}
-                  onClick={() => void tutorial.finish()}
+                  onClick={() => { if (view === "caja") cash.refresh(); void tutorial.consult(); }}
                 >
-                  Terminar y borrar práctica
+                  Actualizar
                 </button>
-              )}
-              <button
-                disabled={disabled}
-                onClick={() => void tutorial.finish(true)}
-              >
-                Abandonar
-              </button>
-            </>
-          )}
+                <button
+                  type="button"
+                  onClick={() => ref.current?.scrollIntoView({ block: "center" })}
+                >
+                  Repetir explicación
+                </button>
+                {(!step || session?.version !== 1) && (
+                  <button
+                    disabled={disabled}
+                    onClick={() => void tutorial.finish()}
+                  >
+                    Terminar y borrar práctica
+                  </button>
+                )}
+                <button
+                  disabled={disabled}
+                  onClick={() => void tutorial.finish(true)}
+                >
+                  Abandonar
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </aside>
     </>

@@ -20,6 +20,7 @@ import { confirmDiscardChanges } from "../navigation";
 import { tutorialControlStore } from "./TutorialControlStore";
 import { TutorialWorkspaceRepository } from "./TutorialWorkspaceRepository";
 import { TutorialContext } from "./context";
+import type { GuidePosition } from "./useMovableGuide";
 interface RuntimeWorkspace {
   business: WorkspaceBusiness;
   repository: WorkspaceRepository;
@@ -53,6 +54,7 @@ export default function TimberTutorialHost({
     alive = useRef(true),
     locked = useRef(false);
   const navigation = useRef(setParams);
+  const guidePosition = useRef<GuidePosition | null>(null);
   useEffect(() => {
     navigation.current = setParams;
   }, [setParams]);
@@ -248,6 +250,7 @@ export default function TimberTutorialHost({
     state.session?.status === "active"
   );
   const runtime = {
+    guidePosition,
     state,
     active: usingPractice,
     loading,

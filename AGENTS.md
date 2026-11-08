@@ -135,3 +135,10 @@ Se autorizaron los 21 rubros con procesos propios, guías visuales y ejemplos, y
 - El cobro puede minimizarse sin borrar campos y se oculta con carrito vacío; confirmar desde estado minimizado abre revisión sin enviar. Duplicar grupo no copia cantidades/anchos. El filtro active solo admite items/customersV2/timberGroups y un booleano, con autorización existente.
 - AppError identifica validación local/de dominio; errorMessage formatea al presentar, conservando el error SDK original para definitiveFailure, diarios y reintentos. Los códigos de Firebase se mantienen, sin convertir todos los errores en 400; campos incompletos y conflictos locales tienen categoría propia. La disponibilidad rechazada informa producto, medidas y piezas solicitadas/disponibles.
 - Mantener datos y servicios del propietario. Solo lint, tipos, compilación e instaladores; no pruebas, capturas ni recorridos. Commit local, sin push ni publicación. Incidencia Windows/WebKit sigue abierta.
+
+
+## Tutorial y tonos crema 0.5 beta 5 — autorización explícita, 08/11/2026
+
+- CashStateProvider/cash-context comparten la consulta de caja abierta por negocio entre pantalla y guía. No deducir caja abierta del clic del usuario; el servidor conserva su guardia transaccional y el registro comercial sigue avanzando mediante checkpointPractice. Los objetivos del tutorial incluyen campos/acciones reales y details completos; no bloquear un formulario dejando solo su título activo.
+- useMovableGuide guarda únicamente posición de interfaz en memoria por sesión, compartida entre guía global/panel. Arrastre con captura, flechas y restauración, límites de pantalla/diálogo, cabecera accesible y cuerpo desplazable. No cambiar comandos, identificadores ni solicitudes pendientes al mover/minimizar.
+- Paleta compartida crema suave/tarjetas/resúmenes, manteniendo verde, campos blancos, acentos y alertas. Sin nuevas dependencias ni cambios de datos/reglas/cálculos. Solo lint, TypeScript, web/Functions e instaladores; no pruebas/capturas/recorridos. Commit local sin push; reingreso Windows/WebKit sigue abierto.

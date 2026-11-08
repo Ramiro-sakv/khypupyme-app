@@ -517,3 +517,43 @@ Android final: assembleDebug aprobado (BUILD SUCCESSFUL, 31 s, versionCode 50004
 
 - KhypuPyme-0.5.0-beta.4-android-debug.apk: **5648906 bytes**, SHA-256 1f75e29340c6b343517f588d7b6c7e906f05c6ac5583dfe8c2afae614249ad3e.
 - KhypuPyme-0.5.0-beta.4-windows-x64-setup.exe: **2498459 bytes**, SHA-256 d350aca7817f101f582e76eecaa7a7c41b10bcdd8bd1f7e1b642e27c4fc206a5.
+
+
+## Tutorial desbloqueado y tonos crema 0.5.0-beta.5 — 08/11/2026
+
+### Implementación y revisión estática
+
+- Caja comparte una única consulta autorizada de sesión abierta entre pantalla e instructor. Carga/error/estado abierto o cerrado determinan la ayuda y el botón para continuar. El objetivo abarca el formulario real; el cierre incluye el desplegable. La consulta se actualiza tras operaciones confirmadas y mediante actualización manual; recuperar el foco de la ventana no desmonta formularios sin guardar.
+- El servidor conserva la comprobación transaccional de caja abierta antes del avance manual. Registrar apertura sigue confirmando operación y progreso atómicamente mediante checkpointPractice, sin segundo envío desde la guía. Solo se precisó el mensaje del requisito pendiente; no se modificaron contratos financieros, reglas ni cálculos.
+- Auditoría de objetivos: Nuevo cliente y formularios dentro de details habilitan también sus campos y resumen; encabezados encontrados usan la región de página. Completar desde un desplegable cerrado enfoca su summary, sin rellenar ni enviar nada. Si no hay objetivo disponible, se conserva acceso a la página para recuperar requisitos.
+- Guía con Pointer Events/captura y flechas del teclado, posición de interfaz compartida por sesión entre guía principal y panel, ResizeObserver/límites de pantalla y diálogo, restauración y cabecera separada del contenido desplazable. Posición solo en memoria; no modifica operaciones ni la región resaltada.
+- Fondo #F6F3EC, tarjetas #FFFAF1, resúmenes #F3EAD9 y bordes cálidos; campos blancos, verde principal, acentos y estados semánticos conservados. Sin nuevas dependencias ni cambios de datos.
+
+### Revisión funcional diferida (no ejecutada)
+
+- Caja sin abrir con fondo cero o positivo; apertura confirmada y paso automático; revisión de una caja previamente abierta; cierre desde details; consulta fallida y recuperación.
+- Caja/sesión modificadas en otra pestaña, revisión obsoleta y solicitudes inciertas. Mantener identificador/contenido original y consultar antes del reintento manual.
+- Objetivos/formularios de clientes, gastos, cotizaciones, informes y documentos; foco, navegación y controles accesibles sin bloqueo del campo necesario.
+- Arrastre con ratón/dedo, flechas, captura/cancelación del puntero, restauración, cambio de paso/panel, pausa/reanudación, minimización, scroll, rotación y cambios de tamaño. Anchos previstos 360/768/1100/1440, sin comprobación visual declarada.
+- Tonos crema, legibilidad y contraste en todos los rubros, alertas, formularios y estados de carga. No se acredita verificación visual o en dispositivos.
+
+No se ejecutaron pruebas, capturas, vídeos ni recorridos automáticos. No se instalaron/abrieron los paquetes, ni se cambiaron registros, cuenta o servicios habituales. La incidencia de reingreso Windows/WebKit permanece abierta, sin corrección acreditada. Sin push ni publicación.
+
+
+### Resultados reales del análisis y compilación beta 5
+
+- Lint final aprobado: pnpm lint, salida 0. TypeScript estricto y web aprobados: pnpm build, salida 0. Functions aprobadas: pnpm build:functions, salida 0. El primer typecheck detectó un acceso potencialmente undefined en el mapa de flechas; se corrigió antes de las compilaciones finales.
+- Android final aprobado: assembleDebug, BUILD SUCCESSFUL en 33 s, versionCode 50005. Paquete regenerado tras retirar la actualización automática por foco para conservar formularios sin guardar.
+- Advertencias existentes: bloques diferidos de pdfmake/fuentes mayores de 500 kB, flatDir de Android y diferencia entre versiones del XML de SDK. No impidieron compilar; no se añadieron dependencias.
+- git diff --check aprobado y revisión estática sin cambios en reglas, índices, contratos financieros, WorkspaceCommandService, TutorialAccess ni TutorialPolicy. No se ejecutó pnpm check porque incluye pruebas prohibidas para esta entrega.
+- Código fuente respecto de b603efc: 12 archivos, **+578 / -406 líneas físicas**, incluidos contenedores/sangría, excluyendo documentación/metadatos. No equivale a líneas de funcionalidad nueva ni acredita funcionamiento en dispositivos.
+
+
+### Paquetes finales beta 5
+
+Windows final aprobado: Tauri release optimizado en 2 min 29 s y NSIS x64, salida 0. Ambos paquetes finales corresponden al código posterior al ajuste de conservación del formulario al recuperar el foco. No se instalaron ni se abrieron.
+
+- KhypuPyme-0.5.0-beta.5-android-debug.apk: **5652588 bytes**, SHA-256 8104ffc0603367ee5adcf3b73a44a703472c30fe04699cff3a61bf049d368e38.
+- KhypuPyme-0.5.0-beta.5-windows-x64-setup.exe: **2498134 bytes**, SHA-256 d6d2e0d2f1b9c0a4f60557f4ea073048c2f1109dddb5126736d027abd0bee2f3.
+
+Hashes también en artifacts/SHA256SUMS-beta5b5.txt (fuera de Git). Archivos principales: CashPage, CashState, cash-context y Workspace; tutorial/TutorialCoach, useMovableGuide, context y TimberTutorialHost; TimberTutorialService en Functions; estilos compartidos y versiones. Sin push, despliegue, publicación, servicios externos ni accesos de escritorio.

@@ -1,16 +1,16 @@
 :root {
   font-family: "Segoe UI", system-ui, sans-serif;
   color: #172b26;
-  background: #f4f7f6;
+  background: #f6f3ec;
   font-synthesis: none;
   line-height: 1.5;
   --primary: #0f4d3f;
   --primary-hover: #17634f;
   --ink: #172b26;
   --muted: #60736b;
-  --line: #dce5df;
-  --surface: #fff;
-  --soft: #eef5f1;
+  --line: #d9d0c0;
+  --surface: #fffaf1;
+  --soft: #f3ead9;
   --danger: #a43734;
   --accent: #0f705a;
   --sidebar-width: 240px;
@@ -160,7 +160,7 @@ strong {
   position: sticky;
   top: 28px;
   z-index: 80;
-  background: #fff;
+  background: var(--surface);
   border-bottom: 1px solid var(--line);
 }
 .header-inner {

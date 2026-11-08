@@ -1,6 +1,6 @@
 # KhypuPyme
 
-Cuaderno digital para negocios de Bolivia. Beta local **0.5.0-beta.5**, sin publicación ni conexión cloud activa.
+Cuaderno digital para negocios de Bolivia. Beta local **0.5.0-beta.6**, sin publicación ni conexión cloud activa.
 
 Una cuenta administra varios negocios independientes. Después de ingresar se crea un espacio, se responde el cuestionario y se confirma un rubro fijo. Cada negocio conserva catálogo, clientes, compras, ventas, fiados, caja y documentos propios. Se abre el último negocio autorizado; **Cambiar negocio** vuelve al selector.
 
@@ -15,6 +15,14 @@ Los negocios anteriores conservan sus rutas e identificadores. Confirman el rubr
 Las solicitudes sin confirmación se conservan en IndexedDB por cuenta/negocio, sin cola offline ni reintento automático. **Consultar confirmación** precede al reintento manual. La operación conserva su negocio original aunque cambies de espacio.
 
 React + TypeScript + Vite + Firebase Functions/Firestore/Auth locales; Android con Capacitor y Windows con Tauri. Los paquetes locales aún necesitan los emuladores encendidos en el PC. Android usa el host 10.0.2.2 del emulador Android; no está preparado para teléfonos físicos. Esta entrega se compiló sin ejecutar pruebas por instrucción del propietario; no se acredita uso comercial.
+
+## Maderas por especie · 0.5 beta 6
+
+En Inventario, **Nueva especie** crea una ficha sin medidas ni existencias. Declara las tarifas por pie tablar para supercortas (1–2 pies), cortas (3–6) y largas (7–20). La tarifa depende de especie/categoría, no del espesor. Espesores como 1, 1½ y 2 pulgadas son ejemplos, no una lista obligatoria.
+
+En Compras o en **Existencias, entradas y tarifas**, elige espesor, largo entero y anchos. La entrada crea la variante interna por espesor y conserva medidas reales, costo y movimientos. Las variantes no se muestran como productos independientes. Al vender, el largo determina categoría/tarifa y el espesor interviene en el volumen exacto. No se crean existencias al vender; una cotización puede prepararse sin existencias, pero convertirla exige disponibilidad. El inventario muestra resumen por categoría/espesor, filtros y medidas exactas; los costos mantienen promedio ponderado por espesor. El modo métrico admite largos equivalentes exactamente a 1–20 pies enteros.
+
+Cambiar tarifas no reescribe documentos. El nombre de la especie queda fijo en esta entrega; se editan referencia, tarifas y estado. Las fichas anteriores conservan identificadores, medidas y costos en **Servicios y productos anteriores**, sin consolidación automática. Resuelve solicitudes pendientes con su contenido original. Se mantienen borradores, tutorial, aislamiento y recuperación manual.
 
 ## Tutorial y presentación · 0.5 beta 5
 

@@ -1,3 +1,5 @@
+import TimberSpeciesCatalog from "./TimberSpeciesCatalog";
+import { useTimberTutorial } from "./tutorial/context";
 import { displayQuantity as showQuantity } from "../../../shared/workspace/presentation";
 import TimberAdjustment from "./TimberAdjustment";
 import { dimensionDisplayFromMm as dimensionInputFromMm } from "../../../shared/workspace/timber-measures";
@@ -36,6 +38,8 @@ export default function Catalog() {
       active: !archived,
       ...(search.trim().length >= 2 ? { search: search.trim() } : {}),
     });
+  const tutorial = useTimberTutorial();
+  const speciesMode = business.industryId === "timber" && tutorial?.state.session?.version !== 1;
   const visible = page.items;
   const selected = page.items.find((i) => i.id === selection?.id) ?? selection;
   return (
@@ -46,21 +50,23 @@ export default function Catalog() {
           <h2>Inventario</h2>
         </div>
         <button
-          data-tutorial="new-item"
+          data-tutorial={speciesMode ? "new-service" : "new-item"}
           className="primary"
           onClick={() => setNewItem(true)}
         >
           <Icon name="plus" />
-          Nuevo producto o servicio
+          {speciesMode ? "Nuevo servicio de corte" : "Nuevo producto o servicio"}
         </button>
       </div>
       <IndustryHelp mode="catalog" />
+      {speciesMode && <><TimberSpeciesCatalog /><h3>Servicios y productos anteriores</h3><p>Las fichas anteriores conservan sus medidas y costos; no se consolidan automáticamente.</p></>}
       {newItem && (
         <Panel
           title="Nuevo producto o servicio"
           onClose={() => setNewItem(false)}
         >
           <ItemForm
+            serviceOnly={speciesMode}
             onSave={async (item) => {
               const result = await run({
                 kind: "create-item",

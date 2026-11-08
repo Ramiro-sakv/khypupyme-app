@@ -1,3 +1,4 @@
+import { timberCategory, timberThickness } from "../../../shared/workspace/timber-species";
 import { AppError } from "../../../shared/app-errors";
 import { parseTimberWidths } from "../../../shared/workspace/timber-width-entry";
 import type { CartLine } from "./Cart";
@@ -47,6 +48,10 @@ export function requireTimber(line: CartLine) {
       "LENGTH_REQUIRED",
       "timber-length",
     );
+  if (line.item.timberSpecies) {
+    timberThickness(selection.thicknessMm ?? "");
+    timberCategory(selection.lengthMm);
+  }
   if (!selection.widths.length)
     throw new AppError(
       "Falta indicar los anchos de este grupo.",

@@ -15,6 +15,8 @@ export interface DraftLine {
   lengthInput?: string | undefined;
   widthInput?: string | undefined;
   priceInput?: string | undefined;
+  thicknessInput?: string | undefined;
+  priceManual?: boolean | undefined;
   itemId: string;
   priceMinor: number;
   qty: string;

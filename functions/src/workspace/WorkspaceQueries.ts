@@ -1,3 +1,8 @@
+import { timberVariantId } from "./TimberSpeciesService.js";
+import { timberThickness } from "../../../shared/workspace/timber-species.js";
+import { timberCategory } from "../../../shared/workspace/timber-species.js";
+import { timberTotals } from "../../../shared/workspace/timber-groups.js";
+import type { TimberStockGroup, TimberSummary } from "../../../shared/workspace/model.js";
 import { authorizePracticeRead } from "./TutorialAccess.js";
 import type { PracticeAccess } from "./TutorialAccess.js";
 import { normalizeSearch } from "../../../shared/workspace/search.js";
@@ -24,6 +29,7 @@ import { businessView } from "./AccountService.js";
 import { CommerceQueries } from "../CommerceQueries.js";
 
 export const RESOURCES: WorkspaceResource[] = [
+  "timberSummary",
   "appointments",
   "workOrders",
   "workflowEvents",
@@ -31,6 +37,7 @@ export const RESOURCES: WorkspaceResource[] = [
   "containerTypes",
   "containerBalances",
   "containerMovements",
+  "timberSpecies",
   "items",
   "salesV2",
   "purchasesV2",
@@ -116,6 +123,8 @@ export class WorkspaceQueries {
             "cursor",
             "itemId",
             "lengthMm",
+            "thicknessMm",
+            "category",
             "from",
             "to",
             "barcode",
@@ -131,6 +140,30 @@ export class WorkspaceQueries {
     )
       throw new Error("Consulta desconocida.");
     await this.owner(uid, input.businessId);
+    if (input.resource === "timberSummary") {
+      if (!input.itemId || Object.keys(input).some((key) => !["apiVersion", "businessId", "resource", "itemId", "cursor", "category", "thicknessMm"].includes(key)))
+        throw new Error("Indica la especie para consultar su resumen.");
+      if (input.category && !["superShort", "short", "long"].includes(input.category)) throw new Error("Categoría de madera inválida.");
+      const thickness = input.thicknessMm ? timberThickness(input.thicknessMm) : "";
+      const speciesId = identifier(input.itemId);
+      if (!(await this.db.doc(`businesses/${input.businessId}/timberSpecies/${speciesId}`).get()).exists)
+        throw new Error("La especie no pertenece a este negocio.");
+      const groups = await this.db.collection(`businesses/${input.businessId}/timberGroups`).where("speciesId", "==", speciesId).limit(10001).get();
+      if (groups.size > 10000) throw new Error("El resumen supera 10.000 medidas. Requiere una consulta más acotada.");
+      const rows = new Map<string, TimberSummary>();
+      for (const doc of groups.docs) {
+        const group = doc.data() as TimberStockGroup & { thicknessMm: string };
+        if (!group.pieces) continue;
+        const category = timberCategory(group.lengthMm), id = category + "-" + group.thicknessMm.replace(".", "_");
+        const previous = rows.get(id), volume = timberTotals(group.thicknessMm, { lengthMm: group.lengthMm, widths: [{ widthMm: group.widthMm, pieces: group.pieces }] }).volume;
+        rows.set(id, { id, thicknessMm: group.thicknessMm, category, pieces: (previous?.pieces ?? 0) + group.pieces, volume: add(previous?.volume ?? ZERO, volume) });
+      }
+      const all = [...rows.values()].filter((row) => (!input.category || row.category === input.category) && (!thickness || row.thicknessMm === thickness)).sort((a, b) => a.id.localeCompare(b.id));
+      const offset = input.cursor ? all.findIndex((row) => row.id === identifier(input.cursor)) + 1 : 0;
+      if (input.cursor && !offset) throw new Error("Las existencias cambiaron. Reinicia el resumen.");
+      return { items: all.slice(offset, offset + 25), next: all.length > offset + 25 ? all[offset + 24]!.id : null };
+    }
+    if (input.category !== undefined) throw new Error("La categoría solo filtra el resumen de madera.");
     const root = this.db.collection(
       `businesses/${input.businessId}/${input.resource}`,
     );
@@ -162,7 +195,7 @@ export class WorkspaceQueries {
     let query: Query = root;
     if (input.active !== undefined) {
       if (
-        !["items", "customersV2", "timberGroups"].includes(input.resource) ||
+        !["items", "customersV2", "timberGroups", "timberSpecies"].includes(input.resource) ||
         typeof input.active !== "boolean"
       )
         throw new Error(
@@ -212,7 +245,7 @@ export class WorkspaceQueries {
       };
     }
     if (input.search) {
-      if (input.resource !== "items")
+      if (!["items", "timberSpecies"].includes(input.resource))
         throw new Error("La búsqueda solo admite catálogo.");
       query = query.where(
         "searchPrefixes",
@@ -230,14 +263,18 @@ export class WorkspaceQueries {
         throw new Error("Largo de búsqueda inválido.");
       query = query.where("lengthMm", "==", input.lengthMm);
     }
-    if (input.itemId)
+    if (input.thicknessMm && (input.resource !== "timberGroups" || !input.itemId))
+      throw new Error("El filtro de espesor requiere una especie y sus medidas.");
+    const queriedItem = input.thicknessMm && input.itemId
+      ? timberVariantId(identifier(input.itemId), timberThickness(input.thicknessMm)) : input.itemId;
+    if (queriedItem)
       query =
         input.resource === "purchasesV2"
-          ? query.where("itemIds", "array-contains", identifier(input.itemId))
+          ? query.where("itemIds", "array-contains", identifier(queriedItem))
           : query.where(
               input.resource === "inventoryMovements" ? "productId" : "itemId",
               "==",
-              identifier(input.itemId),
+              identifier(queriedItem),
             );
     if (input.status) {
       if (
@@ -297,16 +334,25 @@ export class WorkspaceQueries {
         throw new Error("Actualiza el listado antes de continuar.");
       query = query.startAfter(cursor);
     }
-    const result = await query.get(),
-      visible = result.docs.slice(0, 25);
+    let result = await query.get();
+    const visible: typeof result.docs = [];
+    let scanned = 0;
+    for (;;) {
+      for (const doc of result.docs) {
+        if (++scanned > 10000) throw new Error("El catálogo supera el límite de lectura. Acota la búsqueda.");
+        if (input.resource === "items" && doc.data().timberSpeciesId) continue;
+        visible.push(doc);
+        if (visible.length === 26) break;
+      }
+      if (visible.length === 26 || result.size < 26) break;
+      result = await query.startAfter(result.docs.at(-1)!).get();
+    }
     return {
-      items: visible.map((doc) => ({
-        ...(serialize(doc.data()) as object),
-        id: doc.id,
-      })),
-      next: result.size > 25 ? visible.at(-1)!.id : null,
+      items: visible.slice(0, 25).map((doc) => ({ ...(serialize(doc.data()) as object), id: doc.id })),
+      next: visible.length > 25 ? visible[24]!.id : null,
     };
   }
+
   period(from: string, to: string) {
     date(from);
     date(to);

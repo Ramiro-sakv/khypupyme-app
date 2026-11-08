@@ -3,6 +3,7 @@ import { add, decimal, div, fraction, mul, ZERO } from "./exact.js";
 import { BOARD_FOOT_MM3, timberDimensions } from "./timber-measures.js";
 import type { TimberSelection } from "./model.js";
 import type { Quantity } from "./exact.js";
+import { TIMBER_CATEGORIES, timberCategory } from "./timber-species.js";
 
 /** A piece has its own dimensions: there is never a fixed piece/volume conversion. */
 export function timberTotals(thicknessMm: string, selection: TimberSelection) {
@@ -27,7 +28,7 @@ export function timberSelectionText(
   selection: TimberSelection,
   system: "imperial" | "metric" = "imperial",
 ) {
-  return selection.widths
+  return (selection.speciesId ? TIMBER_CATEGORIES[timberCategory(selection.lengthMm)] + " · " : "") + selection.widths
     .map(
       (row) =>
         row.pieces +

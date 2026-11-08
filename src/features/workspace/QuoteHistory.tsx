@@ -1,3 +1,5 @@
+import { loadTimberItem } from "./loadTimberItem";
+import { timberCatalogPrice } from "../../../shared/workspace/timber-species";
 import { errorMessage } from "../../shared/errors";
 import { useState } from "react";
 import { showQuantity } from "../../../shared/workspace/exact";
@@ -45,17 +47,10 @@ export default function Quotes({
                 try {
                   const lines = await Promise.all(
                     row.lines.map(async (l) => {
-                      const item = (
-                        await repository.list<Item>({
-                          apiVersion: 2,
-                          businessId: business.id,
-                          resource: "items",
-                          id: l.itemId,
-                        })
-                      ).items[0];
+                      const item = await loadTimberItem(repository, business.id, l.itemId, l.timber);
                       if (!item || !item.active)
                         throw new Error("Producto no disponible o archivado.");
-                      return { ...l, item, qty: showQuantity(l.qty) };
+                      return { ...l, item, qty: showQuantity(l.qty), ...(l.timber && item.timberSpecies && timberCatalogPrice(item, l.timber.lengthMm) !== l.expectedPriceMinor ? { timber: { ...l.timber, priceMinor: timberCatalogPrice(item, l.timber.lengthMm) } } : {}) };
                     }),
                   );
                   onConvert({
@@ -63,7 +58,7 @@ export default function Quotes({
                     lines,
                     priceChanged: lines.some(
                       (line) =>
-                        line.expectedPriceMinor !== line.item.priceMinor,
+                        line.expectedPriceMinor !== timberCatalogPrice(line.item, line.timber?.lengthMm),
                     ),
                   });
                 } catch (e) {

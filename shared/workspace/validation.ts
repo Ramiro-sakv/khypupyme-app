@@ -92,8 +92,12 @@ function dimensional(value: unknown, max: string) {
     throw new Error("Medida fuera de límites.");
   return exactDecimal(v);
 }
+const speciesFields = (raw: unknown): Record<string, Decode> =>
+  raw && typeof raw === "object" && Object.hasOwn(raw, "speciesId")
+    ? { speciesId: identifier, thicknessMm: (v) => dimensional(v, "10000") } : {};
 export const timberSelection = (raw: unknown) =>
   object(raw, {
+    ...speciesFields(raw),
     lengthMm: (v) => dimensional(v, "100000"),
     widths: list(
       (v) =>
@@ -120,6 +124,7 @@ function timberField(raw: unknown, sale = false): Record<string, Decode> {
     timber: (v: unknown) =>
       sale
         ? object(v, {
+            ...speciesFields(v),
             lengthMm: (x) => dimensional(x, "100000"),
             widths: (x) => timberSelection({ lengthMm: "1", widths: x }).widths,
             priceMinor: (x) => money(x, false),
@@ -247,6 +252,11 @@ const schemas: Record<
   Exclude<WorkspaceCommand["kind"], OperationalKind>,
   Record<string, Decode>
 > = {
+  "timber-species": {
+    id: identifier, name: (v) => text(v, 2, 80), reference: (v) => text(v, 0, 40),
+    prices: (v) => object(v, { superShort: (x) => money(x, false), short: (x) => money(x, false), long: (x) => money(x, false) }),
+    expectedRevision: (v) => { if (typeof v !== "number" || !Number.isSafeInteger(v) || v < 0) throw new Error("Revisión inválida."); return v; }, active: boolean,
+  },
   "timber-preferences": { system: oneOf(["imperial", "metric"]) },
   "confirm-type": { industryId, answers },
   preferences: {

@@ -1,3 +1,4 @@
+import { timberCategory } from "../../../shared/workspace/timber-species";
 import type { TimberWidthEntry } from "../../../shared/workspace/timber-width-entry";
 import { requireTimber } from "./TimberWidthEntry";
 import { timberTotals } from "../../../shared/workspace/timber-groups";
@@ -18,6 +19,8 @@ export interface CartLine {
   lengthInput?: string | undefined;
   widthInput?: string | undefined;
   priceInput?: string | undefined;
+  thicknessInput?: string | undefined;
+  priceManual?: boolean | undefined;
   timberError?: string;
   item: Item;
   qty: string;
@@ -60,7 +63,7 @@ export function saleInputs(lines: CartLine[]): SaleLineInputV2[] {
       fullBoxes: l.fullBoxes,
       wastePercent: l.wastePercent,
       serials: l.serials,
-      expectedPriceMinor: l.item.priceMinor,
+      expectedPriceMinor: l.item.timberSpecies && timber ? l.item.timberSpecies.prices[timberCategory(timber.lengthMm)] : l.item.priceMinor,
     };
   });
 }
@@ -70,7 +73,7 @@ export function receiptInputs(lines: CartLine[]): ReceiptLineInput[] {
       l.item.kind === "timber-grouped" ? requireTimber(l) : undefined;
     return {
       ...(timber
-        ? { timber: { lengthMm: timber.lengthMm, widths: timber.widths } }
+        ? { timber: { ...(timber.speciesId ? { speciesId: timber.speciesId, thicknessMm: timber.thicknessMm } : {}), lengthMm: timber.lengthMm, widths: timber.widths } }
         : {}),
       itemId: l.item.id,
       qty: timber

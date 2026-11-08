@@ -1,4 +1,6 @@
-import type { Item, WorkspaceCommand } from "../../../shared/workspace/model";
+import { loadTimberItem } from "./loadTimberItem";
+import { timberCatalogPrice } from "../../../shared/workspace/timber-species";
+import type { WorkspaceCommand } from "../../../shared/workspace/model";
 import type { CartLine } from "./Cart";
 import type {
   DraftKind,
@@ -120,14 +122,7 @@ export class TradeDraftService {
     const priceChanges: RestoredTrade["priceChanges"] = [];
     const lines = await Promise.all(
       draft.input.lines.map(async (line) => {
-        const item = (
-          await this.repository.list<Item>({
-            apiVersion: 2,
-            businessId: this.context.businessId,
-            resource: "items",
-            id: line.itemId,
-          })
-        ).items[0];
+        const item = await loadTimberItem(this.repository, this.context.businessId, line.itemId, line.timber);
         if (!item || !item.active)
           throw new Error(
             "Un producto del borrador no existe o está archivado. Revisa el catálogo antes de restaurar.",
@@ -143,19 +138,22 @@ export class TradeDraftService {
           throw new Error(
             "Una unidad del borrador ya no es compatible. No se modificó el original.",
           );
-        if (item.priceMinor !== line.priceMinor)
+        const currentPrice = timberCatalogPrice(item, line.timber?.lengthMm);
+        if (currentPrice !== line.priceMinor)
           priceChanges.push({
             name: item.name,
             before: line.priceMinor,
-            after: item.priceMinor,
+            after: currentPrice,
           });
         return {
           widthsEntry: line.widthsEntry,
           id: line.id,
-          timber: line.timber,
+          timber: line.timber && item.timberSpecies && !line.priceManual && currentPrice !== line.priceMinor ? { ...line.timber, priceMinor: currentPrice } : line.timber,
           lengthInput: line.widthsEntry ? line.lengthInput : undefined,
           widthInput: line.widthInput,
-          priceInput: line.priceInput,
+          priceInput: line.timber && item.timberSpecies && !line.priceManual && currentPrice !== line.priceMinor ? (currentPrice / 100).toFixed(2) : line.priceInput,
+          thicknessInput: line.thicknessInput,
+          priceManual: line.priceManual,
           item,
           qty: line.qty,
           unit: line.unit,

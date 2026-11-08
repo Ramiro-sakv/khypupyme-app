@@ -23,6 +23,8 @@ import {
 import { money } from "../../../shared/workspace/validation.js";
 import type { Quantity } from "../../../shared/workspace/exact.js";
 import type { UnitOfWork } from "./UnitOfWork.js";
+import { timberCategory, timberThickness } from "../../../shared/workspace/timber-species.js";
+import type { TimberSpecies } from "../../../shared/workspace/model.js";
 
 /** Physical availability and volume/value change in the same UnitOfWork as the sale. */
 export class TimberStockService {
@@ -38,6 +40,12 @@ export class TimberStockService {
       .digest("hex");
   }
   validate(item: Item, selection: TimberSelection, qty: Quantity) {
+    if (item.timberSpeciesId) {
+      timberCategory(selection.lengthMm);
+      if ((selection.speciesId && selection.speciesId !== item.timberSpeciesId) ||
+          (selection.thicknessMm && timberThickness(selection.thicknessMm) !== item.fields.thicknessMm))
+        throw new AppError("La especie o el espesor no corresponde a esas existencias.");
+    }
     if (
       item.kind !== "timber-grouped" ||
       !selection ||
@@ -93,7 +101,7 @@ export class TimberStockService {
     }
     return totals;
   }
-  private save(
+  private async save(
     item: Item,
     volume: Quantity,
     value: number,
@@ -118,6 +126,14 @@ export class TimberStockService {
     )
       throw new Error("Las piezas y el volumen no coinciden.");
     this.work.set("items", item.id, next);
+    if (item.timberSpeciesId) {
+      const species = await this.work.get<TimberSpecies>("timberSpecies", item.timberSpeciesId);
+      if (!species) throw new AppError("No se encontró la especie de estas existencias.");
+      const totalPieces = species.pieces + pieces, balance = add(species.balance, volume);
+      if (!Number.isSafeInteger(totalPieces) || totalPieces < 0 || totalPieces > 1000000 || compare(balance, ZERO) < 0)
+        throw new AppError("Las existencias de la especie superan el límite admitido.");
+      this.work.set("timberSpecies", species.id, { ...species, pieces: totalPieces, balance, valueMinor: money(species.valueMinor + value), updatedAt: this.work.now });
+    }
     const id = this.operationId + "-tm" + this.sequence++;
     this.work.set("movementsV2", id, {
       id,
@@ -154,6 +170,7 @@ export class TimberStockService {
       const id = this.key(item.id, selection.lengthMm, row.widthMm),
         old = await this.work.get<TimberStockGroup>("timberGroups", id);
       const stock = {
+        ...(item.timberSpeciesId ? { speciesId: item.timberSpeciesId, thicknessMm: item.fields.thicknessMm } : {}),
         id,
         itemId: item.id,
         lengthMm: selection.lengthMm,
@@ -167,7 +184,7 @@ export class TimberStockService {
       this.work.set("timberGroups", id, stock);
       stockIds.push(id);
     }
-    this.save(
+    await this.save(
       item,
       totals.volume,
       value,
@@ -221,7 +238,7 @@ export class TimberStockService {
       item.balance,
       totals.volume,
     );
-    this.save(
+    await this.save(
       item,
       fraction(-BigInt(totals.volume.n), BigInt(totals.volume.d)),
       -costMinor,
@@ -270,7 +287,7 @@ export class TimberStockService {
         });
       }
     }
-    this.save(
+    await this.save(
       item,
       restock ? totals.volume : ZERO,
       restock ? cost : 0,

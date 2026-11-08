@@ -142,3 +142,8 @@ No se ejecutan pruebas, capturas ni recorridos; los escenarios de aceptación se
 ### Incremento 0.5.0-beta.5 — tutorial y presentación
 
 Solicitud explícita 08/11/2026: desbloquear Caja, mover la guía y diferenciar tarjetas con crema tranquilo. CashState/cash-context comparten consulta; CashPage y TutorialCoach habilitan formularios completos, condicionan el avance a caja abierta y conservan confirmación del servidor. useMovableGuide limita arrastre/teclado a pantalla/panel sin comandos comerciales. styles.css/workspace.css comparten paleta crema. No hay migraciones ni cambios de reglas/contratos financieros; versiones y paquetes locales actualizados. Validación y revisión funcional diferida en docs/testing/validation.md; no pruebas/capturas/recorridos. Windows/WebKit sigue pendiente.
+
+
+### Incremento 0.5.0-beta.6 — especies, categorías y espesores
+
+Solicitud confirmada 08/11/2026: una ficha por especie, largos enteros 1–2/3–6/7–20 pies y precio únicamente por categoría, independiente del espesor. Modelo compartido timber-species, TimberSpeciesService, agregados transaccionales, catálogo/picker por especie y entradas/ventas por espesor. Conserva IDs/modelos anteriores, costos e historiales; sin migración automática. Nuevos índices locales, contratos opcionales y tutorial compatibles; aislamiento y recuperación originales. Validación estática y escenarios diferidos en docs/testing/validation.md. Sin pruebas/capturas/recorridos, publicación ni push. Windows/WebKit permanece abierto.

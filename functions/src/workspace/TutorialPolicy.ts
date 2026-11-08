@@ -19,6 +19,7 @@ export function practiceCompletes(
 ) {
   if (session.version === 1) return true;
   const step = TIMBER_STEPS[session.stepIndex];
+  if (step?.id === "catalogue" && c.kind === "timber-species") return true;
   if (
     !step ||
     !step.kind ||
@@ -41,7 +42,7 @@ export function validateTutorialAction(
     ensure(
       session.status === "active" &&
         current?.kind &&
-        (current.allowedKinds ?? [current.kind]).includes(c.kind),
+        ((current.allowedKinds ?? [current.kind]).includes(c.kind) || (current.id === "catalogue" && c.kind === "timber-species")),
       "Sigue la acción indicada o elige otro recorrido desde el instructor.",
     );
     if (current.id === "catalogue" && c.kind === "create-item")

@@ -557,3 +557,45 @@ Windows final aprobado: Tauri release optimizado en 2 min 29 s y NSIS x64, salid
 - KhypuPyme-0.5.0-beta.5-windows-x64-setup.exe: **2498134 bytes**, SHA-256 d6d2e0d2f1b9c0a4f60557f4ea073048c2f1109dddb5126736d027abd0bee2f3.
 
 Hashes también en artifacts/SHA256SUMS-beta5b5.txt (fuera de Git). Archivos principales: CashPage, CashState, cash-context y Workspace; tutorial/TutorialCoach, useMovableGuide, context y TimberTutorialHost; TimberTutorialService en Functions; estilos compartidos y versiones. Sin push, despliegue, publicación, servicios externos ni accesos de escritorio.
+
+
+## Maderas por especie 0.5.0-beta.6 — 08/11/2026
+
+### Implementación y revisión estática
+
+- Ficha timberSpecies con tres tarifas enteras BOB, revisión, estado e índice de nombre normalizado. Alta sin dimensiones ni stock; espesores positivos libres en entradas/ventas. Clasificación exacta BigInt: 1–2, 3–6, 7–20 pies; no se admiten huecos, fracciones de pie ni redondeo para clasificar. Métrico exige equivalencia exacta.
+- TimberSpeciesService resuelve variante estable por especie/espesor y la crea únicamente dentro de la entrada. Inventario real por medidas, promedio ponderado por espesor, devolución con costo histórico y agregados de especie se confirman en UnitOfWork. Dinero y volumen exactos existentes se conservan; informes no suman el agregado de especie además de sus variantes.
+- Listado/picker paginados por especie; hijos internos fuera del listado comercial normal. Resumen por categoría/espesor filtra antes de paginar; conserva medidas exactas, lectura acotada a 10.000 grupos y error explícito por exceso. Nuevos índices compuestos timberSpecies; reglas sin cambios.
+- Venta toma tarifa por categoría desde servidor y valida la esperada, con conservación de tarifa aplicada. Cambio de categoría revisa una tarifa manual; confirmación del importe cambia con la selección. Cotización sin stock no crea variantes; convertir exige stock y catálogo vigente. Campos opcionales speciesId/thicknessMm mantienen contratos anteriores.
+- Borradores guardan captura/referencias, no el inventario consultado; restauración y conversión reconsultan especies y precios autorizados. Solicitudes ya enviadas no se reinterpretan. Tutorial v2 admite alta nueva conservando acciones anteriores; v1 no cambia. Productos/negocios anteriores sin migración o borrado.
+
+### Escenarios pendientes de revisión funcional — no ejecutados
+
+- Alta de especie vacía con tres tarifas distintas; nombres repetidos normalizados, revisión conflictiva, archivo/reactivación y rechazo de escrituras/accesos cruzados entre negocios o cuentas.
+- Límites 1, 2, 3, 6, 7 y 20 pies; rechazo de 0, negativos, 2,5, 6,5 y 21 pies. Modo métrico con 304,8 mm por pie exacto. Espesores 1, 1½, 2, 1¼ y otros admitidos.
+- Una misma especie con diferentes espesores/largos/anchos en una compra y venta; agregados de piezas/volumen/valor, costo por espesor, límite de 20 líneas/100 grupos y dos entradas/salidas concurrentes.
+- Precio por categoría igual en distintos espesores; volumen e importe distintos por espesor. Tarifa manual al cambiar largo, revisión del importe, catálogo modificado entre captura/confirmación, respuesta incierta y reintento original.
+- Venta sin existencias, selección de medidas inexistentes y devolución parcial con costo histórico. Cotización antes de comprar sin creación de stock, conversión, tarifa manual original y nueva cotización cuando cambia el catálogo.
+- Restauración de borrador incompleto, cambio de precio, conflicto entre pestañas, perfiles anteriores de madera fija/volumen/agrupada, documentos históricos y tutorial reanudado en versiones anteriores.
+- Paginación y filtros globales del resumen, archivo con existencias, historial de compras filtrado por especie, presentación móvil/métrica y documentos nuevos con categoría/medidas.
+
+No se ejecutaron pruebas, capturas, vídeos ni recorridos automáticos. No se modificaron datos, exportaciones ni servicios del propietario. La incidencia de reingreso Windows/WebKit sigue abierta, sin corrección acreditada. Sin push/publicación.
+
+
+### Resultados reales de compilación beta 6
+
+- pnpm lint final aprobado, salida 0. TypeScript estricto y web aprobados mediante pnpm build, salida 0. pnpm build:functions aprobado, salida 0. Las verificaciones iniciales detectaron un import de exactDecimal y una propiedad opcional en la conversión de cotizaciones; se corrigieron antes de la compilación final.
+- Android aprobado: assembleDebug, BUILD SUCCESSFUL en 52 s, versionCode 50006. No se instaló ni se abrió el paquete.
+- Advertencias no bloqueantes: bloques diferidos de pdfmake/fuentes superiores a 500 kB, flatDir y versión XML del SDK Android. pnpm notificó recreación de algunos accesos binarios al verificar el entorno; las herramientas completaron su compilación. Sin nuevas dependencias ni cambios del lockfile de pnpm.
+- git diff --check aprobado. Revisión estática: reglas, UnitOfWork, WorkspaceCommandService y aritmética exacta sin cambios; las extensiones de comandos/consultas se validan y conservan el canal de práctica/propietario existente. No se ejecutó pnpm check porque contiene pruebas excluidas por el propietario.
+- Código fuente respecto de e1a7dc2: **28 archivos, +493 / -81 líneas físicas**, excluyendo documentación, metadatos e índices. Incluye organización de componentes; no acredita comportamiento funcional o en dispositivos.
+
+
+### Paquetes finales beta 6
+
+Windows aprobado: Tauri release optimizado en 2 min 56 s y NSIS x64, salida 0. Los paquetes corresponden a la fuente verificada, no se instalaron ni abrieron. Hashes también en artifacts/SHA256SUMS-beta5b6.txt (fuera de Git):
+
+- KhypuPyme-0.5.0-beta.6-android-debug.apk: **5496814 bytes**, SHA-256 5e0b102921ab357d8f5225d1b17ffac15e9fdc4d553ee98e318c331b53a9f0a6.
+- KhypuPyme-0.5.0-beta.6-windows-x64-setup.exe: **2502625 bytes**, SHA-256 2ec333e8c4475b848bc75c22fbd90f33f0c406105d8ccd1a0a15be038cc01113.
+
+Archivos principales: shared/workspace/timber-species.ts y model/validation; Functions TimberSpeciesService, InventoryService, TimberStockService, TradeService y WorkspaceQueries; interfaz TimberSpeciesCatalog, TimberSpeciesPicker, TimberLineEditor, Cart, carga de catálogo/borradores/cotizaciones y tutorial. Reglas y datos del propietario conservados, sin push, despliegue, publicación o accesos nuevos.

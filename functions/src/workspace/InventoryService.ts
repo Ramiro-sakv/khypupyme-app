@@ -115,7 +115,7 @@ export class InventoryServiceV2 {
         "La cantidad no corresponde a unidades completas del producto.",
       );
   }
-  async create(id: string, draft: ItemDraft): Promise<Item> {
+  async create(id: string, draft: ItemDraft, timberSpeciesId?: string): Promise<Item> {
     if (!kindsFor(this.business).includes(draft.kind))
       throw new Error(
         "Este modelo de producto no pertenece al rubro del negocio.",
@@ -130,7 +130,7 @@ export class InventoryServiceV2 {
       throw new Error("El producto ya existe.");
     if (draft.kind === "timber-grouped") {
       const key = hashKey(
-        normalizeSearch(draft.fields.species!) + "|" + draft.fields.thicknessMm,
+        (timberSpeciesId ?? normalizeSearch(draft.fields.species!)) + "|" + draft.fields.thicknessMm,
       );
       if (await this.work.get("timberFamilyIndex", key))
         throw new Error(
@@ -164,6 +164,7 @@ export class InventoryServiceV2 {
     if (isDiscrete(draft) && !whole(draft.minimum))
       throw new Error("El mínimo debe usar unidades completas.");
     const item: Item = {
+      ...(timberSpeciesId ? { timberSpeciesId } : {}),
       ...draft,
       ...itemUnits(draft),
       id,

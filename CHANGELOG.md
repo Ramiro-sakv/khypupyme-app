@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.5.0-beta.6 - 2026-11-08 (local, sin push)
+
+- Ficha de madera por especie con tres tarifas por pie tablar: supercorta 1–2, corta 3–6 y larga 7–20 pies enteros. Espesores libres indicados al recibir/vender, sin productos visibles duplicados.
+- Variantes internas creadas en la entrada, disponibilidad exacta y costo ponderado por espesor; agregados de especie en la misma transacción, edición de tarifas con revisión e índice de especies.
+- Catálogo y selección paginados, resumen filtrado por categoría/espesor, medidas exactas, compras/entradas múltiples y precio sugerido según largo. Tarifa manual con revisión al cambiar categoría.
+- Borradores y cotizaciones consultan el catálogo vigente; documentos conservan datos utilizados. Tutorial admite la nueva alta y conserva contratos anteriores.
+- Sin migrar/borrar datos ni cambiar reglas o rubros. Índices locales de catálogo añadidos. Solo lint, tipos, compilación e instaladores; sin pruebas/capturas/recorridos. Reingreso Windows/WebKit sigue abierto.
+
+
 ## 0.5.0-beta.5 - 2026-11-08 (local, sin push)
 
 - Tutorial: objetivo sobre formularios reales de Caja, cierre accesible y formularios dentro de desplegables; consulta de caja compartida entre instructor/pantalla y continuación condicionada a caja abierta. Servidor conserva la validación y explica el requisito faltante.

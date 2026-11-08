@@ -39,6 +39,7 @@ import { InventoryServiceV2 } from "./InventoryService.js";
 import type { Serial } from "./InventoryService.js";
 import type { CashService } from "./CashService.js";
 import type { Documents } from "./Documents.js";
+import { TimberSpeciesService } from "./TimberSpeciesService.js";
 
 export interface Debt {
   id: string;
@@ -115,13 +116,14 @@ export function pastDate(date: string) {
   if (date > today()) throw new Error("La fecha no puede estar en el futuro.");
 }
 export class TradeService {
+  readonly species: TimberSpeciesService;
   constructor(
     private readonly work: UnitOfWork,
     private readonly inventory: InventoryServiceV2,
     private readonly cash: CashService,
     private readonly documents: Documents,
     private readonly operationId: string,
-  ) {}
+  ) { this.species = new TimberSpeciesService(work, inventory); }
   async customer(id: string, fallback: string) {
     if (!id) return fallback;
     const customer = await this.work.get<Customer>("customersV2", id);
@@ -134,10 +136,11 @@ export class TradeService {
     consume: boolean,
     saleId: string,
   ): Promise<SaleLineV2> {
-    const item = await this.inventory.item(input.itemId);
+    const item = await this.species.resolve(input.itemId, input.timber, false, !consume);
     if (!item.active)
       throw new Error("Reactiva el producto antes de venderlo.");
-    if (item.priceMinor !== input.expectedPriceMinor)
+    const catalogPrice = await this.species.price(item, input.timber);
+    if (catalogPrice !== input.expectedPriceMinor)
       throw new Error(
         `Cambió el precio de ${item.name}. Actualiza y confirma el nuevo importe.`,
       );
@@ -182,7 +185,7 @@ export class TradeService {
         charged: totals.boardFeet,
         priceUnit: "boardFoot",
         priceMinor: input.timber.priceMinor,
-        catalogPriceMinor: item.priceMinor,
+        catalogPriceMinor: catalogPrice,
         grossMinor,
         netMinor: grossMinor,
         costMinor: stock.costMinor,
@@ -315,7 +318,9 @@ export class TradeService {
       "Cotización",
       ["Producto", "Solicitado", "Entrega", "Importe"],
       data.lines.map((line) => [
-        line.kind === "timber-piece"
+        line.timber
+          ? line.name + " · " + detailText(line, this.documents.timberSystem)
+          : line.kind === "timber-piece"
           ? line.name +
             " · " +
             timberDimensions(line.fields, this.documents.timberSystem)
@@ -445,7 +450,7 @@ export class TradeService {
     const lines = [];
     let totalMinor = 0;
     for (const entry of input.lines) {
-      const item = await this.inventory.item(entry.itemId),
+      const item = await this.species.resolve(entry.itemId, entry.timber, true),
         received = await this.inventory.receive(
           item.id,
           entry,
@@ -454,6 +459,7 @@ export class TradeService {
       totalMinor = money(totalMinor + received.totalMinor);
       lines.push({
         ...entry,
+        itemId: item.id,
         ...received,
         name: item.name,
         ...(item.details ? { details: item.details } : {}),
@@ -500,7 +506,7 @@ export class TradeService {
       number: document.number,
       ...input,
       lines,
-      itemIds: [...new Set(lines.map((line) => line.itemId))],
+      itemIds: [...new Set(lines.flatMap((line) => [line.itemId, ...(line.timber?.speciesId ? [line.timber.speciesId] : [])]))],
       totalMinor,
       createdAt: this.work.now,
     });

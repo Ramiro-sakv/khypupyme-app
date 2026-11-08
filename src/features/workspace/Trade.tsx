@@ -1,3 +1,5 @@
+import { timberCategory } from "../../../shared/workspace/timber-species";
+import TimberSpeciesPicker from "./TimberSpeciesPicker";
 import { displayQuantity as showQuantity } from "../../../shared/workspace/presentation";
 import { AppError } from "../../../shared/app-errors";
 import { requireTimber, resolveTimber } from "./TimberWidthEntry";
@@ -72,8 +74,10 @@ export default function Trade({
       lengthInput: line.lengthInput,
       widthInput: line.widthInput,
       priceInput: line.priceInput,
+      thicknessInput: line.thicknessInput,
+      priceManual: line.priceManual,
       itemId: line.item.id,
-      priceMinor: line.item.priceMinor,
+      priceMinor: (() => { try { return line.item.timberSpecies && line.timber ? line.item.timberSpecies.prices[timberCategory(line.timber.lengthMm)] : line.item.priceMinor; } catch { return line.item.priceMinor; } })(),
       qty: line.qty,
       unit: line.unit,
       cost: line.cost,
@@ -182,7 +186,7 @@ export default function Trade({
                 text: "",
                 source: "text",
               },
-              timber: { lengthMm: "", widths: [], priceMinor: item.priceMinor },
+              timber: { ...(item.timberSpecies ? { speciesId: item.timberSpecies.id, thicknessMm: item.fields.thicknessMm ?? "" } : {}), lengthMm: "", widths: [], priceMinor: item.priceMinor },
             }
           : {}),
         item,
@@ -335,6 +339,7 @@ export default function Trade({
                 />
               </label>
             </ActionForm>
+            {business.industryId === "timber" && <TimberSpeciesPicker search={catalogSearch} disabled={busy || !draft.editable} onPick={addItem} />}
             <Pager page={page} />
             <div className="product-picker">
               {page.items
@@ -678,7 +683,7 @@ export default function Trade({
             setLines(
               quote.lines.map((l) => ({
                 id: crypto.randomUUID(),
-                ...(l.timber ? { timber: l.timber } : {}),
+                ...(l.timber ? { timber: l.timber, priceManual: !!l.item.timberSpecies && l.timber.priceMinor !== l.expectedPriceMinor } : {}),
                 item: l.item,
                 qty: l.qty,
                 unit: l.unit,

@@ -1,5 +1,5 @@
 import { displayQuantity as showQuantity } from "../../../shared/workspace/presentation.js";
-import { timberStockText } from "../../../shared/workspace/timber-measures.js";
+import { timberStockText, dimensionDisplayFromMm } from "../../../shared/workspace/timber-measures.js";
 import {
   loadPractice,
   preparePractice,
@@ -133,6 +133,10 @@ export class WorkspaceService {
       let document: BusinessDocument | undefined,
         resultId = command.operationId;
       switch (command.kind) {
+        case "timber-species":
+          if (business.industryId !== "timber") throw new Error("Las especies corresponden al negocio de maderas.");
+          resultId = (await trade.species.save(command.input)).id;
+          break;
         case "timber-preferences":
           if (business.industryId !== "timber")
             throw new Error("Estas medidas corresponden a maderas.");
@@ -213,6 +217,7 @@ export class WorkspaceService {
           break;
         case "edit-item": {
           const item = await inventory.item(command.input.id);
+          if (item.timberSpeciesId) throw new Error("Edita las tarifas y el estado desde la ficha de la especie.");
           validateItemMinimum(item.kind, command.input.minimum);
           if (isDiscrete(item) && command.input.minimum.d !== "1")
             throw new Error("El mínimo debe usar unidades completas.");
@@ -418,10 +423,11 @@ export class WorkspaceService {
           break;
         case "stock-adjust": {
           const input = command.input;
+          const resolved = await trade.species.resolve(input.itemId, input.timber, input.direction === "in");
           if (input.direction === "in")
-            await inventory.receive(input.itemId, input, input.reason);
+            await inventory.receive(resolved.id, input, input.reason);
           else {
-            const item = await inventory.item(input.itemId);
+            const item = resolved;
             if (item.kind === "timber-grouped") {
               if (
                 !input.timber ||
@@ -578,7 +584,7 @@ export class WorkspaceService {
       const rows = items
         .filter((item) => item.kind !== "service")
         .map((item) => [
-          item.name,
+          item.timberSpeciesId ? item.name + " · espesor " + dimensionDisplayFromMm(item.fields.thicknessMm!, "thicknessMm", documents.timberSystem) + (documents.timberSystem === "imperial" ? " pulgadas" : " mm") : item.name,
           timberStockText(item, documents.timberSystem) ??
             showQuantity(item.balance) + " " + item.baseUnit,
           (item.valueMinor / 100).toFixed(2),

@@ -30,16 +30,18 @@ export default function ItemForm({
   initial,
   children,
   allowGrouped = true,
+  serviceOnly = false,
 }: {
   onSave: (item: ItemDraft, data: FormData) => Promise<unknown>;
   label?: string;
   initial?: ItemDraft;
   children?: ReactNode;
   allowGrouped?: boolean;
+  serviceOnly?: boolean;
 }) {
   const { business, busy } = useWorkspace(),
     [kind, setKind] = useState<ItemKind>(
-      initial?.kind ??
+      initial?.kind ?? (serviceOnly ? "service" : undefined) ??
         (!allowGrouped && business.industryId === "timber"
           ? "timber-piece"
           : suggestedKind(business.industryId!)),
@@ -155,7 +157,7 @@ export default function ItemForm({
           }}
         >
           {kindsFor(business)
-            .filter((k) => allowGrouped || k !== "timber-grouped")
+            .filter((k) => (!serviceOnly || k === "service") && (allowGrouped || k !== "timber-grouped"))
             .map((k) => (
               <option key={k} value={k}>
                 {ITEM_MODELS[k].label}

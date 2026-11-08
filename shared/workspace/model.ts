@@ -52,13 +52,38 @@ export interface WorkspaceBusiness {
   createdAt: string;
 }
 export interface TimberSelection {
+  speciesId?: string;
+  thicknessMm?: string;
   lengthMm: string;
   widths: { widthMm: string; pieces: number }[];
 }
 export interface TimberSaleSelection extends TimberSelection {
   priceMinor: number;
 }
+export type TimberCategory = "superShort" | "short" | "long";
+export interface TimberSpecies {
+  id: string;
+  name: string;
+  reference: string;
+  prices: Record<TimberCategory, number>;
+  revision: number;
+  active: boolean;
+  pieces: number;
+  balance: Quantity;
+  valueMinor: number;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface TimberSummary {
+  id: string;
+  thicknessMm: string;
+  category: TimberCategory;
+  pieces: number;
+  volume: Quantity;
+}
 export interface TimberStockGroup {
+  speciesId?: string;
+  thicknessMm?: string;
   id: string;
   itemId: string;
   lengthMm: string;
@@ -80,6 +105,8 @@ export interface ItemDraft {
   serviceCostMinor: number;
 }
 export interface Item extends ItemDraft {
+  timberSpeciesId?: string;
+  timberSpecies?: TimberSpecies;
   pieces?: number;
   id: string;
   active: boolean;
@@ -230,6 +257,7 @@ export interface SaleInput {
   quoteId: string;
 }
 export type WorkspaceAction =
+  | { kind: "timber-species"; input: { id: string; name: string; reference: string; prices: Record<TimberCategory, number>; expectedRevision: number; active: boolean } }
   | { kind: "timber-preferences"; input: { system: TimberSystem } }
   | OperationalAction
   | {
@@ -396,6 +424,8 @@ export interface CommandResult {
   message: string;
 }
 export type WorkspaceResource =
+  | "timberSummary"
+  | "timberSpecies"
   | "appointments"
   | "workOrders"
   | "workflowEvents"
@@ -428,6 +458,7 @@ export type WorkspaceResource =
   | "expenses"
   | "receivables";
 export interface WorkspaceQuery {
+  category?: TimberCategory;
   apiVersion: 2;
   businessId: string;
   resource: WorkspaceResource;
@@ -435,6 +466,7 @@ export interface WorkspaceQuery {
   cursor?: string;
   itemId?: string;
   lengthMm?: string;
+  thicknessMm?: string;
   from?: string;
   to?: string;
   barcode?: string;

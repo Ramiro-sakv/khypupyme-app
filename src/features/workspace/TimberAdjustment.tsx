@@ -26,7 +26,7 @@ export default function TimberAdjustment({ item }: { item: Item }) {
         text: "",
         source: "text",
       },
-      timber: { lengthMm: "", widths: [], priceMinor: item.priceMinor },
+      timber: { ...(item.timberSpecies ? { speciesId: item.id, thicknessMm: item.fields.thicknessMm ?? "" } : {}), lengthMm: "", widths: [], priceMinor: item.priceMinor },
     });
   return (
     <details className="correction-actions">
@@ -42,10 +42,11 @@ export default function TimberAdjustment({ item }: { item: Item }) {
               itemId: item.id,
               direction,
               qty: q(
-                String(timberTotals(item.fields.thicknessMm!, timber).pieces),
+                String(timberTotals(line.item.fields.thicknessMm!, timber).pieces),
               ),
               unit: "piece",
               timber: {
+                ...(timber.speciesId ? { speciesId: timber.speciesId, thicknessMm: timber.thicknessMm } : {}),
                 lengthMm: timber.lengthMm,
                 widths: timber.widths,
               },
@@ -60,7 +61,7 @@ export default function TimberAdjustment({ item }: { item: Item }) {
             setLine((old) => ({
               ...old,
               qty: "0",
-              timber: { lengthMm: "", widths: [], priceMinor: item.priceMinor },
+              timber: { ...(item.timberSpecies ? { speciesId: item.id, thicknessMm: old.item.fields.thicknessMm ?? "" } : {}), lengthMm: "", widths: [], priceMinor: item.priceMinor },
               widthsEntry: {
                 version: 2,
                 system: business.timberSystem ?? "imperial",
@@ -99,7 +100,7 @@ export default function TimberAdjustment({ item }: { item: Item }) {
                 source: "text",
               },
               widthInput: "",
-              timber: { lengthMm: "", widths: [], priceMinor: item.priceMinor },
+              timber: { ...(item.timberSpecies ? { speciesId: item.id, thicknessMm: old.item.fields.thicknessMm ?? "" } : {}), lengthMm: "", widths: [], priceMinor: item.priceMinor },
             }))
           }
           purchase={direction === "in"}

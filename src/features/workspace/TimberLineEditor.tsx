@@ -1,3 +1,4 @@
+import { TIMBER_CATEGORIES, timberCategory, timberThickness } from "../../../shared/workspace/timber-species";
 import { AppError } from "../../../shared/app-errors";
 import { useState } from "react";
 import {
@@ -64,6 +65,10 @@ export default function TimberLineEditor({
         "timber-widths",
       ),
     );
+  if (!issue && line.item.timberSpecies && (touched || line.lengthInput || line.thicknessInput)) {
+    try { timberThickness(selection.thicknessMm ?? ""); timberCategory(selection.lengthMm); }
+    catch (cause) { issue = errorMessage(cause); }
+  }
   const text =
     line.widthsEntry?.text ?? widthSelectionText(selection.widths, system);
   const stock = useRecords<TimberStockGroup>(
@@ -71,9 +76,10 @@ export default function TimberLineEditor({
     {
       itemId: line.item.id,
       active: true,
+      ...(line.item.timberSpecies && line.item.fields.thicknessMm ? { thicknessMm: line.item.fields.thicknessMm } : {}),
       ...(selection.lengthMm ? { lengthMm: selection.lengthMm } : {}),
     },
-    !purchase,
+    !purchase && (!line.item.timberSpecies || (!!line.item.fields.thicknessMm && !!selection.lengthMm)),
   );
   let summary = "Indica el largo y los anchos para calcular.",
     pieces = 0,
@@ -172,13 +178,19 @@ export default function TimberLineEditor({
       <div className="timber-calculator-fields">
         <label>
           Espesor ({system === "imperial" ? "pulgadas" : "mm"})
-          <output className="readonly-measure">
+          {line.item.timberSpecies ? <input name="timber-thickness" required placeholder={system === "imperial" ? "Ej.: 1; 1 1/2; 2; otro espesor" : "Espesor en mm"}
+            value={line.thicknessInput ?? (line.item.fields.thicknessMm ? dimensionInputFromMm(line.item.fields.thicknessMm, "thicknessMm", system) : "")}
+            onChange={(e) => {
+              let thicknessMm = "";
+              try { thicknessMm = timberThickness(dimensionToMm(e.target.value, "thicknessMm", system)); } catch { /* Se valida al confirmar. */ }
+              update({ thicknessInput: e.target.value, item: { ...line.item, fields: { ...line.item.fields, thicknessMm } }, timber: { ...original, thicknessMm } });
+            }} /> : <output className="readonly-measure">
             {dimensionDisplayFromMm(
               line.item.fields.thicknessMm!,
               "thicknessMm",
               system,
             )}
-          </output>
+          </output>}
         </label>
         <label>
           Largo ({system === "imperial" ? "pies" : "mm"})
@@ -205,10 +217,17 @@ export default function TimberLineEditor({
               } catch {
                 /* Conservar texto incompleto. */
               }
-              update({
-                lengthInput: e.target.value,
-                timber: { ...original, lengthMm },
-              });
+              let priceMinor = original.priceMinor, priceInput = line.priceInput, priceManual = line.priceManual;
+              if (line.item.timberSpecies && !purchase) {
+                try {
+                  const category = timberCategory(lengthMm);
+                  let previousCategory;
+                  try { previousCategory = timberCategory(original.lengthMm); } catch { /* Captura incompleta. */ }
+                  const keep = priceManual && (category === previousCategory || window.confirm("Cambió la categoría del largo. ¿Conservar la tarifa manual de este grupo?"));
+                  if (!keep) { priceMinor = line.item.timberSpecies.prices[category]; priceInput = (priceMinor / 100).toFixed(2); priceManual = false; }
+                } catch { /* Un largo incompleto no habilita confirmar. */ }
+              }
+              update({ lengthInput: e.target.value, priceInput, priceManual, timber: { ...original, lengthMm, priceMinor } });
             }}
             required
           />
@@ -237,6 +256,7 @@ export default function TimberLineEditor({
                 }
                 update({
                   priceInput: e.target.value,
+                  priceManual: true,
                   timber: { ...original, priceMinor },
                 });
               }
@@ -244,6 +264,7 @@ export default function TimberLineEditor({
           />
         </label>
       </div>
+      {line.item.timberSpecies && <p className="notice">{(() => { try { return TIMBER_CATEGORIES[timberCategory(selection.lengthMm)] + " · tarifa de catálogo " + bob(line.item.timberSpecies.prices[timberCategory(selection.lengthMm)]) + "/pie tablar"; } catch { return "Indica un largo entero de 1 a 20 pies para determinar categoría y tarifa."; } })()}</p>}
       <label>
         Anchos ({system === "imperial" ? "pulgadas comerciales enteras" : "mm"})
         <textarea

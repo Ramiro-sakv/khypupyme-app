@@ -1,5 +1,5 @@
 import { displayQuantity as showQuantity } from "../../../shared/workspace/presentation";
-import type { TimberSelection } from "../../../shared/workspace/model";
+import type { TimberSelection, TimberSpecies } from "../../../shared/workspace/model";
 import {
   timberSelectionText,
   timberTotals,
@@ -40,6 +40,7 @@ export default function PurchaseHistory() {
     [product, setProduct] = useState(""),
     [selectedId, setSelected] = useState(""),
     products = useRecords<Item>("items"),
+    species = useRecords<TimberSpecies>("timberSpecies"),
     ready = (!from && !to) || (!!from && !!to),
     page = useRecords<PurchaseRecord>(
       "purchasesV2",
@@ -74,12 +75,13 @@ export default function PurchaseHistory() {
           />
         </label>
         <label>
-          Producto de esta página del catálogo
+          Producto o especie de estas páginas del catálogo
           <select value={product} onChange={(e) => setProduct(e.target.value)}>
             <option value="">Todos</option>
             {product && !products.items.some((i) => i.id === product) && (
               <option value={product}>Producto seleccionado</option>
             )}
+            {species.items.map((i) => <option key={i.id} value={i.id}>{i.name} · todos los espesores</option>)}
             {products.items.map((i) => (
               <option key={i.id} value={i.id}>
                 {i.name}
@@ -91,6 +93,7 @@ export default function PurchaseHistory() {
       <details>
         <summary>Cambiar página de productos del filtro</summary>
         <Pager page={products} />
+        <Pager page={species} />
       </details>
       {!ready ? (
         <p className="notice notice-info">

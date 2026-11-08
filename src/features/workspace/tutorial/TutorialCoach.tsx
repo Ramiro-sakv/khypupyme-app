@@ -70,7 +70,7 @@ export default function TutorialCoach({
       if (inPanel) node = root;
       else if (root && step) {
         node = root.querySelector<HTMLElement>(
-          '[data-tutorial="' + (step.id === "cash-close" ? "cash-close-form" : step.target) + '"]',
+          '[data-tutorial="' + (step.id === "cash-close" ? "cash-close-form" : step.id === "service" ? "new-service" : step.target) + '"]',
         );
         if (
           [

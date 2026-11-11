@@ -64,7 +64,7 @@ const groups: {
     label: "Tu negocio",
     items: [
       { id: "inicio", label: "Inicio", icon: "home" },
-      { id: "guia", label: "Cómo trabajar aquí", icon: "document" },
+      { id: "guia", label: "Ayuda", icon: "document" },
     ],
   },
   {

@@ -1,4 +1,4 @@
-param([ValidateSet('dev','emulators','check','test:emulators','preview')][string]$Task = 'dev')
+param([ValidateSet('dev','emulators','backup','check','test:emulators','preview')][string]$Task = 'dev', [switch]$Empty)
 $ErrorActionPreference = 'Stop'
 Set-Location -LiteralPath (Split-Path $PSScriptRoot -Parent)
 # Los cambios de entorno solo duran esta sesión. No instala herramientas del sistema.
@@ -22,5 +22,6 @@ if ($Task -in @('emulators','test:emulators') -and -not (Get-Command java -Error
   if ($taskJdk) { $env:JAVA_HOME = $taskJdk.FullName; $env:Path = "$(Join-Path $taskJdk.FullName 'bin');$env:Path" }
   else { throw 'No se encontró Java. Instala JDK 21 LTS o superior y configura JAVA_HOME para ejecutar los emuladores.' }
 }
-& $taskPnpm.Source run $Task
+if ($Empty -and $Task -eq 'emulators') { & $taskPnpm.Source run $Task --empty }
+else { & $taskPnpm.Source run $Task }
 exit $LASTEXITCODE

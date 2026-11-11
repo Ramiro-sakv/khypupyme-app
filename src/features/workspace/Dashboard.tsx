@@ -1,224 +1,104 @@
-import { useTimberTutorial } from "./tutorial/context";
-import TutorialEntry from "./tutorial/TutorialEntry";
-import { useState } from "react";
-import type { CashSession } from "../../../shared/workspace/model";
-import { ReportChart } from "../commerce/ReportChart";
-import GettingStarted from "./GettingStarted";
-import type { IconName } from "./Icon";
-import { Icon } from "./Icon";
-import { useRecords, useWorkspace } from "./context";
+import { INDUSTRIES } from "../../../shared/business-industries";
+import { hasAgenda, hasDelivery, workKindFor } from "../../../shared/workspace/operations";
+import { useCashState } from "./cash-context";
+import { useWorkspace } from "./context";
 import { bob, localDate, today } from "./format";
+import GettingStarted from "./GettingStarted";
+import { Icon } from "./Icon";
 import { useWorkspaceNavigation } from "./navigation";
+import { useTimberTutorial } from "./tutorial/context";
 import { useReport } from "./useReport";
+
 export default function Dashboard() {
+  const { business } = useWorkspace();
+  const { go } = useWorkspaceNavigation();
   const tutorial = useTimberTutorial();
-  const { business } = useWorkspace(),
-    { go } = useWorkspaceNavigation(),
-    [period] = useState(() => ({
-      from: tutorial?.active
-        ? tutorial.state.session!.startedOn
-        : today().slice(0, 7) + "-01",
-      to: today(),
-    })),
-    { report, error, loading, refresh } = useReport(period.from, period.to),
-    cash = useRecords<CashSession>("cashSessions", { status: "open" }),
-    open = cash.items[0];
-  const metrics = report
-    ? ([
-        {
-          label: "Ventas netas",
-          value: report.salesMinor,
-          icon: "sale",
-          hint: "Durante el periodo",
-        },
-        {
-          label: "Resultado estimado",
-          value: report.resultMinor,
-          icon: "chart",
-          hint: "Después de costos, gastos y pérdidas",
-        },
-        {
-          label: "Valor del inventario",
-          value: report.inventoryMinor,
-          icon: "box",
-          hint: "Valor conocido a la fecha actual",
-        },
-        {
-          label: "Fiados pendientes",
-          value: report.pendingMinor,
-          icon: "debt",
-          hint: "Saldo de todos los periodos",
-        },
-      ] as { label: string; value: number; icon: IconName; hint: string }[])
-    : [];
+  const cash = useCashState();
+  const date = today();
+  const { report, error, loading, refresh } = useReport(date, date);
+  const industry = business.industryId;
+  const services = industry && INDUSTRIES[industry].profile === "services";
+  const cashTitle = cash.loading || cash.error || cash.open ? "Ver caja" : "Abrir caja";
+  const cashStatus = cash.loading ? "Consultando caja…" : cash.error ? cash.error : cash.open
+    ? `Abierta desde ${localDate(cash.open.openedAt, true)} · ${bob(cash.open.balanceMinor)} en efectivo`
+    : "Caja cerrada · prepara tu fondo si usarás efectivo";
+  const needsPractice = industry === "timber" && !tutorial?.active &&
+    (tutorial?.pendingControl || tutorial?.state.session?.status === "closing" ||
+      (!tutorial?.state.completedAt && tutorial?.state.session?.status !== "completed"));
+  const attention = [
+    ...(industry === "convenience" ? [
+      { title: "Reponer productos", view: "inventario", filter: "reposicion" },
+      { title: "Próximos vencimientos", view: "inventario", filter: "vencimientos" },
+    ] : []),
+    ...(industry === "clothing" ? [
+      { title: "Stock por talla y color", view: "inventario", filter: "variantes" },
+      { title: "Buscar venta para un cambio", view: "ventas", filter: "cambios" },
+    ] : []),
+    ...(industry === "appliances" ? [
+      { title: "Garantías e historial por serie", view: "garantias" },
+      { title: "Equipos en inspección", view: "garantias", filter: "inspeccion" },
+    ] : []),
+    ...(hasAgenda(industry) ? [{ title: "Consultar agenda", view: "agenda" }] : []),
+    ...(workKindFor(industry) ? [{ title: "Consultar órdenes", view: "ordenes" }] : []),
+    ...(hasDelivery(industry) ? [{ title: "Revisar entregas", view: "entregas" }] : []),
+    ...(industry === "beverages" ? [{ title: "Envases por cliente", view: "envases" }] : []),
+  ];
   return (
     <>
-      <div className="notice">
-        <strong>Tu negocio tiene su propia forma de trabajar.</strong>
-        <button onClick={() => go("guia")}>
-          Abrir guía y herramientas del rubro
-        </button>
-      </div>
-      <TutorialEntry />
-      <section data-tutorial="dashboard" className="dashboard-welcome">
+      <section data-tutorial="dashboard" className="card day-start">
         <div>
-          <span className="eyebrow">VAMOS PASO A PASO</span>
-          <h2>Una mirada a tu negocio</h2>
-          <p>Las operaciones, el inventario y tus números en un solo lugar.</p>
-          <span className="period-chip">
-            <Icon name="history" />
-            {localDate(period.from)} — {localDate(period.to)}
-          </span>
+          <h2>Trabajo de hoy</h2>
+          <p className="muted">{localDate(date)}</p>
+          <p role={cash.error ? "alert" : "status"}>{cashStatus}</p>
         </div>
-        <button className="primary" onClick={() => go("ventas")}>
-          <Icon name="plus" />
-          Registrar venta
-        </button>
+        <div className="actions">
+          <button onClick={() => go("caja")}><Icon name="cash" /> {cashTitle}</button>
+          <button className="primary" onClick={() => go("ventas")}><Icon name="sale" /> Vender</button>
+          {!services && <button onClick={() => go("compras")}><Icon name="purchase" /> Registrar compra</button>}
+        </div>
       </section>
-      {loading && (
-        <div
-          className="metric-grid"
-          role="status"
-          aria-label="Cargando resumen"
-        >
-          {[1, 2, 3, 4].map((n) => (
-            <div className="card skeleton" key={n}>
-              <span />
-              <strong />
-              <small />
-            </div>
-          ))}
-        </div>
-      )}
-      {error && (
-        <div className="notice notice-error" role="alert">
-          <span>{error}</span>
-          <button onClick={refresh}>Volver a consultar</button>
-        </div>
-      )}
-      <div className="metric-grid">
-        {metrics.map((m) => (
-          <article className="card metric" key={m.label}>
-            <div className="metric-top">
-              <span>{m.label}</span>
-              <span className="metric-icon">
-                <Icon name={m.icon} />
-              </span>
-            </div>
-            <strong className={m.value < 0 ? "negative" : ""}>
-              {bob(m.value)}
-            </strong>
-            <small>{m.hint}</small>
-          </article>
-        ))}
-      </div>
-      {report &&
-        (report.pendingValuationCount > 0 || report.unvaluedLossCount > 0) && (
-          <div className="notice notice-warning" role="status">
-            <Icon name="shield" />
-            <div>
-              <strong>Hay costos por completar</strong>
-              <p>
-                {report.pendingValuationCount} productos y{" "}
-                {report.unvaluedLossCount} salidas anteriores sin costo
-                conocido. El resumen puede estar incompleto.
-              </p>
-              <button
-                onClick={() =>
-                  go(business.legacy ? "anteriores" : "inventario")
-                }
-              >
-                Revisar valoración
-              </button>
-            </div>
+      {attention.length > 0 && (
+        <section className="card day-attention">
+          <h3>Qué revisar</h3>
+          <div className="actions">
+            {attention.map(({ title, view, filter }) => (
+              <button key={title} onClick={() => go(view, filter ? { atencion: filter } : undefined)}>{title} <Icon name="arrow" /></button>
+            ))}
           </div>
+        </section>
+      )}
+      <section className="card day-summary">
+        <div className="section-heading">
+          <h3>Resumen de hoy</h3>
+          <button className="text-button" onClick={() => go("informes")}>Ver informes <Icon name="arrow" /></button>
+        </div>
+        {loading && <p role="status">Consultando cifras del día…</p>}
+        {error && <div className="notice notice-error" role="alert">{error} <button onClick={refresh}>Volver a consultar</button></div>}
+        {report && (
+          <>
+            <dl className="day-totals">
+              <div><dt>Ventas netas</dt><dd>{bob(report.salesMinor)}</dd></div>
+              <div><dt>Compras</dt><dd>{bob(report.purchasesMinor)}</dd></div>
+              <div><dt>Gastos netos</dt><dd>{bob(report.expensesMinor)}</dd></div>
+              <div><dt>Resultado estimado</dt><dd>{bob(report.resultMinor)}</dd></div>
+            </dl>
+            {report.pendingMinor > 0 && <button className="text-button" onClick={() => go("fiados")}>Fiados pendientes · {bob(report.pendingMinor)}</button>}
+            {(report.pendingValuationCount > 0 || report.unvaluedLossCount > 0) && (
+              <div className="notice notice-warning" role="status">
+                Hay costos por completar. El resultado puede estar incompleto.
+                <button onClick={() => go(business.legacy ? "anteriores" : "inventario")}>Revisar valoración</button>
+              </div>
+            )}
+          </>
         )}
-      <div className="dashboard-columns">
-        <section className="card chart-card">
-          <div className="section-heading">
-            <div>
-              <span className="eyebrow">EVOLUCIÓN DEL PERIODO</span>
-              <h3>Ventas y gastos</h3>
-            </div>
-            <button className="text-button" onClick={() => go("informes")}>
-              Ver informes <Icon name="arrow" />
-            </button>
-          </div>
-          {report ? (
-            <ReportChart days={report.days} />
-          ) : (
-            <p className="muted">
-              El gráfico aparecerá al consultar tus datos.
-            </p>
-          )}
+      </section>
+      {needsPractice && (
+        <section className="card day-guide">
+          <div><h3>Práctica de madera</h3><p className="muted">Abre caja y practica con datos ficticios.</p></div>
+          <button onClick={() => go("guia")}>{tutorial?.state.session?.status === "paused" || tutorial?.state.session?.status === "active" ? "Reanudar práctica" : "Abrir guía"}</button>
         </section>
-        <section className="card quick-panel">
-          <span className="eyebrow">TU DÍA A DÍA</span>
-          <h3>¿Qué vas a registrar?</h3>
-          {(
-            [
-              {
-                id: "ventas",
-                label: "Nueva venta",
-                hint: "Productos y servicios",
-                icon: "sale",
-              },
-              {
-                id: "compras",
-                label: "Registrar compra",
-                hint: "Entradas con costo",
-                icon: "purchase",
-              },
-              {
-                id: "caja",
-                label: open ? "Revisar caja" : "Abrir caja",
-                hint: cash.loading
-                  ? "Consultando sesión…"
-                  : cash.error
-                    ? "Consulta el estado en Caja"
-                    : open
-                      ? "Caja abierta · " + bob(open.balanceMinor)
-                      : "Prepara el fondo inicial",
-                icon: "cash",
-              },
-              {
-                id: "inventario",
-                label: "Administrar inventario",
-                hint: "Productos, unidades y movimientos",
-                icon: "box",
-              },
-            ] as { id: string; label: string; hint: string; icon: IconName }[]
-          ).map((a) => (
-            <button
-              className="quick-action"
-              key={a.id}
-              onClick={() => go(a.id)}
-            >
-              <span className="quick-icon">
-                <Icon name={a.icon} />
-              </span>
-              <span>
-                <strong>{a.label}</strong>
-                <small>{a.hint}</small>
-              </span>
-              <Icon name="arrow" />
-            </button>
-          ))}
-        </section>
-      </div>
-      <GettingStarted
-        cashOpen={!!open}
-        cashLoading={cash.loading}
-        cashError={cash.error}
-      />
-      <div className="notice notice-info">
-        <Icon name="shield" />
-        <p>
-          El resultado es estimado con los costos registrados. Las compras
-          pagadas no son gastos operativos; este resumen no representa un saldo
-          bancario.
-        </p>
-      </div>
+      )}
+      {industry !== "timber" && <GettingStarted compact />}
     </>
   );
 }

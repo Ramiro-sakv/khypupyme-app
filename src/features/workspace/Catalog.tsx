@@ -9,6 +9,9 @@ import {
   minimumInput,
 } from "../../../shared/workspace/timber-measures";
 import { useState } from "react";
+import { useSearchParams } from "react-router";
+import ExpiringLots from "./ExpiringLots";
+import FashionPicker from "./FashionPicker";
 import { ITEM_MODELS, UNITS } from "../../../shared/workspace/catalog";
 import { compare, div, ZERO } from "../../../shared/workspace/exact";
 import type { Item, Unit } from "../../../shared/workspace/model";
@@ -24,20 +27,27 @@ import {
   statusLabel,
 } from "./format";
 import { Icon } from "./Icon";
+import { useWorkspaceNavigation } from "./navigation";
 import IndustryHelp from "./IndustryHelp";
 import ItemForm from "./ItemForm";
 import { Panel } from "./Panel";
 import { ActionForm, Field, Pager } from "./ui";
 export default function Catalog() {
+  const [params] = useSearchParams();
+  const { go } = useWorkspaceNavigation();
+  const attention = params.get("atencion");
   const { run, busy, business } = useWorkspace(),
     [newItem, setNewItem] = useState(false),
     [archived, setArchived] = useState(false),
     [search, setSearch] = useState(""),
     [selection, setSelected] = useState<Item | null>(null),
+    reorder = business.industryId === "convenience" && attention === "reposicion",
+    expiry = business.industryId === "convenience" && attention === "vencimientos",
     page = useRecords<Item>("items", {
-      active: !archived,
+      active: reorder || !archived,
+      ...(reorder ? { reorder: true } : {}),
       ...(search.trim().length >= 2 ? { search: search.trim() } : {}),
-    });
+    }, !expiry);
   const tutorial = useTimberTutorial();
   const speciesMode = business.industryId === "timber" && tutorial?.state.session?.version !== 1;
   const visible = page.items;
@@ -59,6 +69,13 @@ export default function Catalog() {
         </button>
       </div>
       <IndustryHelp mode="catalog" />
+      {business.industryId === "convenience" && <div className="actions catalog-tools">
+        <button aria-pressed={!reorder && !expiry} onClick={() => go("inventario", {})}>Catálogo</button>
+        <button aria-pressed={reorder} onClick={() => go("inventario", { atencion: "reposicion" })}>Reposición</button>
+        <button aria-pressed={expiry} onClick={() => go("inventario", { atencion: "vencimientos" })}>Vencimientos</button>
+        {(reorder || expiry) && <button className="primary" onClick={() => go("compras")}>Registrar compra</button>}
+      </div>}
+      {expiry && <ExpiringLots />}
       {speciesMode && <><TimberSpeciesCatalog /><h3>Servicios y productos anteriores</h3><p>Las fichas anteriores conservan sus medidas y costos; no se consolidan automáticamente.</p></>}
       {newItem && (
         <Panel
@@ -87,7 +104,7 @@ export default function Catalog() {
           />
         </Panel>
       )}
-      <div className="catalog-toolbar">
+      <div className="catalog-toolbar" hidden={expiry}>
         <label>
           Buscar en todo el catálogo (desde 2 caracteres)
           <input
@@ -96,17 +113,19 @@ export default function Catalog() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </label>
-        <label>
+        {!reorder && <label>
           <input
             type="checkbox"
             checked={archived}
             onChange={(e) => setArchived(e.target.checked)}
           />
           Mostrar archivados
-        </label>
+        </label>}
       </div>
-      <Pager page={page} />
-      <div className="table-scroll catalog-table">
+      {!expiry && <Pager page={page} />}
+      {reorder && !page.loading && !page.error && !page.items.length && <p>No hay productos agotados o en su mínimo para esta búsqueda.</p>}
+      {business.industryId === "clothing" && !archived && <FashionPicker items={page.items} pick={setSelected} />}
+      <div className="table-scroll catalog-table" hidden={expiry}>
         <table>
           <thead>
             <tr>

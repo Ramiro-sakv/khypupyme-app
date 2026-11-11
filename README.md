@@ -1,6 +1,6 @@
 # KhypuPyme
 
-Cuaderno digital para negocios de Bolivia. Beta local **0.5.0-beta.7**, sin publicación ni conexión cloud activa.
+Cuaderno digital para negocios de Bolivia. Beta local **0.5.0-beta.8**, sin publicación ni conexión cloud activa.
 
 Una cuenta administra varios negocios independientes. Después de ingresar se crea un espacio, se responde el cuestionario y se confirma un rubro fijo. Cada negocio conserva catálogo, clientes, compras, ventas, fiados, caja y documentos propios. Se abre el último negocio autorizado; **Cambiar negocio** vuelve al selector.
 
@@ -99,11 +99,15 @@ pnpm install --frozen-lockfile
 .\scripts\local.ps1 dev
 ```
 
-Abrir http://127.0.0.1:5173. Panel de emuladores: http://127.0.0.1:4000. Los puertos 5173, 8080, 9099, 5001 y 4000 deben estar libres. Si tenías emuladores v0.2 abiertos, deténlos tú con Ctrl+C para exportar tus datos y vuelve a ejecutar el comando de emuladores; así se cargará Functions. El script local puede usar Node/pnpm incluidos en Codex y el JDK encontrado en `.jdks`, sin cambiar el PATH del sistema. Si PowerShell bloquea scripts, ejecutar los comandos `pnpm dev` y `pnpm emulators` con Node, pnpm y Java disponibles en la terminal; no es necesario reducir la política global de ejecución.
+Abrir http://127.0.0.1:5173. Panel de emuladores: http://127.0.0.1:4000. El script local puede usar Node/pnpm incluidos en Codex y el JDK encontrado en `.jdks`, sin cambiar el PATH del sistema. Si PowerShell bloquea scripts, ejecutar `pnpm dev` y `pnpm emulators` con Node, pnpm y Java disponibles en la terminal.
 
 La configuración funciona sin `.env.local`. `.env.example` muestra la configuración habitual; el perfil local rechaza proyectos sin prefijo `demo-` ; el perfil alojado requiere preparación y autorización separadas. Firebase CLI está instalado **dentro del proyecto**, sin instalación global. El primer arranque descarga los componentes de Emulator Suite. Se escucha exclusivamente en loopback; para probar en un teléfono físico hará falta preparar acceso y HTTPS por separado.
 
-Los datos locales se importan desde `.emulator-data` si existe y se exportan allí al apagar normalmente los emuladores. Esa carpeta está excluida de Git y **no constituye un respaldo comercial**. Los tests limpian exclusivamente su proyecto efímero separado: no importar datos ni apuntarlos a la sesión interactiva.
+En VS Code, usa **Terminal → Ejecutar tarea → KhypuPyme · Iniciar emuladores**. Espera el mensaje **KhypuPyme · emuladores listos** antes de abrir la app. La tarea y `pnpm emulators` usan el mismo lanzador. Si la sesión habitual ya está abierta, reutilízala o ciérrala normalmente antes de iniciar otra.
+
+El lanzador muestra la fecha de la copia restaurada y guarda Auth y Firestore cada cinco minutos. Puedes guardar inmediatamente con la tarea **KhypuPyme · Guardar respaldo** o `pnpm backup` desde otra terminal. Para cerrar, pulsa **Ctrl+C una vez** y espera **Respaldo guardado**. Cerrar la terminal por fuerza puede dejar fuera cambios posteriores a la última copia confirmada.
+
+Windows conserva las dos copias recientes y la copia original en `%LOCALAPPDATA%\KhypuPyme\demo-khypupyme`. La carpeta anterior `.emulator-data` sigue disponible. Si el respaldo elegido está incompleto, el lanzador se detiene e indica su ubicación. `pnpm emulators --restore <nombre-de-copia>` permite elegir una copia verificada de esa carpeta. Para un entorno nuevo sin respaldos, `pnpm emulators --empty` permite comenzar vacío explícitamente. Las copias incluyen datos de cuentas y quedan fuera de Git. Los tests usan exclusivamente un proyecto efímero separado.
 
 ## Si npm no aparece
 

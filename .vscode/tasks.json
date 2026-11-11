@@ -1,0 +1,28 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "KhypuPyme · Iniciar emuladores",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/local.ps1", "emulators"],
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "khypupyme",
+        "pattern": { "regexp": "^(.+):(\\d+):(\\d+): (.+)$", "file": 1, "line": 2, "column": 3, "message": 4 },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^KhypuPyme · preparando emuladores$",
+          "endsPattern": "^KhypuPyme · emuladores listos"
+        }
+      }
+    },
+    {
+      "label": "KhypuPyme · Guardar respaldo",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/local.ps1", "backup"],
+      "problemMatcher": []
+    }
+  ]
+}

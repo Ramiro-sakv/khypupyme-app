@@ -643,3 +643,13 @@ Referencias técnicas: Firebase Auth documenta reauthenticateWithCredential y el
 Hashes en artifacts/SHA256SUMS-beta5b7.txt, fuera de Git. Archivos principales: modelo/validación/protection; TimberSpeciesService, TimberStockQueries y SensitiveApprovalService; UnitOfWork y adaptadores de comandos; TimberStockTable, ficha de madera, ReportChart, reautenticación y AuditHistory. Commit local, sin push ni publicación.
 
 Recuento respecto de 955b22d: **32 archivos de código, +785 / -212 líneas físicas**, incluidas reglas y estilos; excluye documentación, índices, versiones y generados. No representa funcionalidad probada.
+
+## Arranque y operación diaria 0.5.0-beta.8 — 11/11/2026
+
+- Lint y TypeScript aprobados. Compilación web aprobada con los avisos previos de tamaño de PDF y fuentes. Functions compiló en una carpeta temporal para conservar la sesión local activa.
+- Android compiló en 41 s con versionCode 50008. Se restauró el SDK 36 y las herramientas faltantes en la ubicación de Android del usuario. Windows compiló y generó el instalador NSIS x64. Los paquetes de prueba se guardaron en artifacts/ y quedaron fuera de Git.
+- APK debug **5.674.496 bytes**, SHA-256 `ab2d835802db14a0963053b32a3415bd342489e807fd94c5f8d6ebaf9cdd5ea5`.
+- Instalador Windows **2.511.935 bytes**, SHA-256 `ed1f70f168ba17b59f6a1c6a27996a013992d041977c6082f41b13e2ab160697`.
+- Dos exportaciones de Auth y Firestore confirmadas desde la sesión activa el 11/11 a las 11:25 y a las 12:03, hora de Bolivia. Se conservó la copia original del 08/11 y se confirmó que los procesos habituales seguían activos. El primer intento de la segunda exportación agotó el tiempo de consulta al hub bajo carga de compilación; el reintento con margen de diez segundos terminó correctamente.
+- Pendientes de revisión funcional. Arranque completo desde VS Code, restauración y cierres interrumpidos, desaparición de la guía al finalizar, caja que cruza medianoche y recorridos completos de tienda 24/7, ropa y electrodomésticos. La consulta de serie requiere el número exacto y el historial tiene un límite de lectura explícito. La matriz obtiene las variantes del modelo elegido en el servidor.
+- Sin pruebas automatizadas, capturas ni recorridos. El 500 observado originalmente queda pendiente de confirmar con una referencia de diagnóstico. La incidencia previa de reingreso Windows/WebKit sigue abierta.

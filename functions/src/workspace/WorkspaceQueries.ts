@@ -1,4 +1,5 @@
 import { TimberStockQueries } from "./TimberStockQueries.js";
+import { IndustryQueries } from "./IndustryQueries.js";
 import { timberSpeciesItem } from "../../../shared/workspace/timber-species.js";
 import { timberVariantId } from "./TimberSpeciesService.js";
 import { timberThickness } from "../../../shared/workspace/timber-species.js";
@@ -15,7 +16,7 @@ import type {
   Transaction,
 } from "firebase-admin/firestore";
 
-import { add, ZERO } from "../../../shared/workspace/exact.js";
+import { add, compare, ZERO } from "../../../shared/workspace/exact.js";
 import type {
   Item,
   WorkspaceQuery,
@@ -58,6 +59,9 @@ export const RESOURCES: WorkspaceResource[] = [
   "warrantyClaims",
   "movementsV2",
   "serials",
+  "serialHistory",
+  "saleAvailability",
+  "setupProgress",
   "timberGroups",
   "lots",
   "inventoryMovements",
@@ -138,13 +142,36 @@ export class WorkspaceQueries {
             "recordId",
             "expiresBefore",
             "active",
+            "reorder",
+            "variantModel",
+            "serialNumber",
           ].includes(key),
       ) ||
       input.apiVersion !== 2 ||
       !RESOURCES.includes(input.resource)
     )
       throw new Error("Consulta desconocida.");
-    await this.owner(uid, input.businessId);
+    const business = await this.owner(uid, input.businessId);
+    const collection = (name: string) => this.db.collection(`businesses/${input.businessId}/${name}`);
+    if (input.resource === "setupProgress") {
+      if (Object.keys(input).some((key) => !["apiVersion", "businessId", "resource"].includes(key)))
+        throw new Error("Consulta de primeros pasos inválida.");
+      return new IndustryQueries(collection).setupProgress(business);
+    }
+    if (input.resource === "serialHistory" || input.resource === "saleAvailability") {
+      const serial = input.resource === "serialHistory";
+      if (business.industryId !== (serial ? "appliances" : "convenience") ||
+          Object.keys(input).some((key) => !["apiVersion", "businessId", "resource", "id"].includes(key)))
+        throw new Error("Consulta especializada no disponible para este negocio.");
+      const queries = new IndustryQueries(collection);
+      return serial ? queries.equipmentHistory(input.id) : queries.saleAvailability(input.id);
+    }
+    if (input.reorder !== undefined && (business.industryId !== "convenience" || input.resource !== "items" || input.reorder !== true || input.active !== true))
+      throw new Error("Reposición requiere productos activos de la tienda.");
+    if (input.variantModel !== undefined && (business.industryId !== "clothing" || input.resource !== "items" || input.active !== true))
+      throw new Error("El modelo solo filtra variantes activas de ropa.");
+    if (input.serialNumber !== undefined && (business.industryId !== "appliances" || input.resource !== "serials"))
+      throw new Error("La búsqueda por serie solo está disponible para electrodomésticos.");
     if (input.resource === "timberStock") return new TimberStockQueries(this.db).list(input);
     if (input.widthMm !== undefined) throw new Error("El ancho solo filtra las existencias detalladas.");
     if (input.resource === "timberSummary") {
@@ -171,9 +198,7 @@ export class WorkspaceQueries {
       return { items: all.slice(offset, offset + 25), next: all.length > offset + 25 ? all[offset + 24]!.id : null };
     }
     if (input.category !== undefined) throw new Error("La categoría solo filtra el resumen de madera.");
-    const root = this.db.collection(
-      `businesses/${input.businessId}/${input.resource}`,
-    );
+    const root = collection(input.resource);
     if (input.id) {
       const doc = await root.doc(identifier(input.id)).get();
       return {
@@ -183,7 +208,7 @@ export class WorkspaceQueries {
         next: null,
       };
     }
-    if (input.barcode) {
+    if (input.barcode !== undefined) {
       if (input.resource !== "items")
         throw new Error("Consulta de código inválida.");
       const { hashKey } = await import("./InventoryService.js"),
@@ -204,6 +229,10 @@ export class WorkspaceQueries {
       };
     }
     let query: Query = root;
+    if (input.variantModel !== undefined) {
+      query = query.where("kind", "==", "apparel").where("fields.model", "==", text(input.variantModel, 1, 80));
+    }
+    if (input.serialNumber !== undefined) query = query.where("serial", "==", text(input.serialNumber, 1, 80));
     if (input.active !== undefined) {
       if (
         !["items", "customersV2", "timberGroups", "timberSpecies"].includes(input.resource) ||
@@ -255,7 +284,12 @@ export class WorkspaceQueries {
         next: page.length > 25 ? page[24]!.id : null,
       };
     }
-    if (input.search) {
+    const saleSearch = input.search && input.resource === "salesV2"
+      ? normalizeSearch(text(input.search, 2, 40)) : "";
+    if (saleSearch && /^ven-\d{4}-\d{6}$/.test(saleSearch)) {
+      query = query.where("number", "==", saleSearch.toUpperCase());
+    }
+    if (input.search && !saleSearch) {
       if (!["items", "timberSpecies"].includes(input.resource))
         throw new Error("La búsqueda solo admite catálogo.");
       query = query.where(
@@ -352,14 +386,28 @@ export class WorkspaceQueries {
       for (const doc of result.docs) {
         if (++scanned > 10000) throw new Error("El catálogo supera el límite de lectura. Acota la búsqueda.");
         if (input.resource === "items" && doc.data().timberSpeciesId) continue;
+        if (input.reorder) {
+          const item = doc.data() as Item;
+          if (item.kind === "service" || (compare(item.balance, ZERO) > 0 && compare(item.balance, item.minimum) > 0)) continue;
+        }
+        if (saleSearch) {
+          const sale = doc.data();
+          if (![sale.number, sale.customerName].some((value) => normalizeSearch(String(value ?? "")).includes(saleSearch))) continue;
+        }
         visible.push(doc);
         if (visible.length === 26) break;
       }
       if (visible.length === 26 || result.size < 26) break;
       result = await query.startAfter(result.docs.at(-1)!).get();
     }
+    const page = visible.slice(0, 25);
+    const itemIds = input.expiresBefore ? [...new Set(page.map((doc) => identifier(doc.data().itemId)))] : [];
+    const itemNames = new Map(itemIds.length
+      ? (await this.db.getAll(...itemIds.map((id) => collection("items").doc(id)))).map((item) => [item.id, item.data()?.name])
+      : []);
     return {
-      items: visible.slice(0, 25).map((doc) => ({ ...(serialize(doc.data()) as object), id: doc.id })),
+      items: page.map((doc) => ({ ...(serialize(doc.data()) as object), id: doc.id,
+        ...(input.expiresBefore ? { itemName: itemNames.get(doc.data().itemId) ?? "Producto" } : {}) })),
       next: visible.length > 25 ? visible[24]!.id : null,
     };
   }

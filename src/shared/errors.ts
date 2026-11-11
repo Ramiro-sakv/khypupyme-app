@@ -26,7 +26,7 @@ export function errorMessage(
       ? (error as {
           code?: unknown;
           message?: unknown;
-          details?: { appCode?: unknown };
+          details?: { appCode?: unknown; incidentId?: unknown };
         })
       : null;
   const code = String(raw?.code ?? ""),
@@ -109,5 +109,9 @@ export function errorMessage(
           typeof error === "string"
         ? 400
         : 500;
-  return message.replace(/\s+$/, "") + " [" + status + "]";
+  const incidentId = raw?.details?.incidentId;
+  const reference = status === 500 && typeof incidentId === "string" && /^[a-f0-9-]{12}$/.test(incidentId)
+    ? " Referencia " + incidentId + "."
+    : "";
+  return message.replace(/\s+$/, "") + reference + " [" + status + "]";
 }

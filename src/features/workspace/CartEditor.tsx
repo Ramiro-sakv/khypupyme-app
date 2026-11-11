@@ -1,21 +1,25 @@
 import { displayQuantity as showQuantity } from "../../../shared/workspace/presentation";
+import { useState } from "react";
 import TimberFixedLineEditor from "./TimberFixedLineEditor";
 import TimberLineEditor from "./TimberLineEditor";
 import { UNITS } from "../../../shared/workspace/catalog";
-import { div } from "../../../shared/workspace/exact";
+import { amount, compare, div } from "../../../shared/workspace/exact";
+import type { Quantity } from "../../../shared/workspace/exact";
 import type { Unit } from "../../../shared/workspace/model";
 import { useRecords, useWorkspace } from "./context";
-import { bob, itemDetails, serials } from "./format";
+import { bob, cents, itemDetails, q, serials } from "./format";
 import { Pager } from "./ui";
 
 import type { CartLine } from "./Cart";
 import { delivered } from "./Cart";
+import SerialReceipt from "./SerialReceipt";
 export default function CartEditor({
   line,
   update,
   remove,
   purchase,
   quote = false,
+  fixedSerialQuantity = false,
   duplicate,
 }: {
   line: CartLine;
@@ -23,12 +27,20 @@ export default function CartEditor({
   remove: () => void;
   purchase: boolean;
   quote?: boolean;
+  fixedSerialQuantity?: boolean;
   duplicate?: (() => void) | undefined;
 }) {
   const { business } = useWorkspace();
+  const guidedSerials = business.industryId === "appliances" && line.item.kind === "appliance" && !quote;
+  const [seriesInput, setSeriesInput] = useState("");
+  const [seriesQuery, setSeriesQuery] = useState("");
+  const retail = business.industryId === "convenience" && ["general", "grocery"].includes(line.item.kind);
+  const retailStock = useRecords<{ id: string; balance: Quantity }>(
+    "saleAvailability", { id: line.item.id }, retail && !purchase && !quote,
+  );
   const available = useRecords<{ id: string; serial: string }>(
     "serials",
-    { itemId: line.item.id, status: "available" },
+    { itemId: line.item.id, status: "available", ...(guidedSerials && seriesQuery ? { serialNumber: seriesQuery } : {}) },
     line.item.kind === "appliance" && !purchase && !quote,
   );
   if (line.item.kind === "timber-grouped")
@@ -50,9 +62,12 @@ export default function CartEditor({
         purchase={purchase}
       />
     );
-  let coverage: string;
+  let coverage: string, insufficient = false, costPreview = "";
   try {
-    coverage = `Entrega: ${showQuantity(delivered(line))} ${line.item.baseUnit}`;
+    const quantity = delivered(line);
+    coverage = `${purchase ? "Ingreso" : "Entrega"}: ${showQuantity(quantity)} ${line.item.baseUnit}`;
+    if (retailStock.items[0]) insufficient = compare(quantity, retailStock.items[0].balance) > 0;
+    if (purchase && retail && line.cost) costPreview = bob(amount(cents(line.cost), q(line.qty)));
     if (line.item.kind === "ceramic")
       coverage += ` · Cobertura real ${showQuantity(div(delivered(line), line.item.units.m2!))} m²`;
   } catch {
@@ -65,7 +80,7 @@ export default function CartEditor({
         {itemDetails(line.item, business.timberSystem ?? "imperial")}
       </p>
       <div className="workspace-grid">
-        <label>
+        {!guidedSerials && <label>
           Cantidad solicitada
           <input
             name="line-qty"
@@ -74,8 +89,8 @@ export default function CartEditor({
             inputMode="decimal"
             required
           />
-        </label>
-        <label>
+        </label>}
+        {!guidedSerials && <label>
           Unidad
           <select
             name="line-unit"
@@ -88,7 +103,7 @@ export default function CartEditor({
               </option>
             ))}
           </select>
-        </label>
+        </label>}
         {purchase && (
           <label>
             Costo por unidad elegida (BOB)
@@ -102,7 +117,18 @@ export default function CartEditor({
           </label>
         )}
       </div>
-      {purchase && (
+      {purchase && retail && (
+        <p className="notice">{coverage}{line.unit === "box" && line.item.units.box && ` · ${showQuantity(line.item.units.box)} ${line.item.baseUnit} por caja`}{costPreview && ` · Total de la línea ${costPreview}`}</p>
+      )}
+      {retail && !purchase && !quote && (
+        <div role={retailStock.error || insufficient ? "alert" : "status"} className={insufficient ? "notice notice-warning" : "notice"}>
+          {retailStock.loading ? "Consultando disponibilidad…" : retailStock.error || (retailStock.items[0]
+            ? `Disponible para vender: ${showQuantity(retailStock.items[0].balance)} ${line.item.baseUnit}${insufficient ? " · reduce la cantidad o registra una compra" : ""}.`
+            : "Este producto ya no está disponible.")}
+          {retailStock.error && <button type="button" onClick={retailStock.first}>Volver a consultar</button>}
+        </div>
+      )}
+      {purchase && !guidedSerials && (
         <>
           <label>
             Lote
@@ -146,7 +172,7 @@ export default function CartEditor({
         </>
       )}
       {line.item.kind === "appliance" &&
-        (purchase ? (
+        (purchase ? guidedSerials ? <SerialReceipt value={line.serials} update={update} /> : (
           <label>
             Una serie por equipo (líneas o comas)
             <textarea
@@ -157,20 +183,29 @@ export default function CartEditor({
         ) : (
           !quote && (
             <>
-              <p>Selecciona cada unidad que se entrega.</p>
+              <p>Selecciona cada unidad que se entrega.{guidedSerials && ` ${line.serials.length}${fixedSerialQuantity ? ` de ${line.qty}` : ""} seleccionadas.`}</p>
+              {guidedSerials && <div className="series-search">
+                <label>Buscar serie disponible
+                  <input value={seriesInput} maxLength={80} autoComplete="off" onChange={(event) => setSeriesInput(event.target.value)}
+                    onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); setSeriesQuery(seriesInput.trim()); } }} />
+                </label>
+                <div className="actions">
+                  <button type="button" onClick={() => setSeriesQuery(seriesInput.trim())}>Buscar serie</button>
+                  {seriesQuery && <button type="button" onClick={() => { setSeriesInput(""); setSeriesQuery(""); }}>Ver todas</button>}
+                  {line.serials.length > 0 && <button type="button" onClick={() => update({ serials: [], ...(!fixedSerialQuantity ? { qty: "0" } : {}) })}>Limpiar selección</button>}
+                </div>
+              </div>}
               <Pager page={available} />
               {available.items.map((s) => (
                 <label key={s.id}>
                   <input
                     type="checkbox"
                     checked={line.serials.includes(s.id)}
-                    onChange={(e) =>
-                      update({
-                        serials: e.target.checked
-                          ? [...line.serials, s.id]
-                          : line.serials.filter((id) => id !== s.id),
-                      })
-                    }
+                    disabled={guidedSerials && fixedSerialQuantity && line.serials.length >= Number(line.qty) && !line.serials.includes(s.id)}
+                    onChange={(e) => {
+                      const selected = e.target.checked ? [...line.serials, s.id] : line.serials.filter((id) => id !== s.id);
+                      update({ serials: selected, ...(guidedSerials && !fixedSerialQuantity ? { qty: String(selected.length) } : {}) });
+                    }}
                   />
                   {s.serial}
                 </label>

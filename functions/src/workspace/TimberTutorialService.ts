@@ -79,7 +79,7 @@ export class TimberTutorialService {
       )
         business = businessView(doc.id, doc.data()!);
     }
-    return { session, business };
+    return { session, business, ...(session.status === "completed" && session.finishedAt ? { completedAt: session.finishedAt } : {}) };
   }
   private async cleanup(uid: string, s: StoredTutorial) {
     const id = s.practiceBusinessId;
@@ -114,7 +114,11 @@ export class TimberTutorialService {
       status: s.cleanupGoal ?? "abandoned",
       finishedAt: new Date().toISOString(),
     };
-    await this.db.doc(sessionPath(uid, s.id)).set(receipt);
+    const batch = this.db.batch();
+    batch.set(this.db.doc(sessionPath(uid, s.id)), receipt);
+    if (receipt.status === "completed")
+      batch.set(this.db.doc(`users/${uid}/tutorialPointers/${s.sourceBusinessId}`), { completedAt: receipt.finishedAt }, { merge: true });
+    await batch.commit();
     return this.state(uid, receipt as Partial<StoredTutorial>);
   }
   private async closing(
@@ -201,19 +205,21 @@ export class TimberTutorialService {
       sourceId,
       identifier(pointer.data()!.sessionId),
     );
-    if (s.status === "closing") return this.cleanup(uid, s);
+    const completedAt: string | undefined = pointer.data()!.completedAt;
+    const progress = completedAt ? { completedAt } : {};
+    if (s.status === "closing") return { ...progress, ...(await this.cleanup(uid, s)) };
     if (
       ["active", "paused"].includes(s.status) &&
       s.expiresAt < new Date().toISOString()
     )
-      return this.closing(uid, s, "abandoned");
+      return { ...progress, ...(await this.closing(uid, s, "abandoned")) };
     if (
       ["active", "paused"].includes(s.status) &&
       s.practiceBusinessId &&
       !(await this.db.doc("businesses/" + s.practiceBusinessId).get()).exists
     )
-      return this.closing(uid, s, "abandoned");
-    return this.state(uid, await this.refreshQuote(uid, s));
+      return { ...progress, ...(await this.closing(uid, s, "abandoned")) };
+    return { ...progress, ...(await this.state(uid, await this.refreshQuote(uid, s))) };
   }
   private async control(
     uid: string,
@@ -275,11 +281,13 @@ export class TimberTutorialService {
             throw new Error("El ID pertenece a otra solicitud.");
           return own.id;
         }
+        let previousCompletion: string | null = null;
         if (pointer?.exists) {
           const previousRef = this.db.doc(
               sessionPath(uid, identifier(pointer.data()!.sessionId)),
             ),
             previous = await tx.get(previousRef);
+          if (previous.data()?.status === "completed") previousCompletion = previous.data()!.finishedAt ?? null;
           if (
             previous.exists &&
             ["active", "paused"].includes(previous.data()!.status)
@@ -317,7 +325,7 @@ export class TimberTutorialService {
           controlOperations: { [c.operationId]: signature },
         };
         tx.create(sessionRef, s);
-        tx.set(pointerRef, { sessionId: s.id });
+        tx.set(pointerRef, { sessionId: s.id, ...(previousCompletion ? { completedAt: previousCompletion } : {}) }, { merge: true });
         tx.create(this.db.doc("businesses/" + practiceBusinessId), {
           name: "Maderas · práctica",
           ownerUid: uid,
@@ -366,10 +374,12 @@ export class TimberTutorialService {
       let targetIndex = s.stepIndex;
       if (c.kind === "module") {
         if (
-          s.version !== TUTORIAL_VERSION ||
+          ![2, TUTORIAL_VERSION].includes(s.version) ||
           !TUTORIAL_MODULES.some((m) => m.id === c.moduleId)
         )
           throw new Error("Elige un recorrido del tutorial nuevo.");
+        if (step?.id === "day-open")
+          throw new Error("Abre la caja de práctica o continúa sin efectivo para elegir otro recorrido.");
         const module = TUTORIAL_MODULES.find((m) => m.id === c.moduleId)!;
         if (module.needsStock) {
           const items = await tx.get(
@@ -425,7 +435,7 @@ export class TimberTutorialService {
         (s.status !== "active" ||
           !step ||
           step.id !== c.stepId ||
-          (step.kind && !cashReviewed))
+          (step.kind && step.id !== "day-open" && !cashReviewed))
       )
         throw new AppError(
           s.status === "active" && step?.id === c.stepId && step?.id === "cash-open" && s.version > 1

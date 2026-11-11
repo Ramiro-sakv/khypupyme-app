@@ -19,13 +19,13 @@ export const INDUSTRY_GUIDES: Record<IndustryId, IndustryGuide> = {
     title: "Vender rápido y reponer a tiempo",
     visual: "lots",
     steps: [
-      "Crear productos y sus códigos",
-      "Comprar indicando lote y vencimiento",
-      "Vender por código o nombre",
-      "Revisar caja y próximos vencimientos",
+      "Crear el producto con su código y unidades por caja",
+      "Recibir cajas o unidades e indicar lote y vencimiento",
+      "Añadir al carrito con el lector y revisar la cantidad disponible",
+      "Revisar productos vencidos y por vencer en Inventario",
     ],
     example:
-      "Compra 24 botellas y vende 3; el lote más próximo a vencer sale primero.",
+      "Recibe dos cajas de 12 botellas. Escanea tres botellas al vender y confirma el cobro. La venta toma primero el lote más próximo a vencer.",
     caution: "No vendas productos vencidos ni registres compras como gastos.",
   },
   grocery: {
@@ -59,13 +59,13 @@ export const INDUSTRY_GUIDES: Record<IndustryId, IndustryGuide> = {
     title: "Un modelo, muchas variantes",
     visual: "fashion",
     steps: [
-      "Crear modelo, tallas y colores",
+      "Crear un modelo con tallas y colores en Inventario",
       "Comprar cada variante recibida",
-      "Seleccionar talla y color al vender",
-      "Registrar cambios desde la venta original",
+      "Elegir el modelo y tocar la talla y el color con existencias",
+      "Buscar la venta original e iniciar el cambio de variante",
     ],
     example:
-      "Polera Andina: tallas M y L en azul y negro; cada combinación tiene stock y costo propios.",
+      "Vende una polera M azul. Si el cliente necesita talla L, abre el comprobante e inicia un cambio de una unidad. La caja registra la diferencia.",
     caution: "No mezcles tallas distintas en una misma ficha.",
   },
   footwear: {
@@ -169,12 +169,12 @@ export const INDUSTRY_GUIDES: Record<IndustryId, IndustryGuide> = {
     visual: "serial",
     steps: [
       "Crear ficha de marca y modelo",
-      "Comprar una serie distinta por equipo",
-      "Seleccionar la serie al vender",
-      "Consultar garantía y revisar devoluciones",
+      "Pegar una serie por equipo al registrar la compra",
+      "Seleccionar la serie que se entregará al vender",
+      "Buscar la serie para consultar compra, venta, garantía o devolución",
     ],
     example:
-      "La serie DEMO-REF-001 mantiene su costo, venta y garantía declarada.",
+      "Recibe las series DEMO-REF-001 y DEMO-REF-002. Vende la primera y busca esa serie cuando el cliente consulte la garantía.",
     caution:
       "Un equipo devuelto queda en inspección hasta liberar su disponibilidad.",
   },

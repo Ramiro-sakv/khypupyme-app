@@ -1,40 +1,33 @@
-import { useState } from "react";
 import { INDUSTRIES } from "../../../shared/business-industries";
+import type { SetupProgress } from "../../../shared/workspace/model";
+import { useCashState } from "./cash-context";
 import { useRecords, useWorkspace } from "./context";
 import { Icon } from "./Icon";
 import { useWorkspaceNavigation } from "./navigation";
-export default function GettingStarted({
-  cashOpen,
-  cashLoading,
-  cashError,
-}: {
-  cashOpen: boolean;
-  cashLoading: boolean;
-  cashError: string;
-}) {
+export default function GettingStarted({ compact = false }: { compact?: boolean }) {
+  const cash = useCashState();
   const { business } = useWorkspace(),
     { go } = useWorkspaceNavigation(),
-    [expanded, setExpanded] = useState(true),
     services = business.industryId
       ? INDUSTRIES[business.industryId].profile === "services"
       : false,
-    items = useRecords<{ id: string }>("items"),
-    sales = useRecords<{ id: string }>("salesV2"),
-    purchases = useRecords<{ id: string }>("purchasesV2", {}, !services),
-    oldItems = useRecords<{ stock: number }>("products", {}, business.legacy),
-    oldSales = useRecords<{ id: string }>("sales", {}, business.legacy),
-    oldPurchases = useRecords<{ id: string }>(
-      "purchases",
-      {},
-      business.legacy && !services,
-    );
+    page = useRecords<SetupProgress>("setupProgress");
+  const progress = page.items[0];
   const steps = [
+      {
+        id: "caja",
+        label: "Abrir caja si vas a usar efectivo",
+        done: !!cash.open,
+        loading: cash.loading,
+        error: cash.error,
+        optional: true,
+      },
       {
         id: "inventario",
         label: "Registrar tu primer producto o servicio",
-        done: items.items.length > 0,
-        loading: items.loading,
-        error: items.error,
+        done: !!progress?.catalog,
+        loading: page.loading,
+        error: page.error,
         optional: false,
       },
       ...(!services
@@ -42,32 +35,33 @@ export default function GettingStarted({
             {
               id: "compras",
               label: "Registrar una compra con costo",
-              done: purchases.items.length > 0 || oldPurchases.items.length > 0,
-              loading: purchases.loading || oldPurchases.loading,
-              error: purchases.error || oldPurchases.error,
+              done: !!progress?.purchase,
+              loading: page.loading,
+              error: page.error,
               optional: false,
             },
           ]
         : []),
       {
-        id: "caja",
-        label: "Preparar la caja si usas efectivo",
-        done: cashOpen,
-        loading: cashLoading,
-        error: cashError,
-        optional: true,
-      },
-      {
         id: "ventas",
         label: "Registrar tu primera venta",
-        done: sales.items.length > 0 || oldSales.items.length > 0,
-        loading: sales.loading || oldSales.loading,
-        error: sales.error || oldSales.error,
+        done: !!progress?.sale,
+        loading: page.loading,
+        error: page.error,
         optional: false,
       },
     ],
     required = steps.filter((s) => !s.optional),
     done = required.filter((s) => s.done && !s.error && !s.loading).length;
+  if (compact) {
+    if (done === required.length || required.some((s) => s.loading || s.error)) return null;
+    return (
+      <section className="card day-guide">
+        <div><h3>Primeros pasos</h3><p className="muted">{done} de {required.length} registrados</p></div>
+        <button onClick={() => go("guia")}>Abrir guía</button>
+      </section>
+    );
+  }
   return (
     <section className="card getting-started">
       <div className="section-heading">
@@ -79,14 +73,6 @@ export default function GettingStarted({
               : "Empieza con una base ordenada"}
           </h3>
         </div>
-        <button
-          className="text-button"
-          aria-expanded={expanded}
-          aria-controls="setup-steps"
-          onClick={() => setExpanded((v) => !v)}
-        >
-          {expanded ? "Ocultar guía" : "Ver guía"}
-        </button>
       </div>
       <p className="muted">
         {done} de {required.length} pasos registrados. La caja es opcional para
@@ -97,8 +83,7 @@ export default function GettingStarted({
         max={required.length}
         aria-label="Primeros pasos registrados"
       />
-      {expanded && (
-        <div id="setup-steps">
+        <div>
           <ol className="setup-steps">
             {steps.map((step) => (
               <li key={step.id}>
@@ -129,7 +114,7 @@ export default function GettingStarted({
               </li>
             ))}
           </ol>
-          {business.legacy && oldItems.items.some((item) => item.stock > 0) && (
+          {progress?.legacyStock && (
             <p className="notice notice-warning">
               Hay existencias en el modelo anterior.{" "}
               <button onClick={() => go("anteriores")}>
@@ -138,7 +123,6 @@ export default function GettingStarted({
             </p>
           )}
         </div>
-      )}
     </section>
   );
 }

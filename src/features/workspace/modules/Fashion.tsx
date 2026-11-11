@@ -3,8 +3,11 @@ import { useWorkspace } from "../context";
 import { ActionForm, Field } from "../ui";
 import { cents } from "../format";
 import { ZERO } from "../../../../shared/workspace/exact";
+import { useWorkspaceNavigation } from "../navigation";
 export default function Fashion({ children }: { children: ReactNode }) {
   const { business, run, busy } = useWorkspace();
+  const { view } = useWorkspaceNavigation();
+  if (view !== "inventario") return children;
   return (
     <>
       <section className="model-note">

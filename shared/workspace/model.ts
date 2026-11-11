@@ -225,6 +225,30 @@ export interface CashSession {
   differenceMinor: number | null;
   reason: string;
 }
+export interface EquipmentHistory {
+  id: string;
+  serial: string;
+  itemName: string;
+  status: "available" | "sold" | "inspection" | "written-off";
+  receivedAt: string;
+  purchase: { number: string; date: string } | null;
+  sales: {
+    id: string;
+    number: string;
+    date: string;
+    customerName: string;
+    warrantyUntil: string;
+    returned: boolean;
+    returns: { id: string; number: string; date: string }[];
+    claims: { id: string; status: string; description: string; resolution: string }[];
+  }[];
+}
+export interface SetupProgress {
+  catalog: boolean;
+  purchase: boolean;
+  sale: boolean;
+  legacyStock: boolean;
+}
 export interface BusinessDocument {
   id: string;
   number: string;
@@ -462,6 +486,9 @@ export type WorkspaceResource =
   | "warrantyClaims"
   | "movementsV2"
   | "serials"
+  | "serialHistory"
+  | "saleAvailability"
+  | "setupProgress"
   | "timberGroups"
   | "lots"
   | "inventoryMovements"
@@ -489,6 +516,9 @@ export interface WorkspaceQuery {
   recordId?: string;
   expiresBefore?: string;
   active?: boolean;
+  reorder?: boolean;
+  variantModel?: string;
+  serialNumber?: string;
 }
 export interface WorkspaceReport {
   pendingValuationCount: number;

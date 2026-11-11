@@ -7,7 +7,8 @@ import { CashContext } from "./cash-context";
 // La pantalla y la guía usan la misma consulta autorizada del negocio activo.
 export function CashStateProvider({ children }: { children: ReactNode }) {
   const [params] = useSearchParams();
-  const enabled = params.get("vista") === "caja";
+  const view = params.get("vista") ?? "inicio";
+  const enabled = ["caja", "inicio", "guia"].includes(view);
   const page = useRecords<CashSession>(
     "cashSessions", { status: "open" }, enabled,
   );

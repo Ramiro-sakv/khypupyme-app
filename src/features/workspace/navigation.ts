@@ -12,13 +12,13 @@ export function useWorkspaceNavigation() {
   const [params, setParams] = useSearchParams();
   return {
     view: params.get("vista") ?? "inicio",
-    go: (view: string) => {
+    go: (view: string, fields?: Record<string, string>) => {
       if (
-        (params.get("vista") ?? "inicio") === view ||
+        (!fields && (params.get("vista") ?? "inicio") === view) ||
         !confirmDiscardChanges()
       )
         return;
-      setParams({ vista: view });
+      setParams({ ...fields, vista: view });
     },
   };
 }

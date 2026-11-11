@@ -1,49 +1,24 @@
 import { displayQuantity as showQuantity } from "../../../shared/workspace/presentation";
 import TimberVisual from "./TimberVisual";
 import TutorialEntry from "./tutorial/TutorialEntry";
+import GettingStarted from "./GettingStarted";
+import ExpiringLots from "./ExpiringLots";
 import { useState } from "react";
 import { INDUSTRY_GUIDES } from "../../../shared/workspace/industry-workflows";
 import { INDUSTRIES } from "../../../shared/business-industries";
 import type { Item } from "../../../shared/workspace/model";
-import { compare, ZERO } from "../../../shared/workspace/exact";
+import { compare } from "../../../shared/workspace/exact";
 import { useRecords, useWorkspace } from "./context";
-import { bob, localDate, today } from "./format";
+import { bob } from "./format";
 import { Pager } from "./ui";
 import { useWorkspaceNavigation } from "./navigation";
 import VisualExplainer from "./VisualExplainer";
-function Expirations() {
-  const until = new Date(Date.parse(today() + "T12:00:00Z") + 30 * 86400000)
-      .toISOString()
-      .slice(0, 10),
-    page = useRecords<{
-      id: string;
-      lot: string;
-      expiresOn: string;
-      balance: { n: string; d: string };
-    }>("lots", { expiresBefore: until });
-  return (
-    <section className="card">
-      <h3>Vencimientos hasta {localDate(until)}</h3>
-      <Pager page={page} />
-      {page.items
-        .filter((l) => compare(l.balance, ZERO) > 0)
-        .map((l) => (
-          <p
-            key={l.id}
-            className={l.expiresOn < today() ? "notice notice-warning" : ""}
-          >
-            Lote {l.lot} · {localDate(l.expiresOn)} · {showQuantity(l.balance)}{" "}
-            unidades base{" "}
-            {l.expiresOn < today() ? "· Vencido, excluido de ventas" : ""}
-          </p>
-        ))}
-    </section>
-  );
-}
 export default function IndustryGuidePage() {
   const { business } = useWorkspace(),
     { go } = useWorkspaceNavigation(),
-    page = useRecords<Item>("items", { active: true }),
+    industry = business.industryId,
+    dedicated = industry === "convenience" || industry === "clothing" || industry === "appliances",
+    page = useRecords<Item>("items", { active: true }, !dedicated),
     [model, setModel] = useState(""),
     [variant, setVariant] = useState<Item | null>(null),
     guide = INDUSTRY_GUIDES[business.industryId ?? "convenience"],
@@ -54,6 +29,8 @@ export default function IndustryGuidePage() {
           .map((i) => i.fields.model!),
       ),
     ];
+  const taskViews = ["inventario", "compras", "ventas", industry === "appliances" ? "garantias" : industry === "clothing" ? "ventas" : "inventario"];
+  const finalFilter = industry === "clothing" ? "cambios" : industry === "convenience" ? "vencimientos" : undefined;
   return (
     <>
       <div className="workspace-heading">
@@ -71,6 +48,7 @@ export default function IndustryGuidePage() {
         </button>
       </div>
       <TutorialEntry />
+      {business.industryId !== "timber" && <GettingStarted />}
       <div data-tutorial="industry-guide">
         {business.industryId === "timber" ? (
           <TimberVisual key={business.timberSystem ?? "imperial"} />
@@ -81,22 +59,23 @@ export default function IndustryGuidePage() {
       <section className="card">
         <h3>Tu guía de uso</h3>
         <ol>
-          {guide.steps.map((step) => (
-            <li key={step}>{step}</li>
-          ))}
+          {dedicated && <li><button type="button" className="text-button" onClick={() => go("caja")}>Abrir caja si usarás efectivo</button></li>}
+          {guide.steps.map((step, index) => <li key={step}>{dedicated ? (
+            <button type="button" className="text-button" onClick={() => go(taskViews[index] ?? "informes", index === 3 && finalFilter ? { atencion: finalFilter } : undefined)}>{step}</button>
+          ) : step}</li>)}
         </ol>
         <p>
           <strong>Ejemplo:</strong> {guide.example}
         </p>
         <p className="notice notice-warning">{guide.caution}</p>
-        <div className="actions">
+        {!dedicated && <div className="actions">
           <button onClick={() => go("cotizaciones")}>Cotizar</button>
           <button onClick={() => go("compras")}>Registrar compra</button>
           <button onClick={() => go("ventas")}>Vender</button>
           <button onClick={() => go("informes")}>Ver resultados</button>
-        </div>
+        </div>}
       </section>
-      {guide.visual === "fashion" && (
+      {!dedicated && guide.visual === "fashion" && (
         <section className="card">
           <h3>Matriz de disponibilidad</h3>
           <label>
@@ -146,8 +125,8 @@ export default function IndustryGuidePage() {
           )}
         </section>
       )}
-      {guide.visual === "lots" && <Expirations />}
-      <section className="card">
+      {!dedicated && guide.visual === "lots" && <ExpiringLots />}
+      {!dedicated && <section className="card">
         <h3>Reposición en esta página de catálogo</h3>
         <Pager page={page} />
         {page.items
@@ -164,7 +143,7 @@ export default function IndustryGuidePage() {
           El listado está paginado; no representa un contador global de
           faltantes.
         </p>
-      </section>
+      </section>}
     </>
   );
 }

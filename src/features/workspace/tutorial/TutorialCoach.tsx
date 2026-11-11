@@ -202,6 +202,9 @@ export default function TutorialCoach({
     !workspace.commandError;
   const disabled =
     tutorial.loading || workspace.busy || tutorial.pendingControl;
+  const openingDay = step?.id === "day-open";
+  const reviewingCash = openingDay || (session?.version !== 1 && step?.id === "cash-open");
+  const cashReady = view === "caja" && !cash.loading && !cash.error;
   const go = (next: string) => setParams({ vista: next });
   return (
     <>
@@ -265,15 +268,15 @@ export default function TutorialCoach({
             {step?.text ??
               "Terminar elimina exclusivamente los datos de esta práctica."}
           </p>
-          {(step?.id === "cash-open" || step?.id === "cash-close") && view === "caja" && (
+          {(reviewingCash || step?.id === "cash-close") && view === "caja" && (
             <div role="status" className={cash.error ? "notice notice-error" : "notice"}>
               {cash.loading ? "Consultando la caja de esta práctica…" : cash.error ? cash.error : cash.open ?
-                (step.id === "cash-open" ? "La caja está abierta. Revisa el saldo resaltado y pulsa continuar." : "Abre «Cerrar y conciliar esta caja», cuenta el efectivo y confirma el cierre.") :
+                (reviewingCash ? "La caja está abierta. Revisa el saldo resaltado y pulsa continuar." : "Abre «Cerrar y conciliar esta caja», cuenta el efectivo y confirma el cierre.") :
                 "Aún no hay una caja abierta en esta práctica. Completa el fondo inicial y pulsa «Abrir caja» en el formulario resaltado."}
               {cash.error && <button type="button" onClick={cash.refresh}>Volver a consultar caja</button>}
             </div>
           )}
-          {session?.version !== 1 && (
+          {session?.version !== 1 && !openingDay && (
             <label>
               Elegir recorrido
               <select
@@ -342,15 +345,15 @@ export default function TutorialCoach({
               <>
                 {step &&
                   (!step.kind ||
-                    (session?.version !== 1 && step.id === "cash-open" && view === "caja" && !cash.loading && !cash.error && !!cash.open)) &&
+                    (reviewingCash && cashReady && (openingDay || !!cash.open))) &&
                   !step.pdf && (
                     <button
                       className="primary"
                       disabled={disabled}
                       onClick={() => void tutorial.advance()}
                     >
-                      {step.id === "cash-open"
-                        ? "Ya tengo caja abierta · continuar"
+                      {reviewingCash
+                        ? cash.open ? "Ya tengo caja abierta · continuar" : "Continuar sin efectivo"
                         : "Entendido · continuar"}
                     </button>
                   )}

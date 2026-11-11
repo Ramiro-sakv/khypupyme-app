@@ -1,5 +1,5 @@
 import {
-  TIMBER_STEPS,
+  tutorialSteps,
   LEGACY_TIMBER_STEPS,
 } from "../../../shared/workspace/timber-tutorial.js";
 import type { TutorialSession } from "../../../shared/workspace/timber-tutorial.js";
@@ -18,7 +18,7 @@ export function practiceCompletes(
   c: WorkspaceCommand,
 ) {
   if (session.version === 1) return true;
-  const step = TIMBER_STEPS[session.stepIndex];
+  const step = tutorialSteps(session.version)[session.stepIndex];
   if (step?.id === "catalogue" && c.kind === "timber-species") return true;
   if (
     !step ||
@@ -38,7 +38,7 @@ export function validateTutorialAction(
   c: WorkspaceCommand,
 ) {
   if (session.version !== 1) {
-    const current = TIMBER_STEPS[session.stepIndex];
+    const current = tutorialSteps(session.version)[session.stepIndex];
     ensure(
       session.status === "active" &&
         current?.kind &&

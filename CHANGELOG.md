@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.5.0-beta.8 - 2026-11-11 (local, sin push)
+
+- Arranque compartido entre VS Code y terminal, verificación de servicios, diagnóstico de errores internos y respaldos periódicos, manuales y de cierre.
+- Inicio con Caja, accesos operativos y cifras del día. Informes conserva la gráfica y Ayuda reúne los recorridos. La nueva práctica de madera abre el día en su caja ficticia y las versiones anteriores siguen reanudables.
+- Tienda 24/7 incorpora reposición, vencimientos y cantidades disponibles para vender. Ropa muestra la matriz por talla y color y permite buscar el comprobante original para un cambio. Electrodomésticos incorpora captura de series, historial de cada unidad e inspección.
+
 ## 0.5.0-beta.7 - 2026-11-08 (local, sin push)
 
 - Nombre, especie y código separados; códigos únicos por negocio con asignación automática, búsqueda/lector y documentos nuevos con identidad actual. Fichas e historiales anteriores conservados.

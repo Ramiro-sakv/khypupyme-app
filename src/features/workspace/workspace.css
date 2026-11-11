@@ -3,6 +3,41 @@
   margin: 0 auto;
   min-width: 0;
 }
+.day-start, .day-guide, .day-summary, .day-attention {
+  margin-block-end: 16px;
+}
+.day-start, .day-guide {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.day-start {
+  background: var(--surface-alt, #f3ead9);
+  border-inline-start: 4px solid var(--brand, #104638);
+}
+.day-start h2, .day-guide h3, .day-attention h3 { margin: 0 0 6px; }
+.day-start p, .day-guide p { margin: 4px 0; }
+.day-start button svg, .day-attention button svg { vertical-align: middle; }
+.day-totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 155px), 1fr));
+  gap: 14px;
+  margin: 12px 0;
+}
+.day-totals div { padding: 12px; border-radius: 10px; background: var(--surface-alt, #f3ead9); }
+.day-totals dd { margin: 5px 0 0; font-weight: 750; font-variant-numeric: tabular-nums; }
+.variant-picker, .series-search { display: grid; gap: 8px; margin-block: 12px; }
+.variant-picker td button { display: grid; width: 100%; padding: 6px 10px; margin-block: 3px; }
+.variant-picker th, .variant-picker td { min-width: 90px; }
+.record-list { list-style: none; margin: 0; padding: 0; }
+.record-list li { padding-block: 8px; border-block-end: 1px solid var(--line); }
+.record-list .badge { margin-inline-start: 8px; }
+.equipment-history { margin-block-start: 16px; }
+.equipment-event { margin-block: 10px; }
+.catalog-tools { margin-block: 12px; }
+.catalog-tools button[aria-pressed="true"] { border-color: var(--brand, #104638); }
 .sidebar {
   position: fixed;
   left: 0;

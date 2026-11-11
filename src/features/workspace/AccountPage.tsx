@@ -27,6 +27,8 @@ export default function Account({
     [business, setBusiness] = useState<WorkspaceBusiness | null>(null),
     [create, setCreate] = useState(false),
     [loading, setLoading] = useState(true),
+    [loadError, setLoadError] = useState(""),
+    [reload, setReload] = useState(0),
     [error, setError] = useState(""),
     [pending, setPending] = useState<SavedRequest | null>(null),
     [busy, setBusy] = useState(false),
@@ -61,12 +63,12 @@ export default function Account({
               page.items.find((b) => b.id === id) ??
               (await repository.business(id));
             if (active) setBusiness(selected);
-          } catch {
-            localStorage.removeItem(`khypupyme:last-business:${uid}`);
+          } catch (e) {
+            if (active) setLoadError(errorMessage(e, "No se pudo recuperar el último negocio. Revisa la conexión y la fecha del respaldo en la terminal."));
           }
         }
       } catch (e) {
-        if (active) setError(message(e));
+        if (active) setLoadError(errorMessage(e, "No se pudieron cargar tus negocios. Comprueba que KhypuPyme indique que los emuladores están listos en la terminal."));
       } finally {
         if (active) setLoading(false);
       }
@@ -75,7 +77,7 @@ export default function Account({
       active = false;
       mounted.current = false;
     };
-  }, [uid, repository, load, creationService]);
+  }, [uid, repository, load, creationService, reload]);
   async function select(b: WorkspaceBusiness) {
     setBusiness(b);
     setCreate(false);
@@ -131,6 +133,10 @@ export default function Account({
           {error}
         </p>
       )}
+      {loadError && <div className="notice notice-error" role="alert">
+        <p>{loadError}</p>
+        <button onClick={() => { setLoadError(""); setLoading(true); setReload((value) => value + 1); }}>Volver a cargar negocios</button>
+      </div>}
       {pending && (
         <section className="card">
           <h2>Creación sin confirmar</h2>
@@ -209,7 +215,7 @@ export default function Account({
             ))}
             <button
               className="card business-choice new-business"
-              disabled={!!pending}
+              disabled={!!pending || !!loadError}
               onClick={() => setCreate(true)}
             >
               <span className="business-symbol">

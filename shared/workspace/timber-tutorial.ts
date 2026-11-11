@@ -5,7 +5,7 @@ import type {
   WorkspaceQuery,
   WorkspaceReport,
 } from "./model.js";
-export const TUTORIAL_VERSION = 2;
+export const TUTORIAL_VERSION = 3;
 export interface TutorialStep {
   id: string;
   chapter: string;
@@ -577,8 +577,20 @@ export const TIMBER_STEPS: TutorialStep[] = [
     pdf: true,
   },
 ];
+const CASH_FIRST_STEPS = [
+  lesson(
+    "inventory",
+    "day-open",
+    "Abre el día en Caja",
+    "caja",
+    "cash-form",
+    "Si vas a cobrar en efectivo, indica un fondo inicial y abre la caja de práctica. Si trabajarás con QR o transferencia, puedes continuar sin efectivo.",
+    "open-cash",
+  ),
+  ...TIMBER_STEPS,
+];
 export const tutorialSteps = (version: number) =>
-  version === 1 ? LEGACY_TIMBER_STEPS : TIMBER_STEPS;
+  version === 1 ? LEGACY_TIMBER_STEPS : version === 2 ? TIMBER_STEPS : CASH_FIRST_STEPS;
 export interface TutorialSession {
   id: string;
   sourceBusinessId: string;
@@ -596,6 +608,7 @@ export interface TutorialSession {
 export interface TutorialState {
   session: TutorialSession | null;
   business: WorkspaceBusiness | null;
+  completedAt?: string;
 }
 export interface TutorialControl {
   kind:

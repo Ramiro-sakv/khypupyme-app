@@ -91,14 +91,15 @@ export default function TimberTutorialHost({
       }
       if (alive.current && next.session?.status !== "active") setActive(false);
       if (alive.current)
-        setState((old) =>
-          old.session &&
+        setState((old) => {
+          if (old.session &&
           next.session?.id === old.session.id &&
           next.session.revision < old.session.revision &&
-          ["active", "paused"].includes(next.session.status)
-            ? old
-            : next,
-        );
+          ["active", "paused"].includes(next.session.status)) return old;
+          const completedAt = next.completedAt ?? old.completedAt ??
+            (old.session?.status === "completed" ? old.session.finishedAt : null);
+          return completedAt ? { ...next, completedAt } : next;
+        });
     },
     [uid, sourceId],
   );

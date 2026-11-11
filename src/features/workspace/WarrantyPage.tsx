@@ -1,11 +1,21 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router";
 import type { SaleV2 } from "../../../shared/workspace/model";
 import { useRecords, useWorkspace } from "./context";
 import { localDate, statusLabel } from "./format";
 import { ActionForm, Field, Pager } from "./ui";
+import EquipmentLookup from "./EquipmentLookup";
+import type { WarrantySelection } from "./EquipmentLookup";
+import { Panel } from "./Panel";
+import { useWorkspaceNavigation } from "./navigation";
 export function Warranty() {
-  const { run, busy } = useWorkspace(),
-    sales = useRecords<SaleV2>("salesV2"),
+  const { run, busy, business } = useWorkspace();
+  const [params] = useSearchParams();
+  const { go } = useWorkspaceNavigation();
+  const appliances = business.industryId === "appliances";
+  const [tracking, setTracking] = useState<WarrantySelection | null>(null);
+  const
+    sales = useRecords<SaleV2>("salesV2", {}, !appliances),
     claims = useRecords<{
       id: string;
       saleId: string;
@@ -13,9 +23,34 @@ export function Warranty() {
       description: string;
       status: string;
       resolution: string;
-    }>("warrantyClaims"),
+    }>("warrantyClaims", {}, !appliances),
     [selected, setSelected] = useState("");
   const sale = sales.items.find((s) => s.id === selected);
+  if (appliances) {
+    const inspection = params.get("atencion") === "inspeccion";
+    return <>
+      <h2>Equipos y garantías</h2>
+      <div className="actions">
+        <button aria-pressed={!inspection} onClick={() => go("garantias", {})}>Buscar por serie</button>
+        <button aria-pressed={inspection} onClick={() => go("garantias", { atencion: "inspeccion" })}>Equipos en inspección</button>
+      </div>
+      <EquipmentLookup key={String(inspection)} inspection={inspection} onClaim={setTracking} />
+      {tracking && <Panel title={`${tracking.number} · ${tracking.serial}`} onClose={() => setTracking(null)}>
+        <p>{tracking.warrantyUntil ? `Garantía declarada hasta ${localDate(tracking.warrantyUntil)}` : "Sin garantía declarada"}</p>
+        <ActionForm disabled={busy} label="Guardar seguimiento" onSave={async (form) => {
+          const result = await run({ kind: "warranty", input: {
+            saleId: tracking.saleId, serialId: tracking.serialId,
+            description: String(form.get("description") ?? ""),
+            status: String(form.get("status")) as "received" | "diagnosis" | "resolved",
+            resolution: String(form.get("resolution") ?? ""),
+          } });
+          if (result) setTracking(null);
+        }}>
+          <WarrantyFields selection={tracking} />
+        </ActionForm>
+      </Panel>}
+    </>;
+  }
   return (
     <>
       <h2>Garantías comerciales</h2>
@@ -74,20 +109,7 @@ export function Warranty() {
                 )}
             </select>
           </label>
-          <Field name="description" label="Problema declarado" />
-          <label>
-            Estado
-            <select name="status">
-              <option value="received">Recibido</option>
-              <option value="diagnosis">Diagnóstico</option>
-              <option value="resolved">Resuelto</option>
-            </select>
-          </label>
-          <Field
-            name="resolution"
-            label="Resolución (obligatoria al resolver)"
-            required={false}
-          />
+          <WarrantyFields />
           <p>
             Este seguimiento no modifica existencias. Usa una devolución o
             cambio para recibir o entregar equipos.
@@ -102,4 +124,19 @@ export function Warranty() {
       ))}
     </>
   );
+}
+
+function WarrantyFields({ selection }: { selection?: WarrantySelection }) {
+  const claim = selection?.claim;
+  return <>
+    <Field name="description" label="Problema declarado" value={claim?.description ?? ""} />
+    <label>Estado
+      <select name="status" defaultValue={claim?.status ?? "received"}>
+        <option value="received">Recibido</option>
+        <option value="diagnosis">Diagnóstico</option>
+        <option value="resolved">Resuelto</option>
+      </select>
+    </label>
+    <Field name="resolution" label="Resolución (obligatoria al resolver)" value={claim?.resolution ?? ""} required={false} />
+  </>;
 }

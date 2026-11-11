@@ -6,7 +6,7 @@ import { requireTimber, resolveTimber } from "./TimberWidthEntry";
 import { timberTotals } from "../../../shared/workspace/timber-groups";
 import { useCallback, useState } from "react";
 import { UNITS } from "../../../shared/workspace/catalog";
-import { amount, div, add, ZERO } from "../../../shared/workspace/exact";
+import { amount, div, add, ONE, showQuantity as showExact, ZERO } from "../../../shared/workspace/exact";
 import type {
   Item,
   Method,
@@ -16,6 +16,7 @@ import { useRecords, useWorkspace } from "./context";
 import { CustomerSelector } from "./CustomerSelector";
 import type { TradeDraftInput } from "./DraftRepository";
 import DraftStatus from "./DraftStatus";
+import FashionPicker from "./FashionPicker";
 import { bob, cents, itemDetails, method, q, today } from "./format";
 import { Icon } from "./Icon";
 import IndustryHelp from "./IndustryHelp";
@@ -157,14 +158,19 @@ export default function Trade({
     }
   }
   function addItem(item: Item) {
-    if (
-      item.kind !== "timber-grouped" &&
-      lines.some((l) => l.item.id === item.id)
-    ) {
+    if (!item.active || (purchase && item.kind === "service"))
+      throw new Error("Selecciona un producto activo que admita esta operación.");
+    const guidedSerials = business.industryId === "appliances" && item.kind === "appliance" && !isQuote;
+    const current = item.kind === "timber-grouped" ? undefined : lines.find((line) => line.item.id === item.id);
+    if (current) {
+      if (guidedSerials) return;
+      let qty: string;
+      try { qty = showExact(add(q(current.qty || "0"), ONE)); }
+      catch { setError("Corrige la cantidad del producto en el carrito antes de añadir otra unidad."); return; }
       setLines((old) =>
         old.map((l) =>
           l.item.id === item.id
-            ? { ...l, qty: String(Number(l.qty || "0") + 1) }
+            ? { ...l, qty }
             : l,
         ),
       );
@@ -190,7 +196,7 @@ export default function Trade({
             }
           : {}),
         item,
-        qty: item.kind === "timber-grouped" ? "0" : "1",
+        qty: item.kind === "timber-grouped" || guidedSerials ? "0" : "1",
         unit: ["timber-grouped", "timber-piece"].includes(item.kind)
           ? "piece"
           : purchase
@@ -316,13 +322,15 @@ export default function Trade({
               disabled={busy || !draft.editable}
               className="barcode-search"
               protectDraft={false}
-              label="Buscar código"
+              label="Añadir por código"
               onSave={async () => {
+                const code = barcode.trim().toUpperCase();
+                if (!code) throw new Error("Escribe o escanea el código del producto.");
                 const result = await repository.list<Item>({
                   apiVersion: 2,
                   businessId: business.id,
                   resource: "items",
-                  barcode: barcode.trim().toUpperCase(),
+                  barcode: code,
                 });
                 if (!result.items[0])
                   throw new Error("No se encontró ese código en este negocio.");
@@ -336,14 +344,17 @@ export default function Trade({
                   value={barcode}
                   onChange={(e) => setBarcode(e.target.value)}
                   autoComplete="off"
+                  maxLength={40}
+                  required
                 />
               </label>
             </ActionForm>
             {business.industryId === "timber" && <TimberSpeciesPicker search={catalogSearch} disabled={busy || !draft.editable} onPick={addItem} />}
             <Pager page={page} />
+            {business.industryId === "clothing" && <FashionPicker items={page.items} pick={addItem} disabled={busy || !draft.editable} sell={!purchase && !isQuote} />}
             <div className="product-picker">
               {page.items
-                .filter((i) => i.active && (!purchase || i.kind !== "service"))
+                .filter((i) => i.active && (!purchase || i.kind !== "service") && !(business.industryId === "clothing" && i.kind === "apparel"))
                 .map((item) => (
                   <button
                     disabled={busy || !draft.editable}
@@ -357,6 +368,9 @@ export default function Trade({
                       {itemDetails(item, business.timberSystem ?? "imperial")} ·{" "}
                       {bob(item.priceMinor)}/{UNITS[item.priceUnit]}
                     </small>
+                    {business.industryId === "convenience" && item.kind !== "service" && (
+                      <small>Existencia registrada · {showQuantity(item.balance)} {item.baseUnit}</small>
+                    )}
                   </button>
                 ))}
             </div>
@@ -468,6 +482,7 @@ export default function Trade({
               line={line}
               purchase={purchase}
               quote={isQuote}
+              fixedSerialQuantity={!!quoteId}
               duplicate={
                 line.item.kind === "timber-grouped"
                   ? () => {

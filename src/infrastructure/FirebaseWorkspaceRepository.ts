@@ -20,7 +20,15 @@ import type {
 export class FirebaseWorkspaceRepository implements WorkspaceRepository {
   constructor(private readonly functions: Functions) {}
   private async call<T>(name: string, input: unknown): Promise<T> {
-    return (await httpsCallable<unknown, T>(this.functions, name)(input)).data;
+    try {
+      return (await httpsCallable<unknown, T>(this.functions, name)(input)).data;
+    } catch (cause) {
+      const code = cause && typeof cause === "object" && "code" in cause ? cause.code : null;
+      if (code === "functions/internal" || code === "functions/unknown") {
+        console.warn("No se pudo completar una llamada de KhypuPyme", { route: name, code });
+      }
+      throw cause;
+    }
   }
   tutorial(request: TutorialRequest) {
     return this.call<TutorialReply>("timberTutorial", request);

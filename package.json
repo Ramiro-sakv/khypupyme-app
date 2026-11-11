@@ -1,6 +1,6 @@
 {
   "name": "khypupyme-app",
-  "version": "0.5.0-beta.7",
+  "version": "0.5.0-beta.8",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
@@ -20,6 +20,7 @@
     "test:e2e": "playwright test",
     "test:emulators": "pnpm build:functions && node scripts/test-emulators.mjs",
     "emulators": "pnpm build:functions && node scripts/emulators.mjs",
+    "backup": "node scripts/emulators.mjs --backup",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm build:functions",
     "build:functions": "pnpm --filter @khypupyme/functions build",
     "build:android:web": "node scripts/build-native-web.mjs android",

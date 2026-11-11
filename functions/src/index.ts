@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { AppError } from "../../shared/app-errors.js";
 import { SensitiveApprovalService, protectedOperation } from "./workspace/SensitiveApprovalService.js";
 import { sensitiveAction } from "../../shared/workspace/protection.js";
@@ -52,17 +53,18 @@ const options = {
   maxInstances: 2,
   timeoutSeconds: 60,
 };
-function failure(cause: unknown): never {
-  if (cause instanceof HttpsError) throw cause;
+function failure(route: string, cause: unknown): never {
+  if (cause instanceof HttpsError && cause.code !== "internal") throw cause;
   if (cause instanceof DomainError)
     throw new HttpsError("failed-precondition", cause.message);
-  console.error(
-    "Operación comercial fallida:",
-    cause instanceof Error ? cause.name : "Error",
-  );
+  const incidentId = randomUUID().slice(0, 12);
+  const code = cause && typeof cause === "object" && "code" in cause ? cause.code : undefined;
+  const category = cause instanceof TypeError ? "TypeError" : cause instanceof RangeError ? "RangeError" : "Error";
+  console.error("Fallo de Functions", { route, incidentId, category, sdkCode: typeof code === "number" ? code : undefined });
   throw new HttpsError(
     "internal",
     "No se pudo confirmar la operación. Consulta su estado antes de repetirla.",
+    { incidentId },
   );
 }
 export const commerceCommand = onCall(options, async (request) => {
@@ -79,7 +81,7 @@ export const commerceCommand = onCall(options, async (request) => {
     }
     return await services().commands.execute(request.auth.uid, command, request.auth.token.auth_time);
   } catch (cause) {
-    return workspaceFailure(cause);
+    return workspaceFailure("commerceCommand", cause);
   }
 });
 export const commerceQuery = onCall(options, async (request) => {
@@ -90,7 +92,7 @@ export const commerceQuery = onCall(options, async (request) => {
       return await queries.status(request.auth.uid, request.data.operationId);
     return await queries.list(request.auth.uid, request.data as QueryInput);
   } catch (cause) {
-    return failure(cause);
+    return failure("commerceQuery", cause);
   }
 });
 export const commerceReport = onCall(options, async (request) => {
@@ -101,7 +103,7 @@ export const commerceReport = onCall(options, async (request) => {
       request.data as DateFilter,
     );
   } catch (cause) {
-    return failure(cause);
+    return failure("commerceReport", cause);
   }
 });
 
@@ -128,11 +130,12 @@ export const workspaceAccount = onCall(options, async (request) => {
       object(envelope.input, { cursor: optionalId }).cursor as string,
     );
   } catch (cause) {
-    return workspaceFailure(cause);
+    return workspaceFailure("workspaceAccount", cause);
   }
 });
-function workspaceFailure(cause: unknown): never {
+function workspaceFailure(route: string, cause: unknown): never {
   if (cause instanceof AppError) {
+    if (cause.status === 500) return failure(route, cause);
     const codes: Record<number, ConstructorParameters<typeof HttpsError>[0]> = {
       400: "invalid-argument",
       401: "unauthenticated",
@@ -149,18 +152,18 @@ function workspaceFailure(cause: unknown): never {
       field: cause.field ?? "",
     });
   }
-  if (cause instanceof HttpsError) throw cause;
+  if (cause instanceof HttpsError) return failure(route, cause);
   // Errores de dominio son mensajes propios; fallos del SDK conservan respuesta incierta.
-  if (cause instanceof Error && !("code" in cause))
+  if (cause instanceof Error && cause.constructor === Error && !("code" in cause))
     throw new HttpsError("failed-precondition", cause.message);
-  return failure(cause);
+  return failure(route, cause);
 }
 export const workspaceCommand = onCall(options, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Inicia sesión.");
   try {
     return await services().workspace.execute(request.auth.uid, request.data, request.auth.token.auth_time);
   } catch (cause) {
-    return workspaceFailure(cause);
+    return workspaceFailure("workspaceCommand", cause);
   }
 });
 export const workspaceApproval = onCall(options, async (request) => {
@@ -181,7 +184,7 @@ export const workspaceApproval = onCall(options, async (request) => {
     if (envelope.phase === "prepare") return await protection.prepare(request.auth.uid, operation, request.auth.token.auth_time);
     await protection.approve(request.auth.uid, operation, request.auth.token.auth_time, envelope.reason);
     return { approved: true };
-  } catch (cause) { return workspaceFailure(cause); }
+  } catch (cause) { return workspaceFailure("workspaceApproval", cause); }
 });
 export const workspaceQuery = onCall(options, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Inicia sesión.");
@@ -191,7 +194,7 @@ export const workspaceQuery = onCall(options, async (request) => {
       request.data,
     );
   } catch (cause) {
-    return workspaceFailure(cause);
+    return workspaceFailure("workspaceQuery", cause);
   }
 });
 export const workspaceReport = onCall(options, async (request) => {
@@ -209,7 +212,7 @@ export const workspaceReport = onCall(options, async (request) => {
       input.to as string,
     );
   } catch (cause) {
-    return workspaceFailure(cause);
+    return workspaceFailure("workspaceReport", cause);
   }
 });
 export const workspaceStatus = onCall(options, async (request) => {
@@ -223,7 +226,7 @@ export const workspaceStatus = onCall(options, async (request) => {
       canonical(command),
     );
   } catch (cause) {
-    return workspaceFailure(cause);
+    return workspaceFailure("workspaceStatus", cause);
   }
 });
 
@@ -236,6 +239,6 @@ export const timberTutorial = onCall(options, async (request) => {
       request.data,
     );
   } catch (cause) {
-    return workspaceFailure(cause);
+    return workspaceFailure("timberTutorial", cause);
   }
 });

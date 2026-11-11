@@ -4,7 +4,7 @@ import TimberReturnFields from "./TimberReturnFields";
 import type { TimberSelection } from "../../../shared/workspace/model";
 import { useState } from "react";
 import { UNITS } from "../../../shared/workspace/catalog";
-import { compare, ZERO } from "../../../shared/workspace/exact";
+import { add, amount, compare, div, ONE, ZERO } from "../../../shared/workspace/exact";
 import type {
   Item,
   ReturnInput,
@@ -22,9 +22,11 @@ import CartEditor from "./CartEditor";
 export default function ReturnForm({
   sale,
   close,
+  startExchange = false,
 }: {
   sale: SaleV2;
   close: () => void;
+  startExchange?: boolean;
 }) {
   const { run, busy } = useWorkspace(),
     [selected, setSelected] = useState<
@@ -38,7 +40,7 @@ export default function ReturnForm({
         }
       >
     >({}),
-    [exchange, setExchange] = useState(false),
+    [exchange, setExchange] = useState(startExchange),
     [replacements, setReplacements] = useState<CartLine[]>([]),
     items = useRecords<Item>("items");
   return (
@@ -105,6 +107,17 @@ export default function ReturnForm({
                     " · ya devuelto " +
                     showQuantity(l.returned)}
               </strong>
+              {l.kind === "apparel" && (
+                <p>
+                  {l.fields.size} · {l.fields.color} · Importe neto original {bob(l.netMinor)}
+                  {exchange && compare(add(l.returned, ONE), l.delivered) <= 0 && (
+                    <>
+                      {` · Una unidad: ${bob(amount(l.netMinor, div(add(l.returned, ONE), l.delivered)) - l.refundedMinor)}`}
+                      <button type="button" onClick={() => setSelected((old) => ({ ...old, [i]: { ...value, qty: "1" } }))}>Cambiar una unidad</button>
+                    </>
+                  )}
+                </p>
+              )}
               {l.timber ? (
                 <TimberReturnFields
                   line={l}

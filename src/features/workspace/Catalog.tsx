@@ -10,6 +10,9 @@ import {
 } from "../../../shared/workspace/timber-measures";
 import { useState } from "react";
 import { useSearchParams } from "react-router";
+import { fieldsForItem, hasReorder, hasExpiry, hasVariantMatrix } from "../../../shared/workspace/industry-capabilities";
+import { VehicleFilter } from "./VehicleFilter";
+import type { WorkspaceQuery } from "../../../shared/workspace/model";
 import ExpiringLots from "./ExpiringLots";
 import FashionPicker from "./FashionPicker";
 import { ITEM_MODELS, UNITS } from "../../../shared/workspace/catalog";
@@ -41,11 +44,13 @@ export default function Catalog() {
     [newItem, setNewItem] = useState(false),
     [archived, setArchived] = useState(false),
     [search, setSearch] = useState(""),
+    [vehicle, setVehicle] = useState<WorkspaceQuery["vehicle"]>(),
     [selection, setSelected] = useState<Item | null>(null),
-    reorder = business.industryId === "convenience" && attention === "reposicion",
-    expiry = business.industryId === "convenience" && attention === "vencimientos",
+    reorder = hasReorder(business.industryId) && attention === "reposicion",
+    expiry = hasExpiry(business.industryId) && attention === "vencimientos",
     page = useRecords<Item>("items", {
       active: reorder || !archived,
+      ...(vehicle && !archived ? { vehicle } : {}),
       ...(reorder ? { reorder: true } : {}),
       ...(search.trim().length >= 2 ? { search: search.trim() } : {}),
     }, !expiry);
@@ -53,6 +58,7 @@ export default function Catalog() {
   const speciesMode = business.industryId === "timber" && tutorial?.state.session?.version !== 1;
   const visible = page.items;
   const selected = page.items.find((i) => i.id === selection?.id) ?? selection;
+  const profileFields = selected ? fieldsForItem(business.industryId, selected.kind) : {};
   return (
     <>
       <div className="workspace-heading">
@@ -70,10 +76,10 @@ export default function Catalog() {
         </button>
       </div>
       <IndustryHelp mode="catalog" />
-      {business.industryId === "convenience" && <div className="actions catalog-tools">
+      {(hasReorder(business.industryId) || hasExpiry(business.industryId)) && <div className="actions catalog-tools">
         <button aria-pressed={!reorder && !expiry} onClick={() => go("inventario", {})}>Catálogo</button>
-        <button aria-pressed={reorder} onClick={() => go("inventario", { atencion: "reposicion" })}>Reposición</button>
-        <button aria-pressed={expiry} onClick={() => go("inventario", { atencion: "vencimientos" })}>Vencimientos</button>
+        {hasReorder(business.industryId) && <button aria-pressed={reorder} onClick={() => go("inventario", { atencion: "reposicion" })}>Reposición</button>}
+        {hasExpiry(business.industryId) && <button aria-pressed={expiry} onClick={() => go("inventario", { atencion: "vencimientos" })}>Vencimientos</button>}
         {(reorder || expiry) && <button className="primary" onClick={() => go("compras")}>Registrar compra</button>}
       </div>}
       {expiry && <ExpiringLots />}
@@ -114,6 +120,7 @@ export default function Catalog() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </label>
+        {business.industryId === "spareParts" && !archived && <VehicleFilter value={vehicle} onChange={setVehicle} />}
         {!reorder && <label>
           <input
             type="checkbox"
@@ -125,7 +132,7 @@ export default function Catalog() {
       </div>
       {!expiry && <Pager page={page} />}
       {reorder && !page.loading && !page.error && !page.items.length && <p>No hay productos agotados o en su mínimo para esta búsqueda.</p>}
-      {business.industryId === "clothing" && !archived && <FashionPicker items={page.items} pick={setSelected} />}
+      {hasVariantMatrix(business.industryId) && !archived && <FashionPicker items={page.items} pick={setSelected} />}
       <div className="table-scroll catalog-table" hidden={expiry}>
         <table>
           <thead>
@@ -316,6 +323,7 @@ export default function Catalog() {
                 kind: "edit-item",
                 input: {
                   id: selected.id,
+                  ...(Object.keys(profileFields).length ? { profile: Object.fromEntries(Object.keys(profileFields).map((key) => [key, String(d.get("profile-" + key) ?? "")])) } : {}),
                   name: String(d.get("name")),
                   priceMinor: cents(d.get("price")),
                   serviceCostMinor:
@@ -332,6 +340,7 @@ export default function Catalog() {
             }}
           >
             <Field name="name" label="Nombre" value={selected.name} />
+            {Object.entries(profileFields).map(([key, label]) => <Field key={key} name={"profile-" + key} label={label} value={selected.details?.profile?.[key] ?? ""} required={false} maxLength={160} />)}
             <Field
               name="price"
               label="Precio (BOB)"
@@ -460,6 +469,8 @@ function StockDetail({ item }: { item: Item }) {
       status?: string;
       balance?: { n: string; d: string };
       costMinor?: number;
+      held?: boolean;
+      available?: boolean;
     }>(
       item.kind === "timber-grouped"
         ? "timberGroups"
@@ -504,6 +515,19 @@ function StockDetail({ item }: { item: Item }) {
                 ? showQuantity(row.balance)
                 : ""}{" "}
             {row.expiresOn && `· vence ${localDate(row.expiresOn)}`}{" "}
+            {row.held && <strong> · Apartado</strong>}
+            {row.available && ["cosmetics", "pets", "cement"].includes(business.industryId ?? "") && <details>
+              <summary>Administrar lote</summary>
+              <ActionForm disabled={busy} label="Revisar acción de lote" onSave={(data) => run({
+                kind: "lot-action", input: { lotId: row.id, action: String(data.get("action")) as "hold" | "release" | "loss", reason: String(data.get("reason")) },
+              })}>
+                <label>Acción<select name="action">
+                  {row.held ? <option value="release">Liberar lote</option> : <option value="hold">Apartar lote de la venta</option>}
+                  <option value="loss">Registrar pérdida de todo el saldo del lote</option>
+                </select></label>
+                <Field name="reason" label="Motivo" maxLength={200} />
+              </ActionForm>
+            </details>}
             {row.status === "inspection" && (
               <ActionForm
                 disabled={busy}

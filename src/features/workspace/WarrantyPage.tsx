@@ -1,3 +1,4 @@
+import { hasSerialWorkflow } from "../../../shared/workspace/industry-capabilities";
 import { useState } from "react";
 import { useSearchParams } from "react-router";
 import type { SaleV2 } from "../../../shared/workspace/model";
@@ -12,7 +13,7 @@ export function Warranty() {
   const { run, busy, business } = useWorkspace();
   const [params] = useSearchParams();
   const { go } = useWorkspaceNavigation();
-  const appliances = business.industryId === "appliances";
+  const appliances = hasSerialWorkflow(business.industryId);
   const [tracking, setTracking] = useState<WarrantySelection | null>(null);
   const
     sales = useRecords<SaleV2>("salesV2", {}, !appliances),

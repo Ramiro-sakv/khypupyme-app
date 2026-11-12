@@ -1,14 +1,14 @@
 # KhypuPyme
 
-Cuaderno digital para negocios de Bolivia. Beta local **0.5.0-beta.11**, sin publicación ni conexión cloud activa.
+Cuaderno digital para negocios de Bolivia. Beta local **0.5.0-beta.12**, sin publicación ni conexión cloud activa.
 
 Una cuenta administra varios negocios independientes. Después de ingresar se crea un espacio, se responde el cuestionario y se confirma un rubro fijo. Cada negocio conserva catálogo, clientes, compras, ventas, fiados, caja y documentos propios. Se abre el último negocio autorizado; **Cambiar negocio** vuelve al selector.
 
-Modelos: madera por medidas/volumen, ropa y calzado por talla/color, electrodomésticos por serie y garantía, tienda 24/7 por lotes/vencimientos/peso, cerámicas por piezas/cajas/m² y cemento en bolsas/granel. Los demás rubros se identifican como núcleo común (productos por unidad y servicios). Los módulos están empaquetados, se cargan por demanda y no descargan programas externos.
+Modelos: madera por medidas/volumen, ropa y calzado por talla/color, electrodomésticos por serie y garantía, tienda 24/7 por lotes/vencimientos/peso, cerámicas por piezas/cajas/m² y cemento en bolsas/granel. Los 21 rubros ofrecen accesos y controles según su trabajo. La beta.12 incorpora intercambio de envases en el cobro, venta por metros, repuestos por vehículo, impresión por caras, entregas y órdenes con datos de cada oficio. Los módulos están empaquetados, se cargan por demanda y no descargan programas externos.
 
 Compras de hasta 20 líneas, ventas/cotizaciones, devoluciones/cambios vinculados, fiados con cobro completo, gastos, clientes, sesiones de caja, gráficos e informes. Las compras aumentan el inventario y el pago en efectivo reduce el saldo de caja. Cantidades comerciales de hasta seis decimales mediante fracciones exactas y dinero entero en centavos BOB. PDF no fiscal con datos históricos y fuentes locales, generado al solicitarlo.
 
-En productos generales y de tienda, elige piezas, peso o volumen al crear la ficha. Para peso se admiten g, kg y lb. Una libra equivale a 453,59237 g. Para volumen se admiten L y mL. El inventario usa gramos o mililitros como base y las operaciones conservan la unidad seleccionada. Las devoluciones respetan las conversiones de la venta original.
+En productos generales y de tienda, elige piezas, peso o volumen al crear la ficha. Ferretería admite fichas en metros con compra por rollo de longitud fija. Para peso se admiten g, kg y lb. Una libra equivale a 453,59237 g. Para volumen se admiten L y mL. El inventario usa gramos o mililitros como base y las operaciones conservan la unidad seleccionada. Las devoluciones respetan las conversiones de la venta original.
 
 Usa **Revisar** en la pestaña inferior para confirmar una compra, venta o cotización. **Minimizar** vuelve al carrito y conserva los datos. En Inicio e Informes, **Mostrar compras de mercadería** añade una serie a las barras de ventas y gastos operativos. El resultado estimado resta el costo de lo vendido, los gastos y las pérdidas a las ventas netas.
 

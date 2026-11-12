@@ -43,6 +43,8 @@ export const UNITS: Record<Unit, string> = {
   m3: "m³",
   boardFoot: "pies tablares",
   m2: "m²",
+  metre: "m",
+  roll: "rollos",
   service: "servicios",
 };
 export const ITEM_MODELS: Record<
@@ -225,6 +227,10 @@ export function itemUnits(item: ItemDraft): {
   const measure = itemMeasure(item);
   if (measure === "mass") return { baseUnit: "g", units: massUnits };
   if (measure === "volume") return { baseUnit: "mL", units: volumeUnits };
+  if (measure === "length") return {
+    baseUnit: "m",
+    units: { metre: ONE, ...(item.rollMetres ? { roll: decimal(item.rollMetres) } : {}) },
+  };
   switch (item.kind) {
     case "timber-piece": {
       const volume = mul(

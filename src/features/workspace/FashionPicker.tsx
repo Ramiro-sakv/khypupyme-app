@@ -39,6 +39,7 @@ export default function FashionPicker({ items, pick, disabled, sell = false }: {
                   <button key={item.id} type="button" disabled={disabled || (sell && compare(item.balance, ZERO) <= 0)}
                     onClick={() => pick(item)} aria-label={`${item.name}, ${displayQuantity(item.balance)} disponibles, ${bob(item.priceMinor)}`}>
                     <strong>{item.balance.n === "0" ? "Agotado" : `${displayQuantity(item.balance)} disponibles`}</strong><small>{bob(item.priceMinor)}</small>
+                    {item.details?.profile && <small>{[item.details.profile.sizeSystem, item.details.profile.shoeWidth].filter(Boolean).join(" · ")}</small>}
                     {item.fields.reference && <small>{item.fields.reference}</small>}
                   </button>
                 ))}

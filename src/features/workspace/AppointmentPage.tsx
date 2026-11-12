@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import type {
   Appointment,
   AppointmentStatus,
 } from "../../../shared/workspace/operations";
+import type { Item } from "../../../shared/workspace/model";
 import { useRecords, useWorkspace } from "./context";
 import { CustomerSelector } from "./CustomerSelector";
 import { ActionForm, Field, Pager } from "./ui";
@@ -16,14 +17,31 @@ const labels: Record<AppointmentStatus, string> = {
   cancelled: "Cancelada",
 };
 export default function AppointmentPage() {
-  const [day, setDay] = useState(""),
+  const [params] = useSearchParams();
+  const [day, setDay] = useState(() => params.get("atencion") === "today" ? today() : ""),
     page = useRecords<Appointment>(
       "appointments",
       day ? { from: day, to: day } : {},
     ),
     { busy, run } = useWorkspace(),
-    [selected, setSelected] = useState<Appointment | null | undefined>(),
+    [selected, setSelected] = useState<Appointment | null | undefined>(() => params.get("accion") === "nueva" ? null : undefined),
     [client, setClient] = useState({ id: "", name: "" });
+  const services = useRecords<Item>("items", { active: true, itemKind: "service" }, selected !== undefined);
+  const [serviceId, setService] = useState("");
+  const [start, setStart] = useState(today() + "T09:00"), [end, setEnd] = useState(today() + "T09:30");
+  function select(row: Appointment | null) {
+    setSelected(row);
+    setClient(row ? { id: row.customerId, name: row.customerName } : { id: "", name: "" });
+    setService(row?.serviceId ?? "");
+    setStart(row?.startAt.slice(0, 16) ?? today() + "T09:00");
+    setEnd(row?.endAt.slice(0, 16) ?? today() + "T09:30");
+  }
+  const service = services.items.find((item) => item.id === serviceId);
+  function schedule(value: string, duration: string | undefined) {
+    setStart(value);
+    const time = Date.parse(value + ":00Z");
+    if (duration && Number.isFinite(time)) setEnd(new Date(time + Number(duration) * 60000).toISOString().slice(0, 16));
+  }
   return (
     <>
       <h2>Agenda de atención</h2>
@@ -33,8 +51,7 @@ export default function AppointmentPage() {
       <button
         className="primary"
         onClick={() => {
-          setClient({ id: "", name: "" });
-          setSelected(null);
+          select(null);
         }}
       >
         Nueva cita
@@ -61,8 +78,7 @@ export default function AppointmentPage() {
             {!row.saleId && !["cancelled", "no-show"].includes(row.status) && (
               <button
                 onClick={() => {
-                  setClient({ id: row.customerId, name: row.customerName });
-                  setSelected(row);
+                  select(row);
                 }}
               >
                 Ver / actualizar
@@ -101,7 +117,8 @@ export default function AppointmentPage() {
                   expectedRevision: selected?.revision ?? 0,
                   customerId: client.id,
                   customerName: client.name,
-                  title: String(d.get("title")),
+                  title: service?.name ?? (serviceId && selected?.title ? selected.title : String(d.get("title"))),
+                  ...(serviceId ? { serviceId } : {}),
                   startAt: String(d.get("start")) + ":00-04:00",
                   endAt: String(d.get("end")) + ":00-04:00",
                   status: String(d.get("status")) as AppointmentStatus,
@@ -115,23 +132,32 @@ export default function AppointmentPage() {
               value={client.id}
               onChange={(id, name) => setClient({ id, name })}
             />
-            <Field
+            <label>Servicio del catálogo<select value={serviceId} onChange={(e) => {
+              setService(e.target.value);
+              schedule(start, services.items.find((item) => item.id === e.target.value)?.details?.profile?.durationMinutes);
+            }}>
+              <option value="">Escribir el motivo manualmente</option>
+              {serviceId && !service && <option value={serviceId}>{selected?.title ?? "Servicio elegido"}</option>}
+              {services.items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select></label>
+            <Pager page={services} />
+            {!serviceId && <Field
               name="title"
               label="Servicio o motivo"
               value={selected?.title ?? ""}
               maxLength={100}
-            />
+            />}
             <Field
               name="start"
               type="datetime-local"
               label="Comienzo (hora de Bolivia)"
-              value={selected?.startAt.slice(0, 16) ?? today() + "T09:00"}
+              value={start} onValueChange={(value) => schedule(value, service?.details?.profile?.durationMinutes)}
             />
             <Field
               name="end"
               type="datetime-local"
               label="Fin"
-              value={selected?.endAt.slice(0, 16) ?? today() + "T09:30"}
+              value={end} onValueChange={setEnd}
             />
             <label>
               Estado

@@ -1,9 +1,10 @@
+import { ContainerService } from "./ContainerService.js";
+import type { Documents } from "./Documents.js";
+import type { Item } from "../../../shared/workspace/model.js";
 import type { UnitOfWork } from "./UnitOfWork.js";
 import type { TradeService } from "./TradeService.js";
 import type {
   Appointment,
-  ContainerBalance,
-  ContainerType,
   Delivery,
   OperationalAction,
   WorkOrder,
@@ -13,6 +14,9 @@ import {
   hasAgenda,
   hasDelivery,
   workKindFor,
+  WORK_LABELS,
+  WORK_PARTICULAR_LABELS,
+  WORK_PARTICULARS,
 } from "../../../shared/workspace/operations.js";
 import type {
   Customer,
@@ -77,6 +81,9 @@ export class OperationalService {
       throw new Error(
         "La cita debe durar entre un minuto y doce horas dentro del mismo día.",
       );
+    const service = input.serviceId ? await this.work.get<Item>("items", input.serviceId) : null;
+    if (input.serviceId && input.serviceId !== old?.serviceId && (service?.kind !== "service" || !service.active))
+      throw new Error("El servicio seleccionado ya no está disponible.");
     const c = await this.customer(input.customerId),
       id = old?.id ?? this.operationId;
     // Un documento por día serializa también dos reservas de una agenda vacía.
@@ -111,6 +118,7 @@ export class OperationalService {
     const value: Appointment = {
       ...data,
       id,
+      title: service?.name ?? data.title,
       customerName: c.name,
       revision: (old?.revision ?? 0) + 1,
       createdAt: old?.createdAt ?? this.work.now,
@@ -131,7 +139,17 @@ export class OperationalService {
     const old = input.id
       ? await this.work.get<WorkOrder>("workOrders", input.id)
       : null;
+    if (old?.saleId && this.business.industryId !== "timber") {
+      if (old.revision !== input.expectedRevision || old.status !== "ready" || input.status !== "delivered" || old.kind !== input.kind)
+        throw new Error("Una orden cobrada solo puede marcarse entregada.");
+      const next = { ...old, status: "delivered" as const, revision: old.revision + 1, updatedAt: this.work.now };
+      this.work.set("workOrders", old.id, next);
+      this.audit("work-order", old.id, next.revision, next);
+      return old.id;
+    }
     this.revision(old, input.id, input.expectedRevision);
+    if (input.particulars && Object.keys(input.particulars).some((key) => !Object.hasOwn(WORK_PARTICULARS[input.kind], key)))
+      throw new Error("Los datos no corresponden al tipo de orden.");
     if (!old && (input.status !== "received" || input.expectedRevision !== 0))
       throw new Error("Una orden nueva empieza recibida.");
     const next: Record<WorkStatus, WorkStatus[]> = {
@@ -139,7 +157,8 @@ export class OperationalService {
       diagnosis: ["quoted", "cancelled"],
       quoted: ["approved", "cancelled"],
       approved: ["in-progress", "cancelled"],
-      "in-progress": ["ready", "cancelled"],
+      "in-progress": ["ready", "cancelled", ...(input.kind === "repair" ? ["waiting-parts" as const] : [])],
+      "waiting-parts": ["in-progress", "cancelled"],
       ready: ["delivered", "cancelled"],
       delivered: [],
       cancelled: [],
@@ -173,6 +192,8 @@ export class OperationalService {
   ) {
     if (!hasDelivery(this.business.industryId))
       throw new Error("Este rubro no dispone de entregas.");
+    if (input.mode !== "pickup" && input.address.length < 3)
+      throw new Error("Indica la dirección de entrega.");
     const old = input.id
       ? await this.work.get<Delivery>("deliveries", input.id)
       : null;
@@ -225,7 +246,7 @@ export class OperationalService {
     this.audit("delivery", id, value.revision, value);
     return id;
   }
-  async execute(action: OperationalAction, trade: TradeService) {
+  async execute(action: OperationalAction, trade: TradeService, documents: Documents) {
     switch (action.kind) {
       case "appointment":
         return { id: await this.appointment(action.input) };
@@ -256,48 +277,36 @@ export class OperationalService {
         return { id: this.operationId };
       }
       case "container-move": {
-        if (this.business.industryId !== "beverages")
-          throw new Error("El control de envases pertenece a bebidas.");
-        const i = action.input,
-          c = await this.customer(i.customerId),
-          type = await this.work.get<ContainerType>(
-            "containerTypes",
-            i.containerId,
-          );
-        if (!type) throw new Error("No existe ese tipo de envase.");
-        const id = i.containerId + "_" + i.customerId,
-          old = await this.work.get<ContainerBalance>("containerBalances", id),
-          quantity = old?.quantity ?? 0;
-        if (
-          (i.direction === "out" && type.available < i.quantity) ||
-          (i.direction === "in" && quantity < i.quantity)
-        )
-          throw new Error(
-            "La cantidad supera los envases disponibles o pendientes del cliente.",
-          );
-        const delta = i.direction === "out" ? i.quantity : -i.quantity;
-        this.work.set("containerTypes", type.id, {
-          ...type,
-          available: type.available - delta,
-        });
-        this.work.set("containerBalances", id, {
-          id,
-          containerId: type.id,
-          customerId: c.id,
-          customerName: c.name,
-          name: type.name,
-          quantity: quantity + delta,
-          createdAt: old?.createdAt ?? this.work.now,
-        });
-        this.work.set("containerMovements", this.operationId, {
-          id: this.operationId,
-          ...i,
-          customerName: c.name,
-          name: type.name,
-          authorUid: this.work.uid,
-          createdAt: this.work.now,
-        });
+        if (this.business.industryId !== "beverages") throw new Error("El control de envases pertenece a bebidas.");
+        const i = action.input;
+        await new ContainerService(this.work).transfer({
+          containerId: i.containerId,
+          delivered: i.direction === "out" ? i.quantity : 0,
+          received: i.direction === "in" ? i.quantity : 0,
+        }, await this.customer(i.customerId), this.operationId, i.reason);
         return { id: this.operationId };
+      }
+      case "operational-document": {
+        const i = action.input;
+        if (i.sourceKind === "work-order") {
+          const order = await this.work.get<WorkOrder>("workOrders", i.sourceId);
+          if (!order || order.kind !== workKindFor(this.business.industryId))
+            throw new Error("La orden no corresponde a este negocio.");
+          const document = await documents.issue("ORD", order.kind === "repair" ? "Constancia de recepción" : "Constancia de trabajo",
+            ["Orden", "Cliente", "Estado", "Fecha comprometida"],
+            [[order.title, order.customerName, WORK_LABELS[order.status], order.dueOn]], [],
+            [order.description, ...Object.entries(order.particulars ?? {}).map(([key, value]) => WORK_PARTICULAR_LABELS[key] + " · " + value)].join(" · "));
+          return { id: document.id, document };
+        }
+        const delivery = await this.work.get<Delivery>("deliveries", i.sourceId);
+        const sale = delivery && await this.work.get<{ number: string; customerName: string }>("salesV2", delivery.saleId);
+        if (!delivery || !sale || !hasDelivery(this.business.industryId))
+          throw new Error("La entrega no corresponde a este negocio.");
+        const document = await documents.issue("ENT", "Constancia de despacho",
+          ["Venta", "Cliente", "Modalidad", "Fecha", "Lugar"],
+          [[sale.number, sale.customerName, delivery.mode === "pickup" ? "Retiro" : "A domicilio", delivery.scheduledOn, delivery.address]],
+          [], delivery.reference);
+        return { id: document.id, document };
       }
       case "operational-sale": {
         const i = action.input,

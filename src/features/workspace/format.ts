@@ -5,6 +5,7 @@ import {
 import type { TimberSystem } from "../../../shared/workspace/timber-measures";
 import { amount, decimal, div, fraction, showQuantity } from "../../../shared/workspace/exact";
 import type { Quantity } from "../../../shared/workspace/exact";
+import { profileLabels } from "../../../shared/workspace/industry-capabilities";
 import { ITEM_MODELS, itemMeasure, UNITS } from "../../../shared/workspace/catalog";
 import type { Item, ItemDraft, Unit } from "../../../shared/workspace/model";
 import type { Method } from "../../../shared/workspace/model";
@@ -30,7 +31,7 @@ export const q = (value: FormDataEntryValue | null | string) =>
   decimal(String(value ?? "0"));
 export function measuredText(item: Pick<Item, "units" | "baseUnit" | "priceUnit">, quantity: Quantity, unit: Unit = item.priceUnit) {
   const factor = item.units[unit];
-  if (!["g", "mL"].includes(item.baseUnit) || !factor) return null;
+  if (!["g", "mL", "m"].includes(item.baseUnit) || !factor) return null;
   const display = div(quantity, factor);
   const approximate = 1000000n % BigInt(display.d) !== 0n;
   return `${approximate ? "≈ " : ""}${showQuantity(display)} ${UNITS[unit]}`;
@@ -131,7 +132,7 @@ export function itemDetails(
     );
   const measure = itemMeasure(item);
   return [
-    measure === "mass" ? "Por peso" : measure === "volume" ? "Por volumen" : "",
+    measure === "mass" ? "Por peso" : measure === "volume" ? "Por volumen" : measure === "length" ? "Por metro" : "",
     ...(item.kind === "timber-piece"
       ? [item.fields.species, timberDimensions(item.fields, system)]
       : [
@@ -147,7 +148,8 @@ export function itemDetails(
             )
             .join(" · "),
         ]),
-    ...Object.values(item.details ?? {}).filter(Boolean),
+    ...Object.values(item.details ?? {}).filter((value) => typeof value === "string" && value),
+    ...Object.entries(item.details?.profile ?? {}).flatMap(([key, value]) => value ? [profileLabels[key] + " · " + value] : []),
   ]
     .filter(Boolean)
     .join(" · ");

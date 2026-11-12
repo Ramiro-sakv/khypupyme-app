@@ -26,6 +26,7 @@ import {
   ZERO,
   amount,
 } from "../../../shared/workspace/exact.js";
+import { fieldsForItem } from "../../../shared/workspace/industry-capabilities.js";
 import type { Quantity } from "../../../shared/workspace/exact.js";
 import type {
   Allocation,
@@ -39,6 +40,7 @@ import { money } from "../../../shared/workspace/validation.js";
 import type { UnitOfWork } from "./UnitOfWork.js";
 
 export interface Lot {
+  held?: boolean;
   id: string;
   itemId: string;
   lot: string;
@@ -102,7 +104,7 @@ export class InventoryServiceV2 {
     const conversion = item.units[unit];
     if (!conversion) throw new Error("Unidad incompatible con el producto.");
     if (
-      ["piece", "pair", "box", "bag", "service"].includes(unit) &&
+      ["piece", "pair", "box", "bag", "service", "roll"].includes(unit) &&
       !whole(qty)
     )
       throw new Error(
@@ -116,7 +118,29 @@ export class InventoryServiceV2 {
         "La cantidad no corresponde a unidades completas del producto.",
       );
   }
+  validateProfile(item: ItemDraft) {
+    const industry = this.business.industryId;
+    if (item.measure === "length" && (industry !== "hardware" || item.kind !== "general" || item.priceUnit !== "metre"))
+      throw new Error("La venta por metro requiere una ficha general de ferretería con precio por metro.");
+    const profile = item.details?.profile ?? {};
+    const fields = fieldsForItem(industry, item.kind);
+    if (Object.keys(profile).some((key) => !Object.hasOwn(fields, key)))
+      throw new Error("Los campos no corresponden al rubro y producto.");
+    for (const [key, max] of [["openMonths", 120], ["durationMinutes", 720]] as const) {
+      const value = profile[key];
+      if (value && (!/^\d+$/.test(value) || Number(value) < 1 || Number(value) > max))
+        throw new Error(fields[key] + ": indica un entero de 1 a " + max + ".");
+    }
+    const { vehicleMake, vehicleModel, yearFrom, yearTo, printSize, printInk } = profile;
+    if ((vehicleMake || vehicleModel || yearFrom || yearTo) &&
+        (!vehicleMake || !vehicleModel || !/^(19|20)\d{2}$/.test(yearFrom ?? "") || !/^(19|20)\d{2}$/.test(yearTo ?? "") ||
+         Number(yearFrom) > Number(yearTo)))
+      throw new Error("Indica marca, modelo y un rango de años válido.");
+    if ((printSize || printInk) && (!printSize || !printInk))
+      throw new Error("Indica tamaño y tipo de impresión para esta tarifa.");
+  }
   async create(id: string, draft: ItemDraft, timberSpeciesId?: string): Promise<Item> {
+    this.validateProfile(draft);
     if (!kindsFor(this.business).includes(draft.kind))
       throw new Error(
         "Este modelo de producto no pertenece al rubro del negocio.",
@@ -148,6 +172,8 @@ export class InventoryServiceV2 {
         barcode: draft.barcode,
       });
     }
+    if (draft.kind === "apparel" && this.business.industryId === "footwear" && draft.fields.pair !== "par")
+      throw new Error("Las variantes de calzado se registran por par.");
     if (draft.kind === "apparel") {
       const modelId = hashKey(draft.fields.model!),
         variantId = hashKey(
@@ -183,7 +209,8 @@ export class InventoryServiceV2 {
         item.barcode,
         ...inventorySearchTerms(item),
         ...Object.values(item.fields),
-        ...Object.values(item.details ?? {}),
+        ...Object.values(item.details ?? {}).filter((value): value is string => typeof value === "string"),
+        ...Object.values(item.details?.profile ?? {}),
       ]),
     });
     this.movement(item, ZERO, 0, "opening", "Creación de producto", id);
@@ -222,7 +249,8 @@ export class InventoryServiceV2 {
         item.name,
         item.barcode,
         ...Object.values(item.fields),
-        ...Object.values(item.details ?? {}),
+        ...Object.values(item.details ?? {}).filter((value): value is string => typeof value === "string"),
+        ...Object.values(item.details?.profile ?? {}),
       ]),
       updatedAt: this.work.now,
     });
@@ -346,7 +374,7 @@ export class InventoryServiceV2 {
   async availableLots(id: string, ignoreExpiry = false) {
     const date = today();
     const lots = await this.work.list<Lot>("lots", [["itemId", id], ["available", true]], 10000);
-    return lots.filter((lot) => ignoreExpiry || !lot.expiresOn || lot.expiresOn >= date);
+    return lots.filter((lot) => ignoreExpiry || (!lot.held && (!lot.expiresOn || lot.expiresOn >= date)));
   }
   async consume(
     id: string,
@@ -356,6 +384,7 @@ export class InventoryServiceV2 {
     reason: string,
     ignoreExpiry = false,
     movementKind?: string,
+    onlyLot?: string,
   ): Promise<{ costMinor: number; allocations: Allocation[] }> {
     let item = await this.item(id);
     this.checkBase(item, baseQty);
@@ -391,7 +420,11 @@ export class InventoryServiceV2 {
       }
     } else {
       if (serialIds.length) throw new Error("Este producto no utiliza series.");
-      const lots = (await this.availableLots(id, ignoreExpiry))
+      const selected = onlyLot ? await this.work.get<Lot>("lots", onlyLot) : null;
+      if (onlyLot && (!selected?.available || selected.itemId !== id ||
+          (!ignoreExpiry && (selected.held || (selected.expiresOn && selected.expiresOn < today())))))
+        throw new Error("El lote seleccionado ya no está disponible para esta operación.");
+      const lots = (selected ? [selected] : await this.availableLots(id, ignoreExpiry))
         .sort(
           (a, b) =>
             (a.expiresOn || "9999").localeCompare(b.expiresOn || "9999") ||
@@ -412,6 +445,7 @@ export class InventoryServiceV2 {
         });
         allocations.push({
           stockId: lot.id,
+          ...(["grocery", "beverages", "cosmetics", "pets", "cement"].includes(this.business.industryId ?? "") ? { lot: lot.lot, expiresOn: lot.expiresOn } : {}),
           qty: taken,
           serial: "",
           returned: ZERO,
@@ -537,7 +571,20 @@ export class InventoryServiceV2 {
     this.save(item);
     this.movement(item, ONE, 0, "release", reason, serialId);
   }
-  async unpack(sourceId: string, targetId: string, bags: Quantity) {
+  async lotAction(id: string, action: "hold" | "release" | "loss", reason: string) {
+    if (!["cosmetics", "pets", "cement"].includes(this.business.industryId ?? ""))
+      throw new Error("El control de lotes no corresponde a este rubro.");
+    const lot = await this.work.get<Lot>("lots", id);
+    if (!lot?.available) throw new Error("El lote no tiene existencias.");
+    if (action === "loss") {
+      await this.consume(lot.itemId, lot.balance, [], this.operationId, reason, true, "loss", id);
+      return;
+    }
+    if (action === "release" && (!lot.held || (lot.expiresOn && lot.expiresOn < today())))
+      throw new Error("El lote debe estar apartado y vigente para liberarlo.");
+    this.work.set("lots", id, { ...lot, held: action === "hold", holdReason: reason });
+  }
+  async unpack(sourceId: string, targetId: string, bags: Quantity, lotId?: string, expectedValueMinor?: number) {
     const source = await this.item(sourceId),
       target = await this.item(targetId);
     if (
@@ -551,14 +598,19 @@ export class InventoryServiceV2 {
       throw new Error(
         "Selecciona bolsas completas y cemento a granel de la misma marca y tipo.",
       );
+    if (compare(bags, source.balance) > 0) throw new Error("No hay suficientes bolsas.");
+    const value = withdrawCost(source.valueMinor, source.balance, bags);
+    if (expectedValueMinor !== undefined && value !== expectedValueMinor)
+      throw new Error("Cambió el valor a transferir. Actualiza antes de confirmar.");
     const taken = await this.consume(
       sourceId,
       bags,
       [],
       this.operationId,
       "Apertura de bolsas",
-      true,
+      false,
       "transfer",
+      lotId,
     );
     const totalGrams = mul(
       mul(bags, decimal(source.fields.weightKg!, 3)),

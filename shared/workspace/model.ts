@@ -1,3 +1,4 @@
+import type { ContainerTransfer } from "./operations.js";
 import type { TimberSystem } from "./timber-measures.js";
 import type { ItemDetails, OperationalAction } from "./operations.js";
 import type { IndustryId } from "../business-industries.js";
@@ -29,6 +30,8 @@ export type Unit =
   | "m3"
   | "boardFoot"
   | "m2"
+  | "metre"
+  | "roll"
   | "service";
 export type Method = "cash" | "qr" | "transfer";
 export interface BusinessAnswers {
@@ -110,7 +113,8 @@ export interface TimberStockGroup {
   updatedAt: string;
 }
 export interface ItemDraft {
-  measure?: "mass" | "volume";
+  measure?: "mass" | "volume" | "length";
+  rollMetres?: string;
   details?: ItemDetails;
   name: string;
   kind: ItemKind;
@@ -145,6 +149,8 @@ export interface ReceiptLineInput {
   serials: string[];
 }
 export interface SaleLineInputV2 {
+  packages?: { boxes: number; pieces: number };
+  print?: { copies: number; faces: number; duplex: boolean };
   timber?: TimberSaleSelection;
   itemId: string;
   qty: Quantity;
@@ -155,6 +161,8 @@ export interface SaleLineInputV2 {
   expectedPriceMinor: number;
 }
 export interface Allocation {
+  lot?: string;
+  expiresOn?: string;
   timber?: { lengthMm: string; widthMm: string; pieces: number };
   stockId: string;
   qty: Quantity;
@@ -162,6 +170,8 @@ export interface Allocation {
   returned: Quantity;
 }
 export interface SaleLineV2 {
+  packages?: { boxes: number; pieces: number };
+  print?: { copies: number; faces: number; duplex: boolean };
   catalogPriceMinor?: number;
   timber?: TimberSaleSelection;
   details?: ItemDetails;
@@ -206,6 +216,7 @@ export interface Customer {
   active: boolean;
 }
 export interface SaleV2 {
+  containers?: ContainerTransfer[];
   id: string;
   number: string;
   lines: SaleLineV2[];
@@ -296,6 +307,7 @@ export interface SaleInput {
   customerName: string;
   discountMinor: number;
   quoteId: string;
+  containers?: ContainerTransfer[];
 }
 export type WorkspaceAction =
   | { kind: "timber-species"; input: { id: string; name: string; species?: string; code?: string; reference: string; prices: Record<TimberCategory, number>; expectedRevision: number; active: boolean } }
@@ -319,6 +331,7 @@ export type WorkspaceAction =
   | {
       kind: "edit-item";
       input: {
+        profile?: Record<string, string>;
         id: string;
         name: string;
         priceMinor: number;
@@ -399,8 +412,9 @@ export type WorkspaceAction =
   | { kind: "cancel-debt"; input: { id: string; reason: string } }
   | {
       kind: "unpack";
-      input: { sourceId: string; targetId: string; bags: Quantity };
+      input: { sourceId: string; targetId: string; bags: Quantity; lotId?: string; expectedValueMinor?: number };
     }
+  | { kind: "lot-action"; input: { lotId: string; action: "hold" | "release" | "loss"; reason: string } }
   | {
       kind: "warranty";
       input: {
@@ -505,6 +519,11 @@ export type WorkspaceResource =
   | "expenses"
   | "receivables";
 export interface WorkspaceQuery {
+  itemKind?: ItemKind;
+  customerId?: string;
+  attention?: "today" | "late" | "ready" | "waiting" | "returns" | "inspection";
+  vehicle?: { make: string; model: string; year: number };
+
   lines?: SaleLineInputV2[];
   quote?: boolean;
   category?: TimberCategory;

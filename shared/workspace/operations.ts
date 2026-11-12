@@ -10,6 +10,7 @@ export type WorkStatus =
   | "quoted"
   | "approved"
   | "in-progress"
+  | "waiting-parts"
   | "ready"
   | "delivered"
   | "cancelled";
@@ -30,6 +31,7 @@ export interface OperationalBase {
 }
 export interface Appointment extends OperationalBase {
   title: string;
+  serviceId?: string;
   startAt: string;
   endAt: string;
   status: AppointmentStatus;
@@ -38,11 +40,34 @@ export interface WorkOrder extends OperationalBase {
   kind: WorkKind;
   title: string;
   description: string;
+  particulars?: WorkParticulars;
   address: string;
   dueOn: string;
   checks: string[];
   budgetMinor: number;
   status: WorkStatus;
+}
+export interface WorkParticulars {
+  equipment?: string;
+  accessories?: string;
+  fault?: string;
+  materialsPlanned?: string;
+  materialsUsed?: string;
+  deliverables?: string;
+  specifications?: string;
+}
+export const WORK_PARTICULARS = {
+  repair: { equipment: "Equipo e identificación", accessories: "Accesorios recibidos", fault: "Falla declarada" },
+  cleaning: { materialsPlanned: "Materiales previstos", materialsUsed: "Materiales usados" },
+  professional: { deliverables: "Entregables e hitos acordados" },
+  craft: { specifications: "Medidas, colores y personalización" },
+  cutting: {},
+} satisfies Record<WorkKind, Partial<Record<keyof WorkParticulars, string>>>;
+export const WORK_PARTICULAR_LABELS = Object.assign({}, ...Object.values(WORK_PARTICULARS)) as Record<string, string>;
+export interface ContainerTransfer {
+  containerId: string;
+  delivered: number;
+  received: number;
 }
 export interface Delivery {
   id: string;
@@ -50,6 +75,7 @@ export interface Delivery {
   saleId: string;
   address: string;
   scheduledOn: string;
+  mode?: "pickup" | "delivery";
   reference: string;
   status: "pending" | "prepared" | "delivered" | "cancelled";
   createdAt: string;
@@ -107,6 +133,7 @@ export type OperationalAction =
         reason: string;
       };
     }
+  | { kind: "operational-document"; input: { sourceId: string; sourceKind: "work-order" | "delivery" } }
   | {
       kind: "operational-sale";
       input: {
@@ -123,20 +150,22 @@ export interface ItemDetails {
   description: string;
   equivalents: string;
   compatibility: string;
+  profile?: Record<string, string>;
 }
-export const EMPTY_DETAILS: ItemDetails = {
+export const EMPTY_DETAILS = {
   brand: "",
   location: "",
   description: "",
   equivalents: "",
   compatibility: "",
-};
+} satisfies ItemDetails;
 export const WORK_STATUSES: WorkStatus[] = [
   "received",
   "diagnosis",
   "quoted",
   "approved",
   "in-progress",
+  "waiting-parts",
   "ready",
   "delivered",
   "cancelled",
@@ -147,6 +176,7 @@ export const WORK_LABELS: Record<WorkStatus, string> = {
   quoted: "Presupuestado",
   approved: "Aprobado",
   "in-progress": "En trabajo",
+  "waiting-parts": "Espera repuesto",
   ready: "Listo",
   delivered: "Entregado",
   cancelled: "Cancelado",

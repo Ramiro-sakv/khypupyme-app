@@ -4,6 +4,7 @@ import {
   dimensionInputFromMm,
   minimumInput,
 } from "../../../shared/workspace/timber-measures";
+import { fieldsForItem } from "../../../shared/workspace/industry-capabilities";
 import { EMPTY_DETAILS } from "../../../shared/workspace/operations";
 import { useState } from "react";
 import type { ReactNode } from "react";
@@ -80,11 +81,13 @@ export default function ItemForm({
   const [fields, setFields] = useState<Record<string, string>>(
     initial?.fields ?? defaults(kind),
   );
-  const [measure, setMeasure] = useState<"piece" | "mass" | "volume">(
+  const [measure, setMeasure] = useState<"piece" | "mass" | "volume" | "length">(
     initial ? itemMeasure(initial) ?? "piece" : "piece",
   );
+  const [rollMetres, setRollMetres] = useState(initial?.rollMetres ?? "");
+  const profileFields = fieldsForItem(business.industryId, kind);
   const canMeasure = kind === "general" || kind === "grocery";
-  const measurement = canMeasure && measure !== "piece" ? { measure } : {};
+  const measurement: Pick<ItemDraft, "measure" | "rollMetres"> = canMeasure && measure !== "piece" ? { measure, ...(measure === "length" && rollMetres.trim() ? { rollMetres } : {}) } : {};
   let units: Unit[];
   try {
     units = Object.keys(
@@ -116,12 +119,12 @@ export default function ItemForm({
       onSave={async (d) => {
         const input = itemDraft({
           name: String(d.get("name")),
-          details: Object.fromEntries(
+          details: { ...Object.fromEntries(
             Object.keys(EMPTY_DETAILS).map((key) => [
               key,
               String(d.get("detail-" + key) ?? ""),
             ]),
-          ),
+          ), ...(Object.keys(profileFields).length ? { profile: Object.fromEntries(Object.keys(profileFields).map((key) => [key, String(d.get("profile-" + key) ?? "")])) } : {}) },
           kind,
           ...measurement,
           fields: Object.fromEntries(
@@ -182,6 +185,7 @@ export default function ItemForm({
           <option value="piece">Por piezas</option>
           <option value="mass">Por peso · kg, g o lb</option>
           <option value="volume">Por volumen · L o mL</option>
+          {business.industryId === "hardware" && kind === "general" && <option value="length">Por longitud · metros</option>}
         </select>
         {measure === "mass" && <small>1 lb = 453,59237 g.</small>}
         {measure === "volume" && <small>1 L = 1.000 mL.</small>}
@@ -192,6 +196,8 @@ export default function ItemForm({
         value={initial?.name ?? ""}
         maxLength={80}
       />
+      {measure === "length" && <Field name="roll" label="Metros por rollo" value={rollMetres} onValueChange={setRollMetres} required={false} help="Indícalo si compras rollos completos." />}
+      {Object.entries(profileFields).map(([key, label]) => <Field key={key} name={"profile-" + key} label={label} value={initial?.details?.profile?.[key] ?? ""} required={false} maxLength={160} />)}
       <details>
         <summary>Marca, ubicación y datos del rubro</summary>
         {Object.keys(EMPTY_DETAILS).map((key) => (
@@ -304,7 +310,7 @@ export default function ItemForm({
                   : units[0])
             }
           >
-            {units.map((u) => (
+            {units.filter((u) => measure !== "length" || u === "metre").map((u) => (
               <option key={u} value={u}>
                 {UNITS[u]}
               </option>
@@ -319,7 +325,7 @@ export default function ItemForm({
               ? system === "imperial"
                 ? "pies tablares"
                 : "m³"
-              : measurement.measure === "mass" ? "g" : measurement.measure === "volume" ? "mL" : kind === "grocery" ? "piezas" : ITEM_MODELS[kind].base)
+              : measurement.measure === "length" ? "metros" : measurement.measure === "mass" ? "g" : measurement.measure === "volume" ? "mL" : kind === "grocery" ? "piezas" : ITEM_MODELS[kind].base)
           }
           value="0"
         />

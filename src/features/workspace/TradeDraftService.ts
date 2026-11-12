@@ -147,6 +147,8 @@ export class TradeDraftService {
           });
         return {
           widthsEntry: line.widthsEntry,
+          ...(line.packages ? { packages: line.packages } : {}),
+          ...(line.print ? { print: line.print } : {}),
           id: line.id,
           timber: line.timber && item.timberSpecies && !line.priceManual && currentPrice !== line.priceMinor ? { ...line.timber, priceMinor: currentPrice } : line.timber,
           lengthInput: line.widthsEntry ? line.lengthInput : undefined,

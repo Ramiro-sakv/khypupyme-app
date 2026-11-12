@@ -1,5 +1,7 @@
+import { hasVariantMatrix } from "../../../shared/workspace/industry-capabilities";
 import { useState } from "react";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
+import { hasDelivery } from "../../../shared/workspace/operations";
 import type { SaleV2 } from "../../../shared/workspace/model";
 import { useRecords, useWorkspace } from "./context";
 import { bob, localDate, statusLabel } from "./format";
@@ -12,7 +14,7 @@ export default function SalesPage() {
   const [params] = useSearchParams();
   const { business } = useWorkspace();
   const { go } = useWorkspaceNavigation();
-  const changes = business.industryId === "clothing" && params.get("atencion") === "cambios";
+  const changes = hasVariantMatrix(business.industryId) && params.get("atencion") === "cambios";
   return (
     <>
       {changes ? <div className="actions"><button onClick={() => go("ventas", {})}>Volver a vender</button></div> : <Trade />}
@@ -26,13 +28,14 @@ export function SalesHistory({ changes = false }: { changes?: boolean }) {
   const [search, setSearch] = useState("");
   const page = useRecords<SaleV2>("salesV2", { ...(search.trim().length >= 2 ? { search: search.trim() } : {}) });
   const [selection, setSelection] = useState<{ sale: SaleV2; exchange: boolean } | null>(null);
-  const apparel = business.industryId === "clothing";
+  const apparel = hasVariantMatrix(business.industryId);
   const actions = (sale: SaleV2) => (
     <div className="actions">
       {apparel && sale.status === "active" && sale.lines.some((line) => line.kind === "apparel") && (
         <button onClick={() => setSelection({ sale, exchange: true })}>Iniciar cambio</button>
       )}
       <button onClick={() => setSelection({ sale, exchange: false })}>Detalle y devolución</button>
+      {sale.status === "active" && business.industryId !== "timber" && hasDelivery(business.industryId) && <Link className="button" to={"?vista=entregas&venta=" + sale.id}>Preparar despacho</Link>}
     </div>
   );
   return (

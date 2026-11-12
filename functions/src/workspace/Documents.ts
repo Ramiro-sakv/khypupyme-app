@@ -12,6 +12,7 @@ export class Documents {
     private readonly business: WorkspaceBusiness,
     private readonly operationId: string,
   ) {}
+  get industryId() { return this.business.industryId; }
   get timberSystem() {
     return this.business.timberSystem ?? "imperial";
   }

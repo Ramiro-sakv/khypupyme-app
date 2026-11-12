@@ -27,6 +27,11 @@ import { useTradeDraft } from "./useTradeDraft";
 import type { CartLine } from "./Cart";
 import { delivered, linePrice, receiptInputs, saleInputs } from "./Cart";
 import { useCartAvailability } from "./useCartAvailability";
+import { hasSerialWorkflow, hasVariantMatrix, quickCatalog } from "../../../shared/workspace/industry-capabilities";
+import type { ContainerTransfer } from "../../../shared/workspace/operations";
+import ContainerCheckout from "./ContainerCheckout";
+import { VehicleFilter } from "./VehicleFilter";
+import type { WorkspaceQuery } from "../../../shared/workspace/model";
 import CartEditor from "./CartEditor";
 import TradeCheckout from "./TradeCheckout";
 import Quotes from "./QuoteHistory";
@@ -35,22 +40,26 @@ export default function Trade({
   initialQuote = false,
   origin,
   initialClient,
+  initialItem,
 }: {
   purchase?: boolean;
   initialQuote?: boolean;
   origin?: { kind: "appointment" | "work-order"; id: string; revision: number };
   initialClient?: { id: string; name: string };
+  initialItem?: Item | undefined;
 }) {
   const { business, repository, run, busy, prepare } = useWorkspace(),
     [catalogSearch, setCatalogSearch] = useState(""),
+    [vehicle, setVehicle] = useState<WorkspaceQuery["vehicle"]>(),
     page = useRecords<Item>("items", {
       active: true,
+      ...(vehicle ? { vehicle } : {}),
       ...(catalogSearch.trim().length >= 2
         ? { search: catalogSearch.trim() }
         : {}),
     }),
     [source, setSource] = useState(origin ?? null),
-    [lines, setLines] = useState<CartLine[]>([]),
+    [lines, setLines] = useState<CartLine[]>(() => initialItem ? [{ item: initialItem, qty: "1", unit: initialItem.priceUnit, cost: "", lot: "", expiresOn: "", serials: [], fullBoxes: false, wastePercent: 0 }] : []),
     [barcode, setBarcode] = useState(""),
     [error, setError] = useState(""),
     [isQuote, setIsQuote] = useState(initialQuote),
@@ -66,6 +75,7 @@ export default function Trade({
   const [date, setDate] = useState(today),
     [payment, setPayment] = useState<Method | "credit">("cash"),
     [reference, setReference] = useState(""),
+    [containers, setContainers] = useState<ContainerTransfer[]>([]),
     [restoredNotice, setRestoredNotice] = useState(""),
     [checkoutExpanded, setCheckoutExpanded] = useState(false),
     [checkoutFeedback, setCheckoutFeedback] = useState<HTMLDivElement | null>(null);
@@ -74,8 +84,11 @@ export default function Trade({
   const checkoutTab = useRef<HTMLButtonElement>(null);
   const draftInput: TradeDraftInput = {
     ...(source ? { origin: source } : {}),
+    ...(containers.length ? { containers } : {}),
     lines: lines.map((line) => ({
       widthsEntry: line.widthsEntry,
+      ...(line.packages ? { packages: line.packages } : {}),
+      ...(line.print ? { print: line.print } : {}),
       id: line.id,
       timber: line.timber,
       lengthInput: line.lengthInput,
@@ -107,6 +120,7 @@ export default function Trade({
   const resetConfirmed = useCallback(() => {
     setCheckoutExpanded(false);
     setLines([]);
+    setContainers([]);
     setSource(null);
     setQuoteId("");
     setDiscount("0");
@@ -119,6 +133,7 @@ export default function Trade({
     (restored) => {
       const saved = restored.draft.input;
       setSource(saved.origin ?? null);
+      setContainers(saved.containers ?? []);
       setLines(restored.lines);
       setCheckoutExpanded(false);
       setIsQuote(restored.requiresNewQuote ? true : saved.isQuote);
@@ -168,7 +183,7 @@ export default function Trade({
   function addItem(item: Item) {
     if (!item.active || (purchase && item.kind === "service"))
       throw new Error("Selecciona un producto activo que admita esta operación.");
-    const guidedSerials = business.industryId === "appliances" && item.kind === "appliance" && !isQuote;
+    const guidedSerials = hasSerialWorkflow(business.industryId) && item.kind === "appliance" && !isQuote;
     const current = item.kind === "timber-grouped" ? undefined : lines.find((line) => line.item.id === item.id);
     if (current) {
       if (guidedSerials) return;
@@ -178,7 +193,8 @@ export default function Trade({
       setLines((old) =>
         old.map((l) =>
           l.item.id === item.id
-            ? { ...l, qty }
+            ? { ...l, qty, ...(l.packages ? { packages: { ...l.packages, pieces: l.packages.pieces + 1 } } : {}),
+                ...(l.print ? { print: { ...l.print, copies: l.print.copies + 1 }, qty: String((l.print.copies + 1) * l.print.faces) } : {}) }
             : l,
         ),
       );
@@ -205,13 +221,15 @@ export default function Trade({
           : {}),
         item,
         qty: item.kind === "timber-grouped" || guidedSerials ? "0" : "1",
+        ...(!purchase && business.industryId === "beverages" && item.units.box && item.baseUnit === "piezas" ? { packages: { boxes: 0, pieces: 1 } } : {}),
+        ...(!purchase && business.industryId === "stationery" && item.kind === "service" && item.details?.profile?.printSize && item.details.profile.printInk ? { print: { copies: 1, faces: 1, duplex: false } } : {}),
         unit: ["timber-grouped", "timber-piece"].includes(item.kind)
           ? "piece"
           : purchase
             ? item.kind === "appliance"
               ? "piece"
               : item.priceUnit
-            : item.priceUnit,
+            : business.industryId === "beverages" && item.units.box && item.baseUnit === "piezas" ? "piece" : item.priceUnit,
         cost: "",
         lot: "",
         expiresOn: "",
@@ -299,6 +317,7 @@ export default function Trade({
               allowCreate
               compact
               onChange={(id, name) => {
+                if (id !== customerId) setContainers([]);
                 setCustomerId(id);
                 setCustomerName(name);
               }}
@@ -324,6 +343,7 @@ export default function Trade({
             </details>
           </>
         )}
+        {business.industryId === "beverages" && !purchase && !isQuote && <ContainerCheckout customerId={customerId} value={containers} change={setContainers} />}
         {purchase && (
           <Field
             name="reference"
@@ -349,7 +369,7 @@ export default function Trade({
           </>
         )}
         <label>
-          <input key={JSON.stringify([draftInput.lines, discount])} name="review" type="checkbox" required />
+          <input key={JSON.stringify([draftInput.lines, discount, containers])} name="review" type="checkbox" required />
           {total === null ? "Revisar importe cuando esté completo" : "He revisado cantidades e importe de " + bob(total) + "."}
         </label>
         <button type="submit" className="primary" data-tutorial="confirm-trade" disabled={total === null || !availability.ready}>
@@ -396,15 +416,16 @@ export default function Trade({
         <section className="trade-picker">
           <div className="card trade-catalog-card">
             <label className="trade-search-label">
-              {business.industryId === "appliances" ? "Buscar por marca, modelo o código" : "Buscar en todo el catálogo (desde 2 caracteres)"}
+              {hasSerialWorkflow(business.industryId) ? "Buscar por marca, modelo o código" : "Buscar en todo el catálogo (desde 2 caracteres)"}
               <input
                 value={catalogSearch}
                 onChange={(e) => setCatalogSearch(e.target.value)}
                 maxLength={40}
               />
             </label>
+            {business.industryId === "spareParts" && <VehicleFilter value={vehicle} onChange={setVehicle} />}
             <div className="section-heading">
-              <h3>{business.industryId === "appliances" ? "Elegir modelo o accesorio" : "Seleccionar productos"}</h3>
+              <h3>{hasSerialWorkflow(business.industryId) ? "Elegir modelo o accesorio" : "Seleccionar productos"}</h3>
               <Icon name="box" />
             </div>
             <ActionForm
@@ -440,10 +461,10 @@ export default function Trade({
             </ActionForm>
             {business.industryId === "timber" && <TimberSpeciesPicker search={catalogSearch} disabled={busy || !draft.editable} onPick={addItem} />}
             <Pager page={page} />
-            {business.industryId === "clothing" && <FashionPicker items={page.items} pick={addItem} disabled={busy || !draft.editable} sell={!purchase && !isQuote} />}
+            {hasVariantMatrix(business.industryId) && <FashionPicker items={page.items} pick={addItem} disabled={busy || !draft.editable} sell={!purchase && !isQuote} />}
             <div className="product-picker">
               {page.items
-                .filter((i) => i.active && (!purchase || i.kind !== "service") && !(business.industryId === "clothing" && i.kind === "apparel"))
+                .filter((i) => i.active && (!purchase || i.kind !== "service") && !(hasVariantMatrix(business.industryId) && i.kind === "apparel"))
                 .map((item) => (
                   <button
                     disabled={busy || !draft.editable}
@@ -453,14 +474,15 @@ export default function Trade({
                     onClick={() => addItem(item)}
                   >
                     <strong>{item.name}</strong>
+                    {business.industryId === "spareParts" && !item.details?.profile?.vehicleMake && !item.details?.compatibility && <small>Compatibilidad por confirmar</small>}
                     <small>
                       {itemDetails(item, business.timberSystem ?? "imperial")} ·{" "}
                       {bob(item.priceMinor)}/{UNITS[item.priceUnit]}
                     </small>
-                    {business.industryId === "convenience" && item.kind !== "service" && (
+                    {quickCatalog(business.industryId) && item.kind !== "service" && (
                       <small>Existencia registrada · {measuredText(item, item.balance) ?? `${showQuantity(item.balance)} ${item.baseUnit}`}</small>
                     )}
-                    {business.industryId === "appliances" && item.kind === "appliance" && <span className="badge">Equipo por serie</span>}
+                    {hasSerialWorkflow(business.industryId) && item.kind === "appliance" && <span className="badge">Equipo por serie</span>}
                   </button>
                 ))}
             </div>
@@ -523,6 +545,7 @@ export default function Trade({
                   customerName,
                   discountMinor: cents(discount),
                   quoteId,
+                  ...(containers.length ? { containers } : {}),
                 },
               });
             if (result) {
@@ -621,6 +644,8 @@ export default function Trade({
                 id: crypto.randomUUID(),
                 ...(l.timber ? { timber: l.timber, priceManual: !!l.item.timberSpecies && l.timber.priceMinor !== l.expectedPriceMinor } : {}),
                 item: l.item,
+                ...(l.packages ? { packages: l.packages } : {}),
+                ...(l.print ? { print: l.print } : {}),
                 qty: l.qty,
                 unit: l.unit,
                 cost: "",
@@ -631,6 +656,7 @@ export default function Trade({
                 wastePercent: l.wastePercent,
               })),
             );
+            setContainers([]);
             setCustomerName(quote.customerName);
             setCustomerId(quote.customerId);
             setDiscount((quote.discountMinor / 100).toFixed(2));

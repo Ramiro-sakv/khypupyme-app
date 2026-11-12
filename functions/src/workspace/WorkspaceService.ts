@@ -1,3 +1,4 @@
+import { EMPTY_DETAILS } from "../../../shared/workspace/operations.js";
 import { SensitiveApprovalService, protectedOperation } from "./SensitiveApprovalService.js";
 import { displayQuantity as showQuantity } from "../../../shared/workspace/presentation.js";
 import { timberStockText, dimensionDisplayFromMm } from "../../../shared/workspace/timber-measures.js";
@@ -156,12 +157,13 @@ export class WorkspaceService {
         case "delivery":
         case "container-type":
         case "container-move":
+        case "operational-document":
         case "operational-sale": {
           const result = await new OperationalService(
             work,
             business,
             command.operationId,
-          ).execute(command, trade);
+          ).execute(command, trade, documents);
           resultId = result.id;
           if ("document" in result) document = result.document;
           break;
@@ -226,15 +228,19 @@ export class WorkspaceService {
           validateItemMinimum(item.kind, command.input.minimum);
           if (isDiscrete(item) && command.input.minimum.d !== "1")
             throw new Error("El mínimo debe usar unidades completas.");
+          const { profile, ...changes } = command.input;
+          const details = profile ? { ...EMPTY_DETAILS, ...item.details, profile } : item.details;
+          const updated = { ...item, ...changes, ...(details ? { details } : {}) };
+          inventory.validateProfile(updated);
           work.set("items", item.id, {
-            ...item,
-            ...command.input,
+            ...updated,
             searchPrefixes: searchPrefixes([
               command.input.name,
               item.barcode,
               ...inventorySearchTerms(item),
               ...Object.values(item.fields),
-              ...Object.values(item.details ?? {}),
+              ...Object.values(details ?? {}).filter((value) => typeof value === "string"),
+              ...Object.values(details?.profile ?? {}),
             ]),
             updatedAt: work.now,
           });
@@ -424,7 +430,12 @@ export class WorkspaceService {
             command.input.sourceId,
             command.input.targetId,
             command.input.bags,
+            command.input.lotId,
+            command.input.expectedValueMinor,
           );
+          break;
+        case "lot-action":
+          await inventory.lotAction(command.input.lotId, command.input.action, command.input.reason);
           break;
         case "stock-adjust": {
           const input = command.input;

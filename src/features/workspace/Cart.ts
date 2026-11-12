@@ -15,6 +15,8 @@ import type {
 import { cents, q } from "./format";
 
 export interface CartLine {
+  packages?: SaleLineInputV2["packages"];
+  print?: SaleLineInputV2["print"];
   widthsEntry?: TimberWidthEntry | undefined;
   id?: string | undefined;
   timber?: TimberSaleSelection | undefined;
@@ -70,7 +72,7 @@ export function linePrice(line: CartLine, purchase: boolean) {
     } else {
       const entered = commercialQuantity(q(line.qty), false);
       const conversion = line.item.units[line.unit];
-      if (!conversion ||
+      if (!conversion || (line.unit === "roll" && !whole(entered)) ||
           (isDiscrete(line.item) && (purchase ? !whole(mul(entered, conversion)) : !whole(delivered(line)))))
         return { issue: "Indica una cantidad válida para esta unidad." } as const;
       quantity = purchase ? entered : div(delivered(line), line.item.units[unit]!);
@@ -91,6 +93,8 @@ export function saleInputs(lines: CartLine[]): SaleLineInputV2[] {
       l.item.kind === "timber-grouped" ? requireTimber(l) : undefined;
     return {
       ...(timber ? { timber } : {}),
+      ...(l.packages ? { packages: l.packages } : {}),
+      ...(l.print ? { print: l.print } : {}),
       itemId: l.item.id,
       qty: timber
         ? q(String(timberTotals(l.item.fields.thicknessMm!, timber).pieces))

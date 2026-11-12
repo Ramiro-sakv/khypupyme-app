@@ -27,6 +27,23 @@ const stamp = (v: unknown) => {
   return s;
 };
 type Decode = (v: unknown) => unknown;
+export function present(raw: unknown, key: string, decode: Decode): Record<string, Decode> {
+  return raw && typeof raw === "object" && Object.hasOwn(raw, key) ? { [key]: decode } : {};
+}
+export function saleExtras(raw: unknown) {
+  return present(raw, "containers", list((v) => object(v, {
+    containerId: identifier, delivered: (value) => integer(value), received: (value) => integer(value),
+  }), 20));
+}
+export function operationalExtras(kind: string, raw: unknown) {
+  if (kind === "appointment") return present(raw, "serviceId", identifier);
+  if (kind === "delivery") return present(raw, "mode", oneOf(["pickup", "delivery"]));
+  if (kind === "work-order") return present(raw, "particulars", (value) => {
+    const fields = ["equipment", "accessories", "fault", "materialsPlanned", "materialsUsed", "deliverables", "specifications"];
+    return object(value, Object.assign({}, ...fields.map((key) => present(value, key, (v) => text(v, 0, 500)))));
+  });
+  return {};
+}
 export function operationalSchemas(
   sale: Record<string, Decode>,
 ): Record<string, Record<string, Decode>> {
@@ -59,6 +76,7 @@ export function operationalSchemas(
         "quoted",
         "approved",
         "in-progress",
+        "waiting-parts",
         "ready",
         "delivered",
         "cancelled",
@@ -68,7 +86,7 @@ export function operationalSchemas(
       id: optionalId,
       expectedRevision: (v) => integer(v),
       saleId: identifier,
-      address: (v) => text(v, 3, 160),
+      address: (v) => text(v, 0, 160),
       scheduledOn: date,
       reference: (v) => text(v, 0, 120),
       status: oneOf(["pending", "prepared", "delivered", "cancelled"]),
@@ -85,11 +103,12 @@ export function operationalSchemas(
       quantity: (v) => integer(v, 1),
       reason: (v) => text(v, 3, 200),
     },
+    "operational-document": { sourceId: identifier, sourceKind: oneOf(["work-order", "delivery"]) },
     "operational-sale": {
       sourceKind: oneOf(["appointment", "work-order"]),
       sourceId: identifier,
       expectedRevision: (v) => integer(v, 1),
-      sale: (v) => object(v, sale),
+      sale: (v) => object(v, { ...sale, ...saleExtras(v) }),
     },
   };
 }

@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.5.0-beta.12 (local)
+
+- Inicio y recorridos de catálogo, compra y cobro adaptados a los 17 rubros pendientes.
+- Cajas y unidades en bebidas con intercambio de envases, lotes apartados, calzado por par, equipos por serie, metros y rollos, búsqueda por vehículo e impresión por cara.
+- Cobertura en cerámicas, apertura de cemento por lote, retiro y despacho desde la venta, agenda por servicio y órdenes con datos de cada oficio. PDF de constancias de trabajo y despacho.
+
 ## 0.5.0-beta.11 - 2026-11-12 (local)
 
 - Disponibilidad exacta por carrito y avisos de faltantes antes del cobro, con validación final en la venta.

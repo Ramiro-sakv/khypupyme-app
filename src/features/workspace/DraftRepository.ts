@@ -9,6 +9,8 @@ import type {
 import type { WorkspaceIdentity } from "./WorkspaceCommandService";
 export type DraftKind = "sale" | "purchase" | "quote";
 export interface DraftLine {
+  packages?: import("../../../shared/workspace/model").SaleLineInputV2["packages"];
+  print?: import("../../../shared/workspace/model").SaleLineInputV2["print"];
   widthsEntry?: TimberWidthEntry | undefined;
   id?: string | undefined;
   timber?: TimberSaleSelection | undefined;
@@ -29,6 +31,7 @@ export interface DraftLine {
   wastePercent: number;
 }
 export interface TradeDraftInput {
+  containers?: import("../../../shared/workspace/operations").ContainerTransfer[];
   origin?: { kind: "appointment" | "work-order"; id: string; revision: number };
   lines: DraftLine[];
   isQuote: boolean;

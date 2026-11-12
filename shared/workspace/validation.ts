@@ -1,6 +1,7 @@
+import { profileLabels } from "./industry-capabilities.js";
 import { exactDecimal } from "./timber-measures.js";
 import { compare, decimal, ZERO } from "./exact.js";
-import { operationalSchemas } from "./operations-validation.js";
+import { integer, operationalExtras, operationalSchemas, present, saleExtras } from "./operations-validation.js";
 import type { OperationalKind } from "./operations.js";
 import { INDUSTRY_IDS } from "../business-industries.js";
 import { validCalendarDate } from "../product-specification.js";
@@ -143,6 +144,12 @@ export const answers = (raw: unknown): BusinessAnswers =>
     address: (v) => text(v, 0, 160),
     phone: (v) => text(v, 0, 30),
   }) as unknown as BusinessAnswers;
+function itemProfile(raw: unknown) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("Datos del rubro inválidos.");
+  const entries = Object.entries(raw);
+  if (entries.some(([key]) => !Object.hasOwn(profileLabels, key))) throw new Error("Campo del rubro desconocido.");
+  return Object.fromEntries(entries.map(([key, value]) => [key, text(value, 0, 160)]));
+}
 export function itemDraft(raw: unknown): ItemDraft {
   const hasDetails =
     !!raw && typeof raw === "object" && Object.hasOwn(raw, "details");
@@ -156,14 +163,22 @@ export function itemDraft(raw: unknown): ItemDraft {
               description: (v) => text(v, 0, 200),
               equivalents: (v) => text(v, 0, 200),
               compatibility: (v) => text(v, 0, 200),
+              ...(v && typeof v === "object" && Object.hasOwn(v, "profile")
+                ? { profile: itemProfile } : {}),
             }),
         }
       : {}),
     name: (v) => text(v, 2, 80),
     kind: oneOf(Object.keys(ITEM_MODELS) as ItemKind[]),
     ...(raw && typeof raw === "object" && Object.hasOwn(raw, "measure")
-      ? { measure: oneOf(["mass", "volume"]) }
+      ? { measure: oneOf(["mass", "volume", "length"]) }
       : {}),
+    ...(raw && typeof raw === "object" && Object.hasOwn(raw, "rollMetres")
+      ? { rollMetres: (v: unknown) => {
+          const length = decimal(text(v, 1, 24));
+          commercialQuantity(length, false);
+          return exactDecimal(length);
+        } } : {}),
     fields: (v) => v,
     barcode: (v) => text(v, 0, 40).toUpperCase(),
     priceMinor: (v) => money(v, false),
@@ -181,6 +196,7 @@ export function itemDraft(raw: unknown): ItemDraft {
   item.fields = validItemFields(item.kind, item.fields);
   if (item.measure && (!["general", "grocery"].includes(item.kind) || item.fields.weighted === "si"))
     throw new Error("La medición por peso o volumen requiere una ficha general o de tienda compatible.");
+  if (item.rollMetres && item.measure !== "length") throw new Error("Un rollo requiere existencias por longitud.");
   if (item.kind === "timber-grouped")
     item.fields.thicknessMm = exactDecimal(
       decimal(item.fields.thicknessMm!, 6),
@@ -226,6 +242,12 @@ const purchaseLine = (raw: unknown) =>
 export const saleLine = (raw: unknown) =>
   object(raw, {
     ...timberField(raw, true),
+    ...present(raw, "packages", (v) => object(v, {
+      boxes: (q) => integer(q), pieces: (q) => integer(q),
+    })),
+    ...present(raw, "print", (v) => object(v, {
+      copies: (q) => integer(q, 1, 10000), faces: (q) => integer(q, 1, 10000), duplex: boolean,
+    })),
     itemId: identifier,
     qty,
     unit,
@@ -343,6 +365,7 @@ const schemas: Record<
   },
   "cancel-debt": { id: identifier, reason },
   unpack: { sourceId: identifier, targetId: identifier, bags: qty },
+  "lot-action": { lotId: identifier, action: oneOf(["hold", "release", "loss"]), reason },
   warranty: {
     saleId: identifier,
     serialId: identifier,
@@ -412,6 +435,13 @@ export function validateWorkspaceCommand(raw: unknown): WorkspaceCommand {
         ? { species: (v: unknown) => text(v, 2, 80), code: (v: unknown) => { const code = text(v, 0, 40).toUpperCase(); if (code && !/^[A-Z0-9][A-Z0-9._-]*$/.test(code)) throw new Error("Código: usa letras, números, guiones o puntos."); return code; } } : {}),
       ...allSchemas[envelope.kind as WorkspaceCommand["kind"]]!,
       ...(envelope.kind === "stock-adjust" ? timberField(envelope.input) : {}),
+      ...(envelope.kind === "edit-item" ? present(envelope.input, "profile", itemProfile) : {}),
+      ...(envelope.kind === "sale" ? saleExtras(envelope.input) : {}),
+      ...(envelope.kind === "unpack" ? {
+        ...present(envelope.input, "lotId", identifier),
+        ...present(envelope.input, "expectedValueMinor", money),
+      } : {}),
+      ...operationalExtras(envelope.kind as string, envelope.input),
     }),
   } as WorkspaceCommand;
 }

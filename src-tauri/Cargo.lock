@@ -1642,7 +1642,7 @@ dependencies = [
 
 [[package]]
 name = "khypupyme"
-version = "0.5.0-beta.11"
+version = "0.5.0-beta.12"
 dependencies = [
  "tauri",
  "tauri-build",

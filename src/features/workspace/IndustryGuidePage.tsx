@@ -13,6 +13,7 @@ import { bob } from "./format";
 import { Pager } from "./ui";
 import { useWorkspaceNavigation } from "./navigation";
 import VisualExplainer from "./VisualExplainer";
+import { industryHomes } from "./industryHome";
 export default function IndustryGuidePage() {
   const { business } = useWorkspace(),
     { go } = useWorkspaceNavigation(),
@@ -29,8 +30,15 @@ export default function IndustryGuidePage() {
           .map((i) => i.fields.model!),
       ),
     ];
-  const taskViews = ["inventario", "compras", "ventas", industry === "appliances" ? "garantias" : industry === "clothing" ? "ventas" : "inventario"];
-  const finalFilter = industry === "clothing" ? "cambios" : industry === "convenience" ? "vencimientos" : undefined;
+  const adapted = !!(industry && industryHomes[industry]);
+  const serviceTasks = industry === "beauty" ? ["inventario", "agenda", "agenda", "agenda"]
+    : industry === "repair" || industry === "professional" || industry === "cleaning" || industry === "crafts"
+      ? ["inventario", "ordenes", "ordenes", "ordenes"] : null;
+  const taskViews = serviceTasks ?? (industry === "furniture" ? ["inventario", "cotizaciones", "ventas", "entregas"]
+    : industry === "beverages" ? ["compras", "envases", "ventas", "envases"]
+    : industry === "cement" ? ["inventario", "compras", "inventario", "ventas"]
+    : ["inventario", "compras", "ventas", industry === "appliances" || industry === "electronics" ? "garantias" : industry === "clothing" || industry === "footwear" ? "ventas" : "inventario"]);
+  const finalFilter = industry === "clothing" || industry === "footwear" ? "cambios" : guide.visual === "lots" ? "vencimientos" : undefined;
   return (
     <>
       <div className="workspace-heading">
@@ -59,8 +67,8 @@ export default function IndustryGuidePage() {
       <section className="card">
         <h3>Tu guía de uso</h3>
         <ol>
-          {dedicated && <li><button type="button" className="text-button" onClick={() => go("caja")}>Abrir caja si usarás efectivo</button></li>}
-          {guide.steps.map((step, index) => <li key={step}>{dedicated ? (
+          {(dedicated || adapted) && <li><button type="button" className="text-button" onClick={() => go("caja")}>Abrir caja si usarás efectivo</button></li>}
+          {guide.steps.map((step, index) => <li key={step}>{dedicated || adapted ? (
             <button type="button" className="text-button" onClick={() => go(taskViews[index] ?? "informes", index === 3 && finalFilter ? { atencion: finalFilter } : undefined)}>{step}</button>
           ) : step}</li>)}
         </ol>
@@ -68,7 +76,7 @@ export default function IndustryGuidePage() {
           <strong>Ejemplo:</strong> {guide.example}
         </p>
         <p className="notice notice-warning">{guide.caution}</p>
-        {!dedicated && <div className="actions">
+        {!dedicated && !adapted && <div className="actions">
           <button onClick={() => go("cotizaciones")}>Cotizar</button>
           <button onClick={() => go("compras")}>Registrar compra</button>
           <button onClick={() => go("ventas")}>Vender</button>

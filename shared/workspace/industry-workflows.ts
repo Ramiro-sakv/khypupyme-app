@@ -32,13 +32,13 @@ export const INDUSTRY_GUIDES: Record<IndustryId, IndustryGuide> = {
     title: "Presentaciones y productos por peso",
     visual: "lots",
     steps: [
-      "Definir unidades o venta por kg",
+      "Definir presentaciones y la unidad de venta",
       "Registrar cajas o kg realmente recibidos",
       "Vender unidades o peso declarado",
       "Revisar vencimientos y reposición",
     ],
     example:
-      "Una caja de 12 unidades se incorpora como 12 piezas; 0,750 kg conserva su cantidad exacta.",
+      "Recibe dos cajas de 24 a Bs 120 por caja. Vende cinco a Bs 7 cada una y quedan 43.",
     caution: "El costo se declara por la unidad elegida en la compra.",
   },
   beverages: {
@@ -47,11 +47,11 @@ export const INDUSTRY_GUIDES: Record<IndustryId, IndustryGuide> = {
     steps: [
       "Comprar unidades o cajas",
       "Registrar envases propios disponibles",
-      "Vender y anotar envases prestados al cliente",
+      "Añadir cajas y unidades sueltas, y registrar el intercambio de envases en Revisar",
       "Registrar su devolución y revisar pendientes",
     ],
     example:
-      "Presta 24 botellas a un cliente; al devolver 12 quedan 12 pendientes.",
+      "Una caja de 12 y tres botellas a Bs 8 suman Bs 120. Si entregas tres envases y luego recibes dos, queda uno pendiente.",
     caution:
       "Los envases aquí solo controlan cantidades: no representan depósitos ni cobros.",
   },
@@ -78,7 +78,7 @@ export const INDUSTRY_GUIDES: Record<IndustryId, IndustryGuide> = {
       "Cambiar talla vinculando la venta",
     ],
     example:
-      "Un par talla 39 se cambia por talla 40 mediante devolución y nueva venta relacionadas.",
+      "Vende un par talla 39 a Bs 180. Desde ese comprobante, cambia a un par talla 40 de Bs 200 y revisa los Bs 20 de diferencia.",
     caution:
       "Una unidad es un par completo; no registres cada zapato como un par.",
   },
@@ -91,7 +91,7 @@ export const INDUSTRY_GUIDES: Record<IndustryId, IndustryGuide> = {
       "Confirmar venta",
       "Programar entrega y registrar su estado",
     ],
-    example: "Vende una mesa y deja su entrega preparada para mañana.",
+    example: "Vende una mesa de Bs 850 y añade armado por Bs 50. Desde la venta, programa un retiro o una entrega.",
     caution:
       "Marcar entregado no vuelve a descontar inventario; cancelar la entrega no anula la venta.",
   },
@@ -102,10 +102,10 @@ export const INDUSTRY_GUIDES: Record<IndustryId, IndustryGuide> = {
       "Definir marca y presentación",
       "Recibir productos por lote",
       "Vender unidades disponibles",
-      "Revisar vencimientos y pérdidas con motivo",
+      "Revisar vencimientos y apartar, liberar o dar de baja lotes con motivo",
     ],
     example:
-      "Dos lotes del mismo producto tienen fechas distintas; revisa cuál debe salir primero.",
+      "Aparta un lote de tres cremas valorado en Bs 90. El valor se conserva mientras revisas su estado.",
     caution:
       "Utiliza la fecha declarada por el fabricante; no supongas una vida útil universal.",
   },
@@ -133,7 +133,7 @@ export const INDUSTRY_GUIDES: Record<IndustryId, IndustryGuide> = {
       "Revisar cobertura realmente entregada",
     ],
     example:
-      "Para 12 m² con 10 % de merma y cajas de 1,44 m² se necesitan 10 cajas completas.",
+      "Para 12 m² con 10 % de merma se necesitan diez cajas de 1,44 m². A Bs 90 por caja, el total es Bs 900.",
     caution: "No mezcles tonos o calibres sin seleccionarlos expresamente.",
   },
   cement: {
@@ -142,11 +142,11 @@ export const INDUSTRY_GUIDES: Record<IndustryId, IndustryGuide> = {
     steps: [
       "Registrar marca, tipo y peso",
       "Comprar bolsas por lote",
-      "Abrir bolsas hacia la ficha de granel",
+      "Elegir el lote y revisar kg y valor antes de abrir bolsas",
       "Vender bolsas completas o kg de granel",
     ],
     example:
-      "Abrir 2 bolsas de 50 kg transforma 2 bolsas en 100 kg y conserva su valor.",
+      "Abrir dos bolsas de 50 kg valoradas en Bs 100 transfiere 100 kg con ese mismo valor y lote.",
     caution:
       "La apertura usa origen y destino compatibles; no crea cemento ni una compra nueva.",
   },
@@ -155,14 +155,14 @@ export const INDUSTRY_GUIDES: Record<IndustryId, IndustryGuide> = {
     visual: "flow",
     steps: [
       "Registrar referencia y ubicación",
-      "Comprar piezas o cajas",
+      "Comprar piezas, cajas o rollos según la ficha",
       "Buscar por nombre, código o referencia",
       "Revisar productos bajo el mínimo",
     ],
     example:
-      "Ubica tornillos en el estante A2 y revisa su mínimo antes de comprar.",
+      "Recibe un rollo de 50 m a Bs 200. Vende 2,5 m a Bs 8/m y quedan 47,5 m.",
     caution:
-      "Esta entrega trabaja piezas y cajas; no convierte cables a metros.",
+      "Define los metros por rollo al crear el producto. Conserva esa equivalencia en las operaciones.",
   },
   appliances: {
     title: "Seguir cada equipo por su serie",
@@ -188,7 +188,7 @@ export const INDUSTRY_GUIDES: Record<IndustryId, IndustryGuide> = {
       "Atender garantía cuando corresponda",
     ],
     example:
-      "Un cargador usa stock por unidades; una tablet conserva su número de serie.",
+      "Vende un cargador a Bs 35 por unidad. Para la tablet de Bs 450, elige la serie y consúltala luego en Garantías.",
     caution:
       "No exijas series a todos los accesorios ni vendas dos veces el mismo equipo.",
   },
@@ -201,7 +201,7 @@ export const INDUSTRY_GUIDES: Record<IndustryId, IndustryGuide> = {
       "Consultar existencias",
       "Vender después de confirmar la aplicación",
     ],
-    example: "Filtro R-100: compatibilidad declarada Toyota Corolla 2010–2015.",
+    example: "Busca el filtro R-100 de Bs 65 por su referencia o por Corolla 2013, dentro del rango declarado 2010–2015.",
     caution:
       "La compatibilidad la declara el negocio; no es una verificación automática del fabricante.",
   },
@@ -210,11 +210,11 @@ export const INDUSTRY_GUIDES: Record<IndustryId, IndustryGuide> = {
     visual: "flow",
     steps: [
       "Registrar artículos y presentaciones",
-      "Definir impresión como servicio por página",
+      "Configurar la tarifa por cara según tamaño y color",
       "Comprar artículos y vender o copiar",
       "Revisar reposición y caja",
     ],
-    example: "Vende un cuaderno y 20 servicios de impresión de una página.",
+    example: "Tres copias de cuatro caras a Bs 0,50 por cara suman Bs 6. A doble cara se usan seis hojas.",
     caution: "Un servicio de impresión no descuenta papel automáticamente.",
   },
   pets: {
@@ -226,7 +226,7 @@ export const INDUSTRY_GUIDES: Record<IndustryId, IndustryGuide> = {
       "Vender la cantidad solicitada",
       "Revisar alimentos próximos a vencer",
     ],
-    example: "Compra alimento a granel en kg y vende 1,250 kg.",
+    example: "Vende 1,250 kg a Bs 20/kg. El comprobante registra Bs 25 y el lote utilizado.",
     caution:
       "Esta aplicación no registra historias clínicas ni tratamientos veterinarios.",
   },
@@ -240,7 +240,7 @@ export const INDUSTRY_GUIDES: Record<IndustryId, IndustryGuide> = {
       "Preparar la venta de la atención",
     ],
     example:
-      "Agenda un corte de 30 minutos; al atenderlo registra una única venta vinculada.",
+      "Agenda un corte de 30 minutos a Bs 40. Marca la cita atendida y cobra desde ella.",
     caution:
       "Programar una cita no cobra; los horarios activos de la misma agenda no pueden cruzarse.",
   },
@@ -249,14 +249,14 @@ export const INDUSTRY_GUIDES: Record<IndustryId, IndustryGuide> = {
     visual: "calendar",
     steps: [
       "Registrar servicio y cliente",
-      "Crear orden con dirección y tareas",
+      "Crear orden con dirección, tareas y materiales previstos",
       "Aprobar presupuesto y completar trabajo",
       "Preparar su venta y cobro",
     ],
     example:
-      "Limpieza de oficina: baños, escritorios y piso, con fecha comprometida.",
+      "Una limpieza de Bs 150 con Bs 20 de productos cobrados se registra por Bs 170. Anota los materiales usados en la orden.",
     caution:
-      "La lista de materiales es una previsión; no consume inventario hasta una venta explícita.",
+      "Registra el producto cobrado en la venta. Una salida interna se registra en Inventario con motivo.",
   },
   professional: {
     title: "Trabajos y entregables por cliente",
@@ -268,7 +268,7 @@ export const INDUSTRY_GUIDES: Record<IndustryId, IndustryGuide> = {
       "Registrar la venta al completar",
     ],
     example:
-      "Asesoría: reunión, informe y entrega final por el importe presupuestado.",
+      "Registra una reunión y un informe en una orden de Bs 300. Cobra el trabajo cuando esté listo.",
     caution:
       "El tiempo puede describirse en la orden; no se calculan honorarios automáticos por hora.",
   },
@@ -278,11 +278,11 @@ export const INDUSTRY_GUIDES: Record<IndustryId, IndustryGuide> = {
     steps: [
       "Identificar equipo y falla declarada",
       "Diagnosticar y presupuestar",
-      "Registrar aprobación y reparación",
+      "Registrar aprobación, reparación o espera de repuesto",
       "Vender repuestos y mano de obra; entregar",
     ],
     example:
-      "Reparación de ventilador con repuesto y servicio en una venta vinculada.",
+      "Emite la constancia al recibir el ventilador. Cobra Bs 80 de mano de obra y Bs 35 de repuesto en una sola venta.",
     caution:
       "No registres una venta al recibir el equipo; una orden ya facturada no se factura otra vez.",
   },
@@ -295,7 +295,7 @@ export const INDUSTRY_GUIDES: Record<IndustryId, IndustryGuide> = {
       "Aprobar presupuesto y completar encargo",
       "Vender y registrar entrega",
     ],
-    example: "Pedido de dos piezas decorativas con color y fecha acordados.",
+    example: "Recibe un encargo de dos piezas azules a Bs 75 cada una. Confirma la venta por Bs 150 al completar el pedido.",
     caution:
       "No se incluyen recetas, consumo automático de materiales ni producción industrial.",
   },

@@ -1,4 +1,5 @@
 import { useSearchParams } from "react-router";
+import type { Item } from "../../../shared/workspace/model";
 import type {
   Appointment,
   WorkOrder,
@@ -16,11 +17,15 @@ export default function OperationalSalePage() {
       !!id,
     ),
     source = page.items[0];
+  const serviceId = source && "serviceId" in source ? source.serviceId : undefined;
+  const service = useRecords<Item>("items", serviceId ? { id: serviceId } : {}, !!serviceId);
   if (!id)
     return (
       <p role="alert">Selecciona una atención u orden desde su listado.</p>
     );
   if (!source) return <Pager page={page} />;
+  if (service.loading) return <p role="status">Consultando el servicio de la cita…</p>;
+  if (service.error) return <Pager page={service} />;
   if (source.saleId)
     return (
       <p className="notice">
@@ -45,6 +50,7 @@ export default function OperationalSalePage() {
         key={source.id}
         origin={{ kind, id: source.id, revision: source.revision }}
         initialClient={{ id: source.customerId, name: source.customerName }}
+        initialItem={service.items[0]?.active ? service.items[0] : undefined}
       />
     </>
   );

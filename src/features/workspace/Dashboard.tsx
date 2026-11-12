@@ -1,6 +1,9 @@
 import { INDUSTRIES } from "../../../shared/business-industries";
 import { ReportChart } from "../commerce/ReportChart";
 import { hasAgenda, hasDelivery, workKindFor } from "../../../shared/workspace/operations";
+import { industryHomes } from "./industryHome";
+import { useRecords } from "./context";
+import type { WorkspaceQuery } from "../../../shared/workspace/model";
 import { industryIcon } from "./industryAppearance";
 import { useCashState } from "./cash-context";
 import { useWorkspace } from "./context";
@@ -10,6 +13,19 @@ import { Icon } from "./Icon";
 import { useWorkspaceNavigation } from "./navigation";
 import { useTimberTutorial } from "./tutorial/context";
 import { useReport } from "./useReport";
+
+function IndustryAlert({ alert }: { alert: NonNullable<(typeof industryHomes)[keyof typeof industryHomes]>["alerts"][number] }) {
+  const { go } = useWorkspaceNavigation();
+  const expiresBefore = new Date(Date.parse(today() + "T12:00:00Z") + 30 * 86400000).toISOString().slice(0, 10);
+  const filters: Partial<WorkspaceQuery> = "expiry" in alert.filters ? { expiresBefore }
+    : { ...alert.filters, ...(alert.filters.reorder ? { active: true } : {}) };
+  const records = useRecords(alert.resource, filters);
+  const label = records.loading ? "Consultando…" : records.error ? "Revisar consulta"
+    : records.items.length ? `${records.items.length}${records.next ? "+" : ""}` : "0";
+  return <button onClick={() => go(alert.view, { atencion: alert.target })}>
+    {alert.title} <span className="badge">{label}</span>
+  </button>;
+}
 
 export default function Dashboard() {
   const { business } = useWorkspace();
@@ -21,6 +37,7 @@ export default function Dashboard() {
   const { report, error, loading, refresh } = useReport(weekStart, date);
   const industry = business.industryId;
   const services = industry && INDUSTRIES[industry].profile === "services";
+  const home = industry ? industryHomes[industry] : undefined;
   const cashTitle = cash.loading || cash.error || cash.open ? "Ver caja" : "Abrir caja";
   const cashStatus = cash.loading ? "Consultando caja…" : cash.error ? cash.error : cash.open
     ? `Abierta desde ${localDate(cash.open.openedAt, true)} · ${bob(cash.open.balanceMinor)} en efectivo`
@@ -62,11 +79,20 @@ export default function Dashboard() {
             <span className="day-cash-state" data-open={!!cash.open} role={cash.error ? "alert" : "status"}>{cashStatus}</span>
             <button type="button" onClick={() => go("caja")}><Icon name="cash" /> {cashTitle}</button>
           </div>
-          <button className="primary" onClick={() => go("ventas")}><Icon name="sale" /> Vender</button>
-          {!services && <button onClick={() => go("compras")}><Icon name="purchase" /> Registrar compra</button>}
+          {home ? home.shortcuts.map((action, index) =>
+            <button key={action.title} className={index === 0 ? "primary" : ""} onClick={() => go(action.view, action.params)}>
+              <Icon name={action.icon} /> {action.title}
+            </button>) : <>
+              <button className="primary" onClick={() => go("ventas")}><Icon name="sale" /> Vender</button>
+              {!services && <button onClick={() => go("compras")}><Icon name="purchase" /> Registrar compra</button>}
+            </>}
         </div>
       </section>
-      {attention.length > 0 && (
+      {home && home.alerts.length > 0 && <section className="card day-attention">
+        <h3>Qué revisar</h3>
+        <div className="day-attention-links">{home.alerts.map((alert) => <IndustryAlert key={alert.title} alert={alert} />)}</div>
+      </section>}
+      {!home && attention.length > 0 && (
         <section className="card day-attention">
           <h3>Qué revisar</h3>
           <div className="day-attention-links">

@@ -1,3 +1,6 @@
+import { today } from "../../../shared/commerce.js";
+import { hasReorder, hasSerialWorkflow, hasVariantMatrix } from "../../../shared/workspace/industry-capabilities.js";
+import { hasAgenda, hasDelivery, workKindFor } from "../../../shared/workspace/operations.js";
 import { cartAvailability } from "./CartAvailability.js";
 import { UnitOfWork } from "./UnitOfWork.js";
 import { loadPractice } from "./TutorialAccess.js";
@@ -105,6 +108,17 @@ export function serialize(value: unknown): unknown {
   }
   return value;
 }
+function attentionMatches(attention: NonNullable<WorkspaceQuery["attention"]>, row: DocumentData) {
+  const date = today();
+  switch (attention) {
+    case "today": return (row.date === date || row.dueOn === date) && !["cancelled", "delivered", "no-show"].includes(row.status);
+    case "late": return (row.dueOn ?? row.scheduledOn) < date && !["cancelled", "delivered"].includes(row.status);
+    case "ready": return row.status === "ready" && !row.saleId;
+    case "waiting": return row.status === "waiting-parts";
+    case "returns": return row.quantity > 0;
+    case "inspection": return row.status === "inspection";
+  }
+}
 export class WorkspaceQueries {
   constructor(
     readonly db: Firestore,
@@ -176,6 +190,10 @@ export class WorkspaceQueries {
             "reorder",
             "variantModel",
             "serialNumber",
+            "vehicle",
+            "itemKind",
+            "customerId",
+            "attention",
           ].includes(key),
       ) ||
       input.apiVersion !== 2 ||
@@ -191,18 +209,34 @@ export class WorkspaceQueries {
     }
     if (input.resource === "serialHistory" || input.resource === "saleAvailability") {
       const serial = input.resource === "serialHistory";
-      if (business.industryId !== (serial ? "appliances" : "convenience") ||
+      if ((serial ? !hasSerialWorkflow(business.industryId) : business.industryId !== "convenience") ||
           Object.keys(input).some((key) => !["apiVersion", "businessId", "resource", "id"].includes(key)))
         throw new Error("Consulta especializada no disponible para este negocio.");
       const queries = new IndustryQueries(collection);
       return serial ? queries.equipmentHistory(input.id) : queries.saleAvailability(input.id);
     }
-    if (input.reorder !== undefined && (business.industryId !== "convenience" || input.resource !== "items" || input.reorder !== true || input.active !== true))
+    if (input.reorder !== undefined && (!hasReorder(business.industryId) || input.resource !== "items" || input.reorder !== true || input.active !== true))
       throw new Error("Reposición requiere productos activos de la tienda.");
-    if (input.variantModel !== undefined && (business.industryId !== "clothing" || input.resource !== "items" || input.active !== true))
+    if (input.variantModel !== undefined && (!hasVariantMatrix(business.industryId) || input.resource !== "items" || input.active !== true))
       throw new Error("El modelo solo filtra variantes activas de ropa.");
-    if (input.serialNumber !== undefined && (business.industryId !== "appliances" || input.resource !== "serials"))
+    if (input.serialNumber !== undefined && (!hasSerialWorkflow(business.industryId) || input.resource !== "serials"))
       throw new Error("La búsqueda por serie solo está disponible para electrodomésticos.");
+    const attentionResource = {
+      today: input.resource === "appointments" ? hasAgenda(business.industryId) : input.resource === "workOrders" && !!workKindFor(business.industryId),
+      late: input.resource === "workOrders" ? !!workKindFor(business.industryId) : input.resource === "deliveries" && hasDelivery(business.industryId),
+      ready: input.resource === "workOrders" && !!workKindFor(business.industryId),
+      waiting: input.resource === "workOrders" && business.industryId === "repair",
+      returns: input.resource === "containerBalances" && business.industryId === "beverages",
+      inspection: input.resource === "serials" && hasSerialWorkflow(business.industryId),
+    };
+    if (input.attention !== undefined && attentionResource[input.attention] !== true)
+      throw new Error("Esta alerta no está disponible para el rubro y listado.");
+    const vehicle = input.vehicle;
+    if (vehicle && (business.industryId !== "spareParts" || input.resource !== "items" || input.active !== true ||
+        !Number.isInteger(vehicle.year) || vehicle.year < 1900 || vehicle.year > 2099))
+      throw new Error("Indica un vehículo y año válidos para buscar repuestos.");
+    const vehicleMake = vehicle && normalizeSearch(text(vehicle.make, 1, 80));
+    const vehicleModel = vehicle && normalizeSearch(text(vehicle.model, 1, 80));
     if (input.resource === "timberStock") return new TimberStockQueries(this.db).list(input);
     if (input.widthMm !== undefined) throw new Error("El ancho solo filtra las existencias detalladas.");
     if (input.resource === "timberSummary") {
@@ -264,6 +298,14 @@ export class WorkspaceQueries {
       };
     }
     let query: Query = root;
+    if (input.itemKind !== undefined) {
+      if (input.resource !== "items" || !["service", "cement-bag", "cement-bulk"].includes(input.itemKind)) throw new Error("Tipo de catálogo inválido.");
+      query = query.where("kind", "==", input.itemKind);
+    }
+    if (input.customerId !== undefined) {
+      if (business.industryId !== "beverages" || input.resource !== "containerBalances") throw new Error("El cliente solo filtra saldos de envases.");
+      query = query.where("customerId", "==", identifier(input.customerId));
+    }
     if (input.variantModel !== undefined) {
       query = query.where("kind", "==", "apparel").where("fields.model", "==", text(input.variantModel, 1, 80));
     }
@@ -356,6 +398,8 @@ export class WorkspaceQueries {
               "==",
               identifier(queriedItem),
             );
+    if (input.attention === "inspection") query = query.where("status", "==", "inspection");
+    if (input.attention === "waiting") query = query.where("status", "==", "waiting-parts");
     if (input.status) {
       if (
         ![
@@ -374,6 +418,7 @@ export class WorkspaceQueries {
           "quoted",
           "approved",
           "in-progress",
+          "waiting-parts",
           "ready",
           "delivered",
           "prepared",
@@ -425,6 +470,13 @@ export class WorkspaceQueries {
           const item = doc.data() as Item;
           if (item.kind === "service" || (compare(item.balance, ZERO) > 0 && compare(item.balance, item.minimum) > 0)) continue;
         }
+        if (vehicle) {
+          const profile = doc.data().details?.profile;
+          if (!profile || normalizeSearch(String(profile.vehicleMake ?? "")) !== vehicleMake ||
+              normalizeSearch(String(profile.vehicleModel ?? "")) !== vehicleModel ||
+              !(Number(profile.yearFrom) <= vehicle.year && vehicle.year <= Number(profile.yearTo))) continue;
+        }
+        if (input.attention && !attentionMatches(input.attention, doc.data())) continue;
         if (saleSearch) {
           const sale = doc.data();
           if (![sale.number, sale.customerName].some((value) => normalizeSearch(String(value ?? "")).includes(saleSearch))) continue;
@@ -438,11 +490,11 @@ export class WorkspaceQueries {
     const page = visible.slice(0, 25);
     const itemIds = input.expiresBefore ? [...new Set(page.map((doc) => identifier(doc.data().itemId)))] : [];
     const itemNames = new Map(itemIds.length
-      ? (await this.db.getAll(...itemIds.map((id) => collection("items").doc(id)))).map((item) => [item.id, item.data()?.name])
+      ? (await this.db.getAll(...itemIds.map((id) => collection("items").doc(id)))).map((item) => [item.id, { name: item.data()?.name, baseUnit: item.data()?.baseUnit }])
       : []);
     return {
       items: page.map((doc) => ({ ...row(doc),
-        ...(input.expiresBefore ? { itemName: itemNames.get(doc.data().itemId) ?? "Producto" } : {}) })),
+        ...(input.expiresBefore ? { itemName: itemNames.get(doc.data().itemId)?.name ?? "Producto", baseUnit: itemNames.get(doc.data().itemId)?.baseUnit ?? "" } : {}) })),
       next: visible.length > 25 ? visible[24]!.id : null,
     };
   }

@@ -7,7 +7,7 @@ import { identifier } from "../../../shared/workspace/validation.js";
 
 export function auditValues(value: Record<string, unknown> | null | undefined): Record<string, unknown> | null {
   if (!value) return null;
-  const snapshot = Object.fromEntries(Object.entries(value).filter(([key]) => ["name", "number", "customerName", "description", "serial", "itemId", "countedMinor", "differenceMinor", "kind", "baseUnit", "species", "code", "reference", "prices", "active", "status", "amountMinor", "totalMinor", "costMinor", "refundedMinor", "restoredCostMinor", "balanceMinor", "balance", "pieces", "valueMinor", "stock", "inventoryValueMinor", "priceMinor", "minimum", "fields"].includes(key)));
+  const snapshot = Object.fromEntries(Object.entries(value).filter(([key]) => ["name", "number", "customerName", "description", "serial", "itemId", "countedMinor", "differenceMinor", "kind", "baseUnit", "species", "code", "reference", "prices", "active", "status", "amountMinor", "totalMinor", "costMinor", "refundedMinor", "restoredCostMinor", "balanceMinor", "balance", "pieces", "valueMinor", "stock", "inventoryValueMinor", "held", "holdReason", "priceMinor", "minimum", "fields"].includes(key)));
   if (Array.isArray(value.lines)) snapshot.lines = value.lines.map((line: Record<string, unknown>) => Object.fromEntries(Object.entries(line).filter(([key]) => ["itemId", "name", "requested", "delivered", "returned", "netMinor", "refundedMinor", "restoredCostMinor", "qty", "timber"].includes(key))));
   return JSON.parse(JSON.stringify(snapshot));
 }
@@ -86,7 +86,7 @@ export class UnitOfWork {
       );
   }
   auditChanges() {
-    const collections = new Set(["items", "timberSpecies", "products", "customersV2", "debts", "expensesV2", "salesV2", "returns", "cashSessions", "receivables", "serials"]);
+    const collections = new Set(["items", "timberSpecies", "products", "customersV2", "debts", "expensesV2", "salesV2", "returns", "cashSessions", "receivables", "serials", "lots"]);
     const result: { collection: string; id: string; before: Record<string, unknown> | null; after: Record<string, unknown> | null }[] = [];
     for (const [path, value] of this.staged) {
       const parts = path.split("/"), collection = parts[2]!, id = parts[3]!;

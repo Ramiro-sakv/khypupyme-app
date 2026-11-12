@@ -5,6 +5,7 @@ import {
   timberVolumeLabel,
 } from "../../../shared/workspace/timber-groups.js";
 import { timberDimensions } from "../../../shared/workspace/timber-measures.js";
+import { ContainerService } from "./ContainerService.js";
 import type { TimberSystem } from "../../../shared/workspace/timber-measures.js";
 import { canonical, today } from "../../../shared/commerce.js";
 import {
@@ -68,13 +69,15 @@ interface Quote {
 const displayMoney = (minor: number) =>
   `Bs ${(minor / 100).toFixed(2).replace(".", ",")}`;
 function deliveryText(line: SaleLineV2) {
+  if (line.packages) return `${line.packages.boxes} cajas + ${line.packages.pieces} sueltas · ${showQuantity(line.delivered)} piezas`;
+  if (line.print) return `${line.print.copies} copias × ${line.print.faces} caras · ${line.print.duplex ? "Doble cara" : "Una cara"}`;
   if (line.timber)
     return (
       timberTotals(line.fields.thicknessMm!, line.timber).pieces +
       " piezas · " +
       timberVolumeLabel(line.delivered)
     );
-  const measured = line.kind === "timber-volume" || ["g", "mL"].includes(line.baseUnit);
+  const measured = line.kind === "timber-volume" || ["g", "mL", "m"].includes(line.baseUnit);
   const base = measured
     ? showQuantity(div(line.delivered, line.units[line.requestedUnit]!)) +
       " " +
@@ -105,7 +108,8 @@ function detailText(line: SaleLineV2, system: TimberSystem = "imperial") {
             .map((f) => f.label + ": " + line.fields[f.key])
             .join(" · "),
         ]),
-    ...Object.values(line.details ?? {}).filter(Boolean),
+    ...Object.values(line.details ?? {}).filter((value) => typeof value === "string" && value),
+    ...Object.values(line.details?.profile ?? {}).filter(Boolean),
   ]
     .filter(Boolean)
     .join(" · ");
@@ -137,6 +141,16 @@ export class TradeService {
     const item = await this.species.resolve(input.itemId, input.timber, false, !consume);
     if (!item.active)
       throw new Error("Reactiva el producto antes de venderlo.");
+    const { packages, print } = input;
+    if (item.measure === "length" && input.unit !== "metre") throw new Error("La venta de esta ficha se registra por metro.");
+    if (packages && (this.documents.industryId !== "beverages" || !item.units.box || item.baseUnit !== "piezas" ||
+        input.unit !== "piece" || !whole(input.qty) ||
+        BigInt(input.qty.n) !== BigInt(packages.boxes) * BigInt(item.units.box.n) + BigInt(packages.pieces)))
+      throw new Error("Las cajas y unidades sueltas no coinciden con la presentación del producto.");
+    if (print && (this.documents.industryId !== "stationery" || item.kind !== "service" ||
+        !item.details?.profile?.printSize || !item.details?.profile?.printInk ||
+        input.unit !== "service" || !whole(input.qty) || Number(input.qty.n) !== print.copies * print.faces))
+      throw new Error("El número de caras no coincide con la tarifa de impresión.");
     const catalogPrice = await this.species.price(item, input.timber);
     if (catalogPrice !== input.expectedPriceMinor)
       throw new Error(
@@ -234,6 +248,8 @@ export class TradeService {
     if (item.kind === "service" && input.serials.length)
       throw new Error("Un servicio no utiliza series.");
     return {
+      ...(packages ? { packages } : {}),
+      ...(print ? { print } : {}),
       itemId: item.id,
       name: item.name,
       ...(item.details ? { details: item.details } : {}),
@@ -322,7 +338,7 @@ export class TradeService {
           ? line.name +
             " · " +
             timberDimensions(line.fields, this.documents.timberSystem)
-          : line.name,
+          : [line.name, detailText(line, this.documents.timberSystem)].filter(Boolean).join(" · "),
         `${showQuantity(line.requested)} ${UNITS[line.requestedUnit]}`,
         deliveryText(line),
         displayMoney(line.netMinor),
@@ -373,6 +389,15 @@ export class TradeService {
         );
     }
     const data = await this.lines(input.lines, input.discountMinor, true, id);
+    const containerNotes: string[] = [];
+    if (input.containers?.length) {
+      if (this.documents.industryId !== "beverages" || !input.customerId ||
+          new Set(input.containers.map((entry) => entry.containerId)).size !== input.containers.length)
+        throw new Error("Elige un cliente registrado y un movimiento por tipo de envase.");
+      const containers = new ContainerService(this.work);
+      for (const [index, transfer] of input.containers.entries())
+        containerNotes.push(await containers.transfer(transfer, { id: input.customerId, name: customerName }, id, "Intercambio en venta", index));
+    }
     if (input.method === "credit" && data.totalMinor === 0)
       throw new Error("Una venta gratuita no genera un fiado.");
     for (const line of data.lines)
@@ -394,7 +419,8 @@ export class TradeService {
       ["Producto y detalle", "Cantidad entregada", "Precio", "Importe"],
       data.lines.map((line) => [
         `${line.name} · ${detailText(line, this.documents.timberSystem)}${line.allocations.some((a) => a.serial) ? " · Series: " + line.allocations.map((a) => a.serial).join(", ") : ""}${line.warrantyUntil ? " · Garantía declarada hasta " + line.warrantyUntil : ""}`,
-        deliveryText(line),
+        deliveryText(line) + (line.allocations.some((entry) => entry.lot) ? " · " +
+          line.allocations.filter((entry) => entry.lot).map((entry) => `Lote ${entry.lot}${entry.expiresOn ? " · vence " + entry.expiresOn : ""}`).join(" / ") : ""),
         displayMoney(line.priceMinor) + "/" + UNITS[line.priceUnit],
         displayMoney(line.netMinor),
       ]),
@@ -402,12 +428,13 @@ export class TradeService {
         { label: "Descuento", minor: input.discountMinor },
         { label: "Total", minor: data.totalMinor },
       ],
-      `Cliente: ${customerName || "Sin nombre"}. Fecha de venta: ${input.date}. Medio: ${input.method}.`,
+      `Cliente: ${customerName || "Sin nombre"}. Fecha de venta: ${input.date}. Medio: ${input.method}.` + (containerNotes.length ? " · " + containerNotes.join(" · ") : ""),
     );
     const sale: SaleV2 = {
       id,
       number: document.number,
       ...data,
+      ...(input.containers?.length ? { containers: input.containers } : {}),
       customerId: input.customerId,
       customerName,
       date: input.date,
@@ -458,6 +485,7 @@ export class TradeService {
       lines.push({
         ...entry,
         itemId: item.id,
+        ...(["grocery", "beverages", "cosmetics", "pets", "hardware", "cement"].includes(this.documents.industryId ?? "") ? { baseUnit: item.baseUnit, conversion: item.units[entry.unit] } : {}),
         ...received,
         name: item.name,
         ...(item.details ? { details: item.details } : {}),
@@ -492,7 +520,7 @@ export class TradeService {
           ? timberTotals(line.fields.thicknessMm!, line.timber).pieces +
             " piezas · " +
             timberVolumeLabel(line.baseQty)
-          : `${showQuantity(line.qty)} ${UNITS[line.unit]}`,
+          : `${showQuantity(line.qty)} ${UNITS[line.unit]}` + (line.baseUnit && line.baseUnit !== UNITS[line.unit] ? ` · ${showQuantity(line.baseQty)} ${line.baseUnit}` : ""),
         displayMoney(line.unitCostMinor) + (line.timber ? " / pie tablar" : ""),
         displayMoney(line.totalMinor),
       ]),

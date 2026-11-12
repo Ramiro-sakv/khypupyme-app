@@ -1,3 +1,4 @@
+import { useSearchParams } from "react-router";
 import { useState } from "react";
 import type {
   ContainerBalance,
@@ -8,8 +9,9 @@ import { CustomerSelector } from "./CustomerSelector";
 import { ActionForm, Field, Pager } from "./ui";
 import { localDate } from "./format";
 export default function ContainerPage() {
+  const [params] = useSearchParams();
   const types = useRecords<ContainerType>("containerTypes"),
-    balances = useRecords<ContainerBalance>("containerBalances"),
+    balances = useRecords<ContainerBalance>("containerBalances", params.get("atencion") === "returns" ? { attention: "returns" } : {}),
     moves = useRecords<{
       id: string;
       quantity: number;

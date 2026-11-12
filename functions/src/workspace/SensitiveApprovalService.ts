@@ -26,10 +26,10 @@ export class SensitiveApprovalService {
       const nested = (input.command ?? input.request) as { kind?: string; input?: Record<string, unknown> } | undefined;
       if (nested?.input && typeof nested.kind === "string") return this.targets({ ...operation, kind: "legacy:" + nested.kind, input: nested.input });
     }
-    const id = input.id ?? input.saleId ?? input.itemId ?? input.productId ?? input.serialId;
+    const id = input.lotId ?? input.id ?? input.saleId ?? input.itemId ?? input.productId ?? input.serialId;
     if (typeof id !== "string") return [];
     const legacyCollections: Record<string, string> = { "legacy:cancel-sale": "sales", "legacy:cancel-expense": "expenses", "legacy:cancel-receivable": "receivables", "legacy:customer": "customers", "legacy:service": "services" };
-    const collection = legacyCollections[operation.kind] ?? (operation.kind === "release-serial" ? "serials" : operation.kind === "timber-species" ? "timberSpecies" : operation.kind === "edit-item" || operation.kind === "stock-adjust" ? "items" : operation.kind === "cancel-debt" ? "debts" : operation.kind === "cancel-expense" ? "expensesV2" : operation.kind === "return" || operation.kind === "exchange" ? "salesV2" : "products");
+    const collection = legacyCollections[operation.kind] ?? (operation.kind === "lot-action" ? "lots" : operation.kind === "release-serial" ? "serials" : operation.kind === "timber-species" ? "timberSpecies" : operation.kind === "edit-item" || operation.kind === "stock-adjust" ? "items" : operation.kind === "cancel-debt" ? "debts" : operation.kind === "cancel-expense" ? "expensesV2" : operation.kind === "return" || operation.kind === "exchange" ? "salesV2" : "products");
     return [{ collection, id: identifier(id) }];
   }
   async prepare(uid: string, operation: ProtectedOperation, authTime: number | undefined) {

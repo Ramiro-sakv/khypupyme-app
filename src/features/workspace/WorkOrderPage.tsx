@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import type {
   WorkOrder,
   WorkStatus,
 } from "../../../shared/workspace/operations";
-import { WORK_LABELS, workKindFor } from "../../../shared/workspace/operations";
+import { WORK_LABELS, WORK_PARTICULARS, workKindFor } from "../../../shared/workspace/operations";
 import { useRecords, useWorkspace } from "./context";
 import { CustomerSelector } from "./CustomerSelector";
 import { ActionForm, Field, Pager } from "./ui";
@@ -40,17 +40,22 @@ const transitions: Record<WorkStatus, WorkStatus[]> = {
   quoted: ["quoted", "approved", "cancelled"],
   approved: ["approved", "in-progress", "cancelled"],
   "in-progress": ["in-progress", "ready", "cancelled"],
+  "waiting-parts": ["waiting-parts", "in-progress", "cancelled"],
   ready: ["ready", "delivered", "cancelled"],
   delivered: ["delivered"],
   cancelled: ["cancelled"],
 };
 export default function WorkOrderPage() {
-  const page = useRecords<WorkOrder>("workOrders"),
+  const [params] = useSearchParams();
+  const filter = params.get("atencion");
+  const attention = filter === "today" || filter === "late" || filter === "ready" || filter === "waiting" ? filter : undefined;
+  const page = useRecords<WorkOrder>("workOrders", attention ? { attention } : {}),
     { business, busy, run } = useWorkspace(),
-    [selected, setSelected] = useState<WorkOrder | null | undefined>(),
+    [selected, setSelected] = useState<WorkOrder | null | undefined>(() => params.get("accion") === "nueva" ? null : undefined),
     [client, setClient] = useState({ id: "", name: "" }),
     kind = workKindFor(business.industryId);
   if (!kind) return <p>Este rubro no utiliza órdenes de trabajo.</p>;
+  const fields = WORK_PARTICULARS[kind];
   return (
     <>
       <h2 data-tutorial="work-orders">Órdenes y trabajos</h2>
@@ -68,6 +73,7 @@ export default function WorkOrderPage() {
       >
         Nueva orden
       </button>
+      {attention && <Link to="?vista=ordenes">Mostrar todas las órdenes</Link>}
       <Pager page={page} />
       <div className="workflow-grid">
         {page.items.map((row) => (
@@ -78,6 +84,7 @@ export default function WorkOrderPage() {
               {row.customerName} · compromiso {localDate(row.dueOn)}
             </p>
             <p>{row.description}</p>
+            {Object.entries(fields).map(([key, label]) => row.particulars?.[key as keyof NonNullable<WorkOrder["particulars"]>] && <p key={key}>{label} · {row.particulars[key as keyof NonNullable<WorkOrder["particulars"]>]}</p>)}
             {row.address && <p>{row.address}</p>}
             <p>Presupuesto de referencia: {bob(row.budgetMinor)}</p>
             <ul>
@@ -107,6 +114,16 @@ export default function WorkOrderPage() {
             {row.saleId && (
               <p className="notice">Venta confirmada vinculada.</p>
             )}
+            {kind !== "cutting" && <div className="actions">
+              {row.saleId && row.status === "ready" && <button disabled={busy} onClick={() => {
+                const { revision, saleId: _sale, updatedAt: _update, createdAt: _creation, ...input } = row;
+                void _sale; void _update; void _creation;
+                void run({ kind: "work-order", input: { ...input, expectedRevision: revision, status: "delivered" } }).catch(() => {});
+              }}>Marcar entregada</button>}
+              <button disabled={busy} onClick={() => void run({ kind: "operational-document", input: { sourceId: row.id, sourceKind: "work-order" } }).catch(() => {})}>
+                {kind === "repair" ? "Emitir constancia de recepción" : "Emitir constancia de trabajo"}
+              </button>
+            </div>}
             <Events id={row.id} />
           </article>
         ))}
@@ -127,6 +144,7 @@ export default function WorkOrderPage() {
                   id: selected?.id ?? "",
                   expectedRevision: selected?.revision ?? 0,
                   kind,
+                  ...(Object.keys(fields).length ? { particulars: Object.fromEntries(Object.keys(fields).map((key) => [key, String(d.get(key) ?? "")])) } : {}),
                   customerId: client.id,
                   customerName: client.name,
                   title: String(d.get("title")),
@@ -165,6 +183,7 @@ export default function WorkOrderPage() {
               value={selected?.description ?? ""}
               maxLength={500}
             />
+            {Object.entries(fields).map(([key, label]) => <Field key={key} name={key} label={label} value={selected?.particulars?.[key as keyof NonNullable<WorkOrder["particulars"]>] ?? ""} maxLength={500} required={false} />)}
             <Field
               name="address"
               label="Dirección o lugar"
@@ -199,7 +218,7 @@ export default function WorkOrderPage() {
                 defaultValue={selected?.status ?? "received"}
               >
                 {(selected
-                  ? transitions[selected.status]
+                  ? [...transitions[selected.status], ...(kind === "repair" && selected.status === "in-progress" ? ["waiting-parts" as const] : [])]
                   : (["received"] as WorkStatus[])
                 ).map((k) => (
                   <option key={k} value={k}>

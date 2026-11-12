@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.5.0-beta.10 - 2026-11-11 (local)
+
+- Los productos generales y de tienda pueden manejar piezas, peso o volumen. Libra estándar con conversión exacta y litros con mililitros.
+- Las operaciones comerciales usan una pestaña inferior con total visible y un panel de revisión minimizable. Los artículos tienen su propia zona de desplazamiento.
+- Inicio e Informes muestran ventas, gastos y compras de mercadería por separado. El detalle diario incluye costo vendido, pérdidas y resultado estimado.
+- Maderas, tienda 24/7, ropa y electrodomésticos tienen controles priorizados según su recorrido.
+
 ## 0.5.0-beta.9 - 2026-11-11 (local)
 
 - Resumen plegable dentro del formulario de venta, compra y cotización. El total señala datos pendientes y cada línea muestra el precio o costo unitario y su subtotal.

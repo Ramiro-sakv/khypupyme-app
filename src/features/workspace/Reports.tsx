@@ -3,7 +3,7 @@ import { useTimberTutorial } from "./tutorial/context";
 import { useState } from "react";
 import { ReportChart } from "../commerce/ReportChart";
 import { useWorkspace } from "./context";
-import { bob, localDate, today } from "./format";
+import { bob, today } from "./format";
 import { Icon } from "./Icon";
 import { ActionForm } from "./ui";
 import { useReport } from "./useReport";
@@ -80,7 +80,7 @@ export default function Reports() {
               ["Resultado estimado", report.resultMinor],
               ["Valor del inventario actual", report.inventoryMinor],
               ["Fiados pendientes", report.pendingMinor],
-              ["Compras pagadas", report.purchasesMinor],
+              ["Compras de mercadería", report.purchasesMinor],
             ].map(([name, value]) => (
               <article className="card metric" key={name}>
                 <span>{name}</span>
@@ -88,33 +88,12 @@ export default function Reports() {
               </article>
             ))}
           </div>
-          <p>
-            No representa saldo bancario. Las compras pagadas no son gastos
-            operativos; el costo se reconoce al vender.
-          </p>
           <ReportChart days={report.days} />
-          <details>
-            <summary>Tabla de resultados diarios</summary>
-            <div className="table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Fecha</th>
-                    <th>Ventas netas</th>
-                    <th>Gastos netos</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {report.days.map((d) => (
-                    <tr key={d.date}>
-                      <td>{localDate(d.date)}</td>
-                      <td>{bob(d.salesMinor)}</td>
-                      <td>{bob(d.expensesMinor)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <details className="card">
+            <summary>Cómo se calcula el resultado</summary>
+            <p>Ventas netas − costo de lo vendido − gastos operativos − pérdidas de inventario.</p>
+            <p>Comprar mercadería aumenta el inventario. Si pagas en efectivo, disminuye el saldo de caja. El costo de la mercadería se reconoce en el resultado conforme se vende.</p>
+            <p>Con Bs 40.000 vendidos, Bs 30.000 de costo vendido y Bs 10.000 de gastos operativos, el resultado es Bs 0 si no hubo pérdidas. Una compra de Bs 75.000 se muestra aparte.</p>
           </details>
           <div className="actions">
             <ActionForm

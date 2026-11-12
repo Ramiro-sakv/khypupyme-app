@@ -3,11 +3,11 @@ import { useState } from "react";
 import TimberFixedLineEditor from "./TimberFixedLineEditor";
 import TimberLineEditor from "./TimberLineEditor";
 import { UNITS } from "../../../shared/workspace/catalog";
-import { compare, div } from "../../../shared/workspace/exact";
+import { compare, div, showQuantity as showExact } from "../../../shared/workspace/exact";
 import type { Quantity } from "../../../shared/workspace/exact";
 import type { Unit } from "../../../shared/workspace/model";
 import { useRecords, useWorkspace } from "./context";
-import { bob, itemDetails, serials } from "./format";
+import { bob, itemDetails, measuredText, serials } from "./format";
 import { Pager } from "./ui";
 
 import type { CartLine } from "./Cart";
@@ -66,7 +66,9 @@ export default function CartEditor({
   const price = linePrice(line, purchase);
   try {
     const quantity = delivered(line);
-    coverage = `${purchase ? "Ingreso" : "Entrega"}: ${showQuantity(quantity)} ${line.item.baseUnit}`;
+    const measured = measuredText(line.item, quantity, line.unit);
+    coverage = `${purchase ? "Ingreso" : "Entrega"}: ${measured ?? `${showQuantity(quantity)} ${line.item.baseUnit}`}`;
+    if (measured && line.unit !== line.item.priceUnit) coverage += ` · ${measuredText(line.item, quantity)}`;
     if (retailStock.items[0]) insufficient = compare(quantity, retailStock.items[0].balance) > 0;
     if (line.item.kind === "ceramic")
       coverage += ` · Cobertura real ${showQuantity(div(delivered(line), line.item.units.m2!))} m²`;
@@ -74,11 +76,12 @@ export default function CartEditor({
     coverage = "Revisa la cantidad.";
   }
   return (
-    <section className="card cart-line">
+    <section className="card cart-line" data-item-kind={line.item.kind}>
       <h3>{line.item.name}</h3>
       <p className="muted">
         {itemDetails(line.item, business.timberSystem ?? "imperial")}
       </p>
+      {guidedSerials && <p className="notice">{purchase ? "Series que ingresan al inventario" : "Series disponibles para entregar"}</p>}
       <div className="workspace-grid">
         {!guidedSerials && <label>
           Cantidad solicitada
@@ -117,13 +120,16 @@ export default function CartEditor({
           </label>
         )}
       </div>
-      {purchase && retail && (
+      {["g", "mL"].includes(line.item.baseUnit) && line.item.units[line.unit] && (
+        <small>1 {UNITS[line.unit]} = {showExact(line.item.units[line.unit]!)} {line.item.baseUnit}</small>
+      )}
+      {purchase && (retail || ["g", "mL"].includes(line.item.baseUnit)) && (
         <p className="notice">{coverage}{line.unit === "box" && line.item.units.box && ` · ${showQuantity(line.item.units.box)} ${line.item.baseUnit} por caja`}</p>
       )}
       {retail && !purchase && !quote && (
         <div role={retailStock.error || insufficient ? "alert" : "status"} className={insufficient ? "notice notice-warning" : "notice"}>
           {retailStock.loading ? "Consultando disponibilidad…" : retailStock.error || (retailStock.items[0]
-            ? `Disponible para vender: ${showQuantity(retailStock.items[0].balance)} ${line.item.baseUnit}${insufficient ? " · reduce la cantidad o registra una compra" : ""}.`
+            ? `Disponible para vender: ${measuredText(line.item, retailStock.items[0].balance, line.unit) ?? `${showQuantity(retailStock.items[0].balance)} ${line.item.baseUnit}`}${insufficient ? " · reduce la cantidad o registra una compra" : ""}.`
             : "Este producto ya no está disponible.")}
           {retailStock.error && <button type="button" onClick={retailStock.first}>Volver a consultar</button>}
         </div>

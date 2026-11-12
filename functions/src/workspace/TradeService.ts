@@ -74,10 +74,8 @@ function deliveryText(line: SaleLineV2) {
       " piezas · " +
       timberVolumeLabel(line.delivered)
     );
-  const byVolume =
-    ["timber-volume", "cement-bulk"].includes(line.kind) ||
-    (line.kind === "grocery" && line.fields.weighted === "si");
-  const base = byVolume
+  const measured = line.kind === "timber-volume" || ["g", "mL"].includes(line.baseUnit);
+  const base = measured
     ? showQuantity(div(line.delivered, line.units[line.requestedUnit]!)) +
       " " +
       UNITS[line.requestedUnit]

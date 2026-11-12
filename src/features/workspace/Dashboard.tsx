@@ -84,7 +84,7 @@ export default function Dashboard() {
               <div><dt>Gastos netos</dt><dd>{bob(report.expensesMinor)}</dd></div>
               <div><dt>Resultado estimado</dt><dd>{bob(report.resultMinor)}</dd></div>
             </dl>
-            <ReportChart days={report.days} salesOnly />
+            <ReportChart days={report.days} compact />
             {report.pendingMinor > 0 && <button className="text-button" onClick={() => go("fiados")}>Fiados pendientes · {bob(report.pendingMinor)}</button>}
             {(report.pendingValuationCount > 0 || report.unvaluedLossCount > 0) && (
               <div className="notice notice-warning" role="status">

@@ -3,9 +3,10 @@ import {
   dimensionDisplayFromMm as dimensionInputFromMm,
 } from "../../../shared/workspace/timber-measures";
 import type { TimberSystem } from "../../../shared/workspace/timber-measures";
-import { amount, decimal, fraction } from "../../../shared/workspace/exact";
-import { ITEM_MODELS } from "../../../shared/workspace/catalog";
-import type { ItemDraft } from "../../../shared/workspace/model";
+import { amount, decimal, div, fraction, showQuantity } from "../../../shared/workspace/exact";
+import type { Quantity } from "../../../shared/workspace/exact";
+import { ITEM_MODELS, itemMeasure, UNITS } from "../../../shared/workspace/catalog";
+import type { Item, ItemDraft, Unit } from "../../../shared/workspace/model";
 import type { Method } from "../../../shared/workspace/model";
 export const bob = (minor: number) =>
   new Intl.NumberFormat("es-BO", { style: "currency", currency: "BOB" }).format(
@@ -27,6 +28,13 @@ export const cents = (value: FormDataEntryValue | null | string) => {
 };
 export const q = (value: FormDataEntryValue | null | string) =>
   decimal(String(value ?? "0"));
+export function measuredText(item: Pick<Item, "units" | "baseUnit" | "priceUnit">, quantity: Quantity, unit: Unit = item.priceUnit) {
+  const factor = item.units[unit];
+  if (!["g", "mL"].includes(item.baseUnit) || !factor) return null;
+  const display = div(quantity, factor);
+  const approximate = 1000000n % BigInt(display.d) !== 0n;
+  return `${approximate ? "≈ " : ""}${showQuantity(display)} ${UNITS[unit]}`;
+}
 export const today = () =>
   new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/La_Paz",
@@ -110,7 +118,7 @@ export function statusLabel(value: string) {
 }
 
 export function itemDetails(
-  item: Pick<ItemDraft, "kind" | "fields" | "details">,
+  item: Pick<ItemDraft, "kind" | "fields" | "details" | "measure">,
   system: TimberSystem = "imperial",
 ) {
   if (item.kind === "timber-grouped")
@@ -121,12 +129,14 @@ export function itemDetails(
       (system === "imperial" ? "″" : " mm") +
       " · medidas agrupadas"
     );
+  const measure = itemMeasure(item);
   return [
+    measure === "mass" ? "Por peso" : measure === "volume" ? "Por volumen" : "",
     ...(item.kind === "timber-piece"
       ? [item.fields.species, timberDimensions(item.fields, system)]
       : [
           ITEM_MODELS[item.kind].fields
-            .filter((field) => item.fields[field.key])
+            .filter((field) => field.key !== "weighted" && (!measure || field.key !== "packSize") && item.fields[field.key])
             .map(
               (field) =>
                 field.label

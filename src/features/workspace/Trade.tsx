@@ -17,7 +17,7 @@ import { CustomerSelector } from "./CustomerSelector";
 import type { TradeDraftInput } from "./DraftRepository";
 import DraftStatus from "./DraftStatus";
 import FashionPicker from "./FashionPicker";
-import { bob, cents, itemDetails, method, q, today } from "./format";
+import { bob, cents, itemDetails, measuredText, method, q, today } from "./format";
 import { Icon } from "./Icon";
 import IndustryHelp from "./IndustryHelp";
 import { confirmDiscardChanges } from "./navigation";
@@ -27,6 +27,7 @@ import { useTradeDraft } from "./useTradeDraft";
 import type { CartLine } from "./Cart";
 import { delivered, linePrice, receiptInputs, saleInputs } from "./Cart";
 import CartEditor from "./CartEditor";
+import TradeCheckout from "./TradeCheckout";
 import Quotes from "./QuoteHistory";
 export default function Trade({
   purchase = false,
@@ -65,9 +66,10 @@ export default function Trade({
     [payment, setPayment] = useState<Method | "credit">("cash"),
     [reference, setReference] = useState(""),
     [restoredNotice, setRestoredNotice] = useState(""),
-    [checkoutExpanded, setCheckoutExpanded] = useState(true);
+    [checkoutExpanded, setCheckoutExpanded] = useState(false),
+    [checkoutFeedback, setCheckoutFeedback] = useState<HTMLDivElement | null>(null);
   const checkoutId = useId();
-  const checkoutHeading = useRef<HTMLHeadingElement>(null);
+  const checkoutTab = useRef<HTMLButtonElement>(null);
   const draftInput: TradeDraftInput = {
     ...(source ? { origin: source } : {}),
     lines: lines.map((line) => ({
@@ -101,6 +103,7 @@ export default function Trade({
     validUntil,
   };
   const resetConfirmed = useCallback(() => {
+    setCheckoutExpanded(false);
     setLines([]);
     setSource(null);
     setQuoteId("");
@@ -115,6 +118,7 @@ export default function Trade({
       const saved = restored.draft.input;
       setSource(saved.origin ?? null);
       setLines(restored.lines);
+      setCheckoutExpanded(false);
       setIsQuote(restored.requiresNewQuote ? true : saved.isQuote);
       setQuoteId(restored.requiresNewQuote ? "" : saved.quoteId);
       setCustomerId(saved.customerId);
@@ -267,11 +271,88 @@ export default function Trade({
   const confirmLabel = purchase ? "Confirmar compra y pago" : isQuote ? "Emitir cotización" : "Confirmar venta";
   function openCheckout() {
     setCheckoutExpanded(true);
-    requestAnimationFrame(() => {
-      checkoutHeading.current?.focus({ preventScroll: true });
-      checkoutHeading.current?.scrollIntoView({ block: "start" });
-    });
   }
+  function minimizeCheckout() {
+    setCheckoutExpanded(false);
+    requestAnimationFrame(() => checkoutTab.current?.focus({ preventScroll: true }));
+  }
+  const totalText = total === null ? "Pendiente" : bob(total);
+  const renderCheckout = (disabled: boolean) => lines.length > 0 && (
+    <TradeCheckout id={checkoutId} open={checkoutExpanded} title={totalLabel + " · " + totalText} minimize={minimizeCheckout}>
+      {totalIssue && <p role="status" className="muted">{totalIssue}</p>}
+      {business.industryId === "timber" && (
+        <p>{timberPieces} piezas · {showQuantity(timberFeet)} pies tablares</p>
+      )}
+      <fieldset className="trade-checkout-fields" disabled={!checkoutExpanded || disabled}>
+        {!purchase && (
+          <>
+            <CustomerSelector
+              value={customerId}
+              selectedName={customerName}
+              required={!isQuote && payment === "credit"}
+              allowCreate
+              compact
+              onChange={(id, name) => {
+                setCustomerId(id);
+                setCustomerName(name);
+              }}
+            />
+            <details>
+              <summary>Nombre para el comprobante y descuento</summary>
+              <label>
+                Nombre para el comprobante (opcional)
+                <input
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  maxLength={80}
+                />
+              </label>
+              <label>
+                Descuento total (BOB)
+                <input
+                  value={discount}
+                  onChange={(e) => setDiscount(e.target.value)}
+                  inputMode="decimal"
+                />
+              </label>
+            </details>
+          </>
+        )}
+        {purchase && (
+          <Field
+            name="reference"
+            label="Referencia de compra"
+            value={reference}
+            onValueChange={setReference}
+            required={false}
+            maxLength={100}
+          />
+        )}
+        {isQuote ? (
+          <Field
+            name="validUntil"
+            label="Válida hasta"
+            type="date"
+            value={validUntil}
+            onValueChange={setValidUntil}
+          />
+        ) : (
+          <>
+            <Field name="date" label="Fecha" type="date" value={date} onValueChange={setDate} />
+            <MethodField credit={!purchase} value={payment} onValueChange={setPayment} />
+          </>
+        )}
+        <label>
+          <input key={JSON.stringify([draftInput.lines, discount])} name="review" type="checkbox" required />
+          {total === null ? "Revisar importe cuando esté completo" : "He revisado cantidades e importe de " + bob(total) + "."}
+        </label>
+        <button type="submit" className="primary" data-tutorial="confirm-trade" disabled={total === null}>
+          {busy ? "Procesando…" : confirmLabel}
+        </button>
+        <div ref={setCheckoutFeedback} />
+      </fieldset>
+    </TradeCheckout>
+  );
   return (
     <>
       <h2>
@@ -303,11 +384,13 @@ export default function Trade({
           {restoredNotice}
         </p>
       )}
+      <div className="trade-operation" data-checkout={lines.length > 0 ? "visible" : undefined}>
+        <div className="trade-scroll" role={lines.length ? "region" : undefined} aria-label={lines.length ? "Catálogo y artículos de la operación" : undefined} tabIndex={lines.length ? 0 : undefined}>
       <div className="trade-layout">
         <section className="trade-picker">
-          <div className="card">
-            <label>
-              Buscar en todo el catálogo (desde 2 caracteres)
+          <div className="card trade-catalog-card">
+            <label className="trade-search-label">
+              {business.industryId === "appliances" ? "Buscar por marca, modelo o código" : "Buscar en todo el catálogo (desde 2 caracteres)"}
               <input
                 value={catalogSearch}
                 onChange={(e) => setCatalogSearch(e.target.value)}
@@ -315,7 +398,7 @@ export default function Trade({
               />
             </label>
             <div className="section-heading">
-              <h3>Seleccionar productos</h3>
+              <h3>{business.industryId === "appliances" ? "Elegir modelo o accesorio" : "Seleccionar productos"}</h3>
               <Icon name="box" />
             </div>
             <ActionForm
@@ -369,8 +452,9 @@ export default function Trade({
                       {bob(item.priceMinor)}/{UNITS[item.priceUnit]}
                     </small>
                     {business.industryId === "convenience" && item.kind !== "service" && (
-                      <small>Existencia registrada · {showQuantity(item.balance)} {item.baseUnit}</small>
+                      <small>Existencia registrada · {measuredText(item, item.balance) ?? `${showQuantity(item.balance)} ${item.baseUnit}`}</small>
                     )}
+                    {business.industryId === "appliances" && item.kind === "appliance" && <span className="badge">Equipo por serie</span>}
                   </button>
                 ))}
             </div>
@@ -382,6 +466,8 @@ export default function Trade({
           dirty={lines.length > 0}
           disabled={busy || !draft.editable || !lines.length}
           showSubmit={false}
+          feedbackTarget={checkoutExpanded ? checkoutFeedback : null}
+          outsideFieldset={renderCheckout}
           onSave={async (d) => {
             if (!checkoutExpanded) {
               openCheckout();
@@ -441,12 +527,6 @@ export default function Trade({
             <h3>Detalle de la operación</h3>
             <span className="badge">{lines.length} líneas</span>
           </div>
-          {lines.length > 0 && (
-            <div className="trade-total-preview">
-              <p role="status"><strong>{totalLabel} · {total === null ? "Pendiente" : bob(total)}</strong>{totalIssue && <small>{totalIssue}</small>}</p>
-              <button type="button" onClick={openCheckout}>Ir al resumen</button>
-            </div>
-          )}
           {error && (
             <p role="alert" className="notice notice-error">
               {error}
@@ -507,91 +587,21 @@ export default function Trade({
               }
             />
           ))}
-          {lines.length > 0 && (
-            <section className="card cart-summary" data-tutorial="trade-summary">
-              <div className="section-heading">
-                <h3 ref={checkoutHeading} tabIndex={-1} className="checkout-heading">
-                  {totalLabel} · {total === null ? "Pendiente" : bob(total)}
-                </h3>
-                <button type="button" aria-expanded={checkoutExpanded} aria-controls={checkoutId}
-                  onClick={() => setCheckoutExpanded((value) => !value)}>
-                  {checkoutExpanded ? "Plegar resumen" : "Revisar y confirmar"}
-                </button>
-              </div>
-              {totalIssue && <p role="status" className="muted">{totalIssue}</p>}
-              {business.industryId === "timber" && (
-                <p>{timberPieces} piezas · {showQuantity(timberFeet)} pies tablares</p>
-              )}
-              <fieldset id={checkoutId} className="trade-checkout-fields" hidden={!checkoutExpanded} disabled={!checkoutExpanded}>
-                {!purchase && (
-                  <>
-                    <CustomerSelector
-                      value={customerId}
-                      selectedName={customerName}
-                      required={!isQuote && payment === "credit"}
-                      allowCreate
-                      compact
-                      onChange={(id, name) => {
-                        setCustomerId(id);
-                        setCustomerName(name);
-                      }}
-                    />
-                    <details>
-                      <summary>Nombre para el comprobante y descuento</summary>
-                      <label>
-                        Nombre para el comprobante (opcional)
-                        <input
-                          value={customerName}
-                          onChange={(e) => setCustomerName(e.target.value)}
-                          maxLength={80}
-                        />
-                      </label>
-                      <label>
-                        Descuento total (BOB)
-                        <input
-                          value={discount}
-                          onChange={(e) => setDiscount(e.target.value)}
-                          inputMode="decimal"
-                        />
-                      </label>
-                    </details>
-                  </>
-                )}
-                {purchase && (
-                  <Field
-                    name="reference"
-                    label="Referencia de compra"
-                    value={reference}
-                    onValueChange={setReference}
-                    required={false}
-                    maxLength={100}
-                  />
-                )}
-                {isQuote ? (
-                  <Field
-                    name="validUntil"
-                    label="Válida hasta"
-                    type="date"
-                    value={validUntil}
-                    onValueChange={setValidUntil}
-                  />
-                ) : (
-                <>
-                  <Field name="date" label="Fecha" type="date" value={date} onValueChange={setDate} />
-                  <MethodField credit={!purchase} value={payment} onValueChange={setPayment} />
-                </>
-              )}
-                <label>
-                  <input key={JSON.stringify([draftInput.lines, discount])} name="review" type="checkbox" required />
-                  {total === null ? "Revisar importe cuando esté completo" : "He revisado cantidades e importe de " + bob(total) + "."}
-                </label>
-                <button type="submit" className="primary" data-tutorial="confirm-trade" disabled={total === null}>
-                  {busy ? "Procesando…" : confirmLabel}
-                </button>
-              </fieldset>
-            </section>
-          )}
         </ActionForm>
+      </div>
+        </div>
+        {lines.length > 0 && (
+          <div className="trade-bottom-tab" data-tutorial="review-trade">
+            <div role="status">
+              <strong>{totalLabel} · {totalText}</strong>
+              {totalIssue && <small>{totalIssue}</small>}
+            </div>
+            <button type="button" className="primary" ref={checkoutTab} aria-haspopup="dialog"
+              aria-controls={checkoutId} aria-expanded={checkoutExpanded} onClick={openCheckout}>
+              Revisar
+            </button>
+          </div>
+        )}
       </div>
       {!purchase && initialQuote && (
         <Quotes

@@ -1,5 +1,6 @@
 import { TimberStockQueries } from "./TimberStockQueries.js";
 import { IndustryQueries } from "./IndustryQueries.js";
+import { withMassUnits } from "../../../shared/workspace/catalog.js";
 import { timberSpeciesItem } from "../../../shared/workspace/timber-species.js";
 import { timberVariantId } from "./TimberSpeciesService.js";
 import { timberThickness } from "../../../shared/workspace/timber-species.js";
@@ -199,11 +200,15 @@ export class WorkspaceQueries {
     }
     if (input.category !== undefined) throw new Error("La categoría solo filtra el resumen de madera.");
     const root = collection(input.resource);
+    const row = (doc: { id: string; data: () => DocumentData | undefined }) => {
+      const data = { ...(serialize(doc.data()) as object), id: doc.id };
+      return input.resource === "items" ? withMassUnits(data as Item) : data;
+    };
     if (input.id) {
       const doc = await root.doc(identifier(input.id)).get();
       return {
         items: doc.exists
-          ? [{ ...(serialize(doc.data()) as object), id: doc.id }]
+          ? [row(doc)]
           : [],
         next: null,
       };
@@ -224,7 +229,7 @@ export class WorkspaceQueries {
       }
       const doc = await root.doc(index.data()!.itemId).get();
       return {
-        items: doc.exists ? [{ ...doc.data(), id: doc.id }] : [],
+        items: doc.exists ? [row(doc)] : [],
         next: null,
       };
     }
@@ -406,7 +411,7 @@ export class WorkspaceQueries {
       ? (await this.db.getAll(...itemIds.map((id) => collection("items").doc(id)))).map((item) => [item.id, item.data()?.name])
       : []);
     return {
-      items: page.map((doc) => ({ ...(serialize(doc.data()) as object), id: doc.id,
+      items: page.map((doc) => ({ ...row(doc),
         ...(input.expiresBefore ? { itemName: itemNames.get(doc.data().itemId) ?? "Producto" } : {}) })),
       next: visible.length > 25 ? visible[24]!.id : null,
     };
@@ -478,22 +483,33 @@ export class WorkspaceQueries {
         );
       return Number(total);
     };
-    const days = new Map<
-      string,
-      { date: string; salesMinor: number; expensesMinor: number }
-    >();
-    for (let d = Date.parse(from); d <= Date.parse(to); d += 86400000) {
-      const day = new Date(d).toISOString().slice(0, 10);
-      days.set(day, { date: day, salesMinor: 0, expensesMinor: 0 });
+    const emptyDay = () => ({ salesMinor: 0n, costMinor: 0n, expensesMinor: 0n, lossesMinor: 0n, purchasesMinor: 0n });
+    const days = new Map<string, ReturnType<typeof emptyDay>>();
+    for (let cursor = Date.parse(from); cursor <= Date.parse(to); cursor += 86400000) {
+      days.set(new Date(cursor).toISOString().slice(0, 10), emptyDay());
     }
-    for (const sale of sales)
-      days.get(sale.date)!.salesMinor += sale.totalMinor;
-    for (const returned of returns)
-      days.get(returned.date)!.salesMinor -= returned.refundMinor;
-    for (const expense of expenses)
-      days.get(expense.date)!.expensesMinor += expense.amountMinor;
-    for (const reversal of reversals)
-      days.get(reversal.date)!.expensesMinor -= reversal.amountMinor;
+    const post = (date: string, field: keyof ReturnType<typeof emptyDay>, raw: unknown, sign = 1n) => {
+      const day = days.get(date);
+      const value = raw ?? 0;
+      if (!day || typeof value !== "number" || !Number.isSafeInteger(value))
+        throw new Error("El informe contiene una fecha o un importe inválido.");
+      day[field] += sign * BigInt(value);
+    };
+    for (const sale of sales) {
+      post(sale.date, "salesMinor", sale.totalMinor);
+      post(sale.date, "costMinor", sale.costMinor);
+    }
+    for (const returned of returns) {
+      post(returned.date, "salesMinor", returned.refundMinor, -1n);
+      post(returned.date, "costMinor", returned.costMinor, -1n);
+      post(returned.date, "lossesMinor", returned.lossMinor);
+    }
+    for (const expense of expenses) post(expense.date, "expensesMinor", expense.amountMinor);
+    for (const reversal of reversals) post(reversal.date, "expensesMinor", reversal.amountMinor, -1n);
+    for (const purchase of purchases) post(purchase.date, "purchasesMinor", purchase.totalMinor);
+    for (const movement of movements) {
+      if (movement.kind === "loss") post(movement.date, "lossesMinor", movement.valueDelta, -1n);
+    }
     const byUnit = new Map<string, ReturnType<typeof add>>();
     for (const raw of items) {
       const item = raw as Item;
@@ -506,17 +522,11 @@ export class WorkspaceQueries {
     const report: WorkspaceReport = {
       from,
       to,
-      salesMinor: sum(sales, "totalMinor") - sum(returns, "refundMinor"),
-      costMinor: sum(sales, "costMinor") - sum(returns, "costMinor"),
-      expensesMinor:
-        sum(expenses, "amountMinor") - sum(reversals, "amountMinor"),
-      lossesMinor:
-        sum(returns, "lossMinor") -
-        sum(
-          movements.filter((m) => m.kind === "loss"),
-          "valueDelta",
-        ),
-      purchasesMinor: sum(purchases, "totalMinor"),
+      salesMinor: 0,
+      costMinor: 0,
+      expensesMinor: 0,
+      lossesMinor: 0,
+      purchasesMinor: 0,
       resultMinor: 0,
       pendingMinor: sum(
         debts.filter((d) => d.status === "pending"),
@@ -525,7 +535,7 @@ export class WorkspaceQueries {
       inventoryMinor: sum(items, "valueMinor"),
       pendingValuationCount: 0,
       unvaluedLossCount: 0,
-      days: [...days.values()],
+      days: [],
       byUnit: [...byUnit].map(([unit, quantity]) => ({ unit, quantity })),
     };
     if (business.legacy && business.id === uid) {
@@ -533,10 +543,6 @@ export class WorkspaceQueries {
         uid,
         { from, to },
       );
-      report.salesMinor += legacy.salesMinor;
-      report.costMinor += legacy.costMinor;
-      report.expensesMinor += legacy.expensesMinor;
-      report.lossesMinor += legacy.lossesMinor;
       const oldItems = await read("products", false);
       report.inventoryMinor += sum(oldItems, "inventoryValueMinor");
       report.pendingMinor += legacy.pendingMinor;
@@ -545,18 +551,40 @@ export class WorkspaceQueries {
       ).length;
       report.unvaluedLossCount = legacy.unvaluedLossCount;
       for (const day of legacy.days) {
-        const target = days.get(day.date);
-        if (target) {
-          target.salesMinor += day.salesMinor;
-          target.expensesMinor += day.expensesMinor;
-        }
+        post(day.date, "salesMinor", day.salesMinor);
+        post(day.date, "costMinor", day.costMinor);
+        post(day.date, "expensesMinor", day.expensesMinor);
+        post(day.date, "lossesMinor", day.lossesMinor);
       }
     }
-    report.resultMinor =
-      report.salesMinor -
-      report.costMinor -
-      report.expensesMinor -
-      report.lossesMinor;
+    const checked = (value: bigint) => {
+      if (value > 1000000000000n || value < -1000000000000n)
+        throw new Error("El acumulado supera los límites del informe.");
+      return Number(value);
+    };
+    const totals = emptyDay();
+    for (const [date, day] of days) {
+      totals.salesMinor += day.salesMinor;
+      totals.costMinor += day.costMinor;
+      totals.expensesMinor += day.expensesMinor;
+      totals.lossesMinor += day.lossesMinor;
+      totals.purchasesMinor += day.purchasesMinor;
+      report.days.push({
+        date,
+        salesMinor: checked(day.salesMinor),
+        costMinor: checked(day.costMinor),
+        expensesMinor: checked(day.expensesMinor),
+        lossesMinor: checked(day.lossesMinor),
+        purchasesMinor: checked(day.purchasesMinor),
+        resultMinor: checked(day.salesMinor - day.costMinor - day.expensesMinor - day.lossesMinor),
+      });
+    }
+    report.salesMinor = checked(totals.salesMinor);
+    report.costMinor = checked(totals.costMinor);
+    report.expensesMinor = checked(totals.expensesMinor);
+    report.lossesMinor = checked(totals.lossesMinor);
+    report.purchasesMinor = checked(totals.purchasesMinor);
+    report.resultMinor = checked(totals.salesMinor - totals.costMinor - totals.expensesMinor - totals.lossesMinor);
     if (
       Object.values(report).some(
         (v) =>

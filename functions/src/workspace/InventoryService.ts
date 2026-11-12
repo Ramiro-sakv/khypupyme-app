@@ -10,6 +10,7 @@ import {
   isDiscrete,
   itemUnits,
   kindsFor,
+  withMassUnits,
 } from "../../../shared/workspace/catalog.js";
 import {
   add,
@@ -95,7 +96,7 @@ export class InventoryServiceV2 {
   async item(id: string): Promise<Item> {
     const item = await this.work.get<Item>("items", id);
     if (!item) throw new Error("No se encontró el producto en este negocio.");
-    return item;
+    return withMassUnits(item);
   }
   toBase(item: Item, qty: Quantity, unit: Unit): Quantity {
     const conversion = item.units[unit];

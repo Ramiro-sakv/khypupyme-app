@@ -2,6 +2,7 @@ import type { TimberSystem } from "./timber-measures.js";
 import type { ItemDetails, OperationalAction } from "./operations.js";
 import type { IndustryId } from "../business-industries.js";
 import type { Quantity } from "./exact.js";
+import type { ReportDay } from "../commerce.js";
 
 export type ItemKind =
   | "general"
@@ -20,7 +21,11 @@ export type Unit =
   | "pair"
   | "box"
   | "bag"
+  | "g"
   | "kg"
+  | "lb"
+  | "ml"
+  | "l"
   | "m3"
   | "boardFoot"
   | "m2"
@@ -105,6 +110,7 @@ export interface TimberStockGroup {
   updatedAt: string;
 }
 export interface ItemDraft {
+  measure?: "mass" | "volume";
   details?: ItemDetails;
   name: string;
   kind: ItemKind;
@@ -533,7 +539,7 @@ export interface WorkspaceReport {
   resultMinor: number;
   pendingMinor: number;
   inventoryMinor: number;
-  days: { date: string; salesMinor: number; expensesMinor: number }[];
+  days: ReportDay[];
   byUnit: { unit: string; quantity: Quantity }[];
 }
 

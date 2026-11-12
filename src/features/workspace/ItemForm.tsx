@@ -9,6 +9,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import {
   ITEM_MODELS,
+  itemMeasure,
   itemUnits,
   kindsFor,
   suggestedKind,
@@ -79,12 +80,18 @@ export default function ItemForm({
   const [fields, setFields] = useState<Record<string, string>>(
     initial?.fields ?? defaults(kind),
   );
+  const [measure, setMeasure] = useState<"piece" | "mass" | "volume">(
+    initial ? itemMeasure(initial) ?? "piece" : "piece",
+  );
+  const canMeasure = kind === "general" || kind === "grocery";
+  const measurement = canMeasure && measure !== "piece" ? { measure } : {};
   let units: Unit[];
   try {
     units = Object.keys(
       itemUnits({
         name: "",
         kind,
+        ...measurement,
         fields,
         barcode: "",
         priceMinor: 1,
@@ -116,6 +123,7 @@ export default function ItemForm({
             ]),
           ),
           kind,
+          ...measurement,
           fields: Object.fromEntries(
             ITEM_MODELS[kind].fields.map((f) => [
               f.key,
@@ -126,7 +134,9 @@ export default function ItemForm({
                     dimensionInputFromMm(initial.fields[f.key]!, f.key, system)
                   ? initial.fields[f.key]
                   : dimensionToMm(String(d.get(f.key)), f.key, system)
-                : String(d.get(f.key) ?? ""),
+                : f.key === "weighted" ? "no"
+                  : f.key === "packSize" && measurement.measure ? "1"
+                  : String(d.get(f.key) ?? ""),
             ]),
           ),
           barcode: String(d.get("barcode") ?? ""),
@@ -154,6 +164,7 @@ export default function ItemForm({
             setKind(e.target.value as ItemKind);
             setFields(defaults(e.target.value as ItemKind));
             setRawDimensions({});
+            setMeasure("piece");
           }}
         >
           {kindsFor(business)
@@ -165,6 +176,16 @@ export default function ItemForm({
             ))}
         </select>
       </label>
+      {canMeasure && <label>
+        Cómo controlas las existencias
+        <select value={measure} onChange={(event) => setMeasure(event.target.value as typeof measure)}>
+          <option value="piece">Por piezas</option>
+          <option value="mass">Por peso · kg, g o lb</option>
+          <option value="volume">Por volumen · L o mL</option>
+        </select>
+        {measure === "mass" && <small>1 lb = 453,59237 g.</small>}
+        {measure === "volume" && <small>1 L = 1.000 mL.</small>}
+      </label>}
       <Field
         name="name"
         label="Nombre"
@@ -194,7 +215,7 @@ export default function ItemForm({
           />
         ))}
       </details>
-      {ITEM_MODELS[kind].fields.map((f) => (
+      {ITEM_MODELS[kind].fields.filter((field) => field.key !== "weighted" && (field.key !== "packSize" || !measurement.measure)).map((f) => (
         <label key={`${kind}-${f.key}`}>
           {["timber-piece", "timber-grouped"].includes(kind) &&
           dimensionKeys.includes(f.key)
@@ -298,7 +319,7 @@ export default function ItemForm({
               ? system === "imperial"
                 ? "pies tablares"
                 : "m³"
-              : ITEM_MODELS[kind].base)
+              : measurement.measure === "mass" ? "g" : measurement.measure === "volume" ? "mL" : kind === "grocery" ? "piezas" : ITEM_MODELS[kind].base)
           }
           value="0"
         />

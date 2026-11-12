@@ -1,114 +1,157 @@
 import { useEffect, useId, useRef, useState } from "react";
-import type { Report } from "../../../shared/commerce";
+import type { ReportDay } from "../../../shared/commerce";
 import { formatBOB } from "../inventory/domain";
 import { localDate } from "../workspace/format";
 
-type Day = Report["days"][number];
-interface Bucket extends Day { end: string }
-function chartBuckets(days: Day[]) {
-  const mode = days.length <= 31 ? "Diaria" : days.length <= 180 ? "Semanal" : "Mensual";
+const indicators = [
+  ["salesMinor", "Ventas netas"],
+  ["purchasesMinor", "Compras de mercadería"],
+  ["costMinor", "Costo de lo vendido"],
+  ["expensesMinor", "Gastos operativos"],
+  ["lossesMinor", "Pérdidas de inventario"],
+  ["resultMinor", "Resultado estimado"],
+] as const;
+type AmountKey = typeof indicators[number][0];
+type Bucket = { date: string; end: string; amounts: Partial<Record<AmountKey, number>> };
+
+function chartBuckets(days: ReportDay[], fields: AmountKey[]) {
+  const mode = days.length <= 31 ? "diaria" : days.length <= 180 ? "semanal" : "mensual";
   const buckets = new Map<string, Bucket>();
   for (const day of days) {
     let key = day.date;
-    if (mode === "Mensual") key = day.date.slice(0, 7);
-    if (mode === "Semanal") {
+    if (mode === "mensual") key = day.date.slice(0, 7);
+    if (mode === "semanal") {
       const monday = new Date(day.date + "T00:00:00Z");
       monday.setUTCDate(monday.getUTCDate() - (monday.getUTCDay() + 6) % 7);
       key = monday.toISOString().slice(0, 10);
     }
-    const previous = buckets.get(key);
-    buckets.set(key, { date: previous?.date ?? day.date, end: day.date, salesMinor: (previous?.salesMinor ?? 0) + day.salesMinor, expensesMinor: (previous?.expensesMinor ?? 0) + day.expensesMinor });
+    const bucket = buckets.get(key) ?? { date: day.date, end: day.date, amounts: {} };
+    bucket.end = day.date;
+    for (const field of fields) bucket.amounts[field] = (bucket.amounts[field] ?? 0) + (day[field] ?? 0);
+    buckets.set(key, bucket);
   }
   return { mode, buckets: [...buckets.values()] };
 }
-export function ReportChart({ days, salesOnly = false }: Pick<Report, "days"> & { salesOnly?: boolean }) {
-  const id = useId(), container = useRef<HTMLDivElement>(null), svg = useRef<SVGSVGElement>(null);
-  const [width, setWidth] = useState(800), [selected, setSelected] = useState("");
+
+export function ReportChart({ days, compact = false }: { days: ReportDay[]; compact?: boolean }) {
+  const id = useId();
+  const container = useRef<HTMLDivElement>(null);
+  const svg = useRef<SVGSVGElement>(null);
+  const [width, setWidth] = useState(800);
+  const [selected, setSelected] = useState("");
+  const [showPurchases, setShowPurchases] = useState(false);
   useEffect(() => {
     const node = container.current;
     if (!node) return;
-    const observer = new ResizeObserver(([entry]) => { if (entry) setWidth(Math.max(320, Math.round(entry.contentRect.width))); });
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setWidth(Math.max(320, Math.round(entry.contentRect.width)));
+    });
     observer.observe(node);
     return () => observer.disconnect();
   }, []);
+
+  const fields = indicators.filter(([field]) => days.some((day) => day[field] !== undefined));
+  const hasPurchases = fields.some(([field]) => field === "purchasesMinor");
+  const series = [
+    { key: "salesMinor", label: "Ventas netas", color: "var(--primary)", sign: 1 },
+    { key: "expensesMinor", label: "Gastos operativos", color: "#a85420", sign: -1 },
+    ...(hasPurchases && showPurchases ? [{ key: "purchasesMinor", label: "Compras de mercadería", color: "#526881", sign: -1 } as const] : []),
+  ] as const;
   const ordered = [...days].sort((a, b) => a.date.localeCompare(b.date));
-  const { mode, buckets } = chartBuckets(ordered);
-  const series = salesOnly ? ["salesMinor"] as const : ["salesMinor", "expensesMinor"] as const;
-  const nonzero = ordered.filter((day) => series.some((field) => day[field] !== 0)).length;
-  const lastActive = buckets.reduce((last, day, index) => series.some((field) => day[field] !== 0) ? index : last, -1);
-  const selectedIndex = buckets.findIndex((day) => day.date === selected);
-  const activeIndex = selectedIndex >= 0 ? selectedIndex : Math.max(0, lastActive), active = buckets[activeIndex];
-  const minimum = Math.min(0, ...buckets.flatMap((day) => series.map((field) => day[field])));
-  const maximum = Math.max(100, ...buckets.flatMap((day) => series.map((field) => day[field])));
-  const magnitude = 10 ** Math.floor(Math.log10((maximum - minimum) / 4));
-  const step = Math.ceil((maximum - minimum) / 4 / magnitude) * magnitude;
-  const low = Math.floor(minimum / step) * step, high = Math.ceil(maximum / step) * step;
+  const { mode, buckets } = chartBuckets(ordered, fields.map(([field]) => field));
+  const plotted = (bucket: Bucket, field: typeof series[number]) => (bucket.amounts[field.key] ?? 0) * field.sign;
+  const values = buckets.flatMap((bucket) => series.map((field) => plotted(bucket, field)));
+  const hasBars = values.some((value) => value !== 0);
+  const lastActive = buckets.reduce((last, bucket, i) => series.some((field) => plotted(bucket, field) !== 0) ? i : last, -1);
+  const selectedIndex = buckets.findIndex((bucket) => bucket.date === selected);
+  const activeIndex = selectedIndex >= 0 ? selectedIndex : Math.max(0, lastActive);
+  const active = buckets[activeIndex];
+  const min = Math.min(0, ...values);
+  const max = Math.max(100, ...values);
+  const magnitude = 10 ** Math.floor(Math.log10((max - min) / 4));
+  const step = Math.max(1, Math.ceil((max - min) / 4 / magnitude) * magnitude);
+  const low = Math.floor(min / step) * step;
+  const high = Math.ceil(max / step) * step;
   const y = (value: number) => 224 - (value - low) / (high - low) * 188;
-  const axisFormat = new Intl.NumberFormat("es-BO", { minimumFractionDigits: step < 100 ? 2 : 0, maximumFractionDigits: step < 100 ? 2 : 0 });
-  const left = Math.max(72, Math.max(axisFormat.format(low / 100).length, axisFormat.format(high / 100).length) * 7 + 16);
-  const plotWidth = width - left - 18, slot = plotWidth / Math.max(1, buckets.length), barWidth = Math.max(2, Math.min(22, slot * 0.3));
+  const axis = new Intl.NumberFormat("es-BO", { maximumFractionDigits: step < 100 ? 2 : 0 });
+  const left = Math.max(64, Math.max(axis.format(low / 100).length, axis.format(high / 100).length) * 7 + 14);
+  const plotWidth = width - left - 18;
+  const slot = plotWidth / Math.max(1, buckets.length);
+  const barWidth = Math.min(24, slot / (series.length + 1));
   const x = (index: number) => left + (index + 0.5) * slot;
-  const rangeLabel = (bucket: Bucket) => localDate(bucket.date) + (bucket.end !== bucket.date ? " – " + localDate(bucket.end) : "");
-  const pick = (index: number) => {
+  const range = (bucket: Bucket) => localDate(bucket.date) + (bucket.end !== bucket.date ? " – " + localDate(bucket.end) : "");
+  function pick(index: number) {
     const target = Math.max(0, Math.min(buckets.length - 1, index));
-    if (buckets[target]) { setSelected(buckets[target]!.date); svg.current?.querySelector<SVGGElement>(`[data-bucket="${target}"]`)?.focus(); }
-  };
-  const labelCount = Math.min(buckets.length, Math.max(2, Math.floor(plotWidth / 130)));
-  const labelIndices = new Set(Array.from({ length: labelCount }, (_, i) => Math.round(i * (buckets.length - 1) / Math.max(1, labelCount - 1))));
-  return <figure className={`report-chart report-chart-bars${salesOnly ? " report-chart-compact" : ""}`}>
+    const bucket = buckets[target];
+    if (!bucket) return;
+    setSelected(bucket.date);
+    svg.current?.querySelector<SVGGElement>(`[data-bucket="${target}"]`)?.focus();
+  }
+  const labelCount = Math.min(buckets.length, Math.max(2, Math.floor(plotWidth / 58)));
+  const labels = new Set(Array.from({ length: labelCount }, (_, i) => Math.round(i * (buckets.length - 1) / Math.max(1, labelCount - 1))));
+
+  return <figure className={`report-chart report-chart-bars${compact ? " report-chart-compact" : ""}`}>
     <figcaption>
-      <strong>{salesOnly ? "Ventas netas por día en BOB" : `Importes en BOB · agrupación ${mode.toLowerCase()}`}</strong>
-      <span className="chart-legend">
-        <i />Ventas netas{!salesOnly && <><i className="expense-dot" />Gastos netos</>}</span>
+      <strong>Importes en BOB · agrupación {mode}</strong>
+      <span className="chart-legend">{series.map((field) => (
+        <span key={field.key}><i style={{ background: field.color }} /> {field.label}</span>
+      ))}</span>
     </figcaption>
+    {hasPurchases && <label className="chart-purchases-toggle">
+      <input type="checkbox" checked={showPurchases} onChange={(event) => setShowPurchases(event.target.checked)} />
+      Mostrar compras de mercadería
+    </label>}
     <div ref={container} className="report-chart-canvas">
-      {!nonzero ? <div className="chart-empty">
-        <strong>{salesOnly ? "No hay ventas netas en este periodo." : "No hay importes netos que representar."}</strong>
-        {!salesOnly && <p>Consulta otro periodo. Las cifras diarias siguen disponibles en la tabla.</p>}
-      </div> : <>
-        {!salesOnly && <p className="muted">{nonzero} de {ordered.length} días con importes netos distintos de cero. Los valores negativos reflejan devoluciones o anulaciones.</p>}
-        <svg ref={svg} viewBox={`0 0 ${width} 278`} role="group" aria-labelledby={id + "-title"}>
-          <title id={id + "-title"}>{salesOnly ? "Ventas netas" : "Ventas y gastos"}, agrupación {mode.toLowerCase()}. Selecciona una barra para consultar sus importes.</title>
-          {Array.from({ length: Math.round((high - low) / step) + 1 }, (_, index) => low + index * step).map((value) => <g key={value}>
-        <line x1={left} x2={width - 18} y1={y(value)} y2={y(value)} stroke={value === 0 ? "#82948a" : "#e4ded1"} strokeDasharray={value === 0 ? undefined : "3 5"} />
-        <text x={left - 10} y={y(value) + 4} textAnchor="end" fontSize="12" fill="#53655d">{axisFormat.format(value / 100)}</text>
-          </g>)}
-          {buckets.map((bucket, index) => <g key={bucket.date} data-bucket={index} tabIndex={0} role="button" aria-pressed={index === activeIndex} aria-label={`${rangeLabel(bucket)}. Ventas ${formatBOB(bucket.salesMinor)}.${salesOnly ? "" : ` Gastos ${formatBOB(bucket.expensesMinor)}.`}`} onFocus={() => setSelected(bucket.date)} onPointerEnter={() => setSelected(bucket.date)} onClick={() => setSelected(bucket.date)} onKeyDown={(event) => {
-            const target = event.key === "ArrowRight" ? index + 1 : event.key === "ArrowLeft" ? index - 1 : event.key === "Home" ? 0 : event.key === "End" ? buckets.length - 1 : null;
-            if (target !== null) { event.preventDefault(); pick(target); }
-          }}>
-            <rect x={x(index) - slot / 2} y="28" width={slot} height="205" fill={index === activeIndex ? "#e5eee660" : "transparent"} />
-            {series.map((field, i) => <rect key={field} x={x(index) + (salesOnly ? -barWidth / 2 : i ? 2 : -barWidth - 2)} y={Math.min(y(0), y(bucket[field]))} width={barWidth} height={Math.abs(y(bucket[field]) - y(0))} rx="2" fill={i ? "#b77d35" : "var(--primary)"} />)}
-            {labelIndices.has(index) && <text x={x(index)} y="254" textAnchor={buckets.length === 1 ? "middle" : index === 0 ? "start" : index === buckets.length - 1 ? "end" : "middle"} fontSize="12" fill="#53655d">{bucket.date.slice(8, 10)}/{bucket.date.slice(5, 7)}</text>}
-          </g>)}
-        </svg>
-        {active && <div className="chart-selection" role="status" aria-live="polite">
-          <strong>{rangeLabel(active)}</strong>
-          <span>Ventas: {formatBOB(active.salesMinor)}</span>
-          {!salesOnly && <span>Gastos: {formatBOB(active.expensesMinor)}</span>}
-        </div>}
-        {!salesOnly && <div className="actions">
-          <button type="button" disabled={activeIndex === 0} onClick={() => pick(activeIndex - 1)}>Periodo anterior</button>
-          <button type="button" disabled={activeIndex === buckets.length - 1} onClick={() => pick(activeIndex + 1)}>Periodo siguiente</button>
-        </div>}
-      </>}
+      {!hasBars ? <p className="chart-empty">No hay importes para las series seleccionadas en este periodo.</p> :
+        <svg ref={svg} viewBox={`0 0 ${width} 270`} role="group" aria-labelledby={id + "-title"}>
+          <title id={id + "-title"}>Ventas y gastos. Selecciona una fecha para consultar sus importes.</title>
+          {Array.from({ length: Math.round((high - low) / step) + 1 }, (_, i) => low + i * step).map((value) => (
+            <g key={value}>
+              <line x1={left} x2={width - 18} y1={y(value)} y2={y(value)} stroke={value === 0 ? "#82948a" : "#ddd7cc"} strokeDasharray={value ? "3 5" : undefined} />
+              <text x={left - 9} y={y(value) + 4} textAnchor="end" fontSize="12" fill="#53655d">{axis.format(value / 100)}</text>
+            </g>
+          ))}
+          {buckets.map((bucket, index) => (
+            <g key={bucket.date} data-bucket={index} tabIndex={0} role="button" aria-pressed={index === activeIndex}
+              aria-label={range(bucket) + ". " + series.map((field) => field.label + " " + formatBOB(bucket.amounts[field.key] ?? 0)).join(". ")}
+              onFocus={() => setSelected(bucket.date)} onClick={() => setSelected(bucket.date)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  setSelected(bucket.date);
+                  return;
+                }
+                const next = event.key === "ArrowLeft" ? index - 1 : event.key === "ArrowRight" ? index + 1
+                  : event.key === "Home" ? 0 : event.key === "End" ? buckets.length - 1 : null;
+                if (next !== null) { event.preventDefault(); pick(next); }
+              }}>
+              <rect x={x(index) - slot / 2} y="28" width={slot} height="205" fill={index === activeIndex ? "#80978b28" : "transparent"} />
+              {series.map((field, i) => {
+                const value = plotted(bucket, field);
+                return <rect key={field.key} x={x(index) + (i - series.length / 2) * barWidth}
+                  y={Math.min(y(0), y(value))} width={Math.max(0.4, barWidth - 1.5)} height={Math.abs(y(value) - y(0))}
+                  rx="2" fill={field.color} />;
+              })}
+              {labels.has(index) && <text x={x(index)} y="252" textAnchor="middle" fontSize="12" fill="#53655d">{bucket.date.slice(8, 10)}/{bucket.date.slice(5, 7)}</text>}
+            </g>
+          ))}
+        </svg>}
     </div>
+    {hasBars && active && <div className="chart-selection" role="status" aria-live="polite">
+      <strong>{range(active)}</strong>
+      <dl className="chart-day-amounts">{fields.map(([field, label]) => (
+        <div key={field}><dt>{label}</dt><dd>{formatBOB(active.amounts[field] ?? 0)}</dd></div>
+      ))}</dl>
+    </div>}
     <details>
       <summary>Ver cifras completas por día</summary>
       <div className="table-scroll">
         <table>
-          <caption className="sr-only">{salesOnly ? "Ventas netas diarias en BOB" : "Ventas y gastos netos diarios en BOB"}</caption>
-          <thead>
-            <tr>
-              <th scope="col">Fecha</th>
-              <th scope="col" className="numeric">Ventas netas</th>
-              {!salesOnly && <th scope="col" className="numeric">Gastos netos</th>}
-            </tr>
-          </thead>
+          <caption className="sr-only">Resultados diarios en BOB</caption>
+          <thead><tr><th scope="col">Fecha</th>{fields.map(([field, label]) => <th scope="col" key={field} className="numeric">{label}</th>)}</tr></thead>
           <tbody>{ordered.map((day) => <tr key={day.date}>
             <th scope="row">{localDate(day.date)}</th>
-            <td className="numeric">{formatBOB(day.salesMinor)}</td>
-            {!salesOnly && <td className="numeric">{formatBOB(day.expensesMinor)}</td>}
+            {fields.map(([field]) => <td className="numeric" key={field}>{day[field] === undefined ? "—" : formatBOB(day[field])}</td>)}
           </tr>)}</tbody>
         </table>
       </div>

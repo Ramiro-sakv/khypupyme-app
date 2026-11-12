@@ -113,6 +113,15 @@ export interface RecordPage {
   items: FinancialRecord[];
   next: string | null;
 }
+export interface ReportDay {
+  date: string;
+  salesMinor: number;
+  expensesMinor: number;
+  purchasesMinor?: number;
+  costMinor?: number;
+  lossesMinor?: number;
+  resultMinor?: number;
+}
 export interface Report {
   filter: DateFilter;
   salesMinor: number;
@@ -126,7 +135,7 @@ export interface Report {
   cashBalanceMinor: number;
   pendingMinor: number;
   saleCount: number;
-  days: { date: string; salesMinor: number; expensesMinor: number }[];
+  days: ReportDay[];
   topProducts: {
     name: string;
     quantity: number;
@@ -171,13 +180,13 @@ export function date(value: unknown): string {
     throw new DomainError('Fecha inválida.');
   return result;
 }
-export function today(): string {
+export function today(at = new Date()): string {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/La_Paz',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  }).format(new Date());
+  }).format(at);
 }
 export function period(value: DateFilter): DateFilter {
   const from = date(value.from),

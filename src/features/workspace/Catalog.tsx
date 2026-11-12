@@ -22,6 +22,7 @@ import {
   cents,
   itemDetails,
   localDate,
+  measuredText,
   q,
   serials,
   statusLabel,
@@ -186,7 +187,7 @@ export default function Catalog() {
                       ? (timberStockText(
                           item,
                           business.timberSystem ?? "imperial",
-                        ) ?? showQuantity(stock) + " " + UNITS[item.priceUnit])
+                        ) ?? measuredText(item, item.balance) ?? showQuantity(stock) + " " + UNITS[item.priceUnit])
                       : "—"}
                   </td>
                   <td className="numeric">
@@ -260,7 +261,7 @@ export default function Catalog() {
                     {timberStockText(
                       item,
                       business.timberSystem ?? "imperial",
-                    ) ??
+                    ) ?? measuredText(item, item.balance) ??
                       showQuantity(balance) + " " + UNITS[item.priceUnit]}{" "}
                     disponibles{" "}
                     {item.balance.n === "0"
@@ -403,7 +404,7 @@ export default function Catalog() {
                     <Field name="qty" label="Cantidad" />
                     <label>
                       Unidad
-                      <select name="unit">
+                      <select name="unit" defaultValue={selected.priceUnit}>
                         {Object.keys(selected.units).map((u) => (
                           <option key={u} value={u}>
                             {UNITS[u as Unit]}

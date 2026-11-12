@@ -3,6 +3,7 @@ import { errorMessage } from "../../shared/errors";
 import { displayQuantity as showQuantity } from "../../../shared/workspace/presentation";
 import type { ReactNode, SubmitEvent } from "react";
 import { useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Quantity } from "../../../shared/workspace/exact";
 
 import type { Method } from "../../../shared/workspace/model";
@@ -104,6 +105,8 @@ export function ActionForm({
   dataTutorial,
   onInvalidField,
   showSubmit = true,
+  feedbackTarget,
+  outsideFieldset,
 }: {
   children: ReactNode;
   onSave: (data: FormData) => Promise<unknown>;
@@ -115,6 +118,8 @@ export function ActionForm({
   dataTutorial?: string;
   onInvalidField?: (field: string) => void;
   showSubmit?: boolean;
+  feedbackTarget?: HTMLElement | null;
+  outsideFieldset?: (disabled: boolean) => ReactNode;
 }) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -122,6 +127,7 @@ export function ActionForm({
     [invalid, setInvalid] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   async function submit(e: SubmitEvent<HTMLFormElement>) {
+    if (e.target !== e.currentTarget) return;
     e.preventDefault();
     if (busy || disabled) return;
     const data = new FormData(e.currentTarget);
@@ -154,6 +160,12 @@ export function ActionForm({
       setBusy(false);
     }
   }
+  const feedback = (error || invalid) && (
+    <div role="alert" className="notice notice-error">
+      <Icon name="shield" />
+      <span>{error || "Revisa los campos señalados antes de continuar. [400]"}</span>
+    </div>
+  );
   return (
     <form
       data-tutorial={dataTutorial}
@@ -165,13 +177,14 @@ export function ActionForm({
       data-invalid={invalid ? "true" : undefined}
       onChange={() => setChanged(true)}
       onInvalid={(event) => {
-        setInvalid(true);
         const field = event.target;
         if (
           field instanceof HTMLInputElement ||
           field instanceof HTMLSelectElement ||
           field instanceof HTMLTextAreaElement
         ) {
+          if (field.form !== event.currentTarget) return;
+          setInvalid(true);
           const label =
             field.getAttribute("aria-label") ||
             field.labels?.[0]?.querySelector("span")?.textContent ||
@@ -206,14 +219,7 @@ export function ActionForm({
     >
       <fieldset disabled={busy || disabled}>
         {children}
-        {(error || invalid) && (
-          <div role="alert" className="notice notice-error">
-            <Icon name="shield" />
-            <span>
-              {error || "Revisa los campos señalados antes de continuar. [400]"}
-            </span>
-          </div>
-        )}
+        {feedbackTarget ? createPortal(feedback, feedbackTarget) : feedback}
         {showSubmit && <div className="form-submit">
           <button type="submit" className="primary">
             {busy ? (
@@ -230,6 +236,7 @@ export function ActionForm({
           </button>
         </div>}
       </fieldset>
+      {outsideFieldset?.(busy || disabled)}
     </form>
   );
 }

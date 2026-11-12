@@ -661,3 +661,11 @@ Recuento respecto de 955b22d: **32 archivos de código, +785 / -212 líneas fís
 - Instalador Windows x64 **2.512.870 bytes**, SHA-256 `ebfd9b4cd5f6ba9175d8dae5e355bd7f444399eb3ce2274c0d948e29042c7cc9`.
 - En la sesión local autorizada se validó una exportación previa separada, se eliminaron los 28 negocios inventariados y se verificaron cero entradas en el selector y el mismo UID en Authentication. Se generó y validó una exportación posterior. Auth, Firestore y Functions siguieron activos.
 - La revisión visual y funcional del cobro, los temas, la gráfica y el ingreso queda pendiente. No se ejecutaron pruebas automáticas ni se tomaron capturas. La incidencia previa de reingreso Windows/WebKit sigue abierta.
+
+## Unidades, cobro y resultados 0.5.0-beta.10 — 11/11/2026
+
+- Lint, TypeScript y compilaciones web y Functions aprobados. Functions se compiló fuera del directorio activo del emulador.
+- Android debug **5.679.890 bytes**, versionCode 50010, SHA-256 `a5a0c706a1ee65e5143bfe58b3ec306a04a6df69549699394552a9b6c32a9b52`. Instalador Windows x64 **2.515.408 bytes**, SHA-256 `6f1a790908bf19d2c04d2079a9c3bffcf1625790cdd08899f1635c656f9c77f6`.
+- Los emuladores habituales conservaron sus procesos. El siguiente arranque con el lanzador compilará y cargará la versión de Functions que admite las unidades y el informe ampliado.
+- Pendientes de revisión manual. Compra en kg y venta en lb, compra en L y venta en mL, devoluciones con sus conversiones originales, reapertura del cobro con carrito largo y conciliación entre cifras diarias y el resultado del periodo.
+- No se ejecutaron pruebas automáticas ni se tomaron capturas. La incidencia previa de reingreso Windows/WebKit sigue abierta.

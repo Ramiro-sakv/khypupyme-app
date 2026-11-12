@@ -3,6 +3,7 @@ import type { IndustryId } from "../business-industries.js";
 import { decimal, div, fraction, mul, ONE, whole } from "./exact.js";
 import type {
   BusinessAnswers,
+  Item,
   ItemDraft,
   ItemKind,
   Unit,
@@ -34,7 +35,11 @@ export const UNITS: Record<Unit, string> = {
   pair: "pares",
   box: "cajas",
   bag: "bolsas",
+  g: "g",
   kg: "kg",
+  lb: "lb",
+  ml: "mL",
+  l: "L",
   m3: "m³",
   boardFoot: "pies tablares",
   m2: "m²",
@@ -201,11 +206,25 @@ export function specialized(industryId: IndustryId): boolean {
 export function industryLabel(industryId: IndustryId | null): string {
   return industryId ? INDUSTRIES[industryId].name : "Negocio anterior";
 }
+const massUnits = { kg: fraction(1000n), g: ONE, lb: fraction(45359237n, 100000n) };
+const volumeUnits = { l: fraction(1000n), ml: ONE };
+
+export function itemMeasure(item: Pick<ItemDraft, "kind" | "fields" | "measure">) {
+  return item.measure ?? (item.kind === "grocery" && item.fields.weighted === "si" ? "mass" : null);
+}
+
+export function withMassUnits<T extends Pick<Item, "kind" | "baseUnit" | "units">>(item: T): T {
+  if (!["general", "grocery"].includes(item.kind) || item.baseUnit !== "g" || !item.units.kg) return item;
+  return { ...item, units: { ...massUnits, ...item.units } };
+}
 export function itemUnits(item: ItemDraft): {
   baseUnit: string;
   units: Partial<Record<Unit, ReturnType<typeof fraction>>>;
 } {
   const f = item.fields;
+  const measure = itemMeasure(item);
+  if (measure === "mass") return { baseUnit: "g", units: massUnits };
+  if (measure === "volume") return { baseUnit: "mL", units: volumeUnits };
   switch (item.kind) {
     case "timber-piece": {
       const volume = mul(
@@ -244,12 +263,7 @@ export function itemUnits(item: ItemDraft): {
     case "cement-bulk":
       return { baseUnit: "g", units: { kg: fraction(1000n) } };
     case "grocery":
-      return f.weighted === "si"
-        ? { baseUnit: "g", units: { kg: fraction(1000n) } }
-        : {
-            baseUnit: "piezas",
-            units: { piece: ONE, box: decimal(f.packSize!, 0) },
-          };
+      return { baseUnit: "piezas", units: { piece: ONE, box: decimal(f.packSize!, 0) } };
     case "apparel":
       return {
         baseUnit: f.pair === "par" ? "pares" : "piezas",
@@ -267,10 +281,10 @@ export function itemUnits(item: ItemDraft): {
       };
   }
 }
-export function isDiscrete(item: Pick<ItemDraft, "kind" | "fields">): boolean {
+export function isDiscrete(item: Pick<ItemDraft, "kind" | "fields" | "measure">): boolean {
   return (
     !["timber-grouped", "timber-volume", "cement-bulk"].includes(item.kind) &&
-    !(item.kind === "grocery" && item.fields.weighted === "si")
+    !itemMeasure(item)
   );
 }
 export function validItemFields(

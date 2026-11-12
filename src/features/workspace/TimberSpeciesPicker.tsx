@@ -8,9 +8,15 @@ export default function TimberSpeciesPicker({ search, disabled, onPick }: { sear
   return <>
     <h3>Especies · elige el espesor en el grupo</h3>
     <Pager page={page} />
-    <div className="product-picker">{page.items.map((species) => <button key={species.id} type="button" data-tutorial="pick-item" disabled={disabled} onClick={() => onPick(timberSpeciesItem(species))}>
+    <div className="product-picker timber-species-picker">{page.items.map((species) => <button key={species.id} type="button" data-tutorial="pick-item" disabled={disabled} onClick={() => onPick(timberSpeciesItem(species))}>
       <strong>{species.name}</strong>
-      <small>Supercorta {bob(species.prices.superShort)} · corta {bob(species.prices.short)} · larga {bob(species.prices.long)} / pie tablar</small>
+      {species.species && <small>Especie · {species.species}</small>}
+      <small>Precio por pie tablar</small>
+      <span className="timber-picker-prices">
+        <span>1–2 pies <strong>{bob(species.prices.superShort)}</strong></span>
+        <span>3–6 pies <strong>{bob(species.prices.short)}</strong></span>
+        <span>7–20 pies <strong>{bob(species.prices.long)}</strong></span>
+      </span>
     </button>)}</div>
   </>;
 }

@@ -406,6 +406,101 @@
 .trade-form {
   min-width: 0;
 }
+.trade-operation[data-checkout="visible"] {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: clamp(22rem, 66dvh, 48rem);
+  margin-bottom: 24px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.trade-operation[data-checkout="visible"] .trade-scroll {
+  overflow: auto;
+  padding: 12px;
+  scrollbar-gutter: stable;
+}
+.trade-scroll .trade-layout { margin-bottom: 0; }
+.trade-operation[data-checkout="visible"] .trade-picker { top: 0; }
+.trade-bottom-tab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 14px 14px;
+  background: var(--soft);
+  color: var(--primary);
+}
+.trade-bottom-tab small { display: block; color: var(--ink); }
+.trade-bottom-tab button { min-height: 44px; }
+.editor-panel.trade-checkout-dialog {
+  inset: auto 0 max(12px, env(safe-area-inset-bottom));
+  margin: 0 auto;
+  width: min(620px, calc(100% - 24px));
+  height: auto;
+  max-height: min(88dvh, 46rem);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: auto;
+}
+.trade-checkout-dialog .panel-heading { padding: 12px 16px; }
+.trade-checkout-dialog .panel-heading h3 { margin: 0; color: var(--primary); }
+.trade-checkout-body { padding: 16px; }
+.industry-workbench {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 14px 18px;
+  margin: 0 0 16px;
+  border: 1px solid var(--line);
+  border-inline-start: 5px solid var(--accent);
+  border-radius: 12px;
+  background: var(--soft);
+}
+.industry-workbench > div:first-of-type { flex: 1 1 230px; }
+.industry-workbench h2, .industry-workbench p { margin: 0; }
+.industry-workbench h2 { color: var(--primary); font-size: 1.1rem; }
+.industry-workbench p { font-size: 0.88rem; }
+.store-workbench .actions, .appliances-workbench .actions { margin: 0; }
+[data-industry="convenience"] .trade-catalog-card { display: flex; flex-direction: column; }
+[data-industry="convenience"] .trade-catalog-card .barcode-search {
+  order: -1;
+  padding: 12px;
+  margin-bottom: 12px;
+  border-radius: 9px;
+  background: var(--soft);
+}
+.timber-picker-prices { display: grid; grid-template-columns: repeat(auto-fit, minmax(66px, 1fr)); gap: 5px; }
+.timber-picker-prices > span { background: var(--surface); padding: 5px; border-radius: 6px; font-size: 0.7rem; }
+.timber-picker-prices strong { display: block; }
+.fashion-matrix { padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--soft); }
+.fashion-matrix h3 { margin: 0; color: var(--primary); }
+.fashion-matrix table th { background: var(--surface); color: var(--primary); }
+[data-industry="appliances"] .cart-line[data-item-kind="appliance"] { border-inline-start: 4px solid var(--accent); }
+.chart-legend { flex-wrap: wrap; }
+.chart-legend i { display: inline-block; }
+.chart-purchases-toggle { display: flex; align-items: center; gap: 8px; }
+.chart-day-amounts {
+  width: 100%;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr));
+  gap: 10px 16px;
+}
+.chart-day-amounts dt { color: var(--muted); font-size: 0.8rem; }
+.chart-day-amounts dd { margin: 0; font-weight: 700; }
+@media (max-width: 767px) {
+  .trade-operation[data-checkout="visible"] { height: clamp(20rem, 57dvh, 36rem); }
+  .trade-operation[data-checkout="visible"] .trade-scroll { padding: 8px; }
+  .trade-operation[data-checkout="visible"] .trade-picker { position: static; }
+  .trade-bottom-tab { padding: 8px 10px max(8px, env(safe-area-inset-bottom)); }
+  .editor-panel.trade-checkout-dialog { inset: auto 0 0; width: 100%; max-height: 90dvh; border-radius: 14px 14px 0 0; }
+  .trade-checkout-body { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+}
 .cart-line {
   padding: 18px;
   margin-bottom: 12px;
@@ -421,18 +516,9 @@
   margin: 0;
   gap: 12px;
 }
-.cart-summary {
-  border-top: 3px solid var(--primary);
-  box-shadow: 0 6px 20px #183f2c0c;
-}
-.cart-summary h3 {
-  font-size: 1.2rem;
-  color: var(--primary);
-}
-.checkout-heading { scroll-margin-top: 124px; overflow-wrap: anywhere; }
 .trade-checkout-fields { border: 0; padding: 0; margin: 0; min-inline-size: 0; }
 .trade-checkout-fields > button[type="submit"] { width: 100%; margin-top: 8px; }
-.trade-total-preview, .cart-line-price {
+.cart-line-price {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -443,10 +529,7 @@
   border: 1px solid var(--line);
   border-radius: 10px;
 }
-.trade-total-preview { margin-block: 10px 16px; }
-.trade-total-preview p { margin: 0; }
-.trade-total-preview small { display: block; }
-.cart-line-price strong, .trade-total-preview strong { color: var(--primary); }
+.cart-line-price strong { color: var(--primary); }
 .customer-summary { align-items: center; justify-content: space-between; margin-block: 12px; }
 .report-chart-compact { margin-inline: 0; }
 .report-chart-compact svg { max-height: 200px; }
@@ -1598,12 +1681,6 @@
   padding: 10px;
   min-height: 44px;
 }
-.timber-fast-form .cart-summary {
-  position: sticky;
-  bottom: 12px;
-  z-index: 3;
-  box-shadow: 0 -4px 24px #12352318;
-}
 .customer-quick-select {
   display: grid;
   gap: 8px;
@@ -1738,7 +1815,6 @@
   }
 }
 
-.cart-summary,
 .product-metrics > div,
 .cash-current { background: var(--soft); }
 

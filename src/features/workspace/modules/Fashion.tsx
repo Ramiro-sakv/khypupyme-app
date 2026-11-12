@@ -6,8 +6,14 @@ import { ZERO } from "../../../../shared/workspace/exact";
 import { useWorkspaceNavigation } from "../navigation";
 export default function Fashion({ children }: { children: ReactNode }) {
   const { business, run, busy } = useWorkspace();
-  const { view } = useWorkspaceNavigation();
-  if (view !== "inventario") return children;
+  const { view, go } = useWorkspaceNavigation();
+  if (view !== "inventario") return <>
+    {business.industryId === "clothing" && <section className="industry-workbench fashion-workbench">
+      <div><h2>Elige modelo, talla y color</h2><p>Cada variante tiene su propia disponibilidad y su precio.</p></div>
+      <button onClick={() => go("ventas", { atencion: "cambios" })}>Buscar venta para cambio</button>
+    </section>}
+    {children}
+  </>;
   return (
     <>
       <section className="model-note">

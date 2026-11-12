@@ -161,6 +161,9 @@ export function itemDraft(raw: unknown): ItemDraft {
       : {}),
     name: (v) => text(v, 2, 80),
     kind: oneOf(Object.keys(ITEM_MODELS) as ItemKind[]),
+    ...(raw && typeof raw === "object" && Object.hasOwn(raw, "measure")
+      ? { measure: oneOf(["mass", "volume"]) }
+      : {}),
     fields: (v) => v,
     barcode: (v) => text(v, 0, 40).toUpperCase(),
     priceMinor: (v) => money(v, false),
@@ -176,6 +179,8 @@ export function itemDraft(raw: unknown): ItemDraft {
   )
     throw new Error("Ficha inválida.");
   item.fields = validItemFields(item.kind, item.fields);
+  if (item.measure && (!["general", "grocery"].includes(item.kind) || item.fields.weighted === "si"))
+    throw new Error("La medición por peso o volumen requiere una ficha general o de tienda compatible.");
   if (item.kind === "timber-grouped")
     item.fields.thicknessMm = exactDecimal(
       decimal(item.fields.thicknessMm!, 6),

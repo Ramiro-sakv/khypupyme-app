@@ -1,7 +1,7 @@
 import type { ProductSpecification } from '../../shared/product-specification.js';
 import { Timestamp } from 'firebase-admin/firestore';
 import type { DocumentData, Firestore, Query, Transaction } from 'firebase-admin/firestore';
-import { DomainError, id, int, period } from '../../shared/commerce.js';
+import { DomainError, id, int, period, today } from '../../shared/commerce.js';
 import type {
   DateFilter,
   FinancialRecord,
@@ -123,14 +123,14 @@ export class CommerceQueries {
         .filter((event) => event.amountMinor < 0)
         .reduce((sum, event) => sum + int(-event.amountMinor), 0),
     );
-    const buckets = new Map<string, { date: string; salesMinor: number; expensesMinor: number }>();
+    const buckets = new Map<string, { date: string; salesMinor: number; expensesMinor: number; costMinor: number; lossesMinor: number }>();
     for (
       let cursor = Date.parse(filter.from);
       cursor <= Date.parse(filter.to);
       cursor += 86400000
     ) {
       const date = new Date(cursor).toISOString().slice(0, 10);
-      buckets.set(date, { date, salesMinor: 0, expensesMinor: 0 });
+      buckets.set(date, { date, salesMinor: 0, expensesMinor: 0, costMinor: 0, lossesMinor: 0 });
     }
     const top = new Map<
         string,
@@ -139,6 +139,7 @@ export class CommerceQueries {
       categories = new Map<string, number>();
     for (const sale of sales) {
       buckets.get(sale.date)!.salesMinor += sale.totalMinor;
+      buckets.get(sale.date)!.costMinor += sale.costMinor;
       for (const line of sale.lines as StoredSaleLine[]) {
         const key = `${line.kind}:${line.itemId || line.name}`,
           record = top.get(key) ?? {
@@ -158,6 +159,10 @@ export class CommerceQueries {
         expense.category,
         (categories.get(expense.category) ?? 0) + expense.amountMinor,
       );
+    }
+    for (const loss of valuedLosses) {
+      const day = buckets.get(today(loss.createdAt.toDate()));
+      if (day) day.lossesMinor += loss.valueBeforeMinor - loss.valueAfterMinor;
     }
     return {
       filter,

@@ -20,7 +20,8 @@ export default function FashionPicker({ items, pick, disabled, sell = false }: {
   const sizes = [...new Set(variants.items.map((item) => item.fields.size!))].sort((a, b) => a.localeCompare(b, "es", { numeric: true }));
   const colors = [...new Set(variants.items.map((item) => item.fields.color!))].sort((a, b) => a.localeCompare(b, "es"));
   return (
-    <section className="variant-picker">
+    <section className="variant-picker fashion-matrix">
+      <h3>Disponibilidad por talla y color</h3>
       <label>Modelo de esta página del catálogo
         <select value={model} onChange={(event) => setSelection(event.target.value)}>
           {models.map((name) => <option key={name}>{name}</option>)}
@@ -37,7 +38,7 @@ export default function FashionPicker({ items, pick, disabled, sell = false }: {
                 {variants.items.filter((item) => item.fields.size === size && item.fields.color === color).map((item) => (
                   <button key={item.id} type="button" disabled={disabled || (sell && compare(item.balance, ZERO) <= 0)}
                     onClick={() => pick(item)} aria-label={`${item.name}, ${displayQuantity(item.balance)} disponibles, ${bob(item.priceMinor)}`}>
-                    <strong>{displayQuantity(item.balance)} disp.</strong><small>{bob(item.priceMinor)}</small>
+                    <strong>{item.balance.n === "0" ? "Agotado" : `${displayQuantity(item.balance)} disponibles`}</strong><small>{bob(item.priceMinor)}</small>
                     {item.fields.reference && <small>{item.fields.reference}</small>}
                   </button>
                 ))}

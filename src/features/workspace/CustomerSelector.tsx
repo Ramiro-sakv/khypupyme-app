@@ -9,16 +9,22 @@ export function CustomerSelector({
   onChange,
   required = false,
   allowCreate = false,
+  compact = false,
+  selectedName = "",
 }: {
   value: string;
   required?: boolean;
   allowCreate?: boolean;
+  compact?: boolean;
+  selectedName?: string;
   onChange: (id: string, name: string) => void;
 }) {
   const { run, busy } = useWorkspace();
   const [search, setSearch] = useState(""),
     [query, setQuery] = useState(""),
-    [creating, setCreating] = useState(false);
+    [creating, setCreating] = useState(false),
+    [lookup, setLookup] = useState(false);
+  const showLookup = !compact || required || lookup;
   useEffect(() => {
     const timer = window.setTimeout(() => setQuery(search.trim()), 250);
     return () => clearTimeout(timer);
@@ -26,9 +32,18 @@ export function CustomerSelector({
   const page = useRecords<Customer>("customersV2", {
     active: true,
     ...(query.length >= 2 ? { search: query } : {}),
-  });
+  }, showLookup);
   return (
     <div className="customer-quick-select">
+      {compact && !required && (
+        <div className="actions customer-summary">
+          <strong>{value ? selectedName || "Cliente registrado" : "Cliente ocasional"}</strong>
+          <button type="button" aria-expanded={showLookup} onClick={() => setLookup((visible) => !visible)}>
+            {showLookup ? "Ocultar búsqueda" : "Elegir cliente"}
+          </button>
+        </div>
+      )}
+      <div hidden={!showLookup}>
       <label>
         Cliente{" "}
         {required ? "registrado (obligatorio)" : "ocasional o registrado"}
@@ -40,7 +55,14 @@ export function CustomerSelector({
           maxLength={40}
         />
       </label>
-      <Pager page={page} />
+      {compact ? (
+        <>
+          {page.loading && <small role="status">Buscando clientes…</small>}
+          {page.error && <p role="alert">{page.error}</p>}
+          {!page.loading && !page.error && !page.items.length && <small>No se encontraron clientes.</small>}
+          {page.next && <button type="button" onClick={page.more}>Más clientes</button>}
+        </>
+      ) : <Pager page={page} />}
       <label>
         <span className="sr-only">Cliente de este negocio</span>
         <select
@@ -58,7 +80,7 @@ export function CustomerSelector({
             {required ? "Selecciona un cliente activo" : "Cliente ocasional"}
           </option>
           {value && !page.items.some((c) => c.id === value) && (
-            <option value={value}>Cliente seleccionado</option>
+            <option value={value}>{selectedName || "Cliente seleccionado"}</option>
           )}
           {page.items.map((c) => (
             <option key={c.id} value={c.id}>
@@ -78,6 +100,7 @@ export function CustomerSelector({
           Nuevo cliente sin salir de la venta
         </button>
       )}
+      </div>
       {creating &&
         createPortal(
           <Panel title="Nuevo cliente" onClose={() => setCreating(false)}>

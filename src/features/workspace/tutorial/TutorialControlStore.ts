@@ -69,5 +69,15 @@ export class TutorialControlStore {
         reject(new Error("No se pudo confirmar la limpieza local."));
     });
   }
+  async purgeRemoved(uid: string, businessIds: string[]) {
+    const db = await this.open();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction("requests", "readwrite");
+      const store = tx.objectStore("requests");
+      for (const businessId of businessIds) store.delete(this.key(uid, businessId));
+      tx.oncomplete = () => resolve();
+      tx.onabort = tx.onerror = () => reject(new Error("No se pudieron limpiar las prácticas eliminadas."));
+    });
+  }
 }
 export const tutorialControlStore = new TutorialControlStore();

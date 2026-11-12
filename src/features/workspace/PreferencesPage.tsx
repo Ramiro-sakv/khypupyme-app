@@ -1,8 +1,14 @@
 import { useWorkspace } from "./context";
 import { ActionForm, Field } from "./ui";
-export function Preferences() {
+import AccountSessionActions from "./AccountSessionActions";
+export function Preferences({ onExit }: { onExit: () => void }) {
   const { business, run, busy } = useWorkspace();
   return (
+    <>
+    <section className="card preferences-session">
+      <h2>Configuración</h2>
+      <AccountSessionActions onExit={onExit} practice={!!business.tutorialSessionId} exitDisabled={!!business.tutorialSessionId && busy} />
+    </section>
     <section className="card">
       <h2>Datos del negocio</h2>
       <p>El rubro es fijo. Para otra actividad crea otro negocio.</p>
@@ -78,5 +84,6 @@ export function Preferences() {
         />
       </ActionForm>
     </section>
+    </>
   );
 }

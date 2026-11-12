@@ -2,11 +2,11 @@ import { timberCategory } from "../../../shared/workspace/timber-species";
 import TimberSpeciesPicker from "./TimberSpeciesPicker";
 import { displayQuantity as showQuantity } from "../../../shared/workspace/presentation";
 import { AppError } from "../../../shared/app-errors";
-import { requireTimber, resolveTimber } from "./TimberWidthEntry";
+import { resolveTimber } from "./TimberWidthEntry";
 import { timberTotals } from "../../../shared/workspace/timber-groups";
-import { useCallback, useState } from "react";
+import { useCallback, useId, useRef, useState } from "react";
 import { UNITS } from "../../../shared/workspace/catalog";
-import { amount, div, add, ONE, showQuantity as showExact, ZERO } from "../../../shared/workspace/exact";
+import { div, add, ONE, showQuantity as showExact, ZERO } from "../../../shared/workspace/exact";
 import type {
   Item,
   Method,
@@ -25,7 +25,7 @@ import { ActionForm, Field, MethodField, Pager } from "./ui";
 import { useTradeDraft } from "./useTradeDraft";
 
 import type { CartLine } from "./Cart";
-import { delivered, receiptInputs, saleInputs } from "./Cart";
+import { delivered, linePrice, receiptInputs, saleInputs } from "./Cart";
 import CartEditor from "./CartEditor";
 import Quotes from "./QuoteHistory";
 export default function Trade({
@@ -66,6 +66,8 @@ export default function Trade({
     [reference, setReference] = useState(""),
     [restoredNotice, setRestoredNotice] = useState(""),
     [checkoutExpanded, setCheckoutExpanded] = useState(true);
+  const checkoutId = useId();
+  const checkoutHeading = useRef<HTMLHeadingElement>(null);
   const draftInput: TradeDraftInput = {
     ...(source ? { origin: source } : {}),
     lines: lines.map((line) => ({
@@ -213,17 +215,7 @@ export default function Trade({
       },
     ]);
   }
-  const widthInvalid = lines.some((line) => {
-    if (line.item.kind !== "timber-grouped") return false;
-    try {
-      requireTimber(line);
-      return false;
-    } catch {
-      return true;
-    }
-  });
-  let total = 0,
-    timberPieces = 0,
+  let timberPieces = 0,
     timberFeet = ZERO;
   for (const line of lines) {
     try {
@@ -250,27 +242,35 @@ export default function Trade({
       /* Medidas aún incompletas. */
     }
   }
-  try {
-    total =
-      lines.reduce(
-        (s, l) =>
-          s +
-          (purchase
-            ? amount(
-                cents(l.cost || "0"),
-                l.timber
-                  ? timberTotals(l.item.fields.thicknessMm!, requireTimber(l))
-                      .boardFeet
-                  : q(l.qty),
-              )
-            : amount(
-                l.timber?.priceMinor ?? l.item.priceMinor,
-                div(delivered(l), l.item.units[l.item.priceUnit]!),
-              )),
-        0,
-      ) - (purchase ? 0 : cents(discount));
-  } catch {
-    /* Se muestran errores precisos al confirmar el formulario. */
+  let total: number | null = lines.length ? 0 : null;
+  let totalIssue = "";
+  for (const line of lines) {
+    const price = linePrice(line, purchase);
+    if ("issue" in price) {
+      total = null;
+      totalIssue = line.item.name + ". " + price.issue;
+      break;
+    }
+    total = (total ?? 0) + price.subtotal;
+  }
+  if (total !== null) {
+    try {
+      if (total > 1e12) throw new Error("El importe supera el límite de la operación.");
+      total -= purchase ? 0 : cents(discount);
+      if (total <= 0) throw new Error("El total debe ser mayor que cero. Revisa el importe y el descuento.");
+    } catch (cause) {
+      total = null;
+      totalIssue = cause instanceof Error ? cause.message : "Revisa el importe.";
+    }
+  }
+  const totalLabel = purchase ? "Total de compra" : isQuote ? "Total de cotización" : "Total de venta";
+  const confirmLabel = purchase ? "Confirmar compra y pago" : isQuote ? "Emitir cotización" : "Confirmar venta";
+  function openCheckout() {
+    setCheckoutExpanded(true);
+    requestAnimationFrame(() => {
+      checkoutHeading.current?.focus({ preventScroll: true });
+      checkoutHeading.current?.scrollIntoView({ block: "start" });
+    });
   }
   return (
     <>
@@ -378,39 +378,16 @@ export default function Trade({
         </section>
         <ActionForm
           dataTutorial="trade-form"
-          onInvalidField={(name) => {
-            if (name === "review" || name === "method")
-              setCheckoutExpanded(true);
-          }}
-          className={
-            "trade-form" +
-            (business.industryId === "timber" ? " timber-fast-form" : "")
-          }
+          className="trade-form"
           dirty={lines.length > 0}
           disabled={busy || !draft.editable || !lines.length}
-          label={
-            purchase
-              ? "Confirmar compra y pago"
-              : isQuote
-                ? "Emitir cotización"
-                : "Confirmar venta"
-          }
+          showSubmit={false}
           onSave={async (d) => {
-            if (business.industryId === "timber") {
-              if (!checkoutExpanded) {
-                setCheckoutExpanded(true);
-                throw new AppError(
-                  "Abre el cobro y revisa la forma de pago y el importe antes de confirmar.",
-                  400,
-                  "CHECKOUT_REVIEW",
-                  "review",
-                );
-              }
-              for (const line of lines)
-                if (line.item.kind === "timber-grouped") requireTimber(line);
+            if (!checkoutExpanded) {
+              openCheckout();
+              return;
             }
-            if (total <= 0)
-              throw new Error("Revisa cantidades, precios y descuento.");
+            if (total === null) throw new AppError(totalIssue || "Completa la operación.", 400, "TRADE_TOTAL");
             if (d.get("review") !== "on") {
               setCheckoutExpanded(true);
               throw new AppError(
@@ -464,6 +441,12 @@ export default function Trade({
             <h3>Detalle de la operación</h3>
             <span className="badge">{lines.length} líneas</span>
           </div>
+          {lines.length > 0 && (
+            <div className="trade-total-preview">
+              <p role="status"><strong>{totalLabel} · {total === null ? "Pendiente" : bob(total)}</strong>{totalIssue && <small>{totalIssue}</small>}</p>
+              <button type="button" onClick={openCheckout}>Ir al resumen</button>
+            </div>
+          )}
           {error && (
             <p role="alert" className="notice notice-error">
               {error}
@@ -524,171 +507,90 @@ export default function Trade({
               }
             />
           ))}
-          <div className="card cart-summary" data-tutorial="trade-summary">
-            <h3>Revisar importe: {bob(total)}</h3>
-            {business.industryId === "timber" && (
-              <p className="timber-grand-total">
-                {timberPieces} piezas registradas · {showQuantity(timberFeet)}{" "}
-                pies tablares · {bob(total)} en toda la operación
-              </p>
-            )}
-            {!purchase && (
-              <>
-                <CustomerSelector
-                  value={customerId}
-                  required={!isQuote && payment === "credit"}
-                  allowCreate={business.industryId === "timber"}
-                  onChange={(id, name) => {
-                    setCustomerId(id);
-                    setCustomerName(name);
-                  }}
-                />
-                <details>
-                  <summary>Nombre para el comprobante y descuento</summary>
-                  <label>
-                    Nombre para el comprobante (opcional)
-                    <input
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      maxLength={80}
+          {lines.length > 0 && (
+            <section className="card cart-summary" data-tutorial="trade-summary">
+              <div className="section-heading">
+                <h3 ref={checkoutHeading} tabIndex={-1} className="checkout-heading">
+                  {totalLabel} · {total === null ? "Pendiente" : bob(total)}
+                </h3>
+                <button type="button" aria-expanded={checkoutExpanded} aria-controls={checkoutId}
+                  onClick={() => setCheckoutExpanded((value) => !value)}>
+                  {checkoutExpanded ? "Plegar resumen" : "Revisar y confirmar"}
+                </button>
+              </div>
+              {totalIssue && <p role="status" className="muted">{totalIssue}</p>}
+              {business.industryId === "timber" && (
+                <p>{timberPieces} piezas · {showQuantity(timberFeet)} pies tablares</p>
+              )}
+              <fieldset id={checkoutId} className="trade-checkout-fields" hidden={!checkoutExpanded} disabled={!checkoutExpanded}>
+                {!purchase && (
+                  <>
+                    <CustomerSelector
+                      value={customerId}
+                      selectedName={customerName}
+                      required={!isQuote && payment === "credit"}
+                      allowCreate
+                      compact
+                      onChange={(id, name) => {
+                        setCustomerId(id);
+                        setCustomerName(name);
+                      }}
                     />
-                  </label>
-                  <label>
-                    Descuento total (BOB)
-                    <input
-                      value={discount}
-                      onChange={(e) => setDiscount(e.target.value)}
-                      inputMode="decimal"
-                    />
-                  </label>
-                </details>
-              </>
-            )}
-            {purchase && (
-              <Field
-                name="reference"
-                label="Referencia de compra"
-                value={reference}
-                onValueChange={setReference}
-                required={false}
-                maxLength={100}
-              />
-            )}
-            {isQuote ? (
-              <Field
-                name="validUntil"
-                label="Válida hasta"
-                type="date"
-                value={validUntil}
-                onValueChange={setValidUntil}
-              />
-            ) : (
-              <>
-                <Field
-                  name="date"
-                  label="Fecha"
-                  type="date"
-                  value={date}
-                  onValueChange={setDate}
-                />
-                {business.industryId !== "timber" && (
-                  <MethodField
-                    credit={!purchase}
-                    value={payment}
-                    onValueChange={setPayment}
+                    <details>
+                      <summary>Nombre para el comprobante y descuento</summary>
+                      <label>
+                        Nombre para el comprobante (opcional)
+                        <input
+                          value={customerName}
+                          onChange={(e) => setCustomerName(e.target.value)}
+                          maxLength={80}
+                        />
+                      </label>
+                      <label>
+                        Descuento total (BOB)
+                        <input
+                          value={discount}
+                          onChange={(e) => setDiscount(e.target.value)}
+                          inputMode="decimal"
+                        />
+                      </label>
+                    </details>
+                  </>
+                )}
+                {purchase && (
+                  <Field
+                    name="reference"
+                    label="Referencia de compra"
+                    value={reference}
+                    onValueChange={setReference}
+                    required={false}
+                    maxLength={100}
                   />
                 )}
-              </>
-            )}
-            <div
-              hidden={business.industryId === "timber" && !lines.length}
-              className={
-                business.industryId === "timber"
-                  ? "timber-checkout-bar" +
-                    (!checkoutExpanded ? " checkout-minimized" : "")
-                  : ""
-              }
-            >
-              {business.industryId === "timber" && (
-                <button
-                  type="button"
-                  className="checkout-toggle"
-                  aria-expanded={checkoutExpanded}
-                  aria-controls="timber-checkout-fields"
-                  onClick={() => setCheckoutExpanded((value) => !value)}
-                >
-                  {checkoutExpanded ? "Minimizar" : "Mostrar cobro"}
-                </button>
-              )}
-
-              {business.industryId === "timber" && (
+                {isQuote ? (
+                  <Field
+                    name="validUntil"
+                    label="Válida hasta"
+                    type="date"
+                    value={validUntil}
+                    onValueChange={setValidUntil}
+                  />
+                ) : (
                 <>
-                  <strong>
-                    {checkoutExpanded ? (
-                      <>
-                        {timberPieces} piezas · {showQuantity(timberFeet)} pies
-                        tablares · {bob(total)}
-                      </>
-                    ) : (
-                      <>Total: {bob(total)}</>
-                    )}
-                  </strong>
+                  <Field name="date" label="Fecha" type="date" value={date} onValueChange={setDate} />
+                  <MethodField credit={!purchase} value={payment} onValueChange={setPayment} />
                 </>
               )}
-              <div
-                id="timber-checkout-fields"
-                hidden={business.industryId === "timber" && !checkoutExpanded}
-              >
-                {business.industryId === "timber" && !isQuote && (
-                  <MethodField
-                    credit={!purchase}
-                    value={payment}
-                    onValueChange={setPayment}
-                  />
-                )}
                 <label>
-                  <input
-                    key={
-                      business.industryId === "timber"
-                        ? JSON.stringify([
-                            total,
-                            lines.map((l) => [
-                              l.item.id,
-                              l.qty,
-                              l.unit,
-                              l.timber,
-                            ]),
-                          ])
-                        : "review"
-                    }
-                    name="review"
-                    type="checkbox"
-                    required={
-                      business.industryId !== "timber" ||
-                      (checkoutExpanded && lines.length > 0)
-                    }
-                  />
-                  He revisado cantidades e importe de {bob(total)}.
+                  <input key={JSON.stringify([draftInput.lines, discount])} name="review" type="checkbox" required />
+                  {total === null ? "Revisar importe cuando esté completo" : "He revisado cantidades e importe de " + bob(total) + "."}
                 </label>
-                {business.industryId === "timber" && (
-                  <button
-                    type="submit"
-                    className="primary"
-                    data-tutorial="confirm-trade"
-                    disabled={busy || !lines.length || widthInvalid}
-                  >
-                    {busy
-                      ? "Procesando…"
-                      : purchase
-                        ? "Confirmar compra y pago"
-                        : isQuote
-                          ? "Emitir cotización"
-                          : "Confirmar venta"}
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
+                <button type="submit" className="primary" data-tutorial="confirm-trade" disabled={total === null}>
+                  {busy ? "Procesando…" : confirmLabel}
+                </button>
+              </fieldset>
+            </section>
+          )}
         </ActionForm>
       </div>
       {!purchase && initialQuote && (

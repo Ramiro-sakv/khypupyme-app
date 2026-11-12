@@ -12,10 +12,11 @@ import {
   widthSelectionText,
 } from "../../../shared/workspace/timber-width-entry";
 import { timberTotals } from "../../../shared/workspace/timber-groups";
-import { amount, div } from "../../../shared/workspace/exact";
+import { div } from "../../../shared/workspace/exact";
 import { displayQuantity } from "../../../shared/workspace/presentation";
 import type { TimberStockGroup } from "../../../shared/workspace/model";
 import type { CartLine } from "./Cart";
+import { linePrice } from "./Cart";
 import { useRecords, useWorkspace } from "./context";
 import { bob, cents } from "./format";
 import { errorMessage } from "../../shared/errors";
@@ -83,19 +84,13 @@ export default function TimberLineEditor({
   );
   let summary = "Indica el largo y los anchos para calcular.",
     pieces = 0,
-    feet = "—",
-    total = "—";
+    feet = "—";
+  const price = linePrice(line, purchase);
   try {
     const totals = timberTotals(line.item.fields.thicknessMm!, selection);
     pieces = totals.pieces;
     feet = displayQuantity(totals.boardFeet);
-    total = bob(
-      amount(
-        purchase ? cents(line.cost || "0") : selection.priceMinor,
-        totals.boardFeet,
-      ),
-    );
-    summary = pieces + " piezas · " + feet + " pies tablares · " + total;
+    summary = pieces + " piezas · " + feet + " pies tablares";
     if (system === "metric")
       summary +=
         " · " +
@@ -326,8 +321,10 @@ export default function TimberLineEditor({
           <strong>{issue ? "—" : feet}</strong>
         </div>
         <div>
-          <span>Total</span>
-          <strong>{issue ? "—" : total}</strong>
+          <span>Subtotal</span>
+          <strong>{issue || "issue" in price ? "—" : bob(price.subtotal)}</strong>
+          {!issue && ("issue" in price ? <small>{price.issue}</small> :
+            <small>{purchase ? "Costo" : "Precio"} {bob(price.unitMinor)} / pie tablar</small>)}
         </div>
       </div>
       <button type="button" disabled={busy} onClick={clear}>

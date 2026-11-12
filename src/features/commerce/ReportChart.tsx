@@ -21,7 +21,7 @@ function chartBuckets(days: Day[]) {
   }
   return { mode, buckets: [...buckets.values()] };
 }
-export function ReportChart({ days }: Pick<Report, "days">) {
+export function ReportChart({ days, salesOnly = false }: Pick<Report, "days"> & { salesOnly?: boolean }) {
   const id = useId(), container = useRef<HTMLDivElement>(null), svg = useRef<SVGSVGElement>(null);
   const [width, setWidth] = useState(800), [selected, setSelected] = useState("");
   useEffect(() => {
@@ -33,12 +33,13 @@ export function ReportChart({ days }: Pick<Report, "days">) {
   }, []);
   const ordered = [...days].sort((a, b) => a.date.localeCompare(b.date));
   const { mode, buckets } = chartBuckets(ordered);
-  const nonzero = ordered.filter((day) => day.salesMinor !== 0 || day.expensesMinor !== 0).length;
-  const lastActive = buckets.reduce((last, day, index) => day.salesMinor !== 0 || day.expensesMinor !== 0 ? index : last, -1);
+  const series = salesOnly ? ["salesMinor"] as const : ["salesMinor", "expensesMinor"] as const;
+  const nonzero = ordered.filter((day) => series.some((field) => day[field] !== 0)).length;
+  const lastActive = buckets.reduce((last, day, index) => series.some((field) => day[field] !== 0) ? index : last, -1);
   const selectedIndex = buckets.findIndex((day) => day.date === selected);
   const activeIndex = selectedIndex >= 0 ? selectedIndex : Math.max(0, lastActive), active = buckets[activeIndex];
-  const minimum = Math.min(0, ...buckets.flatMap((day) => [day.salesMinor, day.expensesMinor]));
-  const maximum = Math.max(100, ...buckets.flatMap((day) => [day.salesMinor, day.expensesMinor]));
+  const minimum = Math.min(0, ...buckets.flatMap((day) => series.map((field) => day[field])));
+  const maximum = Math.max(100, ...buckets.flatMap((day) => series.map((field) => day[field])));
   const magnitude = 10 ** Math.floor(Math.log10((maximum - minimum) / 4));
   const step = Math.ceil((maximum - minimum) / 4 / magnitude) * magnitude;
   const low = Math.floor(minimum / step) * step, high = Math.ceil(maximum / step) * step;
@@ -54,60 +55,60 @@ export function ReportChart({ days }: Pick<Report, "days">) {
   };
   const labelCount = Math.min(buckets.length, Math.max(2, Math.floor(plotWidth / 130)));
   const labelIndices = new Set(Array.from({ length: labelCount }, (_, i) => Math.round(i * (buckets.length - 1) / Math.max(1, labelCount - 1))));
-  return <figure className="report-chart report-chart-bars">
+  return <figure className={`report-chart report-chart-bars${salesOnly ? " report-chart-compact" : ""}`}>
     <figcaption>
-      <strong>Importes en BOB · agrupación {mode.toLowerCase()}</strong>
+      <strong>{salesOnly ? "Ventas netas por día en BOB" : `Importes en BOB · agrupación ${mode.toLowerCase()}`}</strong>
       <span className="chart-legend">
-        <i />Ventas netas<i className="expense-dot" />Gastos netos</span>
+        <i />Ventas netas{!salesOnly && <><i className="expense-dot" />Gastos netos</>}</span>
     </figcaption>
     <div ref={container} className="report-chart-canvas">
       {!nonzero ? <div className="chart-empty">
-        <strong>No hay importes netos que representar.</strong>
-        <p>Consulta otro periodo. Las cifras diarias siguen disponibles en la tabla.</p>
+        <strong>{salesOnly ? "No hay ventas netas en este periodo." : "No hay importes netos que representar."}</strong>
+        {!salesOnly && <p>Consulta otro periodo. Las cifras diarias siguen disponibles en la tabla.</p>}
       </div> : <>
-        <p className="muted">{nonzero} de {ordered.length} días con importes netos distintos de cero. Los valores negativos reflejan devoluciones o anulaciones.</p>
+        {!salesOnly && <p className="muted">{nonzero} de {ordered.length} días con importes netos distintos de cero. Los valores negativos reflejan devoluciones o anulaciones.</p>}
         <svg ref={svg} viewBox={`0 0 ${width} 278`} role="group" aria-labelledby={id + "-title"}>
-          <title id={id + "-title"}>Ventas y gastos, agrupación {mode.toLowerCase()}. Selecciona una barra para consultar sus importes.</title>
+          <title id={id + "-title"}>{salesOnly ? "Ventas netas" : "Ventas y gastos"}, agrupación {mode.toLowerCase()}. Selecciona una barra para consultar sus importes.</title>
           {Array.from({ length: Math.round((high - low) / step) + 1 }, (_, index) => low + index * step).map((value) => <g key={value}>
         <line x1={left} x2={width - 18} y1={y(value)} y2={y(value)} stroke={value === 0 ? "#82948a" : "#e4ded1"} strokeDasharray={value === 0 ? undefined : "3 5"} />
         <text x={left - 10} y={y(value) + 4} textAnchor="end" fontSize="12" fill="#53655d">{axisFormat.format(value / 100)}</text>
           </g>)}
-          {buckets.map((bucket, index) => <g key={bucket.date} data-bucket={index} tabIndex={0} role="button" aria-pressed={index === activeIndex} aria-label={`${rangeLabel(bucket)}. Ventas ${formatBOB(bucket.salesMinor)}. Gastos ${formatBOB(bucket.expensesMinor)}.`} onFocus={() => setSelected(bucket.date)} onPointerEnter={() => setSelected(bucket.date)} onClick={() => setSelected(bucket.date)} onKeyDown={(event) => {
+          {buckets.map((bucket, index) => <g key={bucket.date} data-bucket={index} tabIndex={0} role="button" aria-pressed={index === activeIndex} aria-label={`${rangeLabel(bucket)}. Ventas ${formatBOB(bucket.salesMinor)}.${salesOnly ? "" : ` Gastos ${formatBOB(bucket.expensesMinor)}.`}`} onFocus={() => setSelected(bucket.date)} onPointerEnter={() => setSelected(bucket.date)} onClick={() => setSelected(bucket.date)} onKeyDown={(event) => {
             const target = event.key === "ArrowRight" ? index + 1 : event.key === "ArrowLeft" ? index - 1 : event.key === "Home" ? 0 : event.key === "End" ? buckets.length - 1 : null;
             if (target !== null) { event.preventDefault(); pick(target); }
           }}>
             <rect x={x(index) - slot / 2} y="28" width={slot} height="205" fill={index === activeIndex ? "#e5eee660" : "transparent"} />
-            {(["salesMinor", "expensesMinor"] as const).map((field, series) => <rect key={field} x={x(index) + (series ? 2 : -barWidth - 2)} y={Math.min(y(0), y(bucket[field]))} width={barWidth} height={Math.abs(y(bucket[field]) - y(0))} rx="2" fill={series ? "#b77d35" : "#11654d"} />)}
+            {series.map((field, i) => <rect key={field} x={x(index) + (salesOnly ? -barWidth / 2 : i ? 2 : -barWidth - 2)} y={Math.min(y(0), y(bucket[field]))} width={barWidth} height={Math.abs(y(bucket[field]) - y(0))} rx="2" fill={i ? "#b77d35" : "var(--primary)"} />)}
             {labelIndices.has(index) && <text x={x(index)} y="254" textAnchor={buckets.length === 1 ? "middle" : index === 0 ? "start" : index === buckets.length - 1 ? "end" : "middle"} fontSize="12" fill="#53655d">{bucket.date.slice(8, 10)}/{bucket.date.slice(5, 7)}</text>}
           </g>)}
         </svg>
         {active && <div className="chart-selection" role="status" aria-live="polite">
           <strong>{rangeLabel(active)}</strong>
           <span>Ventas: {formatBOB(active.salesMinor)}</span>
-          <span>Gastos: {formatBOB(active.expensesMinor)}</span>
+          {!salesOnly && <span>Gastos: {formatBOB(active.expensesMinor)}</span>}
         </div>}
-        <div className="actions">
+        {!salesOnly && <div className="actions">
           <button type="button" disabled={activeIndex === 0} onClick={() => pick(activeIndex - 1)}>Periodo anterior</button>
           <button type="button" disabled={activeIndex === buckets.length - 1} onClick={() => pick(activeIndex + 1)}>Periodo siguiente</button>
-        </div>
+        </div>}
       </>}
     </div>
     <details>
       <summary>Ver cifras completas por día</summary>
       <div className="table-scroll">
         <table>
-          <caption className="sr-only">Ventas y gastos netos diarios en BOB</caption>
+          <caption className="sr-only">{salesOnly ? "Ventas netas diarias en BOB" : "Ventas y gastos netos diarios en BOB"}</caption>
           <thead>
             <tr>
               <th scope="col">Fecha</th>
               <th scope="col" className="numeric">Ventas netas</th>
-              <th scope="col" className="numeric">Gastos netos</th>
+              {!salesOnly && <th scope="col" className="numeric">Gastos netos</th>}
             </tr>
           </thead>
           <tbody>{ordered.map((day) => <tr key={day.date}>
             <th scope="row">{localDate(day.date)}</th>
             <td className="numeric">{formatBOB(day.salesMinor)}</td>
-            <td className="numeric">{formatBOB(day.expensesMinor)}</td>
+            {!salesOnly && <td className="numeric">{formatBOB(day.expensesMinor)}</td>}
           </tr>)}</tbody>
         </table>
       </div>

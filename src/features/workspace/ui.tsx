@@ -103,6 +103,7 @@ export function ActionForm({
   protectDraft = true,
   dataTutorial,
   onInvalidField,
+  showSubmit = true,
 }: {
   children: ReactNode;
   onSave: (data: FormData) => Promise<unknown>;
@@ -113,6 +114,7 @@ export function ActionForm({
   protectDraft?: boolean;
   dataTutorial?: string;
   onInvalidField?: (field: string) => void;
+  showSubmit?: boolean;
 }) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -212,7 +214,7 @@ export function ActionForm({
             </span>
           </div>
         )}
-        <div className="form-submit">
+        {showSubmit && <div className="form-submit">
           <button type="submit" className="primary">
             {busy ? (
               <>
@@ -226,7 +228,7 @@ export function ActionForm({
               </>
             )}
           </button>
-        </div>
+        </div>}
       </fieldset>
     </form>
   );

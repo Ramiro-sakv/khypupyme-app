@@ -1,4 +1,5 @@
 import { INDUSTRIES } from "../../../shared/business-industries";
+import { ReportChart } from "../commerce/ReportChart";
 import { hasAgenda, hasDelivery, workKindFor } from "../../../shared/workspace/operations";
 import { useCashState } from "./cash-context";
 import { useWorkspace } from "./context";
@@ -15,7 +16,8 @@ export default function Dashboard() {
   const tutorial = useTimberTutorial();
   const cash = useCashState();
   const date = today();
-  const { report, error, loading, refresh } = useReport(date, date);
+  const weekStart = new Date(Date.parse(date) - 6 * 86400000).toISOString().slice(0, 10);
+  const { report, error, loading, refresh } = useReport(weekStart, date);
   const industry = business.industryId;
   const services = industry && INDUSTRIES[industry].profile === "services";
   const cashTitle = cash.loading || cash.error || cash.open ? "Ver caja" : "Abrir caja";
@@ -69,10 +71,10 @@ export default function Dashboard() {
       )}
       <section className="card day-summary">
         <div className="section-heading">
-          <h3>Resumen de hoy</h3>
+          <h3>Últimos siete días</h3>
           <button className="text-button" onClick={() => go("informes")}>Ver informes <Icon name="arrow" /></button>
         </div>
-        {loading && <p role="status">Consultando cifras del día…</p>}
+        {loading && <p role="status">Consultando cifras de la semana…</p>}
         {error && <div className="notice notice-error" role="alert">{error} <button onClick={refresh}>Volver a consultar</button></div>}
         {report && (
           <>
@@ -82,6 +84,7 @@ export default function Dashboard() {
               <div><dt>Gastos netos</dt><dd>{bob(report.expensesMinor)}</dd></div>
               <div><dt>Resultado estimado</dt><dd>{bob(report.resultMinor)}</dd></div>
             </dl>
+            <ReportChart days={report.days} salesOnly />
             {report.pendingMinor > 0 && <button className="text-button" onClick={() => go("fiados")}>Fiados pendientes · {bob(report.pendingMinor)}</button>}
             {(report.pendingValuationCount > 0 || report.unvaluedLossCount > 0) && (
               <div className="notice notice-warning" role="status">

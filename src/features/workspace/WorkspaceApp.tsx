@@ -1,23 +1,17 @@
-import { errorMessage } from "../../shared/errors";
-import { useState } from "react";
 import { Link, Navigate, Route, Routes } from "react-router";
+import { version } from "../../../package.json";
 import { useAuth } from "../auth/auth-context";
 import { AuthPage } from "../auth/AuthPage";
-import { Icon } from "./Icon";
-import { confirmDiscardChanges, useDraftProtection } from "./navigation";
+import { useDraftProtection } from "./navigation";
 import "./workspace.css";
 import type { WorkspaceRepository } from "./WorkspaceRepository";
-const message = (e: unknown) =>
-  errorMessage(e, "No se pudo completar la solicitud.");
-
 import Account from "./AccountPage";
 export function WorkspaceApp({
   repository,
 }: {
   repository: WorkspaceRepository;
 }) {
-  const { user, status, service, error: authError } = useAuth();
-  const [logoutError, setLogoutError] = useState("");
+  const { user, status, error: authError } = useAuth();
   useDraftProtection();
   return (
     <>
@@ -45,29 +39,11 @@ export function WorkspaceApp({
             KhypuPyme
           </Link>
           <div className="header-actions">
-            <span className="version-label">0.5 beta 7</span>
-            {user && (
-              <button
-                onClick={() => {
-                  if (!confirmDiscardChanges()) return;
-                  void service
-                    .logout()
-                    .catch((e) => setLogoutError(message(e)));
-                }}
-              >
-                <Icon name="logout" />
-                Salir
-              </button>
-            )}
+            <span className="version-label">{version}</span>
           </div>
         </div>
       </header>
       <main id="main" className="app-main" tabIndex={-1}>
-        {logoutError && (
-          <p role="alert" className="notice notice-error">
-            {logoutError}
-          </p>
-        )}
         {status === "loading" ? (
           <p role="status">Comprobando tu sesión…</p>
         ) : status === "error" ? (

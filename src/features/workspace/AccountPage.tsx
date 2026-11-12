@@ -5,6 +5,7 @@ import { useNavigate } from "react-router";
 import { industryLabel } from "../../../shared/workspace/catalog";
 import type { WorkspaceBusiness } from "../../../shared/workspace/model";
 import { AccountCreationService } from "./AccountCreationService";
+import AccountSessionActions from "./AccountSessionActions";
 import BusinessWizard from "./BusinessWizard";
 import { Icon } from "./Icon";
 import { confirmDiscardChanges } from "./navigation";
@@ -127,6 +128,7 @@ export default function Account({
           Una cuenta, espacios independientes. Selecciona el que vas a
           administrar.
         </p>
+        <AccountSessionActions />
       </div>
       {error && (
         <p className="notice notice-error" role="alert">

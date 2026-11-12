@@ -653,3 +653,11 @@ Recuento respecto de 955b22d: **32 archivos de código, +785 / -212 líneas fís
 - Dos exportaciones de Auth y Firestore confirmadas desde la sesión activa el 11/11 a las 11:25 y a las 12:03, hora de Bolivia. Se conservó la copia original del 08/11 y se confirmó que los procesos habituales seguían activos. El primer intento de la segunda exportación agotó el tiempo de consulta al hub bajo carga de compilación; el reintento con margen de diez segundos terminó correctamente.
 - Pendientes de revisión funcional. Arranque completo desde VS Code, restauración y cierres interrumpidos, desaparición de la guía al finalizar, caja que cruza medianoche y recorridos completos de tienda 24/7, ropa y electrodomésticos. La consulta de serie requiere el número exacto y el historial tiene un límite de lectura explícito. La matriz obtiene las variantes del modelo elegido en el servidor.
 - Sin pruebas automatizadas, capturas ni recorridos. El 500 observado originalmente queda pendiente de confirmar con una referencia de diagnóstico. La incidencia previa de reingreso Windows/WebKit sigue abierta.
+
+## Cobro y temas por rubro 0.5.0-beta.9 — 11/11/2026
+
+- Lint, TypeScript, web y Functions aprobados. Functions se compiló fuera del directorio activo del emulador. Android y Windows se compilaron correctamente.
+- APK Android debug **5.511.488 bytes**, versionCode 50009, SHA-256 `0400628976cbb4fef1d266bba49550f3942803e245c77df61f0bdd117819575c`.
+- Instalador Windows x64 **2.512.870 bytes**, SHA-256 `ebfd9b4cd5f6ba9175d8dae5e355bd7f444399eb3ce2274c0d948e29042c7cc9`.
+- En la sesión local autorizada se validó una exportación previa separada, se eliminaron los 28 negocios inventariados y se verificaron cero entradas en el selector y el mismo UID en Authentication. Se generó y validó una exportación posterior. Auth, Firestore y Functions siguieron activos.
+- La revisión visual y funcional del cobro, los temas, la gráfica y el ingreso queda pendiente. No se ejecutaron pruebas automáticas ni se tomaron capturas. La incidencia previa de reingreso Windows/WebKit sigue abierta.

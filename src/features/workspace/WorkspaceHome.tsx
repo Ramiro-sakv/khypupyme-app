@@ -90,11 +90,11 @@ const groups: {
     items: [
       { id: "informes", label: "Informes", icon: "chart" },
       { id: "documentos", label: "Documentos", icon: "document" },
-      { id: "negocio", label: "Mi negocio", icon: "settings" },
+      { id: "negocio", label: "Configuración", icon: "settings" },
     ],
   },
 ];
-export default function WorkspaceHome() {
+export default function WorkspaceHome({ onExit }: { onExit: () => void }) {
   const { business } = useWorkspace(),
     { view, go } = useWorkspaceNavigation(),
     [more, setMore] = useState(false),
@@ -182,7 +182,7 @@ export default function WorkspaceHome() {
       content = <Documents />;
       break;
     case "negocio":
-      content = <Preferences />;
+      content = <Preferences onExit={onExit} />;
       break;
     case "garantias":
       content = <Warranty />;

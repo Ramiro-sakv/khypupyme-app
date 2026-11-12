@@ -3,7 +3,9 @@ import type { TimberWidthEntry } from "../../../shared/workspace/timber-width-en
 import { requireTimber } from "./TimberWidthEntry";
 import { timberTotals } from "../../../shared/workspace/timber-groups";
 import type { TimberSaleSelection } from "../../../shared/workspace/model";
-import { ceil, div, fraction, mul } from "../../../shared/workspace/exact";
+import { amount, ceil, div, fraction, mul, whole } from "../../../shared/workspace/exact";
+import { isDiscrete } from "../../../shared/workspace/catalog";
+import { commercialQuantity } from "../../../shared/workspace/validation";
 import type {
   Item,
   ReceiptLineInput,
@@ -48,6 +50,40 @@ export function delivered(line: CartLine) {
       line.item.units.box!,
     );
   return requested;
+}
+
+export function linePrice(line: CartLine, purchase: boolean) {
+  const timber = line.item.kind === "timber-grouped";
+  const unit = timber ? "boardFoot" : purchase ? line.unit : line.item.priceUnit;
+  let unitMinor: number;
+  let quantity;
+  if (purchase && !line.cost.trim()) return { issue: "Falta indicar el costo unitario." } as const;
+  try {
+    unitMinor = purchase ? cents(line.cost) : timber ? requireTimber(line).priceMinor : line.item.priceMinor;
+    if (unitMinor <= 0) return { issue: purchase ? "Indica un costo unitario mayor que cero." : "Revisa el precio unitario." } as const;
+  } catch {
+    return { issue: purchase ? "Indica un costo válido en BOB." : "Completa las medidas y el precio de la madera." } as const;
+  }
+  try {
+    if (timber) {
+      quantity = timberTotals(line.item.fields.thicknessMm!, requireTimber(line)).boardFeet;
+    } else {
+      const entered = commercialQuantity(q(line.qty), false);
+      const conversion = line.item.units[line.unit];
+      if (!conversion ||
+          (isDiscrete(line.item) && (purchase ? !whole(mul(entered, conversion)) : !whole(delivered(line)))))
+        return { issue: "Indica una cantidad válida para esta unidad." } as const;
+      quantity = purchase ? entered : div(delivered(line), line.item.units[unit]!);
+    }
+  } catch {
+    return { issue: timber ? "Completa las medidas de la madera." : "Indica una cantidad válida para esta unidad." } as const;
+  }
+  try {
+    const subtotal = amount(unitMinor, quantity);
+    return { unit, unitMinor, subtotal } as const;
+  } catch {
+    return { issue: "El subtotal supera el límite permitido." } as const;
+  }
 }
 export function saleInputs(lines: CartLine[]): SaleLineInputV2[] {
   return lines.map((l) => {

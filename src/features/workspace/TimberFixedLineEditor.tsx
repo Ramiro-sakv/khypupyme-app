@@ -1,11 +1,11 @@
 import { displayQuantity as showQuantity } from "../../../shared/workspace/presentation";
 import { UNITS } from "../../../shared/workspace/catalog";
-import { amount, div } from "../../../shared/workspace/exact";
+import { div } from "../../../shared/workspace/exact";
 import type { Unit } from "../../../shared/workspace/model";
 import type { CartLine } from "./Cart";
-import { delivered } from "./Cart";
+import { delivered, linePrice } from "./Cart";
 import { useWorkspace } from "./context";
-import { bob, cents, itemDetails, q } from "./format";
+import { bob, itemDetails } from "./format";
 /** Old fixed-dimension products keep their original units and tariff. */
 export default function TimberFixedLineEditor({
   line,
@@ -19,6 +19,7 @@ export default function TimberFixedLineEditor({
   purchase: boolean;
 }) {
   const { business } = useWorkspace();
+  const price = linePrice(line, purchase);
   let summary = "Completa la cantidad.";
   try {
     const pieces = delivered(line),
@@ -27,15 +28,7 @@ export default function TimberFixedLineEditor({
       showQuantity(pieces) +
       " piezas · " +
       showQuantity(feet) +
-      " pies tablares · " +
-      bob(
-        purchase
-          ? amount(cents(line.cost || "0"), q(line.qty))
-          : amount(
-              line.item.priceMinor,
-              div(pieces, line.item.units[line.item.priceUnit]!),
-            ),
-      );
+      " pies tablares";
   } catch {
     /* Se valida al confirmar. */
   }
@@ -89,10 +82,12 @@ export default function TimberFixedLineEditor({
         )}
       </div>
       <p>{summary}</p>
-      <small>
-        Medida fija anterior · tarifa original {bob(line.item.priceMinor)} /{" "}
-        {UNITS[line.item.priceUnit]}.
-      </small>
+      <p className="cart-line-price" role="status">
+        {"issue" in price ? price.issue : <>
+          <span>{purchase ? "Costo" : "Precio"} {bob(price.unitMinor)} / {UNITS[price.unit]}</span>
+          <strong>Subtotal {bob(price.subtotal)}</strong>
+        </>}
+      </p>
     </section>
   );
 }

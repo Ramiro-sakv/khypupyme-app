@@ -1,6 +1,7 @@
 import type { WorkspaceReset } from "../../../shared/workspace/model";
 import { operationJournal } from "./OperationJournal";
 import { draftRepository } from "./IndexedDbDraftRepository";
+import { tutorialControlStore } from "./tutorial/TutorialControlStore";
 export async function resetLocalWorkspace(
   uid: string,
   reset: WorkspaceReset | undefined,
@@ -16,6 +17,7 @@ export async function resetLocalWorkspace(
   const key = "khypupyme:applied-reset:" + uid;
   if (localStorage.getItem(key) === reset.id) return;
   await draftRepository.purgeRemoved(uid, reset.removedBusinessIds);
+  await tutorialControlStore.purgeRemoved(uid, reset.removedBusinessIds);
   await operationJournal.purgeRemoved(
     uid,
     reset.removedBusinessIds,

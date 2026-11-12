@@ -12,7 +12,6 @@ import { operationJournal } from "./OperationJournal";
 import { WorkspaceCommandService } from "./WorkspaceCommandService";
 import type { WorkspaceRepository } from "./WorkspaceRepository";
 import { WorkspaceContext } from "./context";
-import { confirmDiscardChanges } from "./navigation";
 import { useWorkspaceCommands } from "./useWorkspaceCommands";
 import { useCorrectionAuthorization } from "./useCorrectionAuthorization";
 const WorkspaceHome = lazy(() => import("./WorkspaceHome"));
@@ -119,17 +118,6 @@ function WorkspaceContent({
                 <span className="connection-dot" />
                 {online ? "Con conexión" : "Sin conexión"}
               </span>
-              <button
-                disabled={!!business.tutorialSessionId && busy}
-                onClick={() => {
-                  if (confirmDiscardChanges()) onExit();
-                }}
-              >
-                <Icon name="grid" />
-                {business.tutorialSessionId
-                  ? "Pausar y volver al negocio"
-                  : "Cambiar negocio"}
-              </button>
             </div>
           </div>
           {!online && (
@@ -192,7 +180,7 @@ function WorkspaceContent({
             />
           ) : (
             <DeferredScreen>
-              <WorkspaceHome />
+              <WorkspaceHome onExit={onExit} />
             </DeferredScreen>
           )}
         </div>

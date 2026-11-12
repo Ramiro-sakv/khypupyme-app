@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.5.0-beta.9 - 2026-11-11 (local)
+
+- Resumen plegable dentro del formulario de venta, compra y cotización. El total señala datos pendientes y cada línea muestra el precio o costo unitario y su subtotal.
+- Inicio vuelve a mostrar las barras de ventas netas de siete días. Maderas, tienda 24/7, ropa y electrodomésticos tienen paletas propias.
+- Cambiar de negocio y cerrar sesión se administran desde Configuración. El encabezado muestra la versión del paquete.
+
 ## 0.5.0-beta.8 - 2026-11-11 (local, sin push)
 
 - Arranque compartido entre VS Code y terminal, verificación de servicios, diagnóstico de errores internos y respaldos periódicos, manuales y de cierre.

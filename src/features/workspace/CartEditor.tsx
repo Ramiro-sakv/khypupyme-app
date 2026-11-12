@@ -3,15 +3,15 @@ import { useState } from "react";
 import TimberFixedLineEditor from "./TimberFixedLineEditor";
 import TimberLineEditor from "./TimberLineEditor";
 import { UNITS } from "../../../shared/workspace/catalog";
-import { amount, compare, div } from "../../../shared/workspace/exact";
+import { compare, div } from "../../../shared/workspace/exact";
 import type { Quantity } from "../../../shared/workspace/exact";
 import type { Unit } from "../../../shared/workspace/model";
 import { useRecords, useWorkspace } from "./context";
-import { bob, cents, itemDetails, q, serials } from "./format";
+import { bob, itemDetails, serials } from "./format";
 import { Pager } from "./ui";
 
 import type { CartLine } from "./Cart";
-import { delivered } from "./Cart";
+import { delivered, linePrice } from "./Cart";
 import SerialReceipt from "./SerialReceipt";
 export default function CartEditor({
   line,
@@ -62,12 +62,12 @@ export default function CartEditor({
         purchase={purchase}
       />
     );
-  let coverage: string, insufficient = false, costPreview = "";
+  let coverage: string, insufficient = false;
+  const price = linePrice(line, purchase);
   try {
     const quantity = delivered(line);
     coverage = `${purchase ? "Ingreso" : "Entrega"}: ${showQuantity(quantity)} ${line.item.baseUnit}`;
     if (retailStock.items[0]) insufficient = compare(quantity, retailStock.items[0].balance) > 0;
-    if (purchase && retail && line.cost) costPreview = bob(amount(cents(line.cost), q(line.qty)));
     if (line.item.kind === "ceramic")
       coverage += ` · Cobertura real ${showQuantity(div(delivered(line), line.item.units.m2!))} m²`;
   } catch {
@@ -118,7 +118,7 @@ export default function CartEditor({
         )}
       </div>
       {purchase && retail && (
-        <p className="notice">{coverage}{line.unit === "box" && line.item.units.box && ` · ${showQuantity(line.item.units.box)} ${line.item.baseUnit} por caja`}{costPreview && ` · Total de la línea ${costPreview}`}</p>
+        <p className="notice">{coverage}{line.unit === "box" && line.item.units.box && ` · ${showQuantity(line.item.units.box)} ${line.item.baseUnit} por caja`}</p>
       )}
       {retail && !purchase && !quote && (
         <div role={retailStock.error || insufficient ? "alert" : "status"} className={insufficient ? "notice notice-warning" : "notice"}>
@@ -213,12 +213,13 @@ export default function CartEditor({
             </>
           )
         ))}
-      {!purchase && (
-        <p>
-          {coverage} · Precio {bob(line.item.priceMinor)} /{" "}
-          {UNITS[line.item.priceUnit]}
-        </p>
-      )}
+      {!purchase && <p>{coverage}</p>}
+      <p className="cart-line-price" role="status">
+        {"issue" in price ? price.issue : <>
+          <span>{purchase ? "Costo" : "Precio"} {bob(price.unitMinor)} / {UNITS[price.unit]}</span>
+          <strong>Subtotal {bob(price.subtotal)}</strong>
+        </>}
+      </p>
       <button type="button" onClick={remove}>
         Quitar línea
       </button>

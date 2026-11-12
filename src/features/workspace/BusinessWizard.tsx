@@ -1,4 +1,4 @@
-import { industryIcon } from "./industryAppearance";
+import { industryAppearance, industryIcon, industryStyle } from "./industryAppearance";
 import { Icon } from "./Icon";
 import { useState } from "react";
 import type { BusinessAnswers } from "../../../shared/workspace/model";
@@ -7,9 +7,23 @@ import type { IndustryId } from "../../../shared/business-industries";
 import {
   DEFAULT_ANSWERS,
   industryLabel,
-  specialized,
 } from "../../../shared/workspace/catalog";
 import { ActionForm, Field } from "./ui";
+
+const industryGroups = [...new Set(INDUSTRY_IDS.map((id) => INDUSTRIES[id].group))].map((name) => ({
+  name,
+  industries: INDUSTRY_IDS.filter((id) => INDUSTRIES[id].group === name),
+}));
+
+function IndustryPreview({ industry }: { industry: IndustryId }) {
+  return <aside className="wizard-preview" aria-label="Herramientas del rubro">
+    <div className="wizard-industry">
+      <span className="business-symbol"><Icon name={industryIcon(industry)} /></span>
+      <strong>{industryLabel(industry)}</strong>
+    </div>
+    <ul>{industryAppearance(industry).tools.map((tool) => <li key={tool}><Icon name="check" /> {tool}</li>)}</ul>
+  </aside>;
+}
 
 export default function BusinessWizard({
   initialName = "",
@@ -39,7 +53,7 @@ export default function BusinessWizard({
   }
   const steps = ["Elegir rubro", "Configurar", "Revisar"];
   return (
-    <section className="card wizard" data-industry={industry}>
+    <section className="card wizard" data-industry={industry} style={industryStyle(industry)}>
       <ol className="wizard-progress" aria-label="Progreso de creación">
         {steps.map(
           (label, index) => (
@@ -75,35 +89,26 @@ export default function BusinessWizard({
             onValueChange={setName}
             maxLength={80}
           />
-          <fieldset>
-            <legend>Elige el tipo de negocio</legend>
-            <div className="industry-options">
-              {INDUSTRY_IDS.map((id) => (
-                <label className="industry-choice" data-industry={id} key={id}>
-                  <input
-                    type="radio"
-                    name="industry"
-                    value={id}
-                    checked={industry === id}
-                    onChange={() => setIndustry(id)}
-                    required
-                  />
-                  <span>
-                    <span className="business-symbol"><Icon name={industryIcon(id)} /></span>
-                    <strong>{INDUSTRIES[id].name}</strong>
-                    <small>
-                      {specialized(id)
-                        ? "Modelo especializado"
-                        : "Núcleo común"}
-                    </small>
-                    <small className="industry-help">
-                      {INDUSTRIES[id].description}
-                    </small>
-                  </span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
+          <div className="wizard-chooser">
+            <fieldset className="wizard-industry-list">
+              <legend>Elige el tipo de negocio</legend>
+              {industryGroups.map((group) => <section key={group.name} className="wizard-group">
+                <h2>{group.name}</h2>
+                <div className="industry-options">
+                  {group.industries.map((id) => (
+                    <label className="industry-choice" data-industry={id} style={industryStyle(id)} key={id}>
+                      <input type="radio" name="industry" value={id} checked={industry === id}
+                        onChange={() => setIndustry(id)} required />
+                      <span><span className="business-symbol"><Icon name={industryIcon(id)} /></span>
+                        <strong>{INDUSTRIES[id].name}</strong>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </section>)}
+            </fieldset>
+            <IndustryPreview industry={industry} />
+          </div>
         </ActionForm>
       )}
       {stage === 1 && (
@@ -121,7 +126,7 @@ export default function BusinessWizard({
             setStage(2);
           }}
         >
-          <div className="wizard-industry"><Icon name={industryIcon(industry)} /><strong>{industryLabel(industry)}</strong></div>
+          <IndustryPreview industry={industry} />
           {["convenience", "grocery", "pets"].includes(industry) && (
             <label>
               <input
@@ -151,21 +156,6 @@ export default function BusinessWizard({
               </select>
             </label>
           )}
-          <p>
-            {industry === "clothing" || industry === "footwear"
-              ? "Cada talla y color tendrá su propio stock, precio y costo."
-              : industry === "appliances"
-                ? "Cada equipo se compra y vende por su serie; podrás registrar su garantía comercial."
-                : industry === "ceramics"
-                  ? "Cada tono y calibre se mantiene separado. Las cotizaciones por m² muestran las piezas o cajas realmente entregadas."
-                  : industry === "timber"
-                    ? "Puedes cotizar por pieza, m³ o pie tablar. Los cortes se registran como servicios."
-                    : industry === "cement"
-                      ? "Las bolsas conservan marca, peso y lote. La apertura a granel conserva masa y valor."
-                      : industry === "convenience"
-                        ? "Los lotes se asignan por vencimiento más próximo; los vencidos no se venden."
-                        : "Este rubro utiliza productos por unidad y servicios del núcleo común."}
-          </p>
           <Field
             name="address"
             label="Dirección en documentos"
@@ -211,12 +201,10 @@ export default function BusinessWizard({
               {answers.address} {answers.phone}
             </p>
             <p>
-              Internet requerido. Documentos no fiscales.{" "}
-              {specialized(industry)
-                ? "Guía y herramientas de este rubro habilitadas."
-                : "Herramientas de trabajo y guía adaptadas a este rubro."}
+              Internet requerido. Documentos no fiscales.
             </p>
           </div>
+          <IndustryPreview industry={industry} />
           <label>
             <input type="checkbox" required />
             Confirmo este rubro fijo y la separación de los datos.

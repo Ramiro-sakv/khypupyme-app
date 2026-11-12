@@ -8,6 +8,8 @@ import { DeferredScreen } from "../../app/DeferredScreen";
 import { useOnline } from "../../shared/hooks/useOnline";
 import BusinessWizard from "./BusinessWizard";
 import { Icon } from "./Icon";
+import { industryIcon, industryStyle } from "./industryAppearance";
+import { useWorkspaceNavigation } from "./navigation";
 import { operationJournal } from "./OperationJournal";
 import { WorkspaceCommandService } from "./WorkspaceCommandService";
 import type { WorkspaceRepository } from "./WorkspaceRepository";
@@ -37,6 +39,8 @@ function WorkspaceContent({
         }),
       [repository, uid, business.id],
     );
+  const { view } = useWorkspaceNavigation();
+  const dashboard = view === "inicio" && business.typeConfirmed;
   const protection = useCorrectionAuthorization(business, repository);
   const {
     pending,
@@ -84,6 +88,7 @@ function WorkspaceContent({
         <div
           className="business-workspace"
           data-industry={business.industryId ?? "general"}
+          style={industryStyle(business.industryId)}
         >
           {business.tutorialSessionId && (
             <div className="notice sample-banner">
@@ -107,12 +112,11 @@ function WorkspaceContent({
             <span className="sr-only">Negocio activo: </span>
             {business.name}
           </span>
-          <div className="workspace-heading">
-            <div>
-              <span className="eyebrow">NEGOCIO ACTIVO</span>
-              <h1>{business.name}</h1>
-              <p>{industryLabel(business.industryId)}</p>
-            </div>
+          <div className="workspace-heading workspace-masthead" data-dashboard={dashboard}>
+            {!dashboard && <div className="workspace-masthead-identity">
+              <span className="business-symbol"><Icon name={industryIcon(business.industryId)} /></span>
+              <div><h1>{business.name}</h1><p>{industryLabel(business.industryId)}</p></div>
+            </div>}
             <div className="workspace-status">
               <span className="connection" data-online={online}>
                 <span className="connection-dot" />

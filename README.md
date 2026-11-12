@@ -1,10 +1,10 @@
 # KhypuPyme
 
-Cuaderno digital para negocios de Bolivia. Beta local **0.5.0-beta.12**, sin publicación ni conexión cloud activa.
+Cuaderno digital para negocios de Bolivia. Beta local **0.5.0-beta.13**, sin publicación ni conexión cloud activa.
 
 Una cuenta administra varios negocios independientes. Después de ingresar se crea un espacio, se responde el cuestionario y se confirma un rubro fijo. Cada negocio conserva catálogo, clientes, compras, ventas, fiados, caja y documentos propios. Se abre el último negocio autorizado; **Cambiar negocio** vuelve al selector.
 
-Modelos: madera por medidas/volumen, ropa y calzado por talla/color, electrodomésticos por serie y garantía, tienda 24/7 por lotes/vencimientos/peso, cerámicas por piezas/cajas/m² y cemento en bolsas/granel. Los 21 rubros ofrecen accesos y controles según su trabajo. La beta.12 incorpora intercambio de envases en el cobro, venta por metros, repuestos por vehículo, impresión por caras, entregas y órdenes con datos de cada oficio. Los módulos están empaquetados, se cargan por demanda y no descargan programas externos.
+Modelos: madera por medidas/volumen, ropa y calzado por talla/color, electrodomésticos por serie y garantía, tienda 24/7 por lotes/vencimientos/peso, cerámicas por piezas/cajas/m² y cemento en bolsas/granel. Los 21 rubros ofrecen accesos y controles según su trabajo. La beta.12 incorpora intercambio de envases en el cobro, venta por metros, repuestos por vehículo, impresión por caras, entregas y órdenes con datos de cada oficio. La beta.13 añade identidad visual, acciones y presentación adaptadas a cada rubro. Los módulos están empaquetados, se cargan por demanda y no descargan programas externos.
 
 Compras de hasta 20 líneas, ventas/cotizaciones, devoluciones/cambios vinculados, fiados con cobro completo, gastos, clientes, sesiones de caja, gráficos e informes. Las compras aumentan el inventario y el pago en efectivo reduce el saldo de caja. Cantidades comerciales de hasta seis decimales mediante fracciones exactas y dinero entero en centavos BOB. PDF no fiscal con datos históricos y fuentes locales, generado al solicitarlo.
 

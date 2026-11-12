@@ -10,6 +10,7 @@ import { industryLabel } from "../../../shared/workspace/catalog";
 import { useWorkspace } from "./context";
 import type { IconName } from "./Icon";
 import { Icon } from "./Icon";
+import { industryIcon } from "./industryAppearance";
 import { useWorkspaceNavigation } from "./navigation";
 import { Panel } from "./Panel";
 const IndustryGuide = lazy(() => import("./IndustryGuidePage")),
@@ -219,7 +220,7 @@ export default function WorkspaceHome({ onExit }: { onExit: () => void }) {
       <aside className="sidebar">
         <div className="sidebar-business">
           <span className="business-symbol">
-            <Icon name="box" />
+            <Icon name={industryIcon(business.industryId)} />
           </span>
           <div>
             <strong>{business.name}</strong>

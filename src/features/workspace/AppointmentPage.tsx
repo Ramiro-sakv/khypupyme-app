@@ -10,6 +10,7 @@ import { CustomerSelector } from "./CustomerSelector";
 import { ActionForm, Field, Pager } from "./ui";
 import { Panel } from "./Panel";
 import { localDate, today } from "./format";
+import { Icon } from "./Icon";
 const labels: Record<AppointmentStatus, string> = {
   scheduled: "Programada",
   attended: "Atendida",
@@ -44,37 +45,30 @@ export default function AppointmentPage() {
   }
   return (
     <>
-      <h2>Agenda de atención</h2>
-      <p>
-        Una agenda para tu negocio. Programar no cobra ni reserva productos.
-      </p>
-      <button
-        className="primary"
-        onClick={() => {
-          select(null);
-        }}
-      >
-        Nueva cita
-      </button>
-      <label>
-        Ver un día
-        <input
-          type="date"
-          value={day}
-          onChange={(e) => setDay(e.target.value)}
-        />
-      </label>
-      <button onClick={() => setDay("")}>Mostrar todas</button>
+      <header className="operation-heading">
+        <span className="business-symbol"><Icon name="calendar" /></span>
+        <h2>Agenda de atención</h2>
+      </header>
+      <div className="actions workflow-tools">
+        <button className="primary" onClick={() => select(null)}>Nueva cita</button>
+        <Link className="button" to="?vista=ventas">Atender sin cita</Link>
+        <button aria-pressed={day === today()} onClick={() => setDay(today())}>Hoy</button>
+        <button aria-pressed={!day} onClick={() => setDay("")}>Mostrar todas</button>
+        <label>Ver un día<input type="date" value={day} onChange={(e) => setDay(e.target.value)} /></label>
+      </div>
       <Pager page={page} />
-      <div className="workflow-grid">
-        {page.items.map((row) => (
-          <article className="card" key={row.id}>
-            <span className="badge">{labels[row.status]}</span>
-            <h3>{row.title}</h3>
-            <p>{row.customerName}</p>
-            <p>
-              {localDate(row.startAt, true)} — {localDate(row.endAt, true)}
-            </p>
+      <div className="workflow-timeline">
+        {[...page.items].sort((a, b) => a.startAt.localeCompare(b.startAt)).map((row) => (
+          <article className="card timeline-record" key={row.id}>
+            <div className="timeline-record-time">
+              <strong>{row.startAt.slice(11, 16)}–{row.endAt.slice(11, 16)}</strong>
+              <small>{localDate(row.startAt.slice(0, 10))}</small>
+              <small>{Math.round((Date.parse(row.endAt) - Date.parse(row.startAt)) / 60000)} min</small>
+            </div>
+            <div>
+              <span className="badge">{labels[row.status]}</span>
+              <h3>{row.title}</h3>
+              <p>{row.customerName}</p>
             {!row.saleId && !["cancelled", "no-show"].includes(row.status) && (
               <button
                 onClick={() => {
@@ -97,6 +91,7 @@ export default function AppointmentPage() {
                 Venta confirmada vinculada. Consulta Ventas o Documentos.
               </p>
             )}
+            </div>
           </article>
         ))}
       </div>

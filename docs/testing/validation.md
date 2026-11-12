@@ -691,3 +691,12 @@ Recuento respecto de 955b22d: **32 archivos de código, +785 / -212 líneas fís
 - Revisión en navegador a 360 px en abarrotes. La pestaña de cobro quedó fuera del carrito y antes de la navegación móvil; una solicitud de 49 unidades mostró 43 disponibles y seis faltantes, bloqueó la confirmación y conservó cantidad y foco al minimizar con Escape.
 - Se verificaron los registros originales de las constancias de recepción y despacho. Quedan pendientes los recorridos completos de interfaz por rubro y la apertura de los instaladores en dispositivos. Sin pruebas automatizadas ni capturas. La incidencia previa de reingreso Windows/WebKit sigue abierta.
 - Android debug **5.694.891 bytes**, versionCode 50012, SHA-256 `6b2a4ec14b8d7b95f2358a9e35b078cde0af547801db9d5090e6e72411282b18`. Instalador Windows NSIS x64 **2.529.705 bytes**, SHA-256 `eb7eaa63e342aba4a097a7aba560314ee5732d9c75e972c02c24f94463a6cf18`. Ambos se identifican como 0.5.0-beta.12.
+
+## Rediseño por rubro 0.5.0-beta.13 — 12/11/2026
+
+- Lint, TypeScript, compilación web y compilación de Functions aprobados. Functions se compiló en un directorio temporal. Vite conserva los avisos de tamaño en pdfmake y fuentes.
+- Revisión manual con negocios ficticios en el emulador separado. El asistente mostró los 21 rubros, cambió la vista previa al elegir Taller y conservó nombre y rubro al volver atrás. El selector destacó el último negocio utilizado.
+- Se comprobaron los controles de espesor, largo y anchos en Maderas; el foco inicial en el lector de Tienda 24/7; la talla M azul con tres piezas disponibles en Ropa; y la consulta por serie con compra vinculada en Electrodomésticos. En Peluquería se consultó una cita desde Inicio y se mostró el intervalo 16:00–16:30, su duración y estado en Agenda. La agenda quedó dentro de la ventana a 768, 1100 y 1440 px.
+- A 360 px, el carrito de cinco líneas permitió llegar al último botón antes de la pestaña de cobro. Se confirmó por separado que 49 piezas pedidas con 48 disponibles bloquean la venta. Escape minimizó el panel y devolvió el foco a Revisar conservando la cantidad.
+- Sin pruebas automáticas ni capturas. Quedan pendientes los recorridos completos en dispositivos y la incidencia previa de reingreso Windows/WebKit.
+- Android debug 5706708 bytes, versionCode 50013, SHA-256 13d8be67a884fcf56bda9b576631472eca253a982ac1c6819a6d89343bffc967. Windows NSIS x64 2535221 bytes, SHA-256 a3e69b3339c20e3b0078b9c1bbc6afaaa4b67265b809f4fd69f53c33a8ba8097. Ambos identifican la versión 0.5.0-beta.13.

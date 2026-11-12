@@ -6,6 +6,19 @@ import { useRecords } from "./context";
 import { bob } from "./format";
 import { Pager } from "./ui";
 
+const knownColors: Readonly<Record<string, string>> = {
+  negro: "#282529", blanco: "#fff", gris: "#8d9092", azul: "#225799",
+  "azul marino": "#24324f", rojo: "#b73742", verde: "#3d7959",
+  amarillo: "#e7be38", beige: "#d8c6a9", rosa: "#e397b5",
+  morado: "#715189", marrón: "#765241", café: "#765241",
+};
+
+function ColorLabel({ color }: { color: string }) {
+  const name = color.trim().toLocaleLowerCase("es");
+  const swatch = /^#[0-9a-f]{6}$/.test(name) ? name : Object.hasOwn(knownColors, name) ? knownColors[name] : undefined;
+  return <>{swatch && <span className="color-chip" style={{ backgroundColor: swatch }} aria-hidden="true" />}{color}</>;
+}
+
 export default function FashionPicker({ items, pick, disabled, sell = false }: {
   items: Item[];
   pick: (item: Item) => void;
@@ -31,7 +44,7 @@ export default function FashionPicker({ items, pick, disabled, sell = false }: {
       {!!variants.items.length && <div className="table-scroll">
         <table>
           <caption className="sr-only">Existencias de {model} por talla y color</caption>
-          <thead><tr><th scope="col">Talla</th>{colors.map((color) => <th scope="col" key={color}>{color}</th>)}</tr></thead>
+          <thead><tr><th scope="col">Talla</th>{colors.map((color) => <th scope="col" key={color}><ColorLabel color={color} /></th>)}</tr></thead>
           <tbody>{sizes.map((size) => (
             <tr key={size}><th scope="row">{size}</th>{colors.map((color) => (
               <td key={color}>

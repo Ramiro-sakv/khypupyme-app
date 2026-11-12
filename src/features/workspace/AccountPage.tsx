@@ -9,7 +9,7 @@ import AccountSessionActions from "./AccountSessionActions";
 import BusinessWizard from "./BusinessWizard";
 import type { DeletionJob } from "../../../shared/workspace/business-deletion";
 import { finishBusinessDeletion } from "./businessDeletion";
-import { industryIcon } from "./industryAppearance";
+import { industryIcon, industryStyle } from "./industryAppearance";
 import { Icon } from "./Icon";
 import { confirmDiscardChanges } from "./navigation";
 import type { SavedRequest } from "./OperationJournal";
@@ -31,6 +31,7 @@ export default function Account({
     [deleting, setDeleting] = useState(""),
     [notice, setNotice] = useState(""),
     [recentId, setRecentId] = useState(() => localStorage.getItem(`khypupyme:last-business:${uid}`)),
+    [recentBusiness, setRecentBusiness] = useState<WorkspaceBusiness | null>(null),
     [next, setNext] = useState<string | null>(null),
     [business, setBusiness] = useState<WorkspaceBusiness | null>(null),
     [create, setCreate] = useState(false),
@@ -144,15 +145,20 @@ export default function Account({
         repository={repository}
         onBusiness={setBusiness}
         onExit={() => {
+          const id = localStorage.getItem(`khypupyme:last-business:${uid}`);
+          setRecentId(id);
+          setRecentBusiness(id === business.id ? business : null);
           setBusiness(null);
           navigate("/");
           void load().catch((cause) => setLoadError(message(cause)));
         }}
       />
     );
+  const recent = businesses.find((entry) => entry.id === recentId)
+    ?? (recentBusiness?.id === recentId ? recentBusiness : null);
   return (
     <>
-      <header className="selector-heading">
+      <header className="selector-heading directory-header">
         <div>
           <h1>Mis negocios</h1>
           <p>Elige el negocio con el que vas a trabajar.</p>
@@ -241,11 +247,23 @@ export default function Account({
         />
       ) : (
         <>
+          {recent && <button className="card business-choice recent-business"
+            data-industry={recent.industryId ?? "general"} style={industryStyle(recent.industryId)}
+            onClick={() => { void select(recent); }}>
+            <span className="business-symbol"><Icon name={industryIcon(recent.industryId)} /></span>
+            <span className="business-choice-label">
+              <small>Último negocio utilizado</small>
+              <strong>{recent.name}</strong>
+              <span>{industryLabel(recent.industryId)}</span>
+            </span>
+            <Icon name="arrow" />
+          </button>}
           <div className="business-directory">
-            {businesses.map((b) => (
+            {businesses.filter((b) => b.id !== recent?.id).map((b) => (
               <button
                 className="card business-choice"
                 data-industry={b.industryId ?? "general"}
+                style={industryStyle(b.industryId)}
                 key={b.id}
                 onClick={() => {
                   void select(b);
@@ -255,12 +273,12 @@ export default function Account({
                 <span className="business-choice-label">
                   <strong>{b.name}</strong>
                   <span>{industryLabel(b.industryId)}</span>
-                  {b.id === recentId && <small className="badge">Último utilizado</small>}
+
                 </span>
                 <Icon name="arrow" />
               </button>
             ))}
-            {!businesses.length && !loadError && <section className="card business-directory-empty">
+            {!businesses.length && !recent && !loadError && <section className="card business-directory-empty">
               <Icon name="grid" />
               <h2>Tu primer negocio</h2>
               <p>Elige un rubro para configurar sus productos, ventas y caja.</p>

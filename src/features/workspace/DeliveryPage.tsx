@@ -5,6 +5,7 @@ import type { SaleV2 } from "../../../shared/workspace/model";
 import { useRecords, useWorkspace } from "./context";
 import { ActionForm, Field, Pager } from "./ui";
 import { Panel } from "./Panel";
+import { Icon } from "./Icon";
 import { bob, statusLabel, localDate, today } from "./format";
 const labels: Record<Delivery["status"], string> = {
   pending: "Pendiente",
@@ -25,7 +26,10 @@ export default function DeliveryPage() {
   const [mode, setMode] = useState<"pickup" | "delivery">("delivery");
   return (
     <>
-      <h2 data-tutorial="deliveries">Entregas</h2>
+      <header className="operation-heading">
+        <span className="business-symbol"><Icon name="box" /></span>
+        <h2 data-tutorial="deliveries">Entregas</h2>
+      </header>
       <p>
         Seguimiento de una venta confirmada. Entregar no descuenta stock de
         nuevo; cancelar la entrega no anula la venta.
@@ -39,18 +43,19 @@ export default function DeliveryPage() {
       </button>
       {late && <Link to="?vista=entregas">Mostrar todas las entregas</Link>}
       <Pager page={page} />
-      <div className="workflow-grid">
+      <div className="workflow-timeline">
         {page.items.map((row) => (
-          <article className="card" key={row.id}>
+          <article className="card timeline-record" key={row.id}>
+            <div className="timeline-record-time"><small>Programada</small><strong>{localDate(row.scheduledOn)}</strong></div>
+            <div>
             <span className="badge">{labels[row.status]}</span>
             <h3>{row.mode === "pickup" ? "Retiro en el negocio" : row.address}</h3>
-            <p>
-              {localDate(row.scheduledOn)} · {row.reference}
-            </p>
+            {row.reference && <p>{row.reference}</p>}
             {!["delivered", "cancelled"].includes(row.status) && (
               <button onClick={() => { setSelected(row); setMode(row.mode ?? "delivery"); }}>Ver / actualizar</button>
             )}
             {special && <button disabled={busy} onClick={() => void run({ kind: "operational-document", input: { sourceId: row.id, sourceKind: "delivery" } }).catch(() => {})}>Emitir constancia de despacho</button>}
+            </div>
           </article>
         ))}
       </div>

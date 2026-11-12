@@ -67,6 +67,7 @@ export default function CartEditor({
       />
     );
   let coverage: string;
+  let ceramicSummary: { surface: string; excess: string; boxes: string; pieces: string } | undefined;
   const price = linePrice(line, purchase);
   const stockUnit = line.item.kind === "ceramic" && line.fullBoxes ? "box" : line.unit;
   const canPackage = !purchase && business.industryId === "beverages" && line.item.baseUnit === "piezas" && !!line.item.units.box;
@@ -81,7 +82,10 @@ export default function CartEditor({
       const surface = div(quantity, line.item.units.m2!);
       const requested = line.unit === "m2" ? q(line.qty) : surface;
       const boxes = div(quantity, line.item.units.box!);
-      coverage += ` · ${line.fullBoxes ? showQuantity(boxes) + " cajas · " : ""}Cobertura ${showQuantity(surface)} m² · excedente ${showQuantity(sub(surface, requested))} m²`;
+      ceramicSummary = {
+        surface: showQuantity(surface), excess: showQuantity(sub(surface, requested)),
+        boxes: line.fullBoxes ? showQuantity(boxes) : "", pieces: showQuantity(quantity),
+      };
     }
   } catch {
     coverage = "Revisa la cantidad.";
@@ -226,7 +230,11 @@ export default function CartEditor({
             </>
           )
         ))}
-      {!purchase && <p>{coverage}</p>}
+      {!purchase && (ceramicSummary ? <dl className="coverage-summary" aria-label="Superficie y entrega">
+        <div><dt>Cobertura entregada</dt><dd>{ceramicSummary.surface} m²</dd></div>
+        <div><dt>Excedente</dt><dd>{ceramicSummary.excess} m²</dd></div>
+        <div><dt>Entrega</dt><dd>{ceramicSummary.boxes ? `${ceramicSummary.boxes} cajas · ` : ""}{ceramicSummary.pieces} piezas</dd></div>
+      </dl> : <p>{coverage}</p>)}
       <p className="cart-line-price" role="status">
         {"issue" in price ? price.issue : <>
           <span>{purchase ? "Costo" : "Precio"} {bob(price.unitMinor)} / {UNITS[price.unit]}</span>

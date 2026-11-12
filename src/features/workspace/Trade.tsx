@@ -4,8 +4,8 @@ import { displayQuantity as showQuantity } from "../../../shared/workspace/prese
 import { AppError } from "../../../shared/app-errors";
 import { resolveTimber } from "./TimberWidthEntry";
 import { timberTotals } from "../../../shared/workspace/timber-groups";
-import { useCallback, useId, useRef, useState } from "react";
-import { UNITS } from "../../../shared/workspace/catalog";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useSearchParams } from "react-router";
 import { div, add, ONE, showQuantity as showExact, ZERO } from "../../../shared/workspace/exact";
 import type {
   Item,
@@ -17,7 +17,7 @@ import { CustomerSelector } from "./CustomerSelector";
 import type { TradeDraftInput } from "./DraftRepository";
 import DraftStatus from "./DraftStatus";
 import FashionPicker from "./FashionPicker";
-import { bob, cents, itemDetails, measuredText, method, q, today } from "./format";
+import { bob, cents, method, q, today } from "./format";
 import { Icon } from "./Icon";
 import IndustryHelp from "./IndustryHelp";
 import { confirmDiscardChanges } from "./navigation";
@@ -27,7 +27,7 @@ import { useTradeDraft } from "./useTradeDraft";
 import type { CartLine } from "./Cart";
 import { delivered, linePrice, receiptInputs, saleInputs } from "./Cart";
 import { useCartAvailability } from "./useCartAvailability";
-import { hasSerialWorkflow, hasVariantMatrix, quickCatalog } from "../../../shared/workspace/industry-capabilities";
+import { hasSerialWorkflow, hasVariantMatrix } from "../../../shared/workspace/industry-capabilities";
 import type { ContainerTransfer } from "../../../shared/workspace/operations";
 import ContainerCheckout from "./ContainerCheckout";
 import { VehicleFilter } from "./VehicleFilter";
@@ -35,6 +35,8 @@ import type { WorkspaceQuery } from "../../../shared/workspace/model";
 import CartEditor from "./CartEditor";
 import TradeCheckout from "./TradeCheckout";
 import Quotes from "./QuoteHistory";
+import { industryAppearance } from "./industryAppearance";
+import { TradeProductPicker } from "./TradeProductPicker";
 export default function Trade({
   purchase = false,
   initialQuote = false,
@@ -79,6 +81,11 @@ export default function Trade({
     [restoredNotice, setRestoredNotice] = useState(""),
     [checkoutExpanded, setCheckoutExpanded] = useState(false),
     [checkoutFeedback, setCheckoutFeedback] = useState<HTMLDivElement | null>(null);
+  const [params] = useSearchParams();
+  const barcodeInput = useRef<HTMLInputElement>(null);
+  const appearance = industryAppearance(business.industryId);
+  const scanOnEntry = params.get("accion") === "escanear" && !purchase && !isQuote;
+  const focusedScanner = useRef(false);
   const availability = useCartAvailability(lines, purchase, isQuote);
   const checkoutId = useId();
   const checkoutTab = useRef<HTMLButtonElement>(null);
@@ -156,6 +163,13 @@ export default function Trade({
     },
     resetConfirmed,
   );
+  useEffect(() => {
+    if (!scanOnEntry) focusedScanner.current = false;
+    if (!scanOnEntry || busy || !draft.editable || focusedScanner.current) return;
+    barcodeInput.current?.focus();
+    focusedScanner.current = true;
+  }, [scanOnEntry, busy, draft.editable]);
+
   async function submitAction(action: WorkspaceAction) {
     const outgoing: WorkspaceAction =
       action.kind === "sale" && source
@@ -381,22 +395,14 @@ export default function Trade({
   );
   return (
     <>
-      <h2>
-        {purchase
-          ? "Compra de varios productos"
-          : isQuote
-            ? "Cotización sin reserva de stock"
-            : "Nueva venta"}
-      </h2>
-      <p className="muted">
-        {purchase
-          ? "Selecciona los productos, declara su costo y revisa el pago."
-          : isQuote
-            ? "La cotización no reserva existencias. Su vigencia inicial es de siete días."
-            : quoteId
-              ? "Revisa la cotización original y confirma la venta con las existencias actuales."
-              : "Selecciona productos y servicios. Revisa las cantidades y el total antes de confirmar."}
-      </p>
+      <header className="operation-heading">
+        <span className="business-symbol"><Icon name={purchase ? "purchase" : isQuote ? "document" : "sale"} /></span>
+        <div>
+          <h2>{purchase ? "Compra de varios productos" : isQuote ? "Nueva cotización" : "Nueva venta"}</h2>
+          {isQuote && <p>Sin reserva de stock · vigencia inicial de siete días</p>}
+          {!isQuote && quoteId && <p>Venta desde cotización · disponibilidad actual</p>}
+        </div>
+      </header>
       {source && (
         <p className="notice">
           Venta vinculada a una atención u orden. Conserva el cliente y confirma
@@ -410,14 +416,15 @@ export default function Trade({
           {restoredNotice}
         </p>
       )}
-      <div className="trade-operation" data-checkout={lines.length > 0 ? "visible" : undefined}>
+      <div className="trade-operation" data-layout={appearance.layout} data-checkout={lines.length > 0 ? "visible" : undefined}>
         <div className="trade-scroll" role={lines.length ? "region" : undefined} aria-label={lines.length ? "Catálogo y artículos de la operación" : undefined} tabIndex={lines.length ? 0 : undefined}>
       <div className="trade-layout">
         <section className="trade-picker">
           <div className="card trade-catalog-card">
             <label className="trade-search-label">
-              {hasSerialWorkflow(business.industryId) ? "Buscar por marca, modelo o código" : "Buscar en todo el catálogo (desde 2 caracteres)"}
+              Buscar en todo el catálogo
               <input
+                placeholder={appearance.search}
                 value={catalogSearch}
                 onChange={(e) => setCatalogSearch(e.target.value)}
                 maxLength={40}
@@ -425,8 +432,8 @@ export default function Trade({
             </label>
             {business.industryId === "spareParts" && <VehicleFilter value={vehicle} onChange={setVehicle} />}
             <div className="section-heading">
-              <h3>{hasSerialWorkflow(business.industryId) ? "Elegir modelo o accesorio" : "Seleccionar productos"}</h3>
-              <Icon name="box" />
+              <h3>{appearance.inventory}</h3>
+              <Icon name={appearance.icon} />
             </div>
             <ActionForm
               disabled={busy || !draft.editable}
@@ -451,6 +458,7 @@ export default function Trade({
               <label>
                 Código de producto / lector como teclado
                 <input
+                  ref={barcodeInput}
                   value={barcode}
                   onChange={(e) => setBarcode(e.target.value)}
                   autoComplete="off"
@@ -462,30 +470,9 @@ export default function Trade({
             {business.industryId === "timber" && <TimberSpeciesPicker search={catalogSearch} disabled={busy || !draft.editable} onPick={addItem} />}
             <Pager page={page} />
             {hasVariantMatrix(business.industryId) && <FashionPicker items={page.items} pick={addItem} disabled={busy || !draft.editable} sell={!purchase && !isQuote} />}
-            <div className="product-picker">
-              {page.items
-                .filter((i) => i.active && (!purchase || i.kind !== "service") && !(hasVariantMatrix(business.industryId) && i.kind === "apparel"))
-                .map((item) => (
-                  <button
-                    disabled={busy || !draft.editable}
-                    data-tutorial="pick-item"
-                    data-item-id={item.id}
-                    key={item.id}
-                    onClick={() => addItem(item)}
-                  >
-                    <strong>{item.name}</strong>
-                    {business.industryId === "spareParts" && !item.details?.profile?.vehicleMake && !item.details?.compatibility && <small>Compatibilidad por confirmar</small>}
-                    <small>
-                      {itemDetails(item, business.timberSystem ?? "imperial")} ·{" "}
-                      {bob(item.priceMinor)}/{UNITS[item.priceUnit]}
-                    </small>
-                    {quickCatalog(business.industryId) && item.kind !== "service" && (
-                      <small>Existencia registrada · {measuredText(item, item.balance) ?? `${showQuantity(item.balance)} ${item.baseUnit}`}</small>
-                    )}
-                    {hasSerialWorkflow(business.industryId) && item.kind === "appliance" && <span className="badge">Equipo por serie</span>}
-                  </button>
-                ))}
-            </div>
+            <TradeProductPicker items={page.items} industry={business.industryId}
+              timberSystem={business.timberSystem ?? "imperial"} disabled={busy || !draft.editable}
+              purchase={purchase} onPick={addItem} />
           </div>
         </section>
         <ActionForm

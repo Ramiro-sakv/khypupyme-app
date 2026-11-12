@@ -13,6 +13,6 @@ export function StockNumbers({ check, factor, unit }: { check: StockCheck; facto
   return <span className="stock-numbers" data-shortage={shortage || undefined} role={shortage ? "status" : undefined}>
     <span>Pedido <b>{format(check.requested)}</b></span>
     <span>Disponible <b>{format(check.available)}</b></span>
-    {shortage && <strong>Faltan {format(check.missing)}{unit ? " " + unit : ""}</strong>}
+    {shortage && <strong>Faltante · {format(check.missing)}{unit ? " " + unit : ""}</strong>}
   </span>;
 }

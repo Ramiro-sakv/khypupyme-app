@@ -4,6 +4,7 @@ import { useAuth } from "../auth/auth-context";
 import { AuthPage } from "../auth/AuthPage";
 import { useDraftProtection } from "./navigation";
 import "./workspace.css";
+import "./industry-layout.css";
 import type { WorkspaceRepository } from "./WorkspaceRepository";
 import Account from "./AccountPage";
 export function WorkspaceApp({

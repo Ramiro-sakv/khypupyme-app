@@ -3,6 +3,7 @@ import type { EquipmentHistory } from "../../../shared/workspace/model";
 import { useRecords, useWorkspace } from "./context";
 import { localDate, statusLabel } from "./format";
 import { ActionForm, Field, Pager } from "./ui";
+import { Icon } from "./Icon";
 
 export interface WarrantySelection {
   saleId: string;
@@ -54,9 +55,11 @@ export default function EquipmentLookup({ inspection, onClaim }: {
       {selected && detail.error && <div className="notice notice-error" role="alert">{detail.error} <button onClick={detail.first}>Volver a consultar</button></div>}
       {selected && !detail.loading && !detail.error && !unit && <p>No se encontró el registro de esta unidad.</p>}
       {unit && <div className="equipment-history">
-        <h4>{unit.itemName} · {unit.serial}</h4>
-        <p><span className="badge">{statusLabel(unit.status)}</span></p>
-        <p>{unit.purchase ? `Compra ${unit.purchase.number} · ${localDate(unit.purchase.date)}` : `Ingreso registrado el ${localDate(unit.receivedAt, true)}`}</p>
+        <header className="operation-heading">
+          <span className="business-symbol"><Icon name="barcode" /></span>
+          <div><h4>{unit.itemName}</h4><p>Serie {unit.serial} · <span className="badge">{statusLabel(unit.status)}</span></p></div>
+        </header>
+        <p className="equipment-event equipment-received">{unit.purchase ? `Compra ${unit.purchase.number} · ${localDate(unit.purchase.date)}` : `Ingreso registrado el ${localDate(unit.receivedAt, true)}`}</p>
         {!unit.sales.length && <p>Todavía no hay ventas vinculadas a esta serie.</p>}
         {unit.sales.map((sale) => (
           <article className="card equipment-event" key={sale.id}>

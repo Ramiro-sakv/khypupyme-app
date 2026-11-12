@@ -10,6 +10,9 @@ import { CustomerSelector } from "./CustomerSelector";
 import { ActionForm, Field, Pager } from "./ui";
 import { Panel } from "./Panel";
 import { bob, cents, localDate, today } from "./format";
+import { Icon } from "./Icon";
+import { industryIcon } from "./industryAppearance";
+import { useWorkspaceNavigation } from "./navigation";
 function Events({ id }: { id: string }) {
   const [open, setOpen] = useState(false);
   const events = useRecords<{
@@ -45,8 +48,17 @@ const transitions: Record<WorkStatus, WorkStatus[]> = {
   delivered: ["delivered"],
   cancelled: ["cancelled"],
 };
+const workPresentation = {
+  cutting: { title: "Órdenes de corte", action: "Nueva orden", focus: undefined },
+  cleaning: { title: "Trabajos de limpieza", action: "Nueva orden de limpieza", focus: undefined },
+  professional: { title: "Trabajos y entregables", action: "Nuevo trabajo", focus: "deliverables" },
+  repair: { title: "Taller y reparaciones", action: "Recibir equipo", focus: "equipment" },
+  craft: { title: "Encargos y entregas", action: "Registrar encargo", focus: "specifications" },
+} as const;
+
 export default function WorkOrderPage() {
   const [params] = useSearchParams();
+  const { go } = useWorkspaceNavigation();
   const filter = params.get("atencion");
   const attention = filter === "today" || filter === "late" || filter === "ready" || filter === "waiting" ? filter : undefined;
   const page = useRecords<WorkOrder>("workOrders", attention ? { attention } : {}),
@@ -56,42 +68,45 @@ export default function WorkOrderPage() {
     kind = workKindFor(business.industryId);
   if (!kind) return <p>Este rubro no utiliza órdenes de trabajo.</p>;
   const fields = WORK_PARTICULARS[kind];
+  const presentation = workPresentation[kind];
   return (
     <>
-      <h2 data-tutorial="work-orders">Órdenes y trabajos</h2>
-      <p>
-        Recibe, presupuesta y registra avances. Solo la venta explícita mueve
-        dinero y existencias.
-      </p>
-      <button
-        data-tutorial="new-order"
-        className="primary"
-        onClick={() => {
+      <header className="operation-heading">
+        <span className="business-symbol"><Icon name={industryIcon(business.industryId)} /></span>
+        <h2 data-tutorial="work-orders">{presentation.title}</h2>
+      </header>
+      <div className="actions workflow-tools">
+        <button data-tutorial="new-order" className="primary" onClick={() => {
           setClient({ id: "", name: "" });
           setSelected(null);
-        }}
-      >
-        Nueva orden
-      </button>
-      {attention && <Link to="?vista=ordenes">Mostrar todas las órdenes</Link>}
+        }}>{presentation.action}</button>
+        <button aria-pressed={!attention} onClick={() => go("ordenes", {})}>Todas</button>
+        {kind === "cleaning" && <button aria-pressed={attention === "today"} onClick={() => go("ordenes", { atencion: "today" })}>Hoy</button>}
+        {kind === "repair" && <button aria-pressed={attention === "waiting"} onClick={() => go("ordenes", { atencion: "waiting" })}>En espera de repuesto</button>}
+        <button aria-pressed={attention === "late"} onClick={() => go("ordenes", { atencion: "late" })}>Atrasadas</button>
+        <button aria-pressed={attention === "ready"} onClick={() => go("ordenes", { atencion: "ready" })}>Listas para cobrar</button>
+      </div>
       <Pager page={page} />
-      <div className="workflow-grid">
+      <div className="workflow-timeline">
         {page.items.map((row) => (
-          <article className="card" key={row.id}>
+          <article className="card timeline-record" key={row.id}>
+            <div className="timeline-record-time"><small>Compromiso</small><strong>{localDate(row.dueOn)}</strong></div>
+            <div>
             <span className="badge">{WORK_LABELS[row.status]}</span>
             <h3>{row.title}</h3>
-            <p>
-              {row.customerName} · compromiso {localDate(row.dueOn)}
-            </p>
-            <p>{row.description}</p>
-            {Object.entries(fields).map(([key, label]) => row.particulars?.[key as keyof NonNullable<WorkOrder["particulars"]>] && <p key={key}>{label} · {row.particulars[key as keyof NonNullable<WorkOrder["particulars"]>]}</p>)}
-            {row.address && <p>{row.address}</p>}
-            <p>Presupuesto de referencia: {bob(row.budgetMinor)}</p>
-            <ul>
-              {row.checks.map((c, i) => (
-                <li key={i}>{c}</li>
-              ))}
-            </ul>
+            <p>{row.customerName} · {bob(row.budgetMinor)} de presupuesto</p>
+            {kind === "cleaning" && row.address && <p>{row.address}</p>}
+            {presentation.focus && row.particulars?.[presentation.focus] && <p>{row.particulars[presentation.focus]}</p>}
+            <details className="workflow-detail">
+              <summary>Detalles del trabajo</summary>
+              <p>{row.description}</p>
+              {kind !== "cleaning" && row.address && <p>{row.address}</p>}
+              <dl>{Object.entries(fields).map(([key, label]) => {
+                const value = row.particulars?.[key as keyof NonNullable<WorkOrder["particulars"]>];
+                return value ? <div key={key}><dt>{label}</dt><dd>{value}</dd></div> : null;
+              })}</dl>
+              {!!row.checks.length && <ul>{row.checks.map((task, index) => <li key={index}>{task}</li>)}</ul>}
+            </details>
             {!row.saleId &&
               !["delivered", "cancelled"].includes(row.status) && (
                 <button
@@ -125,12 +140,13 @@ export default function WorkOrderPage() {
               </button>
             </div>}
             <Events id={row.id} />
+            </div>
           </article>
         ))}
       </div>
       {selected !== undefined && (
         <Panel
-          title={selected ? "Actualizar orden" : "Recibir trabajo"}
+          title={selected ? "Actualizar orden" : presentation.action}
           onClose={() => setSelected(undefined)}
         >
           <ActionForm

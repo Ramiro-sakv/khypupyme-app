@@ -31,6 +31,7 @@ import {
   statusLabel,
 } from "./format";
 import { Icon } from "./Icon";
+import { industryAppearance } from "./industryAppearance";
 import { useWorkspaceNavigation } from "./navigation";
 import IndustryHelp from "./IndustryHelp";
 import ItemForm from "./ItemForm";
@@ -45,6 +46,7 @@ export default function Catalog() {
     [archived, setArchived] = useState(false),
     [search, setSearch] = useState(""),
     [vehicle, setVehicle] = useState<WorkspaceQuery["vehicle"]>(),
+    [itemKind, setItemKind] = useState<WorkspaceQuery["itemKind"]>(),
     [selection, setSelected] = useState<Item | null>(null),
     reorder = hasReorder(business.industryId) && attention === "reposicion",
     expiry = hasExpiry(business.industryId) && attention === "vencimientos",
@@ -52,19 +54,25 @@ export default function Catalog() {
       active: reorder || !archived,
       ...(vehicle && !archived ? { vehicle } : {}),
       ...(reorder ? { reorder: true } : {}),
+      ...(itemKind && !reorder ? { itemKind } : {}),
       ...(search.trim().length >= 2 ? { search: search.trim() } : {}),
     }, !expiry);
   const tutorial = useTimberTutorial();
   const speciesMode = business.industryId === "timber" && tutorial?.state.session?.version !== 1;
   const visible = page.items;
+  const appearance = industryAppearance(business.industryId);
+  const kinds = business.industryId === "cement"
+    ? [{ value: "cement-bag", label: "Bolsas" }, { value: "cement-bulk", label: "Granel" }] as const
+    : (business.industryId === "stationery" || business.industryId === "beauty")
+      ? [{ value: "service", label: "Solo servicios" }] as const : [];
   const selected = page.items.find((i) => i.id === selection?.id) ?? selection;
   const profileFields = selected ? fieldsForItem(business.industryId, selected.kind) : {};
   return (
     <>
-      <div className="workspace-heading">
-        <div>
-          <span className="eyebrow">PRODUCTOS, COSTOS Y EXISTENCIAS</span>
-          <h2>Inventario</h2>
+      <div className="workspace-heading operation-heading">
+        <div className="workspace-masthead-identity">
+          <span className="business-symbol"><Icon name={appearance.icon} /></span>
+          <div><h2>Inventario</h2><p>{appearance.inventory}</p></div>
         </div>
         <button
           data-tutorial={speciesMode ? "new-service" : "new-item"}
@@ -111,10 +119,16 @@ export default function Catalog() {
           />
         </Panel>
       )}
+      {!!kinds.length && !reorder && !expiry && <div className="actions catalog-tools" role="group" aria-label="Tipo de artículo">
+        <button type="button" aria-pressed={!itemKind} onClick={() => setItemKind(undefined)}>Todo el catálogo</button>
+        {kinds.map(({ value, label }) => <button type="button" key={value} aria-pressed={itemKind === value}
+          onClick={() => setItemKind(value)}>{label}</button>)}
+      </div>}
       <div className="catalog-toolbar" hidden={expiry}>
         <label>
           Buscar en todo el catálogo (desde 2 caracteres)
           <input
+            placeholder={appearance.search}
             value={search}
             maxLength={40}
             onChange={(e) => setSearch(e.target.value)}
@@ -246,7 +260,7 @@ export default function Catalog() {
             </button>
           </div>
         )}
-      <div className="catalog-cards">
+      <div className="catalog-cards" hidden={expiry}>
         {visible.map((item) => {
           const factor = item.units[item.priceUnit]!,
             balance = div(item.balance, factor),
@@ -277,10 +291,10 @@ export default function Catalog() {
                         ? "· Stock bajo"
                         : ""}
                   </p>
-                  <p>
-                    Valor: {bob(item.valueMinor)} · Costo promedio por{" "}
-                    {UNITS[item.priceUnit]}: {average === null ? "—" : average}
-                  </p>
+                  <details className="workflow-detail">
+                    <summary>Valor y costo promedio</summary>
+                    <p>Valor: {bob(item.valueMinor)} · Costo promedio por {UNITS[item.priceUnit]}: {average ?? "—"}</p>
+                  </details>
                   {item.kind === "ceramic" && (
                     <p>
                       {String(

@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.5.0-beta.13 (local)
+
+- Identidad visual para los 21 rubros en Inicio, el directorio y la creación de negocios.
+- Acciones directas según el trabajo, venta rápida con foco en el lector, grupos de productos en operaciones, filtros de catálogo y tarjetas con datos específicos.
+- Agenda con horas y duración, órdenes y entregas cronológicas, cobertura de cerámicas e historial de equipos por serie.
+
 ## 0.5.0-beta.12 (local)
 
 - Inicio y recorridos de catálogo, compra y cobro adaptados a los 17 rubros pendientes.

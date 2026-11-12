@@ -1,6 +1,7 @@
 import { INDUSTRIES } from "../../../shared/business-industries";
 import { ReportChart } from "../commerce/ReportChart";
 import { hasAgenda, hasDelivery, workKindFor } from "../../../shared/workspace/operations";
+import { industryIcon } from "./industryAppearance";
 import { useCashState } from "./cash-context";
 import { useWorkspace } from "./context";
 import { bob, localDate, today } from "./format";
@@ -28,6 +29,7 @@ export default function Dashboard() {
     (tutorial?.pendingControl || tutorial?.state.session?.status === "closing" ||
       (!tutorial?.state.completedAt && tutorial?.state.session?.status !== "completed"));
   const attention = [
+    ...(industry === "timber" ? [{ title: "Stock por largo, espesor y ancho", view: "inventario" }] : []),
     ...(industry === "convenience" ? [
       { title: "Reponer productos", view: "inventario", filter: "reposicion" },
       { title: "Próximos vencimientos", view: "inventario", filter: "vencimientos" },
@@ -48,13 +50,18 @@ export default function Dashboard() {
   return (
     <>
       <section data-tutorial="dashboard" className="card day-start">
-        <div>
-          <h2>Trabajo de hoy</h2>
-          <p className="muted">{localDate(date)}</p>
-          <p role={cash.error ? "alert" : "status"}>{cashStatus}</p>
+        <div className="day-identity">
+          <span className="day-icon"><Icon name={industryIcon(industry)} /></span>
+          <div>
+            <p>{localDate(date)}</p>
+            <h2>{business.name}</h2>
+          </div>
         </div>
-        <div className="actions">
-          <button onClick={() => go("caja")}><Icon name="cash" /> {cashTitle}</button>
+        <div className="day-actions">
+          <div className="day-cash">
+            <span className="day-cash-state" data-open={!!cash.open} role={cash.error ? "alert" : "status"}>{cashStatus}</span>
+            <button type="button" onClick={() => go("caja")}><Icon name="cash" /> {cashTitle}</button>
+          </div>
           <button className="primary" onClick={() => go("ventas")}><Icon name="sale" /> Vender</button>
           {!services && <button onClick={() => go("compras")}><Icon name="purchase" /> Registrar compra</button>}
         </div>
@@ -62,7 +69,7 @@ export default function Dashboard() {
       {attention.length > 0 && (
         <section className="card day-attention">
           <h3>Qué revisar</h3>
-          <div className="actions">
+          <div className="day-attention-links">
             {attention.map(({ title, view, filter }) => (
               <button key={title} onClick={() => go(view, filter ? { atencion: filter } : undefined)}>{title} <Icon name="arrow" /></button>
             ))}

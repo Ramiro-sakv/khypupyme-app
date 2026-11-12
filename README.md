@@ -1,6 +1,6 @@
 # KhypuPyme
 
-Cuaderno digital para negocios de Bolivia. Beta local **0.5.0-beta.10**, sin publicación ni conexión cloud activa.
+Cuaderno digital para negocios de Bolivia. Beta local **0.5.0-beta.11**, sin publicación ni conexión cloud activa.
 
 Una cuenta administra varios negocios independientes. Después de ingresar se crea un espacio, se responde el cuestionario y se confirma un rubro fijo. Cada negocio conserva catálogo, clientes, compras, ventas, fiados, caja y documentos propios. Se abre el último negocio autorizado; **Cambiar negocio** vuelve al selector.
 
@@ -18,7 +18,7 @@ Los negocios anteriores conservan sus rutas e identificadores. Confirman el rubr
 
 Las solicitudes sin confirmación se conservan en IndexedDB por cuenta/negocio, sin cola offline ni reintento automático. **Consultar confirmación** precede al reintento manual. La operación conserva su negocio original aunque cambies de espacio.
 
-React + TypeScript + Vite + Firebase Functions/Firestore/Auth locales; Android con Capacitor y Windows con Tauri. Los paquetes locales aún necesitan los emuladores encendidos en el PC. Android usa el host 10.0.2.2 del emulador Android; no está preparado para teléfonos físicos. Esta entrega se compiló sin ejecutar pruebas por instrucción del propietario; no se acredita uso comercial.
+React + TypeScript + Vite + Firebase Functions/Firestore/Auth locales; Android con Capacitor y Windows con Tauri. Los paquetes locales aún necesitan los emuladores encendidos en el PC. Android usa el host 10.0.2.2 del emulador Android; no está preparado para teléfonos físicos. Esta entrega se compiló y se revisó manualmente con datos ficticios; no se acredita uso comercial.
 
 ## Inventario detallado y correcciones protegidas · 0.5 beta 7
 
@@ -110,6 +110,8 @@ La configuración funciona sin `.env.local`. `.env.example` muestra la configura
 En VS Code, usa **Terminal → Ejecutar tarea → KhypuPyme · Iniciar emuladores**. Espera el mensaje **KhypuPyme · emuladores listos** antes de abrir la app. La tarea y `pnpm emulators` usan el mismo lanzador. Si la sesión habitual ya está abierta, reutilízala o ciérrala normalmente antes de iniciar otra.
 
 El lanzador muestra la fecha de la copia restaurada y guarda Auth y Firestore cada cinco minutos. Puedes guardar inmediatamente con la tarea **KhypuPyme · Guardar respaldo** o `pnpm backup` desde otra terminal. Para cerrar, pulsa **Ctrl+C una vez** y espera **Respaldo guardado**. Cerrar la terminal por fuerza puede dejar fuera cambios posteriores a la última copia confirmada.
+
+Para eliminar un negocio, entra a **Configuración → Eliminar negocio** con la caja cerrada. Confirma su nombre y tu contraseña, y abre el buzón privado con `pnpm inbox` desde la carpeta del proyecto. Si aún falta verificar tu correo, la app permite solicitar el enlace de verificación que aparece en la terminal de Firebase. Un borrado autorizado e interrumpido se puede reanudar desde **Mis negocios**. La cuenta y los otros negocios permanecen disponibles. Los respaldos anteriores siguen la retención local. Esta beta entrega el código en el buzón local.
 
 Windows conserva las dos copias recientes y la copia original en `%LOCALAPPDATA%\KhypuPyme\demo-khypupyme`. La carpeta anterior `.emulator-data` sigue disponible. Si el respaldo elegido está incompleto, el lanzador se detiene e indica su ubicación. `pnpm emulators --restore <nombre-de-copia>` permite elegir una copia verificada de esa carpeta. Para un entorno nuevo sin respaldos, `pnpm emulators --empty` permite comenzar vacío explícitamente. Las copias incluyen datos de cuentas y quedan fuera de Git. Los tests usan exclusivamente un proyecto efímero separado.
 

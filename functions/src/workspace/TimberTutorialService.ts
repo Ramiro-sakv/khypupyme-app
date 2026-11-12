@@ -114,11 +114,13 @@ export class TimberTutorialService {
       status: s.cleanupGoal ?? "abandoned",
       finishedAt: new Date().toISOString(),
     };
-    const batch = this.db.batch();
-    batch.set(this.db.doc(sessionPath(uid, s.id)), receipt);
-    if (receipt.status === "completed")
-      batch.set(this.db.doc(`users/${uid}/tutorialPointers/${s.sourceBusinessId}`), { completedAt: receipt.finishedAt }, { merge: true });
-    await batch.commit();
+    await this.db.runTransaction(async (tx) => {
+      const source = await tx.get(this.db.doc("businesses/" + s.sourceBusinessId));
+      if (source.data()?.ownerUid !== uid || source.data()?.deletionPending) return;
+      tx.set(this.db.doc(sessionPath(uid, s.id)), receipt);
+      if (receipt.status === "completed")
+        tx.set(this.db.doc(`users/${uid}/tutorialPointers/${s.sourceBusinessId}`), { completedAt: receipt.finishedAt }, { merge: true });
+    });
     return this.state(uid, receipt as Partial<StoredTutorial>);
   }
   private async closing(
@@ -130,6 +132,7 @@ export class TimberTutorialService {
     const closing = await this.db.runTransaction(async (tx) => {
       const doc = await tx.get(ref),
         current = doc.data() as StoredTutorial;
+      if (!current) throw new Error("La práctica ya no está disponible.");
       if (["completed", "abandoned"].includes(current.status)) return current;
       if (current.status === "closing") return current;
       const next: StoredTutorial = {
@@ -162,6 +165,7 @@ export class TimberTutorialService {
       const ref = this.db.doc(sessionPath(uid, s.id)),
         doc = await tx.get(ref),
         latest = doc.data() as StoredTutorial;
+      if (!latest) throw new Error("La práctica ya no está disponible.");
       if (
         !["active", "paused"].includes(latest.status) ||
         !["sale", "convert"].includes(
@@ -270,7 +274,7 @@ export class TimberTutorialService {
         if (
           parent?.data()?.ownerUid !== uid ||
           parent.data()?.industryId !== "timber" ||
-          parent.data()?.tutorialSessionId
+          parent.data()?.tutorialSessionId || parent.data()?.deletionPending
         )
           throw new Error("El negocio de origen no está autorizado.");
         if (own?.exists) {
@@ -355,8 +359,9 @@ export class TimberTutorialService {
     }
     const ref = this.db.doc(sessionPath(uid, c.sessionId));
     const next = await this.db.runTransaction(async (tx) => {
-      const doc = await tx.get(ref);
-      if (!doc.exists || doc.data()!.sourceBusinessId !== sourceId)
+      const [doc, parent] = await tx.getAll(ref, this.db.doc("businesses/" + sourceId));
+      if (parent?.data()?.ownerUid !== uid || parent.data()?.deletionPending ||
+          !doc?.exists || doc.data()!.sourceBusinessId !== sourceId)
         throw new Error("Sesión no autorizada.");
       const s = doc.data() as StoredTutorial;
       if (["completed", "abandoned", "closing"].includes(s.status)) return s;

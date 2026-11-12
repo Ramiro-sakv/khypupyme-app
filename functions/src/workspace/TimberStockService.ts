@@ -69,15 +69,15 @@ export class TimberStockService {
       throw new Error("Agrupa los anchos repetidos aumentando su cantidad.");
     return totals;
   }
+  stockForWidth(itemId: string, length: string, width: string) {
+    return this.work.get<TimberStockGroup>("timberGroups", this.key(itemId, length, width));
+  }
   async available(item: Item, selection: TimberSelection, qty: Quantity) {
     if (!item.active)
       throw new Error("Reactiva el producto antes de retirar madera.");
     const totals = this.validate(item, selection, qty);
     for (const row of selection.widths) {
-      const stock = await this.work.get<TimberStockGroup>(
-        "timberGroups",
-        this.key(item.id, selection.lengthMm, row.widthMm),
-      );
+      const stock = await this.stockForWidth(item.id, selection.lengthMm, row.widthMm);
       if (!stock || stock.pieces < row.pieces)
         throw new AppError(
           item.name +

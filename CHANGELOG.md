@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.5.0-beta.11 - 2026-11-12 (local)
+
+- Disponibilidad exacta por carrito y avisos de faltantes antes del cobro, con validación final en la venta.
+- Pestaña de revisión alineada, Inicio, selector y asistente renovados, e importes negativos legibles en la gráfica.
+- Plantilla PDF con encabezados repetidos, importes alineados, paginación y los datos históricos de cada documento.
+- Borrado definitivo reanudable por negocio con contraseña, código de un solo uso y buzón privado local.
+
 ## 0.5.0-beta.10 - 2026-11-11 (local)
 
 - Los productos generales y de tienda pueden manejar piezas, peso o volumen. Libra estándar con conversión exacta y litros con mililitros.

@@ -1,6 +1,8 @@
 import { displayQuantity as showQuantity } from "../../../shared/workspace/presentation";
 import { UNITS } from "../../../shared/workspace/catalog";
 import { div } from "../../../shared/workspace/exact";
+import type { StockCheck } from "../../../shared/workspace/availability";
+import { StockNumbers } from "./StockNumbers";
 import type { Unit } from "../../../shared/workspace/model";
 import type { CartLine } from "./Cart";
 import { delivered, linePrice } from "./Cart";
@@ -12,11 +14,13 @@ export default function TimberFixedLineEditor({
   update,
   remove,
   purchase,
+  stock,
 }: {
   line: CartLine;
   update: (patch: Partial<CartLine>) => void;
   remove: () => void;
   purchase: boolean;
+  stock?: StockCheck | undefined;
 }) {
   const { business } = useWorkspace();
   const price = linePrice(line, purchase);
@@ -43,6 +47,7 @@ export default function TimberFixedLineEditor({
           Quitar
         </button>
       </header>
+      {stock && <StockNumbers check={stock} unit="piezas" />}
       <div className="timber-group-fields">
         <label>
           Cantidad

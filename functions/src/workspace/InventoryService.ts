@@ -343,6 +343,11 @@ export class InventoryServiceV2 {
     );
     return { baseQty, totalMinor, stockIds };
   }
+  async availableLots(id: string, ignoreExpiry = false) {
+    const date = today();
+    const lots = await this.work.list<Lot>("lots", [["itemId", id], ["available", true]], 10000);
+    return lots.filter((lot) => ignoreExpiry || !lot.expiresOn || lot.expiresOn >= date);
+  }
   async consume(
     id: string,
     baseQty: Quantity,
@@ -386,19 +391,7 @@ export class InventoryServiceV2 {
       }
     } else {
       if (serialIds.length) throw new Error("Este producto no utiliza series.");
-      const lots = (
-        await this.work.list<Lot>(
-          "lots",
-          [
-            ["itemId", id],
-            ["available", true],
-          ],
-          10000,
-        )
-      )
-        .filter(
-          (lot) => ignoreExpiry || !lot.expiresOn || lot.expiresOn >= today(),
-        )
+      const lots = (await this.availableLots(id, ignoreExpiry))
         .sort(
           (a, b) =>
             (a.expiresOn || "9999").localeCompare(b.expiresOn || "9999") ||

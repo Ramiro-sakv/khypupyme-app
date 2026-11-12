@@ -494,6 +494,7 @@ export type WorkspaceResource =
   | "serials"
   | "serialHistory"
   | "saleAvailability"
+  | "cartAvailability"
   | "setupProgress"
   | "timberGroups"
   | "lots"
@@ -504,6 +505,8 @@ export type WorkspaceResource =
   | "expenses"
   | "receivables";
 export interface WorkspaceQuery {
+  lines?: SaleLineInputV2[];
+  quote?: boolean;
   category?: TimberCategory;
   apiVersion: 2;
   businessId: string;

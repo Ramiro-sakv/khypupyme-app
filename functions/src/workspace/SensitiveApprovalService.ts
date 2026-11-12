@@ -36,7 +36,7 @@ export class SensitiveApprovalService {
     const time = this.identity(authTime), now = Date.now();
     return this.db.runTransaction(async (tx) => {
       const business = await tx.get(this.db.doc(`businesses/${identifier(operation.businessId)}`));
-      if (!business.exists || business.data()!.ownerUid !== uid || business.data()!.tutorialSessionId) throw new AppError("No tienes acceso a este negocio.", 403, "OWNER_REQUIRED");
+      if (!business.exists || business.data()!.ownerUid !== uid || (business.data()!.tutorialSessionId || business.data()!.deletionPending)) throw new AppError("No tienes acceso a este negocio.", 403, "OWNER_REQUIRED");
       const records: CorrectionChallenge["records"] = [];
       for (const target of this.targets(operation)) {
         let record = await tx.get(this.db.doc(`businesses/${operation.businessId}/${target.collection}/${target.id}`));
@@ -61,7 +61,7 @@ export class SensitiveApprovalService {
       const reference = this.ref(uid, operation.operationId), snapshot = await tx.get(reference), approval = snapshot.data() as Approval | undefined;
       const business = await tx.get(this.db.doc(`businesses/${identifier(operation.businessId)}`));
       const usageRef = this.db.doc(`users/${identifier(uid)}/securityState/lastCorrectionAuth`), usage = await tx.get(usageRef);
-      if (business.data()?.ownerUid !== uid || business.data()?.tutorialSessionId) throw new AppError("No tienes acceso a este negocio.", 403, "OWNER_REQUIRED");
+      if (business.data()?.ownerUid !== uid || (business.data()?.tutorialSessionId || business.data()?.deletionPending)) throw new AppError("No tienes acceso a este negocio.", 403, "OWNER_REQUIRED");
       if (!approval || approval.businessId !== operation.businessId || approval.digest !== digest(operation.signature) || approval.state !== "prepared" || approval.expiresAt < now) throw new AppError("La confirmación caducó. Vuelve a revisar la operación.", 403, "APPROVAL_REQUIRED");
       if (time <= Math.floor(approval.issuedAt / 1000) || time <= approval.authTime) throw new AppError("Confirma tu contraseña después de abrir esta revisión.", 401, "REAUTH_REQUIRED");
       if (time <= (usage.data()?.authTime ?? 0)) throw new AppError("Esta autenticación ya confirmó otra corrección. Vuelve a confirmar tu contraseña.", 401, "REAUTH_REQUIRED");

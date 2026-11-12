@@ -26,6 +26,7 @@ import { useTradeDraft } from "./useTradeDraft";
 
 import type { CartLine } from "./Cart";
 import { delivered, linePrice, receiptInputs, saleInputs } from "./Cart";
+import { useCartAvailability } from "./useCartAvailability";
 import CartEditor from "./CartEditor";
 import TradeCheckout from "./TradeCheckout";
 import Quotes from "./QuoteHistory";
@@ -68,6 +69,7 @@ export default function Trade({
     [restoredNotice, setRestoredNotice] = useState(""),
     [checkoutExpanded, setCheckoutExpanded] = useState(false),
     [checkoutFeedback, setCheckoutFeedback] = useState<HTMLDivElement | null>(null);
+  const availability = useCartAvailability(lines, purchase, isQuote);
   const checkoutId = useId();
   const checkoutTab = useRef<HTMLButtonElement>(null);
   const draftInput: TradeDraftInput = {
@@ -280,6 +282,10 @@ export default function Trade({
   const renderCheckout = (disabled: boolean) => lines.length > 0 && (
     <TradeCheckout id={checkoutId} open={checkoutExpanded} title={totalLabel + " · " + totalText} minimize={minimizeCheckout}>
       {totalIssue && <p role="status" className="muted">{totalIssue}</p>}
+      {availability.message && <div className="notice notice-warning" role="status">
+        {availability.message} {availability.affected > 0 && !isQuote && "Minimiza la revisión para corregir el carrito."}
+        {availability.error && <button type="button" onClick={availability.retry}>Reintentar</button>}
+      </div>}
       {business.industryId === "timber" && (
         <p>{timberPieces} piezas · {showQuantity(timberFeet)} pies tablares</p>
       )}
@@ -346,7 +352,7 @@ export default function Trade({
           <input key={JSON.stringify([draftInput.lines, discount])} name="review" type="checkbox" required />
           {total === null ? "Revisar importe cuando esté completo" : "He revisado cantidades e importe de " + bob(total) + "."}
         </label>
-        <button type="submit" className="primary" data-tutorial="confirm-trade" disabled={total === null}>
+        <button type="submit" className="primary" data-tutorial="confirm-trade" disabled={total === null || !availability.ready}>
           {busy ? "Procesando…" : confirmLabel}
         </button>
         <div ref={setCheckoutFeedback} />
@@ -474,6 +480,7 @@ export default function Trade({
               return;
             }
             if (total === null) throw new AppError(totalIssue || "Completa la operación.", 400, "TRADE_TOTAL");
+            if (!availability.ready) throw new AppError(availability.message || "Comprueba las cantidades del carrito.", 400, "CHECKOUT_STOCK");
             if (d.get("review") !== "on") {
               setCheckoutExpanded(true);
               throw new AppError(
@@ -543,6 +550,7 @@ export default function Trade({
             <CartEditor
               key={line.id ?? line.item.id}
               line={line}
+              stock={availability.rows.get(index)}
               purchase={purchase}
               quote={isQuote}
               fixedSerialQuantity={!!quoteId}
@@ -591,14 +599,15 @@ export default function Trade({
       </div>
         </div>
         {lines.length > 0 && (
-          <div className="trade-bottom-tab" data-tutorial="review-trade">
+          <div className="trade-bottom-tab" data-tutorial="review-trade" data-stock-warning={availability.affected > 0 || !!availability.error}>
             <div role="status">
               <strong>{totalLabel} · {totalText}</strong>
               {totalIssue && <small>{totalIssue}</small>}
+              {availability.message && <small>{availability.message}</small>}
             </div>
             <button type="button" className="primary" ref={checkoutTab} aria-haspopup="dialog"
               aria-controls={checkoutId} aria-expanded={checkoutExpanded} onClick={openCheckout}>
-              Revisar
+              Revisar <Icon name="arrow" />
             </button>
           </div>
         )}

@@ -223,7 +223,7 @@ const purchaseLine = (raw: unknown) =>
     expiresOn: optionalDate,
     serials: strings,
   });
-const saleLine = (raw: unknown) =>
+export const saleLine = (raw: unknown) =>
   object(raw, {
     ...timberField(raw, true),
     itemId: identifier,

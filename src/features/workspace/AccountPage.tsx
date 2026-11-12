@@ -7,6 +7,9 @@ import type { WorkspaceBusiness } from "../../../shared/workspace/model";
 import { AccountCreationService } from "./AccountCreationService";
 import AccountSessionActions from "./AccountSessionActions";
 import BusinessWizard from "./BusinessWizard";
+import type { DeletionJob } from "../../../shared/workspace/business-deletion";
+import { finishBusinessDeletion } from "./businessDeletion";
+import { industryIcon } from "./industryAppearance";
 import { Icon } from "./Icon";
 import { confirmDiscardChanges } from "./navigation";
 import type { SavedRequest } from "./OperationJournal";
@@ -24,6 +27,10 @@ export default function Account({
   repository: WorkspaceRepository;
 }) {
   const [businesses, setBusinesses] = useState<WorkspaceBusiness[]>([]),
+    [deletions, setDeletions] = useState<DeletionJob[]>([]),
+    [deleting, setDeleting] = useState(""),
+    [notice, setNotice] = useState(""),
+    [recentId, setRecentId] = useState(() => localStorage.getItem(`khypupyme:last-business:${uid}`)),
     [next, setNext] = useState<string | null>(null),
     [business, setBusiness] = useState<WorkspaceBusiness | null>(null),
     [create, setCreate] = useState(false),
@@ -45,6 +52,8 @@ export default function Account({
     const page = await repository.businesses();
     await resetLocalWorkspace(uid, page.reset);
     setBusinesses(page.items);
+    setDeletions(page.deletions ?? []);
+    setRecentId(localStorage.getItem(`khypupyme:last-business:${uid}`));
     setNext(page.next);
     return page;
   }, [repository, uid]);
@@ -83,7 +92,28 @@ export default function Account({
     setBusiness(b);
     setCreate(false);
     localStorage.setItem(`khypupyme:last-business:${uid}`, b.id);
+    setRecentId(b.id);
     navigate("/");
+  }
+  async function continueDeletion(id: string) {
+    if (attempting.current || !repository.deletion) return;
+    attempting.current = true;
+    setDeleting(id);
+    setNotice("");
+    setError("");
+    try {
+      const reset = await finishBusinessDeletion(repository.deletion.bind(repository), id, () => mounted.current);
+      if (reset) {
+        await resetLocalWorkspace(uid, reset);
+        await load();
+        setNotice("Negocio eliminado.");
+      }
+    } catch (cause) {
+      setError(message(cause));
+    } finally {
+      attempting.current = false;
+      setDeleting("");
+    }
   }
   async function createBusiness(input: NewBusiness, retry = false) {
     if (attempting.current) return;
@@ -116,20 +146,36 @@ export default function Account({
         onExit={() => {
           setBusiness(null);
           navigate("/");
+          void load().catch((cause) => setLoadError(message(cause)));
         }}
       />
     );
   return (
     <>
-      <div className="selector-heading">
-        <span className="eyebrow">TUS ESPACIOS DE TRABAJO</span>
-        <h1>¿Con qué negocio empezamos?</h1>
-        <p>
-          Una cuenta, espacios independientes. Selecciona el que vas a
-          administrar.
-        </p>
-        <AccountSessionActions />
-      </div>
+      <header className="selector-heading">
+        <div>
+          <h1>Mis negocios</h1>
+          <p>Elige el negocio con el que vas a trabajar.</p>
+        </div>
+        <div className="selector-actions">
+          {!create && <button className="primary" disabled={!!pending || !!loadError} onClick={() => setCreate(true)}>
+            <Icon name="plus" /> Crear negocio
+          </button>}
+          <AccountSessionActions />
+        </div>
+      </header>
+      {notice && <p className="notice notice-info" role="status">{notice}</p>}
+      {deletions.length > 0 && <section className="card">
+        <h2>Borrados pendientes</h2>
+        <ul className="record-list">
+          {deletions.map((job) => <li key={job.businessId} className="section-heading">
+            <strong>{job.name}</strong>
+            <button disabled={!!deleting} onClick={() => void continueDeletion(job.businessId)}>
+              {deleting === job.businessId ? "Eliminando registros…" : "Continuar borrado"}
+            </button>
+          </li>)}
+        </ul>
+      </section>}
       {error && (
         <p className="notice notice-error" role="alert">
           {error}
@@ -195,37 +241,31 @@ export default function Account({
         />
       ) : (
         <>
-          <div className="workspace-grid">
+          <div className="business-directory">
             {businesses.map((b) => (
               <button
                 className="card business-choice"
+                data-industry={b.industryId ?? "general"}
                 key={b.id}
                 onClick={() => {
                   void select(b);
                 }}
               >
-                <span className="business-symbol">
-                  <Icon name="box" />
+                <span className="business-symbol"><Icon name={industryIcon(b.industryId)} /></span>
+                <span className="business-choice-label">
+                  <strong>{b.name}</strong>
+                  <span>{industryLabel(b.industryId)}</span>
+                  {b.id === recentId && <small className="badge">Último utilizado</small>}
                 </span>
-                <strong>{b.name}</strong>
-                <span>{industryLabel(b.industryId)}</span>
-                <span className="choice-footer">
-                  Abrir negocio
-                  <Icon name="arrow" />
-                </span>
+                <Icon name="arrow" />
               </button>
             ))}
-            <button
-              className="card business-choice new-business"
-              disabled={!!pending || !!loadError}
-              onClick={() => setCreate(true)}
-            >
-              <span className="business-symbol">
-                <Icon name="plus" />
-              </span>
-              <strong>Crear otro negocio</strong>
-              <span>Tu misma cuenta. Un espacio independiente.</span>
-            </button>
+            {!businesses.length && !loadError && <section className="card business-directory-empty">
+              <Icon name="grid" />
+              <h2>Tu primer negocio</h2>
+              <p>Elige un rubro para configurar sus productos, ventas y caja.</p>
+              <button type="button" disabled={!!pending} onClick={() => setCreate(true)}>Crear negocio</button>
+            </section>}
           </div>
           {next && (
             <button
@@ -242,13 +282,7 @@ export default function Account({
               Más negocios
             </button>
           )}
-          <button
-            className="primary"
-            disabled={!!pending}
-            onClick={() => setCreate(true)}
-          >
-            Crear otro negocio
-          </button>
+
         </>
       )}
     </>

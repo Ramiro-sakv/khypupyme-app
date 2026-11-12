@@ -15,6 +15,8 @@ import { timberTotals } from "../../../shared/workspace/timber-groups";
 import { div } from "../../../shared/workspace/exact";
 import { displayQuantity } from "../../../shared/workspace/presentation";
 import type { TimberStockGroup } from "../../../shared/workspace/model";
+import type { CartStock } from "../../../shared/workspace/availability";
+import { StockNumbers } from "./StockNumbers";
 import type { CartLine } from "./Cart";
 import { linePrice } from "./Cart";
 import { useRecords, useWorkspace } from "./context";
@@ -28,12 +30,14 @@ export default function TimberLineEditor({
   remove,
   purchase,
   duplicate,
+  availability,
 }: {
   line: CartLine;
   update: (patch: Partial<CartLine>) => void;
   remove: () => void;
   purchase: boolean;
   duplicate?: (() => void) | undefined;
+  availability?: CartStock | undefined;
 }) {
   const { business, busy } = useWorkspace(),
     system = line.widthsEntry?.system ?? business.timberSystem ?? "imperial";
@@ -397,13 +401,9 @@ export default function TimberLineEditor({
                 } catch {
                   /* Falta el largo. */
                 }
-                const available = stock.items.find(
-                  (g) =>
-                    g.widthMm === row.widthMm &&
-                    g.lengthMm === selection.lengthMm,
-                );
+                const check = availability?.checks.find((entry) => entry.widthMm === row.widthMm);
                 return (
-                  <tr key={row.widthMm}>
+                  <tr key={row.widthMm} data-shortage={check && check.missing.n !== "0" || undefined}>
                     <td>
                       {dimensionDisplayFromMm(row.widthMm, "widthMm", system)}
                     </td>
@@ -433,13 +433,7 @@ export default function TimberLineEditor({
                     <td>{rowFeet}</td>
                     {!purchase && (
                       <td>
-                        {stock.error
-                          ? "Consulta fallida"
-                          : stock.loading
-                            ? "Cargando…"
-                            : available
-                              ? available.pieces
-                              : "Revisar medidas disponibles"}
+                        {check ? <StockNumbers check={check} unit="piezas" /> : "Por comprobar"}
                       </td>
                     )}
                     <td>

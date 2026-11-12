@@ -3,8 +3,9 @@ import { useState } from "react";
 import TimberFixedLineEditor from "./TimberFixedLineEditor";
 import TimberLineEditor from "./TimberLineEditor";
 import { UNITS } from "../../../shared/workspace/catalog";
-import { compare, div, showQuantity as showExact } from "../../../shared/workspace/exact";
-import type { Quantity } from "../../../shared/workspace/exact";
+import { div, showQuantity as showExact } from "../../../shared/workspace/exact";
+import type { CartStock } from "../../../shared/workspace/availability";
+import { StockNumbers } from "./StockNumbers";
 import type { Unit } from "../../../shared/workspace/model";
 import { useRecords, useWorkspace } from "./context";
 import { bob, itemDetails, measuredText, serials } from "./format";
@@ -21,6 +22,7 @@ export default function CartEditor({
   quote = false,
   fixedSerialQuantity = false,
   duplicate,
+  stock,
 }: {
   line: CartLine;
   update: (patch: Partial<CartLine>) => void;
@@ -29,15 +31,13 @@ export default function CartEditor({
   quote?: boolean;
   fixedSerialQuantity?: boolean;
   duplicate?: (() => void) | undefined;
+  stock?: CartStock | undefined;
 }) {
   const { business } = useWorkspace();
   const guidedSerials = business.industryId === "appliances" && line.item.kind === "appliance" && !quote;
   const [seriesInput, setSeriesInput] = useState("");
   const [seriesQuery, setSeriesQuery] = useState("");
   const retail = business.industryId === "convenience" && ["general", "grocery"].includes(line.item.kind);
-  const retailStock = useRecords<{ id: string; balance: Quantity }>(
-    "saleAvailability", { id: line.item.id }, retail && !purchase && !quote,
-  );
   const available = useRecords<{ id: string; serial: string }>(
     "serials",
     { itemId: line.item.id, status: "available", ...(guidedSerials && seriesQuery ? { serialNumber: seriesQuery } : {}) },
@@ -51,6 +51,7 @@ export default function CartEditor({
         remove={remove}
         purchase={purchase}
         duplicate={duplicate}
+        availability={stock}
       />
     );
   if (line.item.kind === "timber-piece")
@@ -60,16 +61,16 @@ export default function CartEditor({
         update={update}
         remove={remove}
         purchase={purchase}
+        stock={stock?.checks[0]}
       />
     );
-  let coverage: string, insufficient = false;
+  let coverage: string;
   const price = linePrice(line, purchase);
   try {
     const quantity = delivered(line);
     const measured = measuredText(line.item, quantity, line.unit);
     coverage = `${purchase ? "Ingreso" : "Entrega"}: ${measured ?? `${showQuantity(quantity)} ${line.item.baseUnit}`}`;
     if (measured && line.unit !== line.item.priceUnit) coverage += ` · ${measuredText(line.item, quantity)}`;
-    if (retailStock.items[0]) insufficient = compare(quantity, retailStock.items[0].balance) > 0;
     if (line.item.kind === "ceramic")
       coverage += ` · Cobertura real ${showQuantity(div(delivered(line), line.item.units.m2!))} m²`;
   } catch {
@@ -126,14 +127,8 @@ export default function CartEditor({
       {purchase && (retail || ["g", "mL"].includes(line.item.baseUnit)) && (
         <p className="notice">{coverage}{line.unit === "box" && line.item.units.box && ` · ${showQuantity(line.item.units.box)} ${line.item.baseUnit} por caja`}</p>
       )}
-      {retail && !purchase && !quote && (
-        <div role={retailStock.error || insufficient ? "alert" : "status"} className={insufficient ? "notice notice-warning" : "notice"}>
-          {retailStock.loading ? "Consultando disponibilidad…" : retailStock.error || (retailStock.items[0]
-            ? `Disponible para vender: ${measuredText(line.item, retailStock.items[0].balance, line.unit) ?? `${showQuantity(retailStock.items[0].balance)} ${line.item.baseUnit}`}${insufficient ? " · reduce la cantidad o registra una compra" : ""}.`
-            : "Este producto ya no está disponible.")}
-          {retailStock.error && <button type="button" onClick={retailStock.first}>Volver a consultar</button>}
-        </div>
-      )}
+      {stock?.checks[0] && <StockNumbers check={stock.checks[0]} factor={line.item.units[line.unit]} unit={UNITS[line.unit]} />}
+      {stock?.issue && <p className="notice notice-warning" role="status">{stock.issue}</p>}
       {purchase && !guidedSerials && (
         <>
           <label>

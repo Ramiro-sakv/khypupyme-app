@@ -3,7 +3,12 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function isOwner(businessId) { return request.auth != null && request.auth.uid == businessId; }
     function inventoryOwner(businessId) {
-      return request.auth != null && exists(/databases/$(database)/documents/businesses/$(businessId)) && get(/databases/$(database)/documents/businesses/$(businessId)).data.ownerUid == request.auth.uid;
+      let business = get(/databases/$(database)/documents/businesses/$(businessId)).data;
+      return request.auth != null && business.ownerUid == request.auth.uid
+        && business.get('deletionPending', false) == false
+        && (!('tutorialSessionId' in business) || (
+          get(/databases/$(database)/documents/businesses/$(business.tutorialSourceBusinessId)).data.get('deletionPending', false) == false
+        ));
     }
     // Las correcciones antiguas también pasan por Functions y autorización puntual.
     function legacyWrite(businessId) { return false; }
@@ -183,6 +188,7 @@ service cloud.firestore {
       allow get: if inventoryOwner(businessId);
       allow list, delete: if false;
       allow create: if isOwner(businessId) && validBusiness(request.resource.data)
+        && !exists(/databases/$(database)/documents/users/$(businessId)/businessDeletions/$(businessId))
         && (!('configurationRevision' in request.resource.data) || request.resource.data.configurationRevision == 1)
         && request.resource.data.ownerUid == request.auth.uid
         && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;

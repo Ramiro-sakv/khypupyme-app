@@ -94,7 +94,7 @@ export class WorkspaceService {
       const parent = await work.getPath<Record<string, unknown>>(
         `businesses/${command.businessId}`,
       );
-      if (!parent || parent.ownerUid !== uid)
+      if (!parent || parent.ownerUid !== uid || parent.deletionPending)
         throw new Error("No tienes acceso a este negocio.");
       const practice = await loadPractice(work, parent, this.practiceAccess);
       const keyPath = `users/${uid}/operationKeys/${command.operationId}`,

@@ -1,5 +1,6 @@
 import { useWorkspace } from "./context";
 import { ActionForm, Field } from "./ui";
+import BusinessDeletionPanel from "./BusinessDeletionPanel";
 import AccountSessionActions from "./AccountSessionActions";
 export function Preferences({ onExit }: { onExit: () => void }) {
   const { business, run, busy } = useWorkspace();
@@ -84,6 +85,7 @@ export function Preferences({ onExit }: { onExit: () => void }) {
         />
       </ActionForm>
     </section>
+    <BusinessDeletionPanel onExit={onExit} />
     </>
   );
 }

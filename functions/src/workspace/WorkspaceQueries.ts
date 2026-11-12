@@ -1,3 +1,8 @@
+import { cartAvailability } from "./CartAvailability.js";
+import { UnitOfWork } from "./UnitOfWork.js";
+import { loadPractice } from "./TutorialAccess.js";
+import { boolean, list, object, saleLine } from "../../../shared/workspace/validation.js";
+import type { SaleLineInputV2 } from "../../../shared/workspace/model.js";
 import { TimberStockQueries } from "./TimberStockQueries.js";
 import { IndustryQueries } from "./IndustryQueries.js";
 import { withMassUnits } from "../../../shared/workspace/catalog.js";
@@ -62,6 +67,7 @@ export const RESOURCES: WorkspaceResource[] = [
   "serials",
   "serialHistory",
   "saleAvailability",
+  "cartAvailability",
   "setupProgress",
   "timberGroups",
   "lots",
@@ -106,7 +112,7 @@ export class WorkspaceQueries {
   ) {}
   async owner(uid: string, businessId: string) {
     const doc = await this.db.doc(`businesses/${identifier(businessId)}`).get();
-    if (!doc.exists || doc.data()?.ownerUid !== uid)
+    if (!doc.exists || doc.data()?.ownerUid !== uid || doc.data()?.deletionPending)
       throw new Error("No tienes acceso a este negocio.");
     await authorizePracticeRead(
       this.db,
@@ -121,6 +127,30 @@ export class WorkspaceQueries {
     if (!raw || typeof raw !== "object" || Array.isArray(raw))
       throw new Error("Consulta inválida.");
     const input = raw as WorkspaceQuery & { barcode?: string; status?: string };
+    if (input.resource === "cartAvailability") {
+      const request = object(input, {
+        apiVersion: (value) => {
+          if (value !== 2) throw new Error("Versión de consulta inválida.");
+          return value;
+        },
+        businessId: identifier,
+        resource: (value) => value,
+        lines: list(saleLine),
+        quote: boolean,
+      });
+      const id = request.businessId as string;
+      return this.db.runTransaction(async (tx) => {
+        const work = new UnitOfWork(this.db, tx, id, uid);
+        const parent = await work.getPath<DocumentData>("businesses/" + id);
+        if (!parent || parent.ownerUid !== uid || parent.deletionPending)
+          throw new Error("No tienes acceso a este negocio.");
+        await loadPractice(work, parent, this.practiceAccess);
+        return {
+          items: await cartAvailability(work, businessView(id, parent), request.lines as SaleLineInputV2[], request.quote as boolean),
+          next: null,
+        };
+      }, { readOnly: true });
+    }
     if (
       Object.keys(input).some(
         (key) =>

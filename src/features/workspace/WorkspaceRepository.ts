@@ -1,3 +1,4 @@
+import type { DeletionJob, DeletionRequest, DeletionResult } from "../../../shared/workspace/business-deletion";
 import type {
   TutorialRequest,
   TutorialReply,
@@ -15,6 +16,7 @@ import type { IndustryId } from "../../../shared/business-industries";
 
 export interface Page<T> {
   reset?: WorkspaceReset;
+  deletions?: DeletionJob[];
   totals?: { pieces: number; volume: import("../../../shared/workspace/exact").Quantity; combinations: number };
   items: T[];
   next: string | null;
@@ -26,6 +28,7 @@ export interface NewBusiness {
   answers: BusinessAnswers;
 }
 export interface WorkspaceRepository {
+  deletion?: (request: DeletionRequest) => Promise<DeletionResult>;
   approval?: (phase: "prepare" | "approve", command: WorkspaceCommand, reason?: string) => Promise<import("../../../shared/workspace/protection").CorrectionChallenge | { approved: true }>;
   tutorial?: (request: TutorialRequest) => Promise<TutorialReply>;
   businesses(cursor?: string): Promise<Page<WorkspaceBusiness>>;

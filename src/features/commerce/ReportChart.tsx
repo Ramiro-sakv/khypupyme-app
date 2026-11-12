@@ -140,7 +140,10 @@ export function ReportChart({ days, compact = false }: { days: ReportDay[]; comp
     {hasBars && active && <div className="chart-selection" role="status" aria-live="polite">
       <strong>{range(active)}</strong>
       <dl className="chart-day-amounts">{fields.map(([field, label]) => (
-        <div key={field}><dt>{label}</dt><dd>{formatBOB(active.amounts[field] ?? 0)}</dd></div>
+        <div key={field} data-result={field === "resultMinor" || undefined}>
+          <dt>{label}</dt>
+          <dd data-negative={(active.amounts[field] ?? 0) < 0 || undefined}>{formatBOB(active.amounts[field] ?? 0).replace(/^-/, "−")}</dd>
+        </div>
       ))}</dl>
     </div>}
     <details>

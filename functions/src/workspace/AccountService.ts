@@ -60,7 +60,7 @@ export class AccountService {
       indexRef = this.db.doc(`users/${uid}/businesses/${uid}`);
     await this.db.runTransaction(async (tx) => {
       const [legacy, index] = await tx.getAll(legacyRef, indexRef);
-      if (legacy?.exists && legacy.data()?.ownerUid === uid && !index?.exists)
+      if (legacy?.exists && legacy.data()?.ownerUid === uid && !legacy.data()?.deletionPending && !index?.exists)
         tx.create(indexRef, {
           businessId: uid,
           createdAt: new Date().toISOString(),
@@ -75,17 +75,22 @@ export class AccountService {
       entries = page.docs.slice(0, 25),
       refs = entries.map((doc) => this.db.doc(`businesses/${doc.id}`));
     const docs = refs.length ? await this.db.getAll(...refs) : [];
-    const account = await this.db.doc("users/" + uid).get();
+    const accountRef = this.db.doc("users/" + uid);
+    const [account, deletions] = await Promise.all([
+      accountRef.get(),
+      cursor ? null : accountRef.collection("businessDeletions").where("state", "==", "deleting").limit(25).get(),
+    ]);
     return {
       ...(account.data()?.workspaceReset
         ? { reset: account.data()!.workspaceReset }
         : {}),
+      deletions: deletions?.docs.map((doc) => ({ businessId: doc.id, name: doc.data().name as string })) ?? [],
       items: docs
         .filter(
           (doc) =>
             doc.exists &&
             doc.data()?.ownerUid === uid &&
-            !doc.data()?.tutorialSessionId,
+            !doc.data()?.tutorialSessionId && !doc.data()?.deletionPending,
         )
         .map((doc) => businessView(doc.id, doc.data()!)),
       next: page.size > 25 ? entries.at(-1)!.id : null,
@@ -141,17 +146,14 @@ export class AccountService {
       });
       return id;
     });
-    return businessView(
-      result,
-      (await this.db.doc(`businesses/${result}`).get()).data()!,
-    );
+    return this.get(uid, result);
   }
   async get(uid: string, id: string) {
     const doc = await this.db.doc(`businesses/${identifier(id)}`).get();
     if (
       !doc.exists ||
       doc.data()?.ownerUid !== uid ||
-      doc.data()?.tutorialSessionId
+      doc.data()?.tutorialSessionId || doc.data()?.deletionPending
     )
       throw new Error("No tienes acceso a este negocio.");
     return businessView(doc.id, doc.data()!);

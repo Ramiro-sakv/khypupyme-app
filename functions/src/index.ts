@@ -1,3 +1,5 @@
+import { getAuth } from "firebase-admin/auth";
+import { BusinessDeletionService } from "./workspace/BusinessDeletionService.js";
 import { randomUUID } from "node:crypto";
 import { AppError } from "../../shared/app-errors.js";
 import { SensitiveApprovalService, protectedOperation } from "./workspace/SensitiveApprovalService.js";
@@ -43,6 +45,7 @@ function services() {
     commands: new CommerceService(db),
     queries: new CommerceQueries(db),
     account: new AccountService(db),
+    db,
     workspace: new WorkspaceService(db),
     workspaceQueries: new WorkspaceQueries(db),
   };
@@ -133,6 +136,18 @@ export const workspaceAccount = onCall(options, async (request) => {
     return workspaceFailure("workspaceAccount", cause);
   }
 });
+export const workspaceDeletion = onCall(options, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Inicia sesión.");
+  try {
+    const { db } = services();
+    return await new BusinessDeletionService(db, getAuth()).handle(
+      request.auth.uid, request.auth.token.auth_time, request.data,
+    );
+  } catch (cause) {
+    return workspaceFailure("workspaceDeletion", cause);
+  }
+});
+
 function workspaceFailure(route: string, cause: unknown): never {
   if (cause instanceof AppError) {
     if (cause.status === 500) return failure(route, cause);

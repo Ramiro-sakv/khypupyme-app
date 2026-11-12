@@ -108,7 +108,7 @@ export class CommerceService {
     return this.db.runTransaction(async (tx) => {
       const businessRef = this.db.doc(`businesses/${id(uid)}`);
       const [business, operation] = await tx.getAll(businessRef, opRef);
-      if (!business?.exists || business.data()?.ownerUid !== uid)
+      if (!business?.exists || business.data()?.ownerUid !== uid || business.data()?.deletionPending)
         throw new DomainError('Primero crea tu negocio.');
       const globalRef=this.db.doc(`users/${uid}/operationKeys/${command.operationId}`);
       const global=this.workspace ? await tx.get(globalRef) : null;

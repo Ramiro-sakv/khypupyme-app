@@ -1,5 +1,5 @@
+import { industryIcon } from "./industryAppearance";
 import { Icon } from "./Icon";
-import { confirmDiscardChanges } from "./navigation";
 import { useState } from "react";
 import type { BusinessAnswers } from "../../../shared/workspace/model";
 import { INDUSTRIES, INDUSTRY_IDS } from "../../../shared/business-industries";
@@ -34,10 +34,14 @@ export default function BusinessWizard({
       initialIndustry ?? "convenience",
     ),
     [answers, setAnswers] = useState<BusinessAnswers>({ ...DEFAULT_ANSWERS });
+  function changeAnswer<K extends keyof BusinessAnswers>(key: K, value: BusinessAnswers[K]) {
+    setAnswers((previous) => ({ ...previous, [key]: value }));
+  }
+  const steps = ["Elegir rubro", "Configurar", "Revisar"];
   return (
-    <section className="card wizard">
+    <section className="card wizard" data-industry={industry}>
       <ol className="wizard-progress" aria-label="Progreso de creación">
-        {["Tu actividad", "Forma de trabajar", "Confirmación"].map(
+        {steps.map(
           (label, index) => (
             <li key={label} aria-current={stage === index ? "step" : undefined}>
               <span>{stage > index ? <Icon name="check" /> : index + 1}</span>
@@ -46,11 +50,11 @@ export default function BusinessWizard({
           ),
         )}
       </ol>
-      <h1>
-        {initialName
-          ? "Confirma el rubro de tu negocio"
-          : "Un espacio para tu negocio"}
-      </h1>
+      <div className="wizard-heading">
+        <span className="eyebrow">Paso {stage + 1} de {steps.length}</span>
+        <h1>{stage === 0 ? (initialName ? "Confirma el rubro" : "Crea tu negocio")
+          : stage === 1 ? "Configura tu negocio" : "Revisa los datos"}</h1>
+      </div>
       <p className="wizard-intro">
         Cada negocio tiene inventario, ventas, caja y documentos independientes.
         Su rubro queda fijo; puedes crear otro espacio con esta misma cuenta.
@@ -68,21 +72,24 @@ export default function BusinessWizard({
             name="name"
             label="Nombre del negocio"
             value={name}
+            onValueChange={setName}
             maxLength={80}
           />
           <fieldset>
             <legend>Elige el tipo de negocio</legend>
             <div className="industry-options">
               {INDUSTRY_IDS.map((id) => (
-                <label className="industry-choice" key={id}>
+                <label className="industry-choice" data-industry={id} key={id}>
                   <input
                     type="radio"
                     name="industry"
                     value={id}
-                    defaultChecked={industry === id}
+                    checked={industry === id}
+                    onChange={() => setIndustry(id)}
                     required
                   />
                   <span>
+                    <span className="business-symbol"><Icon name={industryIcon(id)} /></span>
                     <strong>{INDUSTRIES[id].name}</strong>
                     <small>
                       {specialized(id)
@@ -114,13 +121,13 @@ export default function BusinessWizard({
             setStage(2);
           }}
         >
-          <h2>{industryLabel(industry)}</h2>
+          <div className="wizard-industry"><Icon name={industryIcon(industry)} /><strong>{industryLabel(industry)}</strong></div>
           {["convenience", "grocery", "pets"].includes(industry) && (
             <label>
               <input
                 type="checkbox"
                 name="weighted"
-                defaultChecked={answers.weighted}
+                checked={answers.weighted} onChange={(e) => changeAnswer("weighted", e.target.checked)}
               />
               También vendo productos por peso
             </label>
@@ -130,7 +137,7 @@ export default function BusinessWizard({
               <input
                 type="checkbox"
                 name="bulk"
-                defaultChecked={answers.bulk}
+                checked={answers.bulk} onChange={(e) => changeAnswer("bulk", e.target.checked)}
               />
               Abro bolsas y vendo a granel por kg
             </label>
@@ -138,7 +145,7 @@ export default function BusinessWizard({
           {industry === "timber" && (
             <label>
               Forma habitual de registrar madera
-              <select name="timberMode" defaultValue={answers.timberMode}>
+              <select name="timberMode" value={answers.timberMode} onChange={(e) => changeAnswer("timberMode", e.target.value === "volume" ? "volume" : "piece")}>
                 <option value="piece">Piezas con dimensiones reales</option>
                 <option value="volume">Volumen</option>
               </select>
@@ -162,28 +169,28 @@ export default function BusinessWizard({
           <Field
             name="address"
             label="Dirección en documentos"
-            value={answers.address}
+            value={answers.address} onValueChange={(value) => changeAnswer("address", value)}
             required={false}
             maxLength={160}
           />
           <Field
             name="phone"
             label="Teléfono"
-            value={answers.phone}
+            value={answers.phone} onValueChange={(value) => changeAnswer("phone", value)}
             required={false}
             maxLength={30}
           />
           <Field
             name="footer"
             label="Condiciones o nota en comprobantes"
-            value={answers.documentFooter}
+            value={answers.documentFooter} onValueChange={(value) => changeAnswer("documentFooter", value)}
             required={false}
             maxLength={300}
           />
           <button
             type="button"
             onClick={() => {
-              if (confirmDiscardChanges()) setStage(0);
+              setStage(0);
             }}
           >
             Atrás
@@ -197,7 +204,7 @@ export default function BusinessWizard({
           onSave={async () => onConfirm(name, industry, answers)}
         >
           <div className="wizard-summary">
-            <span className="eyebrow">TU NEGOCIO ESTÁ LISTO PARA EMPEZAR</span>
+            <span className="business-symbol"><Icon name={industryIcon(industry)} /></span>
             <h2>{name}</h2>
             <p>{industryLabel(industry)} · BOB · America/La_Paz</p>
             <p>
@@ -217,7 +224,7 @@ export default function BusinessWizard({
           <button
             type="button"
             onClick={() => {
-              if (confirmDiscardChanges()) setStage(1);
+              setStage(1);
             }}
           >
             Atrás

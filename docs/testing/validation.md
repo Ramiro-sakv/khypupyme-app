@@ -669,3 +669,14 @@ Recuento respecto de 955b22d: **32 archivos de código, +785 / -212 líneas fís
 - Los emuladores habituales conservaron sus procesos. El siguiente arranque con el lanzador compilará y cargará la versión de Functions que admite las unidades y el informe ampliado.
 - Pendientes de revisión manual. Compra en kg y venta en lb, compra en L y venta en mL, devoluciones con sus conversiones originales, reapertura del cobro con carrito largo y conciliación entre cifras diarias y el resultado del periodo.
 - No se ejecutaron pruebas automáticas ni se tomaron capturas. La incidencia previa de reingreso Windows/WebKit sigue abierta.
+
+## Disponibilidad y borrado 0.5.0-beta.11 — 12/11/2026
+
+- Lint, TypeScript y compilaciones web y de Functions aprobados. Vite mantiene el aviso de tamaño de los paquetes de PDF y fuentes.
+- Android debug 5.520.522 bytes, versionCode 50011. Windows NSIS x64 2.522.083 bytes. Ambos paquetes identifican la versión 0.5.0-beta.11.
+- Revisión manual en demo-khypupyme-tests. Madera por medida exacta y suma de grupos repetidos, exclusión de lotes vencidos en tienda con compra por caja, stock de variante en ropa y serie inválida en electrodomésticos. Una venta directa de 100 piezas con siete disponibles fue rechazada y el saldo siguió en siete.
+- En el navegador a 360 px, 15 filas en el carrito, barra fuera de su área desplazable, confirmación bloqueada por faltantes y devolución de foco a Revisar con Escape. La gráfica mostró el resultado negativo sin separar el signo del importe.
+- Informe histórico ficticio de 96 días generado en cinco páginas. La lectura del PDF confirmó encabezado, numeración y aviso no fiscal en todas las páginas, con número de documento e importe negativo conservados.
+- Borrado ficticio. Se comprobó nombre incorrecto, reautenticación obligatoria, caja abierta, cuenta ajena, código incorrecto, vencido, reemplazado y reutilizado, acceso directo denegado y bloqueo entre confirmación y limpieza. La limpieza reanudada retiró la ficha y su producto, conservando el acceso de la cuenta y tres negocios restantes.
+- La primera compilación recargó Functions por el observador del emulador habitual. La compilación final de Functions y las comprobaciones de datos usaron un entorno separado. Los procesos habituales de Auth y Firestore siguieron activos.
+- No se ejecutaron pruebas automáticas ni se tomaron capturas. La incidencia previa de reingreso Windows/WebKit sigue abierta.

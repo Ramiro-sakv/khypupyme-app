@@ -42,7 +42,7 @@ export function checkPractice(
     !["active", "paused"].includes(session.status) ||
     session.expiresAt < new Date().toISOString() ||
     source?.ownerUid !== uid ||
-    source?.tutorialSessionId
+    source?.tutorialSessionId || source?.deletionPending
   )
     throw new Error(
       "La práctica no está disponible o no pertenece a esta cuenta y negocio.",

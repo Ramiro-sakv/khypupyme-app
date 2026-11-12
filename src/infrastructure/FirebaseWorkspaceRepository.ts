@@ -1,3 +1,4 @@
+import type { DeletionRequest, DeletionResult } from "../../shared/workspace/business-deletion";
 import type {
   TutorialRequest,
   TutorialReply,
@@ -29,6 +30,9 @@ export class FirebaseWorkspaceRepository implements WorkspaceRepository {
       }
       throw cause;
     }
+  }
+  deletion(request: DeletionRequest) {
+    return this.call<DeletionResult>("workspaceDeletion", request);
   }
   tutorial(request: TutorialRequest) {
     return this.call<TutorialReply>("timberTutorial", request);

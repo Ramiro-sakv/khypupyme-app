@@ -24,7 +24,7 @@ export class CommerceQueries {
   constructor(private readonly db: Firestore,private readonly transaction?:Transaction) {}
   async owner(uid: string): Promise<void> {
     const ref=this.db.doc(`businesses/${id(uid)}`),business = await (this.transaction?this.transaction.get(ref):ref.get());
-    if (!business.exists || business.data()?.ownerUid !== uid)
+    if (!business.exists || business.data()?.ownerUid !== uid || business.data()?.deletionPending)
       throw new DomainError('Primero crea tu negocio.');
   }
   async list(uid: string, input: QueryInput): Promise<RecordPage> {

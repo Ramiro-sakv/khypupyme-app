@@ -256,7 +256,7 @@ export const workspaceBilling = onCall({ ...options, secrets: [qrBasic, qrWebhoo
     const { uid, token } = request.auth;
     const { billing, mode } = services(true);
     const raw = request.data as Record<string, unknown> | null;
-    const kind = oneOf(["plan", "activate", "start", "check", "current-qr", "restore-play"])(raw?.kind);
+    const kind = oneOf(["plan", "activate", "start", "check", "current-qr", "restore-play", "simulate-qr"])(raw?.kind);
     if (kind === "restore-play") {
       const input = object(raw, { kind: () => kind, purchaseToken: (v) => text(v, 1, 4096) });
       return await billing.restorePlay(uid, input.purchaseToken as string);
@@ -264,12 +264,17 @@ export const workspaceBilling = onCall({ ...options, secrets: [qrBasic, qrWebhoo
     const input = object(raw, {
       kind: () => kind, businessId: identifier,
       ...(kind === "start" ? { channel: oneOf(["play", "qr"]) } : {}),
-      ...(kind === "check" ? { intentId: identifier } : {}),
+      ...(kind === "check" || kind === "simulate-qr" ? { intentId: identifier } : {}),
+      ...(kind === "simulate-qr" ? { outcome: oneOf(["paid", "expired", "refunded"]) } : {}),
     });
     const id = input.businessId as string;
     if (mode === "local") {
       if (kind !== "plan") throw new AppError("El emulador habitual no emite licencias.", 403, "BILLING_LOCAL");
       return { ...await billing.plan(uid, id, token.email_verified === true), status: "unavailable", expiresAt: null };
+    }
+    if (kind === "simulate-qr") {
+      if (mode !== "simulation") throw new AppError("La simulación solo está disponible en los emuladores aislados.", 403, "BILLING_SIMULATION");
+      return await billing.simulateQr(uid, id, input.intentId as string, input.outcome as "paid" | "expired" | "refunded");
     }
     if (kind === "activate") return await billing.activate(uid, id, token.email_verified === true);
     if (kind === "start") return await billing.start(uid, id, input.channel as "play" | "qr");

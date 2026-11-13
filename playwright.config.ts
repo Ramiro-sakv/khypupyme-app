@@ -7,7 +7,10 @@ export default defineConfig({
   reporter: [['list'], ['html', { open: 'never' }]],
   use: { baseURL: 'http://127.0.0.1:4173', trace: 'off', screenshot: 'off', video: 'off' },
   projects: [
-    { name: 'desktop-chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'desktop-chromium', use: {
+      ...devices['Desktop Chrome'],
+      ...(process.env.VITE_BILLING_SIMULATION === 'true' && process.env.KHYPU_BILLING_BROWSER === 'msedge' ? { channel: 'msedge' } : {}),
+    } },
     { name: 'mobile-chromium', use: { ...devices['Pixel 7'] } },
     { name: 'mobile-webkit', use: { ...devices['iPhone 13'] } },
   ],

@@ -7,6 +7,7 @@ import { errorMessage } from "../../shared/errors";
 import { bob, localDate } from "../workspace/format";
 import { useWorkspace } from "../workspace/context";
 import { playBilling } from "./play";
+import { isBillingSimulation } from "./profile";
 
 const date = (value: number) => localDate(new Date(value).toISOString(), true);
 const labels = {
@@ -30,7 +31,7 @@ export default function BusinessPlanPanel({ qrOnly = false }: { qrOnly?: boolean
   const { business, repository, billing } = useWorkspace();
   const { service } = useAuth();
   const plan = billing?.plan;
-  const callable = repository.billing;
+  const callable = repository.billing?.bind(repository);
   const android = import.meta.env.VITE_RUNTIME_TARGET === "android";
   const windows = import.meta.env.VITE_RUNTIME_TARGET === "windows";
   const playEnabled = !!plan?.channels.includes("play") && android;
@@ -130,6 +131,14 @@ export default function BusinessPlanPanel({ qrOnly = false }: { qrOnly?: boolean
         if (payment) displayPayment(payment);
         else setFeedback("Este negocio no tiene un QR reciente.");
       })}>Consultar pago</button>
+    </div>}
+    {isBillingSimulation && intent?.channel === "qr" && ["pending", "paid"].includes(intent.status) && <div className="notice">
+      <p>Simulación local · sin cobro real</p>
+      {(intent.status === "paid" ? [{ label: "Simular reembolso", outcome: "refunded" }] as const
+        : [{ label: "Simular pago", outcome: "paid" }, { label: "Simular vencimiento", outcome: "expired" }] as const).map(({ label, outcome }) =>
+          <button key={outcome} type="button" disabled={working} onClick={() => void execute(async () => {
+            displayPayment(await callable<PaymentIntent>({ kind: "simulate-qr", businessId: business.id, intentId: intent.id, outcome }));
+          })}>{label}</button>)}
     </div>}
     {intent?.qrImage && <img width="240" height="240" alt="Código QR para pagar el pase de KhypuPyme" src={intent.qrImage} />}
     {intent?.status === "pending" && intent.channel === "qr" && <p>Solicitud válida hasta {localDate(new Date(intent.expiresAt).toISOString(), true)}</p>}

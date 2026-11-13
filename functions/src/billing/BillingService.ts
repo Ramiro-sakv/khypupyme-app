@@ -141,6 +141,30 @@ export class BillingService {
     });
   }
 
+  async simulateQr(uid: string, businessId: string, intentId: string, status: "paid" | "expired" | "refunded") {
+    await this.business(uid, businessId);
+    const checkout = await this.ownedIntent(uid, intentId);
+    if (checkout.businessId !== businessId || checkout.channel !== "qr" || !checkout.qrReference?.startsWith("sim-"))
+      throw new AppError("La solicitud no corresponde a un QR de este negocio.", 403, "BILLING_OWNER");
+    if (status === "refunded" && !["paid", "refunded"].includes(checkout.status))
+      throw new AppError("Confirma primero un pago simulado.", 409, "BILLING_SIMULATION_STATE");
+    if (status === "expired" && !["pending", "expired"].includes(checkout.status))
+      throw new AppError("Solo puedes simular el vencimiento de un QR pendiente.", 409, "BILLING_SIMULATION_STATE");
+    if (status === "paid" && checkout.status === "refunded")
+      throw new AppError("Este QR de prueba ya fue reembolsado.", 409, "BILLING_SIMULATION_STATE");
+    if (status === "paid" && (checkout.status === "expired" || (checkout.status === "pending" && checkout.expiresAt <= this.now())))
+      throw new AppError("Este QR de prueba venció. Genera uno nuevo.", 409, "BILLING_SIMULATION_STATE");
+    if (status === "refunded") {
+      await this.refundQr(checkout.qrReference, uid, "Reembolso simulado en el emulador aislado");
+      return publicIntent(await this.ownedIntent(uid, intentId));
+    }
+    await this.record({
+      reference: checkout.qrReference, intentId, channel: "qr", status,
+      ...(status === "paid" ? { confirmedAt: this.now() } : {}),
+    });
+    return publicIntent(await this.ownedIntent(uid, intentId));
+  }
+
   async currentQr(uid: string, businessId: string) {
     await this.business(uid, businessId);
     const id = (await this.db.doc(pendingPath(businessId, "qr")).get()).get("id");

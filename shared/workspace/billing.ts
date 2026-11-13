@@ -29,7 +29,8 @@ export type BillingRequest =
   | { kind: "start"; businessId: string; channel: PaymentChannel }
   | { kind: "current-qr"; businessId: string }
   | { kind: "check"; businessId: string; intentId: string }
-  | { kind: "restore-play"; purchaseToken: string };
+  | { kind: "restore-play"; purchaseToken: string }
+  | { kind: "simulate-qr"; businessId: string; intentId: string; outcome: "paid" | "expired" | "refunded" };
 
 export interface AccessPeriod {
   id: string;

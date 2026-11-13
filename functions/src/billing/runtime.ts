@@ -9,7 +9,9 @@ export function serverMode(env = process.env): ServerMode {
   if (env.FUNCTIONS_EMULATOR === "true" && /^demo-[a-z0-9-]+$/.test(project) &&
       /^127\.0\.0\.1:(8080|18080)$/.test(env.FIRESTORE_EMULATOR_HOST ?? "") &&
       /^127\.0\.0\.1:(9099|19099)$/.test(env.FIREBASE_AUTH_EMULATOR_HOST ?? "")) {
-    if (project === "demo-khypupyme-tests" && env.KHYPU_BILLING_MODE === "simulation") return "simulation";
+    if (project === "demo-khypupyme-tests" && env.KHYPU_BILLING_MODE === "simulation" &&
+        env.FIRESTORE_EMULATOR_HOST === "127.0.0.1:18080" &&
+        env.FIREBASE_AUTH_EMULATOR_HOST === "127.0.0.1:19099") return "simulation";
     return "local";
   }
   if (env.KHYPU_SERVICE_PROFILE === "hosted" && env.KHYPU_HOSTED_PROJECT === project &&

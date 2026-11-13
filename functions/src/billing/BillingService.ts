@@ -2,9 +2,9 @@ import { createHash, randomUUID } from "node:crypto";
 import type { Firestore, Transaction } from "firebase-admin/firestore";
 import { AppError } from "../../../shared/app-errors.js";
 import {
-  creditPeriod, PASS_DAYS, PASS_PRICE_MINOR, reversePeriod, TRIAL_DAYS,
+  creditPeriod, passDetails, passOffers, PASS_DAYS, PASS_PRICE_MINOR, reversePeriod, SIMULATION_TRIAL_DAYS, TRIAL_DAYS,
 } from "../../../shared/workspace/billing.js";
-import type { BusinessPlan, PaymentChannel, PaymentIntent } from "../../../shared/workspace/billing.js";
+import type { BusinessPlan, PassId, PaymentChannel, PaymentIntent } from "../../../shared/workspace/billing.js";
 import { identifier } from "../../../shared/workspace/validation.js";
 import { licensePath, trialPath } from "./access.js";
 import type { License } from "./access.js";
@@ -29,14 +29,16 @@ interface Receipt {
   businessId: string;
   state: "paid" | "refunded";
 }
-const publicIntent = ({ id, businessId, channel, status, priceMinor, expiresAt, qrImage }: Checkout): PaymentIntent =>
-  ({ id, businessId, channel, status, priceMinor, expiresAt, ...(qrImage && status === "pending" ? { qrImage } : {}) });
+const publicIntent = ({ id, businessId, channel, status, priceMinor, expiresAt, qrImage, passId, duration }: Checkout): PaymentIntent =>
+  ({ id, businessId, channel, status, priceMinor, expiresAt, ...(passId && duration ? { passId, duration } : {}),
+    ...(qrImage && status === "pending" ? { qrImage } : {}) });
 
 export class BillingService {
   constructor(
     private readonly db: Firestore,
     private readonly providers: PaymentProviders,
     private readonly now = Date.now,
+    private readonly simulation = false,
   ) {}
 
   private async business(uid: string, businessId: string, tx?: Transaction) {
@@ -62,6 +64,7 @@ export class BillingService {
     return {
       status, expiresAt: periods.at(-1)?.endsAt ?? null,
       serverTime, emailVerified, channels: this.providers.channels, priceMinor: PASS_PRICE_MINOR,
+      ...(this.simulation ? { offers: passOffers(Math.max(serverTime, periods.at(-1)?.endsAt ?? serverTime)) } : {}),
     };
   }
 
@@ -82,12 +85,13 @@ export class BillingService {
       const now = this.now();
       if (!profile?.get("firstBusinessId")) tx.set(account, { firstBusinessId: businessId }, { merge: true });
       tx.create(trial, { businessId, activatedAt: now } satisfies Trial);
-      tx.set(license, { ownerUid: uid, periods: creditPeriod([], "trial", now, TRIAL_DAYS) } satisfies License);
+      tx.set(license, { ownerUid: uid, periods: creditPeriod([], "trial", now, this.simulation ? SIMULATION_TRIAL_DAYS : TRIAL_DAYS) } satisfies License);
     });
     return this.plan(uid, businessId, true);
   }
 
   async simulateTrialExpiry(uid: string, businessId: string, emailVerified: boolean) {
+    if (!this.simulation) throw new AppError("La simulación solo está disponible en los emuladores aislados.", 403, "BILLING_SIMULATION");
     const ref = this.db.doc(licensePath(identifier(businessId)));
     await this.db.runTransaction(async (tx) => {
       await this.business(uid, businessId, tx);
@@ -105,7 +109,10 @@ export class BillingService {
     return this.plan(uid, businessId, emailVerified);
   }
 
-  async start(uid: string, businessId: string, channel: PaymentChannel): Promise<PaymentIntent> {
+  async start(uid: string, businessId: string, channel: PaymentChannel, passId?: PassId): Promise<PaymentIntent> {
+    if (passId && (!this.simulation || channel !== "qr"))
+      throw new AppError("Este pase solo está disponible con QR en la simulación.", 400, "BILLING_PASS");
+    const offer = passDetails(passId ?? "30-days");
     if (!this.providers.channels.includes(channel))
       throw new AppError("Este medio de pago todavía no está disponible.", 503, "BILLING_CHANNEL");
     const pointer = this.db.doc(pendingPath(businessId, channel));
@@ -129,10 +136,15 @@ export class BillingService {
       const existing = typeof pending === "string" ? (await tx.get(this.db.doc(intentPath(pending)))).data() as Checkout | undefined : undefined;
       const now = this.now();
       if (existing?.ownerUid === uid && existing.status === "pending" &&
-          (existing.expiresAt > now || (channel === "qr" && existing.qrReference))) return existing;
+          (existing.expiresAt > now || (channel === "qr" && existing.qrReference))) {
+        if ((existing.passId ?? "30-days") !== (passId ?? "30-days"))
+          throw new AppError("Hay un QR pendiente para otro pase. Consulta o vence ese QR antes de cambiar de plan.", 409, "BILLING_QR_PENDING");
+        return existing;
+      }
       const next: Checkout = {
-        id: freshId, ownerUid: uid, businessId, channel, status: "pending", priceMinor: PASS_PRICE_MINOR,
+        id: freshId, ownerUid: uid, businessId, channel, status: "pending", priceMinor: offer.priceMinor,
         createdAt: now, expiresAt: now + 15 * MINUTE,
+        ...(this.simulation && channel === "qr" ? { passId: passId ?? "30-days", duration: offer.duration } : {}),
       };
       tx.create(this.db.doc(intentPath(freshId)), next);
       tx.set(pointer, { id: freshId });
@@ -160,6 +172,7 @@ export class BillingService {
   }
 
   async simulateQr(uid: string, businessId: string, intentId: string, status: "paid" | "expired" | "refunded") {
+    if (!this.simulation) throw new AppError("La simulación solo está disponible en los emuladores aislados.", 403, "BILLING_SIMULATION");
     await this.business(uid, businessId);
     const checkout = await this.ownedIntent(uid, intentId);
     if (checkout.businessId !== businessId || checkout.channel !== "qr" || !checkout.qrReference?.startsWith("sim-"))
@@ -266,6 +279,8 @@ export class BillingService {
         throw new AppError("El pago no coincide con la solicitud original.", 409, "BILLING_REFERENCE");
       if (event.status === "pending" || previous?.state === "refunded" ||
           (!previous && checkout.status === "refunded" && event.status === "refunded")) return;
+      if (this.simulation && checkout.status === "expired" && event.status === "paid")
+        throw new AppError("Este QR de prueba venció. Genera uno nuevo.", 409, "BILLING_SIMULATION_STATE");
       if (event.status === "expired") {
         if (!previous && checkout.status === "pending") tx.update(intent, { status: "expired" });
         return;
@@ -287,7 +302,7 @@ export class BillingService {
       if (event.status === "paid" || current) tx.set(license, {
         ownerUid: checkout.ownerUid,
         periods: event.status === "paid"
-          ? creditPeriod(periods, receipt.id, now, PASS_DAYS)
+          ? creditPeriod(periods, receipt.id, this.simulation ? event.confirmedAt! : now, checkout.duration ?? PASS_DAYS)
           : reversePeriod(periods, receipt.id, now),
       } satisfies License);
       tx.set(receipt, {

@@ -24,7 +24,8 @@ import { defineSecret } from "firebase-functions/params";
 import { onMessagePublished } from "firebase-functions/v2/pubsub";
 import { BillingService } from "./billing/BillingService.js";
 import { billingProviders, externalBillingEnabled, serverMode } from "./billing/runtime.js";
-import { PLAY_PASS } from "../../shared/workspace/billing.js";
+import type { PassId } from "../../shared/workspace/billing.js";
+import { PLAY_PASS, SIMULATION_PASS_IDS } from "../../shared/workspace/billing.js";
 import { secretMatch } from "./billing/ProductionPayments.js";
 import { exportBusiness } from "./billing/exportBusiness.js";
 import { requestAccountDeletion } from "./billing/AccountDeletionRequest.js";
@@ -46,7 +47,7 @@ function services(includeBilling = false) {
   return {
     mode,
     commands: new CommerceService(db, undefined, enforceBilling),
-    billing: new BillingService(db, includeBilling ? billingProviders(mode) : { channels: [] }),
+    billing: new BillingService(db, includeBilling ? billingProviders(mode) : { channels: [] }, Date.now, mode === "simulation"),
     queries: new CommerceQueries(db),
     account: new AccountService(db),
     db,
@@ -263,7 +264,7 @@ export const workspaceBilling = onCall({ ...options, secrets: [qrBasic, qrWebhoo
     }
     const input = object(raw, {
       kind: () => kind, businessId: identifier,
-      ...(kind === "start" ? { channel: oneOf(["play", "qr"]) } : {}),
+      ...(kind === "start" ? { channel: oneOf(["play", "qr"]), ...(raw && Object.hasOwn(raw, "passId") ? { passId: oneOf(SIMULATION_PASS_IDS) } : {}) } : {}),
       ...(kind === "check" || kind === "simulate-qr" ? { intentId: identifier } : {}),
       ...(kind === "simulate-qr" ? { outcome: oneOf(["paid", "expired", "refunded"]) } : {}),
     });
@@ -278,7 +279,7 @@ export const workspaceBilling = onCall({ ...options, secrets: [qrBasic, qrWebhoo
       return await billing.simulateQr(uid, id, input.intentId as string, input.outcome as "paid" | "expired" | "refunded");
     }
     if (kind === "activate") return await billing.activate(uid, id, token.email_verified === true);
-    if (kind === "start") return await billing.start(uid, id, input.channel as "play" | "qr");
+    if (kind === "start") return await billing.start(uid, id, input.channel as "play" | "qr", input.passId as PassId | undefined);
     if (kind === "current-qr") return await billing.currentQr(uid, id);
     if (kind === "check") return await billing.check(uid, id, input.intentId as string);
     return await billing.plan(uid, id, token.email_verified === true);

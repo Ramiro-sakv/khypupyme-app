@@ -39,7 +39,7 @@ const runner = join(fixture, "billing.cjs");
 const args = manual
   ? ["node_modules/vite/bin/vite.js", "--host", "127.0.0.1", "--port", "4173", "--strictPort"]
   : browser
-  ? ["node_modules/@playwright/test/cli.js", "test", "billing-pilot.spec.ts", "--project=desktop-chromium", "--reporter=list"]
+  ? ["node_modules/@playwright/test/cli.js", "test", "billing-pilot.spec.ts", "--project=desktop-chromium", "--project=mobile-chromium", "--reporter=list"]
   : ["node_modules/vitest/vitest.mjs", "run", "--project", "integration", "--project", "rules", "billing.test.ts"];
 writeFileSync(runner, `const {spawnSync}=require('node:child_process');const [program,...args]=${JSON.stringify(args)};
 const r=spawnSync(process.execPath,[require('node:path').join(${JSON.stringify(root)},program),...args],{cwd:${JSON.stringify(root)},stdio:'inherit'});process.exit(r.status??1);`);

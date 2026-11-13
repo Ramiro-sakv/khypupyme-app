@@ -1,7 +1,7 @@
 import TimberTutorialHost from "./tutorial/TimberTutorialHost";
 import TutorialCoach from "./tutorial/TutorialCoach";
 import { CashStateProvider } from "./CashState";
-import { lazy, useMemo } from "react";
+import { lazy, useMemo, useState } from "react";
 import { industryLabel } from "../../../shared/workspace/catalog";
 import type { WorkspaceBusiness } from "../../../shared/workspace/model";
 import { DeferredScreen } from "../../app/DeferredScreen";
@@ -16,10 +16,10 @@ import type { WorkspaceRepository } from "./WorkspaceRepository";
 import { WorkspaceContext } from "./context";
 import { useWorkspaceCommands } from "./useWorkspaceCommands";
 import { useCorrectionAuthorization } from "./useCorrectionAuthorization";
-import { BusinessPlanBanner } from "../billing/BusinessPlanPanel";
+import BusinessPlanPanel, { BusinessPlanBanner } from "../billing/BusinessPlanPanel";
 import { useBusinessPlan } from "../billing/useBusinessPlan";
 import { AppError } from "../../../shared/app-errors";
-import { isBillingEnabled } from "../billing/profile";
+import { isBillingEnabled, isBillingSimulation } from "../billing/profile";
 
 const WorkspaceHome = lazy(() => import("./WorkspaceHome"));
 function WorkspaceContent({
@@ -46,7 +46,13 @@ function WorkspaceContent({
     );
   const billingEnabled = isBillingEnabled && !business.tutorialSessionId;
   const billing = useBusinessPlan(repository, business.id, billingEnabled);
-  const readOnly = billing.plan?.status === "expired" || billing.plan?.status === "trial-available";
+  const hasAccess = billing.plan?.status === "trial" || billing.plan?.status === "active";
+  const readOnly = isBillingSimulation && billingEnabled ? !!billing.error || !hasAccess
+    : billing.plan?.status === "expired" || billing.plan?.status === "trial-available";
+  const [dismissedGate, setDismissedGate] = useState("");
+  if (hasAccess && !billing.error && dismissedGate) setDismissedGate("");
+  const gate = billing.error ? "error" : billing.plan ? `${billing.plan.status}:${billing.plan.expiresAt}` : "loading";
+  const showGate = isBillingSimulation && billingEnabled && readOnly && dismissedGate !== gate;
   const { view } = useWorkspaceNavigation();
   const dashboard = view === "inicio" && business.typeConfirmed;
   const protection = useCorrectionAuthorization(business, repository);
@@ -96,7 +102,13 @@ function WorkspaceContent({
         },
       }}
     >
-      <CashStateProvider>
+      {showGate ? <div className="business-workspace plan-entry" style={industryStyle(business.industryId)}>
+        <BusinessPlanPanel entry />
+        <div className="actions plan-entry-actions">
+          <button type="button" onClick={onExit}>Volver a mis negocios</button>
+          <button type="button" onClick={() => setDismissedGate(gate)}>Entrar en modo de consulta</button>
+        </div>
+      </div> : <CashStateProvider>
         {protection.dialog}
         <div
           className="business-workspace"
@@ -202,7 +214,7 @@ function WorkspaceContent({
             </DeferredScreen>
           )}
         </div>
-      </CashStateProvider>
+      </CashStateProvider>}
     </WorkspaceContext>
   );
 }

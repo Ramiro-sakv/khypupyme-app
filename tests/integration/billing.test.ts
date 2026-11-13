@@ -8,7 +8,7 @@ import { exportBusiness } from "../../functions/src/billing/exportBusiness";
 import { WorkspaceService } from "../../functions/src/workspace/WorkspaceService";
 import { AccountService } from "../../functions/src/workspace/AccountService";
 import { DEFAULT_ANSWERS } from "../../shared/workspace/catalog";
-import { DAY_MS } from "../../shared/workspace/billing";
+import { DAY_MS, periodEnd } from "../../shared/workspace/billing";
 import { requireTestEmulators, testProjectId } from "../emulator-environment";
 
 requireTestEmulators();
@@ -20,17 +20,17 @@ const db = getFirestore(app);
 afterAll(() => deleteApp(app));
 
 it("prueba única, expiración, consulta, descarga, cierre y aislamiento", async () => {
-  let now = Date.now() - 20 * DAY_MS;
+  let now = Date.now() - 40 * DAY_MS;
   const owner = randomUUID(), outsider = randomUUID();
   const account = new AccountService(db);
   const first = await account.create(owner, { operationId: randomUUID(), name: "Barraca de revisión", industryId: "timber", answers: DEFAULT_ANSWERS });
   const second = await account.create(owner, { operationId: randomUUID(), name: "Tienda de revisión", industryId: "convenience", answers: DEFAULT_ANSWERS });
-  const billing = new BillingService(db, { channels: [] }, () => now);
+  const billing = new BillingService(db, { channels: [] }, () => now, true);
   await expect(billing.activate(owner, second.id, true)).rejects.toMatchObject({ appCode: "BILLING_TRIAL_USED" });
   await expect(billing.activate(outsider, first.id, true)).rejects.toMatchObject({ appCode: "BILLING_OWNER" });
   await expect(billing.activate(owner, first.id, false)).rejects.toMatchObject({ appCode: "BILLING_EMAIL" });
   const trial = await billing.activate(owner, first.id, true);
-  expect(trial).toMatchObject({ status: "trial", expiresAt: now + 14 * DAY_MS });
+  expect(trial).toMatchObject({ status: "trial", expiresAt: now + 30 * DAY_MS });
   now += DAY_MS;
   expect((await billing.activate(owner, first.id, true)).expiresAt).toBe(trial.expiresAt);
   const billingClock = new BillingService(db, { channels: [] });
@@ -47,6 +47,11 @@ it("prueba única, expiración, consulta, descarga, cierre y aislamiento", async
   expect(await exportBusiness(db, owner, first.id, "cashSessions", "")).toMatchObject({ items: [{ status: "closed" }] });
   expect(await exportBusiness(db, owner, first.id, "documentsV2", "")).toMatchObject({ items: [{ title: expect.any(String) }] });
   await expect(exportBusiness(db, outsider, first.id, "documentsV2", "")).rejects.toMatchObject({ appCode: "EXPORT_OWNER" });
+  const legacyAccount = await account.create(outsider, { operationId: randomUUID(), name: "Prueba anterior", industryId: "convenience", answers: DEFAULT_ANSWERS });
+  const legacy = new BillingService(db, { channels: [] }, () => now);
+  const originalTrial = await legacy.activate(outsider, legacyAccount.id, true);
+  expect(originalTrial.expiresAt).toBe(now + 14 * DAY_MS);
+  expect((await billing.activate(outsider, legacyAccount.id, true)).expiresAt).toBe(originalTrial.expiresAt);
   const requested = await requestAccountDeletion(db, owner, Math.floor(Date.now() / 1000));
   expect(await requestAccountDeletion(db, owner, Math.floor(Date.now() / 1000))).toEqual(requested);
 });
@@ -101,4 +106,39 @@ it("QR y Play acreditan una vez, se recuperan y revierten solo su vigencia", asy
   await billing.refundQr("qr-" + renewed.id, "operador-ficticio", "comprobante de revisión");
   await billing.refundQr("qr-" + renewed.id, "operador-ficticio", "comprobante de revisión");
   expect((await billing.plan(owner, first.id, true)).status).toBe("expired");
+});
+
+it("fija precio y duración del pase en el QR y aísla compras y reembolsos", async () => {
+  let now = Date.parse("2023-08-31T20:15:00-04:00");
+  const owner = randomUUID(), outsider = randomUUID();
+  const account = new AccountService(db);
+  const create = (name: string) => account.create(owner, { operationId: randomUUID(), name, industryId: "convenience", answers: DEFAULT_ANSWERS });
+  const first = await create("Tienda para seis meses");
+  const second = await create("Tienda para un año");
+  const providers: PaymentProviders = {
+    channels: ["qr"],
+    qr: {
+      async create(id, _price, expiresAt) { return { reference: "sim-" + id, image: "", expiresAt }; },
+      async check(id, reference) { return { intentId: id, reference, channel: "qr", status: "pending" }; },
+    },
+  };
+  const billing = new BillingService(db, providers, () => now, true);
+  const regular = new BillingService(db, providers, () => now);
+  await expect(regular.start(owner, first.id, "qr", "6-months")).rejects.toMatchObject({ appCode: "BILLING_PASS" });
+  const six = await billing.start(owner, first.id, "qr", "6-months");
+  expect(six).toMatchObject({ priceMinor: 21_000, duration: { months: 6 }, passId: "6-months" });
+  expect(await billing.currentQr(owner, first.id)).toEqual(six);
+  await expect(billing.start(owner, first.id, "qr", "1-year")).rejects.toMatchObject({ appCode: "BILLING_QR_PENDING" });
+  await expect(billing.simulateQr(outsider, first.id, six.id, "paid")).rejects.toMatchObject({ appCode: "BILLING_OWNER" });
+  await expect(billing.simulateQr(owner, second.id, six.id, "paid")).rejects.toMatchObject({ appCode: "BILLING_OWNER" });
+  await Promise.all([billing.simulateQr(owner, first.id, six.id, "paid"), billing.simulateQr(owner, first.id, six.id, "paid")]);
+  expect((await billing.plan(owner, first.id, true)).expiresAt).toBe(Date.parse("2024-02-29T20:15:00-04:00"));
+  expect((await billing.plan(owner, second.id, true)).expiresAt).toBeNull();
+  now += 1000;
+  const annual = await billing.start(owner, second.id, "qr", "1-year");
+  expect(annual).toMatchObject({ priceMinor: 39_000, duration: { months: 12 }, passId: "1-year" });
+  await billing.simulateQr(owner, second.id, annual.id, "paid");
+  await billing.simulateQr(owner, first.id, six.id, "refunded");
+  expect((await billing.plan(owner, first.id, true)).status).toBe("expired");
+  expect((await billing.plan(owner, second.id, true)).expiresAt).toBe(periodEnd(now, { months: 12 }));
 });

@@ -25,7 +25,7 @@ export interface PaymentIntent {
   qrImage?: string;
 }
 export type BillingRequest =
-  | { kind: "plan" | "activate"; businessId: string }
+  | { kind: "plan" | "activate" | "simulate-trial-expiry"; businessId: string }
   | { kind: "start"; businessId: string; channel: PaymentChannel }
   | { kind: "current-qr"; businessId: string }
   | { kind: "check"; businessId: string; intentId: string }

@@ -114,6 +114,13 @@ export default function BusinessPlanPanel({ qrOnly = false }: { qrOnly?: boolean
         refresh();
       })}>Consultar compras de Google Play</button>
     </div>}
+    {isBillingSimulation && !qrOnly && plan?.status === "trial" && <div className="actions">
+      <button type="button" disabled={working} onClick={() => void execute(async () => {
+        await callable<BusinessPlan>({ kind: "simulate-trial-expiry", businessId: business.id });
+        setFeedback("La prueba ficticia venció. Puedes revisar el modo de consulta.");
+        refresh();
+      })}>Simular fin de la prueba</button>
+    </div>}
     {plan?.status === "expired" && <p>Puedes consultar el historial, descargar tus datos y cerrar una caja abierta.</p>}
     {priceError && <p className="notice notice-warning" role="status">{priceError} <button onClick={() => setPriceAttempt((n) => n + 1)}>Consultar precio</button></p>}
     {qrEnabled && externalCheckout && <button className="primary" disabled={working} onClick={() => void execute(async () => {

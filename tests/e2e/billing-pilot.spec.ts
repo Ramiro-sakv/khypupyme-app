@@ -82,6 +82,22 @@ test("prueba, QR simulado, renovación desde otro navegador y solicitud de baja"
     await expect(page.getByText("Prueba activa", { exact: true })).toBeVisible();
   } finally { await other.close(); }
 
+  const navigation = page.getByRole("navigation", { name: "Herramientas del negocio" });
+  await navigation.getByRole("button", { name: "Caja", exact: true }).click();
+  await page.getByRole("button", { name: "Abrir caja", exact: true }).click();
+  await expect(page.getByText("Caja abierta", { exact: true })).toBeVisible();
+  await navigation.getByRole("button", { name: "Configuración", exact: true }).click();
+  await page.getByRole("button", { name: "Simular fin de la prueba" }).click();
+  await expect(page.getByText("Modo de consulta", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Descargar datos" })).toBeEnabled();
+  await navigation.getByRole("button", { name: "Caja", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Registrar aporte o retiro" })).toBeDisabled();
+  await page.getByText("Cerrar y conciliar esta caja", { exact: true }).click();
+  await page.getByLabel("Efectivo contado (BOB)").fill("0");
+  await page.getByRole("button", { name: "Cerrar caja y emitir comprobante" }).click();
+  await expect(page.getByRole("button", { name: "Abrir caja", exact: true })).toBeDisabled();
+  await navigation.getByRole("button", { name: "Configuración", exact: true }).click();
+
   await page.getByRole("button", { name: "Cambiar negocio", exact: true }).click();
   await page.getByRole("button", { name: "Crear negocio", exact: true }).click();
   await page.getByLabel("Nombre del negocio").fill("Segundo negocio ficticio");

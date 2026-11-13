@@ -87,6 +87,24 @@ export class BillingService {
     return this.plan(uid, businessId, true);
   }
 
+  async simulateTrialExpiry(uid: string, businessId: string, emailVerified: boolean) {
+    const ref = this.db.doc(licensePath(identifier(businessId)));
+    await this.db.runTransaction(async (tx) => {
+      await this.business(uid, businessId, tx);
+      const license = (await tx.get(ref)).data() as License | undefined;
+      const now = this.now();
+      const trial = license?.periods.find((period) => period.id === "trial");
+      if (!trial || license?.ownerUid !== uid)
+        throw new AppError("Activa la prueba gratuita antes de simular su vencimiento.", 409, "BILLING_SIMULATION_STATE");
+      if (license.periods.some((period) => period.id !== "trial" && period.endsAt > now))
+        throw new AppError("Reembolsa la renovación simulada antes de vencer la prueba.", 409, "BILLING_SIMULATION_STATE");
+      if (trial.endsAt > now) {
+        tx.update(ref, { periods: license.periods.map((period) => period.id === "trial" ? { ...period, endsAt: now } : period) });
+      }
+    });
+    return this.plan(uid, businessId, emailVerified);
+  }
+
   async start(uid: string, businessId: string, channel: PaymentChannel): Promise<PaymentIntent> {
     if (!this.providers.channels.includes(channel))
       throw new AppError("Este medio de pago todavía no está disponible.", 503, "BILLING_CHANNEL");

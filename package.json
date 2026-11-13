@@ -17,6 +17,7 @@
     "test": "vitest run --project unit",
     "test:billing": "node scripts/test-billing.mjs",
     "test:billing:browser": "node scripts/test-billing.mjs --browser",
+    "simulation": "node scripts/test-billing.mjs --manual",
     "test:integration": "vitest run --project integration",
     "test:rules": "vitest run --project rules",
     "test:e2e": "playwright test",

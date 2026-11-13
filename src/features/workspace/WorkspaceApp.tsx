@@ -9,7 +9,7 @@ import type { WorkspaceRepository } from "./WorkspaceRepository";
 import Account from "./AccountPage";
 import AccountDeletion, { PrivacyNotice } from "../billing/AccountDeletion";
 import WebCheckout from "../billing/WebCheckout";
-import { isBillingEnabled } from "../billing/profile";
+import { isBillingEnabled, isBillingSimulation } from "../billing/profile";
 export function WorkspaceApp({
   repository,
 }: {
@@ -30,9 +30,11 @@ export function WorkspaceApp({
         Saltar al contenido
       </a>
       <div className="environment-banner">
-        {import.meta.env.VITE_USE_EMULATORS === "false"
-          ? "Beta de KhypuPyme · Servicio alojado"
-          : "Entorno local de pruebas · Usa datos ficticios"}
+        {isBillingSimulation
+          ? "Simulación · Usa una cuenta ficticia · Sin cobros reales"
+          : import.meta.env.VITE_USE_EMULATORS === "false"
+            ? "Beta de KhypuPyme · Servicio alojado"
+            : "Entorno local de pruebas · Usa datos ficticios"}
       </div>
       <header className="app-header">
         <div className="header-inner">

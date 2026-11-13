@@ -1,3 +1,4 @@
+import { requireLicense } from "./billing/access.js";
 import { SensitiveApprovalService } from "./workspace/SensitiveApprovalService.js";
 import type { ProtectedOperation } from "./workspace/SensitiveApprovalService.js";
 import { auditValues } from "./workspace/UnitOfWork.js";
@@ -23,7 +24,7 @@ import {
 import type { Command, StoredSaleLine } from '../../shared/commerce.js';
 
 export class CommerceService {
-  constructor(private readonly db: Firestore, private readonly workspace?: {signature:string;recovery:boolean;protectedOperation?:ProtectedOperation}) {}
+  constructor(private readonly db: Firestore, private readonly workspace?: {signature:string;recovery:boolean;protectedOperation?:ProtectedOperation;enforceBilling?:boolean}, private readonly enforceBilling = false) {}
   private readonly cashContexts=new WeakMap<Transaction,{id:string;data:DocumentData;sequence:number}>();
 
   private ref(uid: string, collection: string, recordId: string): DocumentReference {
@@ -121,6 +122,7 @@ export class CommerceService {
         if(this.workspace && !global?.exists)tx.create(globalRef,{businessId:uid,signature:this.workspace.signature,result:operation.data()!.result,createdAt:new Date().toISOString()});
         return operation.data()!.result as { id: string };
       }
+      if (this.enforceBilling || this.workspace?.enforceBilling) await requireLicense(this.db, tx, uid, uid, Date.now());
       const protection = new SensitiveApprovalService(this.db);
       const protectedCommand: ProtectedOperation = this.workspace?.protectedOperation ?? { businessId:uid, operationId:command.operationId, signature:canonical(command), kind:"legacy:"+command.kind, input:command.input as unknown as Record<string,unknown> };
       const needsApproval = !!this.workspace || ["cancel-sale","cancel-expense","cancel-receivable","customer","service","configure-business","business-settings"].includes(command.kind);

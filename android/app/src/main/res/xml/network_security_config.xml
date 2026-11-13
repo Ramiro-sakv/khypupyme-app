@@ -1,10 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
     <base-config cleartextTrafficPermitted="false" />
-    <!-- Solo esta beta local: localhost sirve los recursos empaquetados y
-         10.0.2.2 conecta el emulador Android con los emuladores Firebase del PC. -->
-    <domain-config cleartextTrafficPermitted="true">
-        <domain>localhost</domain>
-        <domain>10.0.2.2</domain>
-    </domain-config>
 </network-security-config>

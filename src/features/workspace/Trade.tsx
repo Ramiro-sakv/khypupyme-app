@@ -50,7 +50,7 @@ export default function Trade({
   initialClient?: { id: string; name: string };
   initialItem?: Item | undefined;
 }) {
-  const { business, repository, run, busy, prepare } = useWorkspace(),
+  const { business, repository, run, busy: workspaceBusy, prepare, readOnly } = useWorkspace(),
     [catalogSearch, setCatalogSearch] = useState(""),
     [vehicle, setVehicle] = useState<WorkspaceQuery["vehicle"]>(),
     page = useRecords<Item>("items", {
@@ -86,6 +86,7 @@ export default function Trade({
   const appearance = industryAppearance(business.industryId);
   const scanOnEntry = params.get("accion") === "escanear" && !purchase && !isQuote;
   const focusedScanner = useRef(false);
+  const busy = workspaceBusy || !!readOnly;
   const availability = useCartAvailability(lines, purchase, isQuote);
   const checkoutId = useId();
   const checkoutTab = useRef<HTMLButtonElement>(null);
@@ -410,6 +411,7 @@ export default function Trade({
         </p>
       )}
       <IndustryHelp mode={purchase ? "purchase" : "sale"} />
+      {readOnly && <p className="notice notice-warning">Este negocio está en modo de consulta. Renueva el acceso en Configuración para registrar operaciones.</p>}
       <DraftStatus draft={draft} />
       {restoredNotice && (
         <p role="status" className="notice notice-info">

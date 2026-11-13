@@ -32,7 +32,10 @@ export class FirebaseAuthService implements AuthService {
     const user = this.auth.currentUser;
     if (!user) throw new Error("Vuelve a ingresar con tu cuenta.");
     await user.reload();
-    if (user.emailVerified) return true;
+    if (user.emailVerified) {
+      await user.getIdToken(true);
+      return true;
+    }
     await sendEmailVerification(user);
     return false;
   }

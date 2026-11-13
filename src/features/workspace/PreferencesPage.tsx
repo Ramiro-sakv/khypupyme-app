@@ -1,6 +1,10 @@
+import { Link } from "react-router";
+import { isBillingEnabled } from "../billing/profile";
 import { useWorkspace } from "./context";
 import { ActionForm, Field } from "./ui";
 import BusinessDeletionPanel from "./BusinessDeletionPanel";
+import BusinessPlanPanel from "../billing/BusinessPlanPanel";
+import BusinessExport from "../billing/BusinessExport";
 import AccountSessionActions from "./AccountSessionActions";
 export function Preferences({ onExit }: { onExit: () => void }) {
   const { business, run, busy } = useWorkspace();
@@ -85,7 +89,13 @@ export function Preferences({ onExit }: { onExit: () => void }) {
         />
       </ActionForm>
     </section>
-    <BusinessDeletionPanel onExit={onExit} />
+    <BusinessPlanPanel />
+    {business.tutorialSessionId ? null : <BusinessExport />}
+    {isBillingEnabled && !business.tutorialSessionId && <div className="actions">
+      <Link className="button" to="/privacidad">Privacidad</Link>
+      <Link className="button" to="/eliminar-cuenta">Solicitar eliminación de cuenta</Link>
+    </div>}
+    {import.meta.env.VITE_USE_EMULATORS !== "false" && <BusinessDeletionPanel onExit={onExit} />}
     </>
   );
 }

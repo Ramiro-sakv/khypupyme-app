@@ -26,15 +26,15 @@ try {
 } catch {
   root.render(
     <main>
-      <h1>Revisa la configuración local</h1>
+      <h1>Revisa la configuración</h1>
       <p role="alert">
-        Esta versión solo funciona con Firebase Emulator. Consulta el README y revisa .env.local.
+        Revisa el perfil de Firebase y la configuración de este paquete.
       </p>
     </main>,
   );
 }
 if (
-  import.meta.env.PROD &&
+  import.meta.env.PROD && import.meta.env.VITE_USE_EMULATORS !== "false" &&
   !['android', 'windows'].includes(import.meta.env.VITE_RUNTIME_TARGET ?? '') &&
   'serviceWorker' in navigator
 ) {

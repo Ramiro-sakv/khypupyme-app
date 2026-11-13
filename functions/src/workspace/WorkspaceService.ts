@@ -39,6 +39,7 @@ import { WorkspaceQueries } from "./WorkspaceQueries.js";
 import { LegacyInventory } from "./LegacyInventory.js";
 import { CommerceService } from "../CommerceService.js";
 import { validateCommand } from "../validation.js";
+import { requireLicense } from "../billing/access.js";
 
 interface Expense {
   id: string;
@@ -54,6 +55,7 @@ export class WorkspaceService {
   constructor(
     private readonly db: Firestore,
     private readonly practiceAccess?: PracticeAccess,
+    private readonly enforceBilling = false,
   ) {}
   async execute(uid: string, raw: unknown, authTime?: number): Promise<CommandResult> {
     const command = validateWorkspaceCommand(raw),
@@ -85,6 +87,7 @@ export class WorkspaceService {
         );
       const result = await new CommerceService(this.db, {
         signature,
+        enforceBilling: this.enforceBilling,
         recovery: command.kind === "recover-legacy",
         protectedOperation: protectedOperation(command),
       }).execute(uid, original, authTime);
@@ -115,6 +118,8 @@ export class WorkspaceService {
         return previous.result;
       }
       preparePractice(practice, command);
+      if (this.enforceBilling && !practice && !["close-cash", "preferences", "timber-preferences", "confirm-type"].includes(command.kind))
+        await requireLicense(this.db, tx, uid, command.businessId, Date.parse(work.now));
       const protection = new SensitiveApprovalService(this.db);
       const approval = practice ? null : await protection.protect(work, command, authTime);
       const business = businessView(command.businessId, parent);

@@ -4,7 +4,7 @@ import { bob, cents, localDate, statusLabel } from "./format";
 import { ActionForm, Field, Pager } from "./ui";
 import { useCashState } from "./cash-context";
 export function Cash() {
-  const { run, busy } = useWorkspace(),
+  const { run, busy, readOnly } = useWorkspace(),
     currentSession = useCashState(),
     sessions = useRecords<CashSession>("cashSessions"),
     entries = useRecords<{
@@ -62,7 +62,7 @@ export function Cash() {
               </ActionForm>
             </details>
             <ActionForm
-              disabled={busy}
+              disabled={busy || !!readOnly}
               label="Registrar aporte o retiro"
               onSave={(d) =>
                 run({
@@ -89,7 +89,7 @@ export function Cash() {
         ) : (
           <section className="card">
             <ActionForm
-              disabled={busy}
+              disabled={busy || !!readOnly}
               label="Abrir caja"
               onSave={(d) =>
                 run({

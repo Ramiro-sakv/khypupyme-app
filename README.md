@@ -1,6 +1,6 @@
 # KhypuPyme
 
-Cuaderno digital para negocios de Bolivia. Beta local **0.5.0-beta.13**, sin publicación ni conexión cloud activa.
+Cuaderno digital para negocios de Bolivia. Beta **1.0.0-beta.1** de preparación comercial, sin publicación ni conexión cloud activa.
 
 Una cuenta administra varios negocios independientes. Después de ingresar se crea un espacio, se responde el cuestionario y se confirma un rubro fijo. Cada negocio conserva catálogo, clientes, compras, ventas, fiados, caja y documentos propios. Se abre el último negocio autorizado; **Cambiar negocio** vuelve al selector.
 
@@ -89,6 +89,12 @@ Las revisiones evitan sobrescribir silenciosamente otra pestaña: se puede carga
 Inicio ofrece una guía derivada de registros existentes y cada rubro muestra ayuda propia. Las compras comparten consulta filtrada/paginada y detalle; los documentos muestran su copia histórica y permiten regenerar el PDF sin repetir operaciones.
 
 Orden de lectura: `DraftRepository` y `WorkspaceRepository` → `TradeDraftService`, `WorkspaceCommandService`, `AccountCreationService` → `IndexedDbDraftRepository`, `OperationJournal` y adaptador Firebase → hooks y pantallas por área. Autenticación, selección de negocios y espacio de trabajo están separados. Los cálculos y contratos comerciales existentes se conservan.
+
+## Prueba y plan mensual
+
+La beta prepara una prueba de 14 días por cuenta y un pase de 30 días por negocio. El perfil de desarrollo habitual conserva sus operaciones con datos ficticios. El perfil comercial comprueba la licencia en el servidor y mantiene disponibles el historial, la descarga y el cierre de caja tras vencer. El precio previsto por QR es Bs 39. Google Play muestra su precio y moneda oficiales. Ninguno de los paquetes de desarrollo acepta pagos reales.
+
+Consulta [la preparación del piloto](docs/deployment/readiness.md) y ejecuta `pnpm test:billing` para validar pagos y licencias con emuladores aislados.
 
 ## Ejecutar en Windows
 

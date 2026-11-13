@@ -16,6 +16,11 @@ import type { WorkspaceRepository } from "./WorkspaceRepository";
 import { WorkspaceContext } from "./context";
 import { useWorkspaceCommands } from "./useWorkspaceCommands";
 import { useCorrectionAuthorization } from "./useCorrectionAuthorization";
+import { BusinessPlanBanner } from "../billing/BusinessPlanPanel";
+import { useBusinessPlan } from "../billing/useBusinessPlan";
+import { AppError } from "../../../shared/app-errors";
+import { isBillingEnabled } from "../billing/profile";
+
 const WorkspaceHome = lazy(() => import("./WorkspaceHome"));
 function WorkspaceContent({
   uid,
@@ -39,6 +44,9 @@ function WorkspaceContent({
         }),
       [repository, uid, business.id],
     );
+  const billingEnabled = isBillingEnabled && !business.tutorialSessionId;
+  const billing = useBusinessPlan(repository, business.id, billingEnabled);
+  const readOnly = billing.plan?.status === "expired" || billing.plan?.status === "trial-available";
   const { view } = useWorkspaceNavigation();
   const dashboard = view === "inicio" && business.typeConfirmed;
   const protection = useCorrectionAuthorization(business, repository);
@@ -62,6 +70,7 @@ function WorkspaceContent({
     <WorkspaceContext
       value={{
         identity: commandService.context,
+        ...(billingEnabled ? { billing, readOnly } : {}),
         pending: !!pending,
         processing: busy,
         commandError: error,
@@ -80,7 +89,11 @@ function WorkspaceContent({
         repository,
         revision,
         busy: busy || !!pending || !online || !ready,
-        run,
+        run: (action, operationId) => {
+          if (readOnly && !["close-cash", "preferences", "timber-preferences", "confirm-type"].includes(action.kind))
+            return Promise.reject(new AppError("Renueva el plan de este negocio para registrar operaciones.", 403, "BUSINESS_PLAN_REQUIRED"));
+          return run(action, operationId);
+        },
       }}
     >
       <CashStateProvider>
@@ -124,6 +137,7 @@ function WorkspaceContent({
               </span>
             </div>
           </div>
+          {dashboard && billingEnabled && <BusinessPlanBanner {...billing} />}
           {!online && (
             <p role="alert">
               Sin conexión. No se guardan operaciones ni se reenvían

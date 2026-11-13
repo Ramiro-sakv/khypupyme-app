@@ -1,5 +1,11 @@
 # Cambios
 
+## 1.0.0-beta.1 (preparación comercial)
+
+- Prueba de 14 días, pases de 30 días por negocio, vigencia comprobada por el servidor y recuperación de cobros.
+- Integraciones preparadas para Google Play y QR Simple, portal de pago, exportación de registros y solicitud de baja.
+- Perfil alojado separado con reglas cerradas. Los emuladores habituales conservan su operación de desarrollo.
+
 ## 0.5.0-beta.13 (local)
 
 - Identidad visual para los 21 rubros en Inicio, el directorio y la creación de negocios.

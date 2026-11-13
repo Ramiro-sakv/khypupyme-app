@@ -18,6 +18,7 @@ import type {
   WorkspaceReport,
 } from "../../shared/workspace/model";
 
+import type { BillingRequest, BusinessPlan, PaymentIntent } from "../../shared/workspace/billing";
 export class FirebaseWorkspaceRepository implements WorkspaceRepository {
   constructor(private readonly functions: Functions) {}
   private async call<T>(name: string, input: unknown): Promise<T> {
@@ -30,6 +31,27 @@ export class FirebaseWorkspaceRepository implements WorkspaceRepository {
       }
       throw cause;
     }
+  }
+  billing<T extends BusinessPlan | PaymentIntent | null>(request: BillingRequest) {
+    return this.call<T>("workspaceBilling", request);
+  }
+  async exportBusiness(businessId: string) {
+    const names = await this.call<string[]>("workspaceExport", { businessId, collection: "", cursor: "" });
+    const collections: Record<string, unknown[]> = {};
+    for (const collection of names) {
+      const entries: unknown[] = [];
+      let cursor = "";
+      do {
+        const page: Page<unknown> = await this.call("workspaceExport", { businessId, collection, cursor });
+        entries.push(...page.items);
+        cursor = page.next ?? "";
+      } while (cursor);
+      collections[collection] = entries;
+    }
+    return collections;
+  }
+  requestAccountDeletion() {
+    return this.call<{ requestedAt: number }>("workspaceAccountDeletion", {});
   }
   deletion(request: DeletionRequest) {
     return this.call<DeletionResult>("workspaceDeletion", request);

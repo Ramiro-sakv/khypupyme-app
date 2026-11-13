@@ -9,7 +9,7 @@ import { ActionForm } from "./ui";
 import { useReport } from "./useReport";
 export default function Reports() {
   const tutorial = useTimberTutorial();
-  const { run, busy } = useWorkspace(),
+  const { run, busy, readOnly } = useWorkspace(),
     [from, setFrom] = useState(
       tutorial?.active
         ? tutorial.state.session!.startedOn
@@ -97,7 +97,7 @@ export default function Reports() {
           </details>
           <div className="actions">
             <ActionForm
-              disabled={busy}
+              disabled={busy || !!readOnly}
               dataTutorial="result-report"
               label="Emitir informe de resultados PDF"
               onSave={() =>
@@ -110,7 +110,7 @@ export default function Reports() {
               <p>Se conserva una copia de los datos al emitir.</p>
             </ActionForm>
             <ActionForm
-              disabled={busy}
+              disabled={busy || !!readOnly}
               dataTutorial="inventory-report"
               label="Emitir informe de inventario PDF"
               onSave={() =>

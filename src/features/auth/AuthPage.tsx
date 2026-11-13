@@ -1,7 +1,7 @@
 import { Icon } from "../workspace/Icon";
 import { useState } from "react";
 import type { SubmitEvent } from "react";
-import { Link, Navigate } from "react-router";
+import { Link, Navigate, useSearchParams } from "react-router";
 import { useAuth } from "./auth-context";
 import { validateCredentials } from "./validation";
 import { errorMessage } from "../../shared/errors";
@@ -11,6 +11,7 @@ import { useOnline } from "../../shared/hooks/useOnline";
 export function AuthPage({ mode }: { mode: "login" | "register" | "reset" }) {
   const { user, service, status, error: sessionError } = useAuth();
   const online = useOnline();
+  const [params] = useSearchParams();
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -33,7 +34,12 @@ export function AuthPage({ mode }: { mode: "login" | "register" | "reset" }) {
         </button>
       </section>
     );
-  if (user) return <Navigate to="/" replace />;
+  if (user) {
+    const destination = params.get("volver");
+    const business = params.get("negocio") ?? "";
+    return <Navigate to={destination === "baja" ? "/eliminar-cuenta"
+      : destination === "pago" && /^[a-zA-Z0-9_-]{1,100}$/.test(business) ? "/pago/" + business : "/"} replace />;
+  }
 
   async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();

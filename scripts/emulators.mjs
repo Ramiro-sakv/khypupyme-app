@@ -7,7 +7,7 @@ import { findBackup, localEmulators, preserveOriginal, project, publishBackup, r
 const functions = [
   'commerceCommand', 'commerceQuery', 'commerceReport', 'timberTutorial',
   'workspaceAccount', 'workspaceApproval', 'workspaceCommand', 'workspaceQuery',
-  'workspaceReport', 'workspaceStatus', 'workspaceDeletion',
+  'workspaceReport', 'workspaceStatus', 'workspaceDeletion', 'workspaceBilling', 'workspaceAccountDeletion', 'workspaceExport',
 ];
 const legacy = fileURLToPath(new URL('../.emulator-data', import.meta.url));
 

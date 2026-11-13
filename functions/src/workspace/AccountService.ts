@@ -109,8 +109,9 @@ export class AccountService {
         `users/${identifier(uid)}/operationKeys/${input.operationId}`,
       );
     const result = await this.db.runTransaction(async (tx) => {
-      const previous = await tx.get(key);
-      if (previous.exists) {
+      const accountRef = this.db.doc("users/" + uid);
+      const [previous, profile] = await tx.getAll(key, accountRef);
+      if (previous?.exists) {
         if (
           previous.data()?.signature !== signature ||
           previous.data()?.kind !== "create-business"
@@ -133,6 +134,12 @@ export class AccountService {
         createdAt: now,
         updatedAt: now,
       };
+      if (!profile?.get("firstBusinessId")) {
+        const older = await tx.get(accountRef.collection("businesses").orderBy("createdAt").limit(1));
+        const legacy = await tx.get(this.db.doc("businesses/" + uid));
+        const legacyFirst = legacy.get("ownerUid") === uid && !legacy.get("deletionPending");
+        tx.set(accountRef, { firstBusinessId: legacyFirst ? uid : older.docs[0]?.id ?? id }, { merge: true });
+      }
       tx.create(this.db.doc(`businesses/${id}`), data);
       tx.create(this.db.doc(`users/${uid}/businesses/${id}`), {
         businessId: id,

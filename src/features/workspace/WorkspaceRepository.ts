@@ -28,6 +28,9 @@ export interface NewBusiness {
   answers: BusinessAnswers;
 }
 export interface WorkspaceRepository {
+  billing?: <T extends import("../../../shared/workspace/billing").BusinessPlan | import("../../../shared/workspace/billing").PaymentIntent | null>(request: import("../../../shared/workspace/billing").BillingRequest) => Promise<T>;
+  exportBusiness?: (businessId: string) => Promise<Record<string, unknown[]>>;
+  requestAccountDeletion?: () => Promise<{ requestedAt: number }>;
   deletion?: (request: DeletionRequest) => Promise<DeletionResult>;
   approval?: (phase: "prepare" | "approve", command: WorkspaceCommand, reason?: string) => Promise<import("../../../shared/workspace/protection").CorrectionChallenge | { approved: true }>;
   tutorial?: (request: TutorialRequest) => Promise<TutorialReply>;

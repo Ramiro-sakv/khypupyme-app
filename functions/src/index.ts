@@ -15,38 +15,42 @@ import {
   object,
   optionalId,
   oneOf,
+  text,
 } from "../../shared/workspace/validation.js";
 import { getApps, initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
-import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
+import { defineSecret } from "firebase-functions/params";
+import { onMessagePublished } from "firebase-functions/v2/pubsub";
+import { BillingService } from "./billing/BillingService.js";
+import { billingProviders, externalBillingEnabled, serverMode } from "./billing/runtime.js";
+import { PLAY_PASS } from "../../shared/workspace/billing.js";
+import { secretMatch } from "./billing/ProductionPayments.js";
+import { exportBusiness } from "./billing/exportBusiness.js";
+import { requestAccountDeletion } from "./billing/AccountDeletionRequest.js";
 import { DomainError } from "../../shared/commerce.js";
 import type { DateFilter, QueryInput } from "../../shared/commerce.js";
 import { CommerceService } from "./CommerceService.js";
 import { CommerceQueries } from "./CommerceQueries.js";
 import { validateCommand } from "./validation.js";
 
-function services() {
+const qrBasic = defineSecret("KHYPU_QR_BASIC");
+const qrWebhookSecret = defineSecret("KHYPU_QR_WEBHOOK_SECRET");
+
+function services(includeBilling = false) {
   const projectId = process.env.GCLOUD_PROJECT ?? "";
-  if (
-    process.env.FUNCTIONS_EMULATOR !== "true" ||
-    !/^demo-[a-z0-9-]+$/.test(projectId) ||
-    !/^127\.0\.0\.1:(8080|18080)$/.test(
-      process.env.FIRESTORE_EMULATOR_HOST ?? "",
-    )
-  ) {
-    throw new HttpsError(
-      "failed-precondition",
-      "Esta beta solo admite emuladores locales.",
-    );
-  }
+  const mode = serverMode();
+  const enforceBilling = mode !== "local";
   const app = getApps()[0] ?? initializeApp({ projectId });
   const db = getFirestore(app);
   return {
-    commands: new CommerceService(db),
+    mode,
+    commands: new CommerceService(db, undefined, enforceBilling),
+    billing: new BillingService(db, includeBilling ? billingProviders(mode) : { channels: [] }),
     queries: new CommerceQueries(db),
     account: new AccountService(db),
     db,
-    workspace: new WorkspaceService(db),
+    workspace: new WorkspaceService(db, undefined, enforceBilling),
     workspaceQueries: new WorkspaceQueries(db),
   };
 }
@@ -139,7 +143,8 @@ export const workspaceAccount = onCall(options, async (request) => {
 export const workspaceDeletion = onCall(options, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Inicia sesión.");
   try {
-    const { db } = services();
+    const { db, mode } = services();
+    if (mode === "hosted") throw new AppError("Solicita asistencia para eliminar solo un negocio.", 503, "DELETION_HOSTED");
     return await new BusinessDeletionService(db, getAuth()).handle(
       request.auth.uid, request.auth.token.auth_time, request.data,
     );
@@ -243,6 +248,101 @@ export const workspaceStatus = onCall(options, async (request) => {
   } catch (cause) {
     return workspaceFailure("workspaceStatus", cause);
   }
+});
+
+export const workspaceBilling = onCall({ ...options, secrets: [qrBasic, qrWebhookSecret] }, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Inicia sesión.");
+  try {
+    const { uid, token } = request.auth;
+    const { billing, mode } = services(true);
+    const raw = request.data as Record<string, unknown> | null;
+    const kind = oneOf(["plan", "activate", "start", "check", "current-qr", "restore-play"])(raw?.kind);
+    if (kind === "restore-play") {
+      const input = object(raw, { kind: () => kind, purchaseToken: (v) => text(v, 1, 4096) });
+      return await billing.restorePlay(uid, input.purchaseToken as string);
+    }
+    const input = object(raw, {
+      kind: () => kind, businessId: identifier,
+      ...(kind === "start" ? { channel: oneOf(["play", "qr"]) } : {}),
+      ...(kind === "check" ? { intentId: identifier } : {}),
+    });
+    const id = input.businessId as string;
+    if (mode === "local") {
+      if (kind !== "plan") throw new AppError("El emulador habitual no emite licencias.", 403, "BILLING_LOCAL");
+      return { ...await billing.plan(uid, id, token.email_verified === true), status: "unavailable", expiresAt: null };
+    }
+    if (kind === "activate") return await billing.activate(uid, id, token.email_verified === true);
+    if (kind === "start") return await billing.start(uid, id, input.channel as "play" | "qr");
+    if (kind === "current-qr") return await billing.currentQr(uid, id);
+    if (kind === "check") return await billing.check(uid, id, input.intentId as string);
+    return await billing.plan(uid, id, token.email_verified === true);
+  } catch (cause) { return workspaceFailure("workspaceBilling", cause); }
+});
+
+export const workspaceExport = onCall(options, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Inicia sesión.");
+  try {
+    const input = object(request.data, { businessId: identifier, collection: (v) => text(v, 0, 60), cursor: optionalId });
+    return await exportBusiness(services().db, request.auth.uid, input.businessId as string, input.collection as string, input.cursor as string);
+  } catch (cause) { return workspaceFailure("workspaceExport", cause); }
+});
+
+export const workspaceAccountDeletion = onCall(options, async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Inicia sesión.");
+  try {
+    object(request.data, {});
+    const { db } = services();
+    return await requestAccountDeletion(db, request.auth.uid, request.auth.token.auth_time);
+  } catch (cause) { return workspaceFailure("workspaceAccountDeletion", cause); }
+});
+
+export const qrPaymentNotice = onRequest({ ...options, cors: false, secrets: [qrBasic, qrWebhookSecret] }, async (request, response) => {
+  if (request.method !== "POST" || !secretMatch(request.get("x-khypu-webhook") ?? "", process.env.KHYPU_QR_WEBHOOK_SECRET ?? "")) {
+    response.sendStatus(403);
+    return;
+  }
+  try {
+    const { billing, mode } = services(true);
+    if (mode !== "hosted" || !externalBillingEnabled()) { response.sendStatus(403); return; }
+    const { numeroReferenciaOriginante, numeroReferencia } = request.body?.data ?? request.body ?? {};
+    await billing.reconcileQr(identifier(numeroReferenciaOriginante), text(numeroReferencia, 1, 40));
+    response.sendStatus(204);
+  } catch (cause) {
+    response.sendStatus(cause instanceof AppError && cause.status === 404 ? 404 : 503);
+  }
+});
+
+export const playPaymentNotice = onMessagePublished({
+  topic: "khypupyme-play-billing", region: options.region, retry: true, maxInstances: 2,
+}, async (event) => {
+  if (serverMode() !== "hosted" || !externalBillingEnabled()) return;
+  const body = event.data.message.json;
+  if (body?.packageName !== process.env.KHYPU_PLAY_PACKAGE) return;
+  const { billing } = services(true);
+  const voided = body.voidedPurchaseNotification;
+  if (voided?.productType === 2 && voided.refundType === 1 && typeof voided.purchaseToken === "string") {
+    await billing.refundPlay(voided.purchaseToken);
+    return;
+  }
+  const payment = body.oneTimeProductNotification;
+  if (payment?.sku === PLAY_PASS && typeof payment.purchaseToken === "string")
+    await billing.reconcilePlay(payment.purchaseToken);
+});
+
+export const reconcileQrRefund = onCall(options, async (request) => {
+  if (!request.auth || request.auth.token.billingOperator !== true)
+    throw new HttpsError("permission-denied", "Se requiere un operador de cobros.");
+  try {
+    const { billing, mode } = services();
+    if (mode !== "hosted" || process.env.KHYPU_BILLING_MODE !== "live")
+      throw new AppError("La conciliación real no está habilitada.", 403, "BILLING_CHANNEL");
+    const authTime = request.auth.token.auth_time * 1000;
+    if (!authTime || authTime > Date.now() || Date.now() - authTime > 5 * 60_000)
+      throw new AppError("Vuelve a autenticarte para conciliar un reembolso.", 401, "BILLING_OPERATOR_AUTH");
+    const input = object(request.data, { reference: (v) => text(v, 1, 40), evidence: (v) => text(v, 6, 120) });
+    await billing.refundQr(input.reference as string, request.auth.uid, input.evidence as string);
+    return { recorded: true };
+  } catch (cause) { return workspaceFailure("reconcileQrRefund", cause); }
 });
 
 export const timberTutorial = onCall(options, async (request) => {

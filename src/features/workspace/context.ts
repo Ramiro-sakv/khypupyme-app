@@ -9,7 +9,11 @@ import type {
   WorkspaceResource,
 } from "../../../shared/workspace/model";
 import type { WorkspaceRepository } from "./WorkspaceRepository";
+import type { useBusinessPlan } from "../billing/useBusinessPlan";
+
 export interface WorkspaceContextValue {
+  billing?: ReturnType<typeof useBusinessPlan>;
+  readOnly?: boolean;
   identity: Readonly<{ uid: string; businessId: string }>;
   pending: boolean;
   processing?: boolean;

@@ -1,0 +1,9 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // El cliente alojado usa Functions. Las credenciales de servidor se administran por IAM.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -7,6 +7,9 @@ import "./workspace.css";
 import "./industry-layout.css";
 import type { WorkspaceRepository } from "./WorkspaceRepository";
 import Account from "./AccountPage";
+import AccountDeletion, { PrivacyNotice } from "../billing/AccountDeletion";
+import WebCheckout from "../billing/WebCheckout";
+import { isBillingEnabled } from "../billing/profile";
 export function WorkspaceApp({
   repository,
 }: {
@@ -54,6 +57,11 @@ export function WorkspaceApp({
             <Route path="/ingresar" element={<AuthPage mode="login" />} />
             <Route path="/registro" element={<AuthPage mode="register" />} />
             <Route path="/recuperar" element={<AuthPage mode="reset" />} />
+            {isBillingEnabled && <>
+              <Route path="/privacidad" element={<PrivacyNotice />} />
+              <Route path="/eliminar-cuenta" element={<AccountDeletion repository={repository} />} />
+              {!import.meta.env.VITE_RUNTIME_TARGET || import.meta.env.VITE_RUNTIME_TARGET === "web" ? <Route path="/pago/:businessId" element={<WebCheckout repository={repository} />} /> : null}
+            </>}
             <Route
               path="/*"
               element={

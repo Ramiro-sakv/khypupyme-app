@@ -5,6 +5,7 @@ import type { CorrectionChallenge } from "../../../shared/workspace/protection";
 import { CORRECTION_LABELS, sensitiveAction } from "../../../shared/workspace/protection";
 import { displayQuantity } from "../../../shared/workspace/presentation";
 import { useAuth } from "../auth/auth-context";
+import { useIdentityConfirmation } from "../auth/useIdentityConfirmation";
 import { ActionForm, Field } from "./ui";
 import { Panel } from "./Panel";
 import { bob, statusLabel } from "./format";
@@ -35,16 +36,17 @@ function requestedChanges(command: WorkspaceCommand) {
   return rows;
 }
 export function useCorrectionAuthorization(business: WorkspaceBusiness, repository: WorkspaceRepository) {
-  const { service, user } = useAuth(), [review, setReview] = useState<Review | null>(null);
+  const { user } = useAuth(), [review, setReview] = useState<Review | null>(null);
+  const identity = useIdentityConfirmation();
   const pending = useRef<Review | null>(null), alive = useRef(true);
   useEffect(() => {
     alive.current = true;
     return () => { alive.current = false; pending.current?.reject(new AppError("La revisión se cerró. La operación no se envió.", 400, "REVIEW_CANCELLED")); pending.current = null; };
   }, [business.id]);
-  const cancel = () => { pending.current?.reject(new AppError("Corrección cancelada. No se envió la operación.", 400, "REVIEW_CANCELLED")); pending.current = null; setReview(null); };
+  const cancel = () => { identity.cancel(); pending.current?.reject(new AppError("Corrección cancelada. No se envió la operación.", 400, "REVIEW_CANCELLED")); pending.current = null; setReview(null); };
   async function authorize(command: WorkspaceCommand) {
     if (business.tutorialSessionId || !sensitiveAction(command)) return;
-    if (!repository.approval || !service.reauthenticate) throw new AppError("Actualiza la aplicación para confirmar esta corrección.", 403, "REAUTH_UNAVAILABLE");
+    if (!repository.approval || !identity.available) throw new AppError("Actualiza la aplicación para confirmar esta corrección.", 403, "REAUTH_UNAVAILABLE");
     if (pending.current) throw new AppError("Completa primero la revisión abierta.", 409, "REVIEW_BUSY");
     if (command.businessId !== business.id || !user) throw new AppError("El negocio o la cuenta cambió. Vuelve a revisar la operación.", 403, "CONTEXT_CHANGED");
     const captured = structuredClone(command), result = await repository.approval("prepare", captured);
@@ -60,7 +62,7 @@ export function useCorrectionAuthorization(business: WorkspaceBusiness, reposito
     <div className="notice notice-warning">
       <strong>{review.challenge.businessName}</strong>
       <p>{CORRECTION_LABELS[review.command.kind] ?? "Corrección de registros"}</p>
-      <p>Revisa los datos y confirma tu contraseña. Esta acción conservará un historial del cambio.</p>
+      <p>Revisa los datos y confirma tu identidad. Esta acción conservará un historial del cambio.</p>
     </div>
     {review.challenge.records.map((record) => <section className="card" key={record.collection + record.id}>
       <h3>Registro actual: {String(record.values.name ?? record.values.number ?? record.values.customerName ?? record.values.description ?? record.values.serial ?? "Registro seleccionado")}</h3>
@@ -71,13 +73,13 @@ export function useCorrectionAuthorization(business: WorkspaceBusiness, reposito
     </section>)}
     <h3>Cambio solicitado</h3>
     <ul>{requestedChanges(review.command).map((row, index) => <li key={index}>{row}</li>)}</ul>
-    <ActionForm protectDraft={false} label="Confirmar contraseña y aplicar esta corrección" onSave={async (data) => {
+    <ActionForm protectDraft={false} label={identity.google ? "Confirmar con Google y aplicar" : "Confirmar contraseña y aplicar esta corrección"} onSave={async (data) => {
       const current = pending.current;
       if (!current || current !== review) throw new AppError("La revisión ya se cerró.");
       if (Date.now() > current.challenge.expiresAt) throw new AppError("La revisión caducó. Cancela y vuelve a abrirla.", 403, "REVIEW_EXPIRED");
       // Firebase expresa auth_time en segundos; garantizar una autenticación posterior al reto.
-      await new Promise((resolve) => window.setTimeout(resolve, 1100));
-      await service.reauthenticate!(String(data.get("password") ?? ""));
+      if (!identity.google) await new Promise((resolve) => window.setTimeout(resolve, 1100));
+      await identity.confirm(data);
       if (!alive.current || pending.current !== current) throw new AppError("La revisión se canceló. No se envió la corrección.");
       await repository.approval!("approve", current.command, String(data.get("reason") ?? ""));
       if (!alive.current || pending.current !== current) throw new AppError("La revisión se cerró. No se envió la corrección.");
@@ -88,8 +90,7 @@ export function useCorrectionAuthorization(business: WorkspaceBusiness, reposito
         <p>Motivo de la solicitud: {originalReason}</p>
         <input type="hidden" name="reason" value={originalReason} />
       </> : <Field name="reason" label="Motivo obligatorio de la corrección" maxLength={200} />}
-      <label>Contraseña del propietario<input name="password" type="password" autoComplete="current-password" required />
-      </label>
+      {identity.field}
     </ActionForm>
     <button type="button" onClick={cancel}>Cancelar sin aplicar</button>
   </Panel>;

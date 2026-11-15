@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useAuth } from "../auth/auth-context";
+import { useIdentityConfirmation } from "../auth/useIdentityConfirmation";
 import { errorMessage } from "../../shared/errors";
 import { finishBusinessDeletion } from "./businessDeletion";
 import { useCashState } from "./cash-context";
@@ -13,6 +14,7 @@ import { resetLocalWorkspace } from "./resetLocalWorkspace";
 export default function BusinessDeletionPanel({ onExit }: { onExit: () => void }) {
   const { business, repository, identity, busy, pending } = useWorkspace();
   const { service } = useAuth();
+  const confirmation = useIdentityConfirmation();
   const cash = useCashState();
   const { go } = useWorkspaceNavigation();
   const [step, setStep] = useState<"name" | "password" | "code" | "deleting" | "done" | null>(null);
@@ -28,7 +30,7 @@ export default function BusinessDeletionPanel({ onExit }: { onExit: () => void }
     return () => { mounted.current = false; };
   }, []);
   const deletion = repository.deletion?.bind(repository);
-  if (!deletion || !service.reauthenticate || business.tutorialSessionId) return null;
+  if (!deletion || !confirmation.available || business.tutorialSessionId) return null;
 
   async function work(action: () => Promise<void>) {
     if (running.current) return;
@@ -74,7 +76,7 @@ export default function BusinessDeletionPanel({ onExit }: { onExit: () => void }
         setStep("password");
       } else if (step === "password") {
         form.reset();
-        await service.reauthenticate!(String(data.get("password") ?? ""));
+        await confirmation.confirm(data);
         await send();
       } else if (step === "code") {
         await checkPending();
@@ -120,11 +122,9 @@ export default function BusinessDeletionPanel({ onExit }: { onExit: () => void }
           {step === "name" && <label>Escribe {business.name} exactamente como aparece
             <input name="name" autoComplete="off" required maxLength={80} />
           </label>}
-          {step === "password" && <label>Contraseña de tu cuenta
-            <input key="password" name="password" type="password" autoComplete="current-password" required />
-          </label>}
+          {step === "password" && confirmation.field}
           {step === "code" && <>
-            <p>Consulta el código con <code>pnpm inbox</code> en la terminal local de KhypuPyme. Caduca en diez minutos.</p>
+            <p>{import.meta.env.VITE_USE_EMULATORS === "false" ? "Revisa el correo de tu cuenta. El código caduca en diez minutos." : <>Consulta el código con <code>pnpm inbox</code> en la terminal local de KhypuPyme. Caduca en diez minutos.</>}</p>
             <label>Código de seis dígitos
               <input key={challengeId} name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required />
             </label>
@@ -139,9 +139,11 @@ export default function BusinessDeletionPanel({ onExit }: { onExit: () => void }
         </form>}
       {needsEmail && service.verifyEmail && <button type="button" disabled={working} onClick={() => void work(async () => {
         const verified = await service.verifyEmail!();
-        setVerification(verified ? "Correo verificado. Puedes continuar." : "Abre el enlace de verificación en la terminal de Firebase y vuelve a continuar.");
+        setVerification(verified ? "Correo verificado. Puedes continuar." : (import.meta.env.VITE_USE_EMULATORS === "false"
+          ? "Abre el enlace de verificación que llegó a tu correo y vuelve a continuar."
+          : "Abre el enlace de verificación en la terminal de Firebase y vuelve a continuar."));
         setNeedsEmail(false);
-      })}>Verificar correo en el emulador</button>}
+      })}>Verificar correo</button>}
     </Panel>}
   </section>;
 }

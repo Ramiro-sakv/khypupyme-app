@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { useAuth } from "../auth/auth-context";
+import { useIdentityConfirmation } from "../auth/useIdentityConfirmation";
 import { errorMessage } from "../../shared/errors";
 import type { WorkspaceRepository } from "../workspace/WorkspaceRepository";
 
 export default function AccountDeletion({ repository }: { repository: WorkspaceRepository }) {
-  const { user, service } = useAuth();
+  const { user } = useAuth();
+  const identity = useIdentityConfirmation();
   const [feedback, setFeedback] = useState("");
   const [busy, setBusy] = useState(false);
   return <section className="card">
@@ -14,22 +16,22 @@ export default function AccountDeletion({ repository }: { repository: WorkspaceR
     {!user ? <Link to="/ingresar?volver=baja">Ingresa para solicitar la baja</Link> : <form onSubmit={(event) => {
       event.preventDefault();
       const form = event.currentTarget;
-      const password = String(new FormData(form).get("password") ?? "");
+      const data = new FormData(form);
       form.reset();
       if (busy) return;
       setBusy(true);
       setFeedback("");
       void (async () => {
         try {
-          if (!service.reauthenticate || !repository.requestAccountDeletion) throw new Error("La solicitud no está disponible.");
-          await service.reauthenticate(password);
+          if (!identity.available || !repository.requestAccountDeletion) throw new Error("La solicitud no está disponible.");
+          await identity.confirm(data);
           await repository.requestAccountDeletion();
           setFeedback("Solicitud recibida. Tu cuenta sigue disponible mientras se revisa.");
         } catch (cause) { setFeedback(errorMessage(cause, "No se pudo enviar la solicitud.")); }
         finally { setBusy(false); }
       })();
     }}>
-      <label>Confirma tu contraseña<input name="password" type="password" autoComplete="current-password" required /></label>
+      {identity.field}
       <label><input type="checkbox" required /> Solicito eliminar mi cuenta y sus negocios</label>
       <button type="submit" disabled={busy}>{busy ? "Enviando…" : "Solicitar eliminación"}</button>
     </form>}

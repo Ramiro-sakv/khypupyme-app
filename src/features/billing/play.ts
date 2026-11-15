@@ -2,8 +2,8 @@ import { registerPlugin } from "@capacitor/core";
 
 interface PlayPurchase { token: string; intentId: string }
 interface BillingPlugin {
-  price(): Promise<{ formatted: string }>;
-  buy(input: { intentId: string }): Promise<{ status: "pending" | "cancelled" | "purchased"; token?: string }>;
+  price(input?: { productId: string }): Promise<{ formatted: string }>;
+  buy(input: { intentId: string; productId?: string }): Promise<{ status: "pending" | "cancelled" | "purchased"; token?: string }>;
   pending(): Promise<{ purchases: PlayPurchase[] }>;
 }
 

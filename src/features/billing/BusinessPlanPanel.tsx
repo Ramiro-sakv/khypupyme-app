@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { DAY_MS, PASS_DAYS, SIMULATION_TRIAL_DAYS, TRIAL_DAYS } from "../../../shared/workspace/billing";
+import { DAY_MS, PASS_DAYS, SIMULATION_TRIAL_DAYS, TRIAL_DAYS, PLAY_PRODUCTS } from "../../../shared/workspace/billing";
 import type { BusinessPlan, PassId, PaymentIntent } from "../../../shared/workspace/billing";
 import { useAuth } from "../auth/auth-context";
 import { errorMessage } from "../../shared/errors";
@@ -39,9 +39,11 @@ export default function BusinessPlanPanel({ qrOnly = false, entry = false }: { q
   const qrEnabled = !!plan?.channels.includes("qr") && !android;
   const [intent, setIntent] = useState<PaymentIntent | null>(null);
   const [selection, setSelection] = useState<PassId | null>(null);
+  const hasOffers = !!plan?.offers?.length;
+  const playProduct = selection ? PLAY_PRODUCTS[selection] : hasOffers ? null : PLAY_PRODUCTS["30-days"];
   const [recovery, setRecovery] = useState(isBillingSimulation ? "loading" : "ready");
   const [recoveryAttempt, setRecoveryAttempt] = useState(0);
-  const [price, setPrice] = useState("");
+  const [price, setPrice] = useState<{ product: string; label: string } | null>(null);
   const [priceAttempt, setPriceAttempt] = useState(0);
   const [priceError, setPriceError] = useState("");
   const [feedback, setFeedback] = useState("");
@@ -50,15 +52,15 @@ export default function BusinessPlanPanel({ qrOnly = false, entry = false }: { q
   const running = useRef(false);
 
   useEffect(() => {
-    if (!playEnabled) return;
+    if (!playEnabled || !playProduct) return;
     let current = true;
-    playBilling.price().then((result) => { if (current) { setPrice(result.formatted); setPriceError(""); } },
+    playBilling.price({ productId: playProduct }).then((result) => { if (current) { setPrice({ product: playProduct, label: result.formatted }); setPriceError(""); } },
       () => { if (current) setPriceError("Google Play no pudo cargar el precio. Abre la app desde Google Play y vuelve a entrar."); });
     return () => { current = false; };
-  }, [playEnabled, priceAttempt]);
+  }, [playEnabled, playProduct, priceAttempt]);
 
   useEffect(() => {
-    if (!isBillingSimulation || !repository.billing) return;
+    if ((!isBillingSimulation && !(hasOffers && qrEnabled)) || !repository.billing) return;
     let active = true;
     repository.billing<PaymentIntent | null>({ kind: "current-qr", businessId: business.id }).then((payment) => {
       if (!active) return;
@@ -66,7 +68,7 @@ export default function BusinessPlanPanel({ qrOnly = false, entry = false }: { q
       setRecovery("ready");
     }, () => { if (active) setRecovery("error"); });
     return () => { active = false; };
-  }, [repository, business.id, recoveryAttempt]);
+  }, [repository, business.id, recoveryAttempt, hasOffers, qrEnabled]);
 
   if (!billing || !callable || plan?.status === "unavailable") return null;
   const { refresh } = billing;
@@ -76,7 +78,8 @@ export default function BusinessPlanPanel({ qrOnly = false, entry = false }: { q
   const pendingOffer = intent?.status === "pending" ? intent : null;
   const pendingLabel = plan?.offers?.find((offer) => offer.id === (pendingOffer?.passId ?? "30-days"))?.label;
   const differentPending = !!pendingOffer && !!selection && selection !== (pendingOffer.passId ?? "30-days");
-  const trialDays = isBillingSimulation ? SIMULATION_TRIAL_DAYS : TRIAL_DAYS;
+  const trialDays = hasOffers ? SIMULATION_TRIAL_DAYS : TRIAL_DAYS;
+  const playPrice = price?.product === playProduct ? price?.label : undefined;
   async function execute(action: () => Promise<void>) {
     if (running.current) return;
     running.current = true;
@@ -100,7 +103,7 @@ export default function BusinessPlanPanel({ qrOnly = false, entry = false }: { q
     refresh();
   }
 
-  return <section className={`card ${isBillingSimulation ? "plan-simulation" : ""}`} id="plan-negocio">
+  return <section className={`card ${(hasOffers || entry) ? "plan-simulation" : ""}`} id="plan-negocio">
     <header className="plan-header">
       {entry && <p>{business.name}</p>}
       {entry ? <h1>Elige un plan para tu negocio</h1> : <h2>{qrOnly ? `Pago de ${business.name}` : "Plan del negocio"}</h2>}
@@ -108,9 +111,9 @@ export default function BusinessPlanPanel({ qrOnly = false, entry = false }: { q
     {plan && <p><strong>{labels[plan.status]}</strong>{plan.expiresAt ? ` · ${plan.status === "expired" ? "Venció" : "Vence"} el ${date(plan.expiresAt)}` : ""}</p>}
     {billing.error && <p role="alert">{billing.error} <button type="button" onClick={refresh}>Reintentar</button></p>}
     {!plan && !billing.error && <p role="status">Consultando el plan…</p>}
-    {plan && !isBillingSimulation && <p>{PASS_DAYS} días de acceso · renovación manual{!android ? ` · ${bob(plan.priceMinor)}` : ""}</p>}
-    {!qrOnly && !billing.error && plan?.status === "trial-available" && <section className={isBillingSimulation ? "plan-trial-card" : undefined}>
-      {isBillingSimulation && <div><h2>Prueba gratuita · 30 días</h2><p>Bs 0 · Una vez por cuenta, con correo verificado.</p></div>}
+    {plan && !hasOffers && <p>{PASS_DAYS} días de acceso · renovación manual{!android ? ` · ${bob(plan.priceMinor)}` : ""}</p>}
+    {!qrOnly && !billing.error && plan?.status === "trial-available" && <section className={hasOffers ? "plan-trial-card" : undefined}>
+      {hasOffers && <div><h2>Prueba gratuita · 30 días</h2><p>Bs 0 · Una vez por cuenta, con correo verificado.</p></div>}
       <div className="actions">
       {!plan.emailVerified && service.verifyEmail && <button disabled={working} onClick={() => void execute(async () => {
         const verified = await service.verifyEmail!();
@@ -125,13 +128,13 @@ export default function BusinessPlanPanel({ qrOnly = false, entry = false }: { q
       </div>
     </section>}
     {playEnabled && <div className="actions">
-      <button className="primary" disabled={working || !price} onClick={() => void execute(async () => {
-        const checkout = await callable<PaymentIntent>({ kind: "start", businessId: business.id, channel: "play" });
-        const result = await playBilling.buy({ intentId: checkout.id });
+      <button className="primary" disabled={working || !playPrice || !playProduct} onClick={() => void execute(async () => {
+        const checkout = await callable<PaymentIntent>({ kind: "start", businessId: business.id, channel: "play", ...(selection ? { passId: selection } : {}) });
+        const result = await playBilling.buy({ intentId: checkout.id, productId: PLAY_PRODUCTS[checkout.passId ?? "30-days"] });
         if (result.status === "cancelled") { setFeedback("Compra cancelada."); return; }
         if (!result.token) { setFeedback("Compra pendiente. Consulta su estado antes de repetirla."); return; }
         displayPayment(await callable<PaymentIntent>({ kind: "restore-play", purchaseToken: result.token }));
-      })}>{price ? `Comprar 30 días · ${price}` : "Cargando precio de Google Play…"}</button>
+      })}>{playPrice ? `Comprar ${selectedOffer?.label ?? "30 días"} · ${playPrice}` : "Elige un pase para consultar su precio"}</button>
       <button disabled={working} onClick={() => void execute(async () => {
         const { purchases } = await playBilling.pending();
         if (!purchases.length) setFeedback("Google Play no tiene compras por confirmar en este dispositivo.");
@@ -154,7 +157,7 @@ export default function BusinessPlanPanel({ qrOnly = false, entry = false }: { q
       await invoke("open_checkout", { businessId: business.id });
       setFeedback("Completa el pago en el navegador. Al volver, consulta el plan.");
     })}>Abrir pago por QR</button>}
-    {qrEnabled && isBillingSimulation && !billing.error && <div className="plan-offers">
+    {hasOffers && !externalCheckout && !billing.error && <div className="plan-offers">
       <fieldset disabled={working}>
         <legend>Pases de acceso</legend>
         <p>Las mismas herramientas en todos los pases · Renovación manual</p>
@@ -162,26 +165,26 @@ export default function BusinessPlanPanel({ qrOnly = false, entry = false }: { q
           {plan?.offers?.map((offer) => <label className="plan-option" key={offer.id}>
             <input type="radio" name="business-pass" checked={selection === offer.id} onChange={() => { setSelection(offer.id); setError(""); }} />
             <strong>{offer.label}</strong>
-            <span className="plan-price">{bob(offer.priceMinor)}</span>
-            {offer.savingsMinor > 0 && <span className="plan-saving">Ahorra {bob(offer.savingsMinor)}</span>}
-            {offer.id === "1-year" && <span className="plan-highlight">Mayor ahorro</span>}
+            <span className="plan-price">{android ? (price?.product === PLAY_PRODUCTS[offer.id] ? price.label : "Consultar en Google Play") : bob(offer.priceMinor)}</span>
+            {!android && offer.savingsMinor > 0 && <span className="plan-saving">Ahorra {bob(offer.savingsMinor)}</span>}
+            {!android && offer.id === "1-year" && <span className="plan-highlight">Mayor ahorro</span>}
             <span className="plan-expiry">Vigencia estimada hasta {date(offer.estimatedExpiry)}</span>
           </label>)}
         </div>
       </fieldset>
       {recovery === "loading" && <p role="status">Consultando si hay un QR pendiente…</p>}
       {recovery === "error" && <p role="alert">No se pudo comprobar si hay un QR pendiente. <button type="button" onClick={() => { setRecovery("loading"); setRecoveryAttempt((n) => n + 1); }}>Reintentar consulta del QR</button></p>}
-      {pendingOffer && <p role="status">QR pendiente · {pendingLabel} · {bob(pendingOffer.priceMinor)}. {differentPending && "Simula su vencimiento antes de elegir otro pase."}</p>}
+      {pendingOffer && <p role="status">QR pendiente · {pendingLabel} · {bob(pendingOffer.priceMinor)}. {differentPending && (isBillingSimulation ? "Simula su vencimiento antes de elegir otro pase." : "Consulta o espera el vencimiento del QR antes de cambiar de pase.")}</p>}
       {selectedOffer && !pendingOffer && <div className="plan-review">
         <strong>Revisa tu pase</strong>
-        <p>{business.name} · {selectedOffer.label} · {bob(selectedOffer.priceMinor)}</p>
+        <p>{business.name} · {selectedOffer.label} · {android ? playPrice ?? "Consultar en Google Play" : bob(selectedOffer.priceMinor)}</p>
         <p>Vigencia estimada hasta {date(selectedOffer.estimatedExpiry)}.</p>
       </div>}
     </div>}
     {qrEnabled && !externalCheckout && !billing.error && <div className="actions">
-      {(!isBillingSimulation || !pendingOffer) && <button disabled={working || (isBillingSimulation && (!selection || recovery !== "ready"))} onClick={() => void execute(async () => {
+      {(!hasOffers || !pendingOffer) && <button disabled={working || (hasOffers && (!selection || recovery !== "ready"))} onClick={() => void execute(async () => {
         try {
-          displayPayment(await callable<PaymentIntent>({ kind: "start", businessId: business.id, channel: "qr", ...(isBillingSimulation && selection ? { passId: selection } : {}) }));
+          displayPayment(await callable<PaymentIntent>({ kind: "start", businessId: business.id, channel: "qr", ...(hasOffers && selection ? { passId: selection } : {}) }));
         } catch (cause) {
           if (isBillingSimulation) setRecoveryAttempt((n) => n + 1);
           throw cause;

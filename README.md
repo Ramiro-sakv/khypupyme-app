@@ -99,8 +99,8 @@ Consulta [la preparación del piloto](docs/deployment/readiness.md) y ejecuta `p
 ## Simulación manual del plan y de los cobros
 
 - `feat/candidata-permisos` conserva el código candidato para configurar el piloto alojado con aprobación. `feat/simulacion` añade el arranque manual en emuladores aislados.
-- En `feat/simulacion`, ejecuta `pnpm.cmd simulation` y abre [KhypuPyme en simulación](http://127.0.0.1:4173). Deja esa terminal abierta. Cada ejecución empieza con datos vacíos. En la terminal, pulsa `q` y luego Enter para cerrar la sesión.
-- Registra una cuenta ficticia y crea su primer negocio. En el panel de planes que se abre, pulsa **Verificar correo** y abre el enlace local que aparece en la terminal. Vuelve a pulsar **Verificar correo** y luego **Activar prueba de 30 días**.
+- En `feat/simulacion`, ejecuta `pnpm.cmd simulation` y abre **KhypuPyme Simulacion** en Windows o [KhypuPyme en el navegador](http://127.0.0.1:4173). Para generar su instalador separado, usa `pnpm.cmd windows:build:simulation`. Deja esa terminal abierta. Cada ejecución empieza con datos vacíos. En la terminal, pulsa `q` y luego Enter para cerrar la sesión.
+- Registra una cuenta ficticia. Al pulsar **Enviar código**, usa los cinco dígitos que aparecen en la terminal. Crea el primer negocio y pulsa **Activar prueba de 30 días** en el panel de planes.
 - En **Configuración → Plan del negocio**, elige un pase de 30 días (Bs 39), seis meses (Bs 210) o un año (Bs 390), genera un QR ficticio y elige **Simular pago** o **Simular vencimiento**. Un pago confirmado permite **Simular reembolso**. Abre caja durante la prueba y pulsa **Simular fin de la prueba** para verificar que puedes cerrar la caja abierta, consultar y descargar registros. Un segundo negocio sin plan también entra en modo de consulta. Las ventas, la caja y el inventario operan sobre los datos ficticios del mismo entorno.
 - `pnpm.cmd test:billing:browser` verifica el recorrido automáticamente cuando la simulación manual está cerrada. Ambos comandos usan los mismos puertos aislados.
 

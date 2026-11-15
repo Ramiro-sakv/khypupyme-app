@@ -17,11 +17,13 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import java.util.Collections;
 import java.util.List;
+import java.util.Arrays;
 import java.util.function.Consumer;
 
 @CapacitorPlugin(name = "KhypuBilling")
 public class KhypuBillingPlugin extends Plugin {
     private static final String PRODUCT = "khypupyme_30_dias";
+    private static final List<String> PRODUCTS = Arrays.asList(PRODUCT, "khypupyme_6_meses", "khypupyme_1_ano");
     private BillingClient client;
     private PluginCall checkout;
 
@@ -57,9 +59,11 @@ public class KhypuBillingPlugin extends Plugin {
     }
 
     private void product(PluginCall call, Consumer<ProductDetails> use) {
+        String productId = call.getString("productId", PRODUCT);
+        if (!PRODUCTS.contains(productId)) { call.reject("Pase inválido."); return; }
         ready(call, () -> {
             QueryProductDetailsParams.Product item = QueryProductDetailsParams.Product.newBuilder()
-                .setProductId(PRODUCT).setProductType(BillingClient.ProductType.INAPP).build();
+                .setProductId(productId).setProductType(BillingClient.ProductType.INAPP).build();
             client.queryProductDetailsAsync(QueryProductDetailsParams.newBuilder()
                 .setProductList(Collections.singletonList(item)).build(), (result, products) -> {
                     if (!ok(result) || products.getProductDetailsList().isEmpty()) {
@@ -115,7 +119,7 @@ public class KhypuBillingPlugin extends Plugin {
         }
         if (ok(result) && purchases != null) {
             for (Purchase purchase : purchases) {
-                if (!purchase.getProducts().contains(PRODUCT) || !call.getString("intentId", "").equals(intentId(purchase))) continue;
+                if (!purchase.getProducts().contains(call.getString("productId", PRODUCT)) || !call.getString("intentId", "").equals(intentId(purchase))) continue;
                 String state = purchase.getPurchaseState() == Purchase.PurchaseState.PURCHASED ? "purchased" : "pending";
                 call.resolve(new JSObject().put("status", state).put("token", purchase.getPurchaseToken()));
                 return;
@@ -132,7 +136,7 @@ public class KhypuBillingPlugin extends Plugin {
                 JSArray entries = new JSArray();
                 for (Purchase purchase : purchases) {
                     String id = intentId(purchase);
-                    if (purchase.getProducts().contains(PRODUCT) && id != null && !id.isEmpty())
+                    if (purchase.getProducts().stream().anyMatch(PRODUCTS::contains) && id != null && !id.isEmpty())
                         entries.put(new JSObject().put("token", purchase.getPurchaseToken()).put("intentId", id));
                 }
                 call.resolve(new JSObject().put("purchases", entries));

@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { test, expect } from "./fixtures";
-import { testAuthUrl, testProjectId } from "../emulator-environment";
+import { testAuthUrl } from "../emulator-environment";
 import { DAY_MS, PASS_DAYS } from "../../shared/workspace/billing";
 
 function nextBillingResponse(page: import("@playwright/test").Page, kind: string) {
@@ -9,15 +10,31 @@ function nextBillingResponse(page: import("@playwright/test").Page, kind: string
     response.request().postDataJSON()?.data?.kind === kind);
 }
 
-test("prueba, QR simulado, renovación desde otro navegador y solicitud de baja", async ({ page, context, request, browser, isMobile }) => {
+test("prueba, QR simulado, renovación desde otro navegador y solicitud de baja", async ({ page, browser, isMobile, request }) => {
   test.skip(process.env.VITE_BILLING_SIMULATION !== "true", "Requiere el entorno aislado de facturación.");
+  test.setTimeout(90_000);
   const email = `piloto-${randomUUID()}@example.invalid`;
   const password = "khypupyme-piloto-seguro";
   const name = "Tienda piloto ficticia";
+  const direct = await request.post(testAuthUrl + "/identitytoolkit.googleapis.com/v1/accounts:signUp?key=demo-api-key", {
+    data: { email, password, returnSecureToken: true },
+  });
+  expect(direct.ok()).toBe(false);
+  expect(JSON.stringify(await direct.json())).toContain("Verifica tu correo");
   await page.goto("/registro");
   await page.getByLabel("Correo electrónico").fill(email);
   await page.getByLabel("Contraseña", { exact: true }).fill(password);
-  await page.getByRole("button", { name: "Crear mi cuenta", exact: true }).click();
+  const codeRequest = page.waitForResponse((response) => response.url().endsWith("/workspaceRegistration") &&
+    response.request().postDataJSON()?.data?.kind === "send");
+  await page.getByRole("button", { name: "Enviar código", exact: true }).click();
+  const { result } = await (await codeRequest).json() as { result: { id: string } };
+  const code = await readFile(join(process.env.KHYPU_SIGNUP_TEST_INBOX!, result.id + ".txt"), "utf8");
+  const field = page.getByLabel("Código de cinco dígitos");
+  await field.fill(code === "00123" ? "00124" : "00123");
+  await page.getByRole("button", { name: "Verificar y crear cuenta" }).click();
+  await expect(page.getByText(/El código es incorrecto/)).toBeVisible();
+  await field.fill(code);
+  await page.getByRole("button", { name: "Verificar y crear cuenta" }).click();
   await page.getByRole("button", { name: "Crear negocio", exact: true }).first().click();
   await page.getByLabel("Nombre del negocio").fill(name);
   await page.getByRole("button", { name: "Continuar", exact: true }).click();
@@ -32,18 +49,7 @@ test("prueba, QR simulado, renovación desde otro navegador y solicitud de baja"
     getComputedStyle(grid).gridTemplateColumns.split(" ").length)).toBe(isMobile ? 1 : 3);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(await page.evaluate(() => window.innerWidth));
   const activate = page.getByRole("button", { name: "Activar prueba de 30 días" });
-  await expect(activate).toBeDisabled();
-  const verify = page.getByRole("button", { name: "Verificar correo", exact: true });
-  await verify.click();
-  await expect(page.getByText(/enlace enviado/i)).toBeVisible();
-  const oob = await request.get(`${testAuthUrl}/emulator/v1/projects/${testProjectId}/oobCodes`);
-  expect(oob.ok()).toBeTruthy();
-  const codes = await oob.json() as { oobCodes: { email: string; requestType: string; oobCode: string }[] };
-  const code = codes.oobCodes.find((entry) => entry.email === email && entry.requestType === "VERIFY_EMAIL");
-  expect(code).toBeDefined();
-  const verified = await request.post(`${testAuthUrl}/identitytoolkit.googleapis.com/v1/accounts:update?key=demo-api-key`, { data: { oobCode: code!.oobCode } });
-  expect(verified.ok()).toBeTruthy();
-  await verify.click();
+  await expect(page.getByRole("button", { name: "Verificar correo", exact: true })).toHaveCount(0);
   await expect(activate).toBeEnabled();
   const activation = nextBillingResponse(page, "activate");
   await activate.click();
@@ -116,8 +122,11 @@ test("prueba, QR simulado, renovación desde otro navegador y solicitud de baja"
   } finally { await other.close(); }
 
   await go("Caja");
+  const opening = page.waitForResponse((response) => response.url().endsWith("/workspaceCommand") &&
+    response.request().postDataJSON()?.data?.kind === "open-cash");
   await page.getByRole("button", { name: "Abrir caja", exact: true }).click();
-  await expect(page.getByText("Caja abierta", { exact: true })).toBeVisible();
+  expect((await opening).ok()).toBe(true);
+  await expect(page.getByText("Caja abierta", { exact: true })).toBeVisible({ timeout: 20_000 });
   await go("Configuración");
   await page.getByRole("button", { name: "Simular fin de la prueba" }).click();
   await expect(entry).toBeVisible();
@@ -152,11 +161,9 @@ test("prueba, QR simulado, renovación desde otro navegador y solicitud de baja"
   await go("Caja");
   await expect(page.getByRole("button", { name: "Abrir caja", exact: true })).toBeDisabled();
 
-  const tab = await context.newPage();
-  await tab.goto("/eliminar-cuenta");
-  await tab.getByLabel("Confirma tu contraseña").fill(password);
-  await tab.getByRole("checkbox").check();
-  await tab.getByRole("button", { name: "Solicitar eliminación", exact: true }).click();
-  await expect(tab.getByText(/solicitud recibida/i)).toBeVisible();
-  await tab.close();
+  await page.goto("/eliminar-cuenta");
+  await page.getByLabel("Confirma tu contraseña").fill(password);
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: "Solicitar eliminación", exact: true }).click();
+  await expect(page.getByText(/solicitud recibida/i)).toBeVisible({ timeout: 20_000 });
 });

@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { AppError } from "../../../shared/app-errors.js";
-import { PLAY_PASS } from "../../../shared/workspace/billing.js";
+import { PLAY_PRODUCTS } from "../../../shared/workspace/billing.js";
 import type { PaymentProviders, QrCheckout, VerifiedPayment } from "./providers.js";
 
 const invalid = () => new AppError("El proveedor devolvió una referencia de pago inválida.", 409, "BILLING_PROVIDER_DATA");
@@ -111,12 +111,12 @@ class GooglePlay {
     const lines: unknown[] = Array.isArray(response.productLineItem) ? response.productLineItem : [];
     const line = data(lines[0]);
     const intentId = response.obfuscatedExternalAccountId;
-    if (lines.length !== 1 || line.productId !== PLAY_PASS || data(line.productOfferDetails).quantity !== 1 ||
+    if (lines.length !== 1 || (typeof line.productId !== "string" || !Object.values(PLAY_PRODUCTS).includes(line.productId)) || data(line.productOfferDetails).quantity !== 1 ||
         typeof intentId !== "string" || !/^[a-f0-9-]{36}$/.test(intentId)) throw invalid();
-    return { response, line, intentId };
+    return { response, line, intentId, productId: line.productId };
   }
   async check(token: string): Promise<VerifiedPayment> {
-    const { response, line, intentId } = await this.lookup(token);
+    const { response, line, intentId, productId } = await this.lookup(token);
     const state = data(response.purchaseStateContext).purchaseState;
     const status = state === "PENDING" ? "pending" :
       state === "CANCELLED" || (state === "PURCHASED" && data(line.productOfferDetails).refundableQuantity === 0) ? "refunded" :
@@ -127,12 +127,12 @@ class GooglePlay {
       throw new AppError(testing ? "Usa una compra de prueba de Google Play." : "Esta compilación solo acepta pagos de producción.", 403, "BILLING_TEST_PURCHASE");
     const confirmedAt = Date.parse(String(response.purchaseCompletionTime));
     if (status === "paid" && !Number.isFinite(confirmedAt)) throw invalid();
-    return { reference: token, intentId, channel: "play", status, ...(status === "paid" ? { confirmedAt } : {}) };
+    return { reference: token, intentId, channel: "play", status, productId, ...(status === "paid" ? { confirmedAt } : {}) };
   }
   async consume(token: string) {
-    const { line } = await this.lookup(token);
+    const { line, productId } = await this.lookup(token);
     if (data(line.productOfferDetails).consumptionState === "CONSUMPTION_STATE_CONSUMED") return;
-    await json(`${publisher}/${this.packageName}/purchases/products/${PLAY_PASS}/tokens/${encodeURIComponent(token)}:consume`, {
+    await json(`${publisher}/${this.packageName}/purchases/products/${productId}/tokens/${encodeURIComponent(token)}:consume`, {
       method: "POST", headers: await this.headers(),
     });
   }

@@ -2,6 +2,8 @@ import { Link, Navigate, Route, Routes } from "react-router";
 import { version } from "../../../package.json";
 import { useAuth } from "../auth/auth-context";
 import { AuthPage } from "../auth/AuthPage";
+import GoogleTransferPage from "../auth/GoogleTransferPage";
+import { googleAvailable, nativeGoogle } from "../auth/googlePortal";
 import { useDraftProtection } from "./navigation";
 import "./workspace.css";
 import "./industry-layout.css";
@@ -56,9 +58,10 @@ export function WorkspaceApp({
           <p role="alert">{authError}</p>
         ) : (
           <Routes>
-            <Route path="/ingresar" element={<AuthPage mode="login" />} />
-            <Route path="/registro" element={<AuthPage mode="register" />} />
-            <Route path="/recuperar" element={<AuthPage mode="reset" />} />
+            <Route path="/ingresar" element={<AuthPage key="login" mode="login" />} />
+            <Route path="/registro" element={<AuthPage key="register" mode="register" />} />
+            <Route path="/recuperar" element={<AuthPage key="reset" mode="reset" />} />
+            {googleAvailable && !nativeGoogle && <Route path="/autorizar-app" element={<GoogleTransferPage />} />}
             {isBillingEnabled && <>
               <Route path="/privacidad" element={<PrivacyNotice />} />
               <Route path="/eliminar-cuenta" element={<AccountDeletion repository={repository} />} />

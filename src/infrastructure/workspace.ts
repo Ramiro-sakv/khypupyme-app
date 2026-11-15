@@ -31,7 +31,7 @@ export function createWorkspaceServices() {
       config.functionsPort,
     );
   return {
-    authService: new FirebaseAuthService(auth),
+    authService: new FirebaseAuthService(auth, functions),
     repository: new FirebaseWorkspaceRepository(functions),
   };
 }

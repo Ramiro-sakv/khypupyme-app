@@ -21,7 +21,14 @@ describe('aislamiento del entorno', () => {
     expect(() => readEnvironment({ ...hosted, VITE_KHYPU_CHECKOUT_ORIGIN: 'https://portal.example/pago' })).toThrow();
     expect(readEnvironment({ ...hosted, VITE_KHYPU_CHECKOUT_ORIGIN: 'https://portal.example' }).projectId).toBe('fixture-khypupyme');
   });
-  it('limita el destino nativo a emuladores locales y prohíbe mezclarlo con pruebas web', () => {
+  it('permite Windows de simulación únicamente en el perfil de pruebas aislado', () => {
+    const windows = { VITE_RUNTIME_TARGET: 'windows', VITE_FIREBASE_PROJECT_ID: 'demo-khypupyme-tests', VITE_EMULATOR_PROFILE: 'test' };
+    expect(() => readEnvironment(windows)).toThrow();
+    expect(readEnvironment({ ...windows, VITE_BILLING_SIMULATION: 'true' })).toMatchObject({
+      authHost: 'http://127.0.0.1:19099', firestorePort: 18080, functionsPort: 15001,
+    });
+  });
+  it('limita los destinos nativos habituales a sus emuladores locales', () => {
     expect(readEnvironment({ VITE_RUNTIME_TARGET: 'android' })).toMatchObject({ firestoreHost: '10.0.2.2', functionsPort: 5001 });
     expect(readEnvironment({ VITE_RUNTIME_TARGET: 'windows' }).firestoreHost).toBe('127.0.0.1');
     expect(() => readEnvironment({ VITE_RUNTIME_TARGET: 'cloud' })).toThrow();

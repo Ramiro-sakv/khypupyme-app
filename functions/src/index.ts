@@ -1,4 +1,5 @@
 import { getAuth } from "firebase-admin/auth";
+import { emailKey, registrationKey, sendEmail } from "./auth/sendEmail.js";
 import { BusinessDeletionService } from "./workspace/BusinessDeletionService.js";
 import { randomUUID } from "node:crypto";
 import { AppError } from "../../shared/app-errors.js";
@@ -25,7 +26,7 @@ import { onMessagePublished } from "firebase-functions/v2/pubsub";
 import { BillingService } from "./billing/BillingService.js";
 import { billingProviders, externalBillingEnabled, serverMode } from "./billing/runtime.js";
 import type { PassId } from "../../shared/workspace/billing.js";
-import { PLAY_PASS, SIMULATION_PASS_IDS } from "../../shared/workspace/billing.js";
+import { PLAY_PRODUCTS, SIMULATION_PASS_IDS } from "../../shared/workspace/billing.js";
 import { secretMatch } from "./billing/ProductionPayments.js";
 import { exportBusiness } from "./billing/exportBusiness.js";
 import { requestAccountDeletion } from "./billing/AccountDeletionRequest.js";
@@ -34,6 +35,9 @@ import type { DateFilter, QueryInput } from "../../shared/commerce.js";
 import { CommerceService } from "./CommerceService.js";
 import { CommerceQueries } from "./CommerceQueries.js";
 import { validateCommand } from "./validation.js";
+
+export { workspaceRegistration, requireVerifiedSignup } from "./auth/registration.js";
+export { workspaceGoogleTransfer } from "./auth/desktopGoogle.js";
 
 const qrBasic = defineSecret("KHYPU_QR_BASIC");
 const qrWebhookSecret = defineSecret("KHYPU_QR_WEBHOOK_SECRET");
@@ -47,7 +51,7 @@ function services(includeBilling = false) {
   return {
     mode,
     commands: new CommerceService(db, undefined, enforceBilling),
-    billing: new BillingService(db, includeBilling ? billingProviders(mode) : { channels: [] }, Date.now, mode === "simulation"),
+    billing: new BillingService(db, includeBilling ? billingProviders(mode) : { channels: [] }, Date.now, mode === "simulation", mode === "simulation" || (mode === "hosted" && process.env.KHYPU_MULTI_PASS === "true")),
     queries: new CommerceQueries(db),
     account: new AccountService(db),
     db,
@@ -141,12 +145,24 @@ export const workspaceAccount = onCall(options, async (request) => {
     return workspaceFailure("workspaceAccount", cause);
   }
 });
-export const workspaceDeletion = onCall(options, async (request) => {
+export const workspaceDeletion = onCall({ ...options, secrets: [emailKey, registrationKey] }, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Inicia sesión.");
   try {
     const { db, mode } = services();
-    if (mode === "hosted") throw new AppError("Solicita asistencia para eliminar solo un negocio.", 503, "DELETION_HOSTED");
-    return await new BusinessDeletionService(db, getAuth()).handle(
+    const email = mode === "hosted" ? {
+      key: async () => {
+        const key = registrationKey.value();
+        if (key.length < 32) throw new AppError("El servicio de correo todavía no está configurado.", 503, "EMAIL_UNAVAILABLE");
+        return Buffer.from(key);
+      },
+      async deliver(id: string, mail: { email: string; code: string }) {
+        await sendEmail(mail.email, "Confirma el borrado de tu negocio en KhypuPyme",
+          "Tu código es " + mail.code + ". Caduca en diez minutos. Si no pediste el borrado, puedes ignorar este correo.",
+          "khypu-business-deletion-" + id);
+      },
+      async discard() {},
+    } : undefined;
+    return await new BusinessDeletionService(db, getAuth(), email).handle(
       request.auth.uid, request.auth.token.auth_time, request.data,
     );
   } catch (cause) {
@@ -332,7 +348,7 @@ export const playPaymentNotice = onMessagePublished({
     return;
   }
   const payment = body.oneTimeProductNotification;
-  if (payment?.sku === PLAY_PASS && typeof payment.purchaseToken === "string")
+  if (typeof payment?.sku === "string" && Object.values(PLAY_PRODUCTS).includes(payment.sku) && typeof payment.purchaseToken === "string")
     await billing.reconcilePlay(payment.purchaseToken);
 });
 

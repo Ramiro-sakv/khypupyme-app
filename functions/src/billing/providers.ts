@@ -6,6 +6,7 @@ export interface VerifiedPayment {
   channel: PaymentChannel;
   status: PaymentStatus;
   confirmedAt?: number;
+  productId?: string;
 }
 export interface QrCheckout {
   reference: string;

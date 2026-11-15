@@ -1,14 +1,21 @@
 apply plugin: 'com.android.application'
 
+def authPortal = System.getenv("VITE_KHYPU_AUTH_PORTAL_ORIGIN") ?: ""
+if (authPortal && !(authPortal ==~ /https:\/\/[a-zA-Z0-9.-]+/)) {
+    throw new GradleException("El portal de acceso requiere un origen HTTPS válido.")
+}
+
 android {
+    buildFeatures { buildConfig = true }
     namespace = "com.khypupyme.beta"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
         applicationId "com.khypupyme.beta"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 100001
-        versionName "1.0.0-beta.1"
+        buildConfigField "String", "AUTH_PORTAL", "\"${authPortal}\""
+        versionCode 100002
+        versionName "1.0.0-beta.2"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

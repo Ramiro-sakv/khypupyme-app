@@ -7,6 +7,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(KhypuBillingPlugin.class);
+        registerPlugin(KhypuAuthPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

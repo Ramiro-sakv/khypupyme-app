@@ -28,8 +28,10 @@ interface Job {
 }
 const invalid = () => new AppError("El código no está vigente. Solicita otro.", 400, "DELETION_CODE_EXPIRED");
 
+type DeletionInbox = Pick<LocalDeletionInbox, "key" | "deliver" | "discard">;
+
 export class BusinessDeletionService {
-  constructor(private readonly db: Firestore, private readonly auth: Auth) {}
+  constructor(private readonly db: Firestore, private readonly auth: Auth, private readonly email?: DeletionInbox) {}
 
   private async requireBusiness(tx: Transaction, root: DocumentReference, uid: string, name: string) {
     const [business, cash] = await tx.getAll(root, root.collection("cashControl").doc("current"));
@@ -64,7 +66,7 @@ export class BusinessDeletionService {
 
     if (kind === "resume") return this.resume(uid, root, job);
 
-    const inbox = new LocalDeletionInbox();
+    const inbox = this.email ?? new LocalDeletionInbox();
     const identity = await this.auth.getUser(uid);
     if (identity.disabled || !identity.email || !identity.emailVerified)
       throw new AppError("Verifica el correo de tu cuenta antes de eliminar un negocio.", 403, "DELETION_EMAIL");

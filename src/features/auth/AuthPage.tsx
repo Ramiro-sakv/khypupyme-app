@@ -1,5 +1,7 @@
 import { Icon } from "../workspace/Icon";
 import { useState } from "react";
+import { openGooglePortal } from "./googlePortal";
+import type { GoogleTransfer, RegistrationChallenge } from "./types";
 import type { SubmitEvent } from "react";
 import { Link, Navigate, useSearchParams } from "react-router";
 import { useAuth } from "./auth-context";
@@ -16,6 +18,8 @@ export function AuthPage({ mode }: { mode: "login" | "register" | "reset" }) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [challenge, setChallenge] = useState<(RegistrationChallenge & { email: string }) | null>(null);
+  const [transfer, setTransfer] = useState<GoogleTransfer | null>(null);
   const reset = mode === "reset";
   const register = mode === "register";
   const title = reset
@@ -45,7 +49,7 @@ export function AuthPage({ mode }: { mode: "login" | "register" | "reset" }) {
     event.preventDefault();
     if (busy || !online) return;
     const data = new FormData(event.currentTarget);
-    const email = String(data.get("email") ?? "").trim();
+    const email = (challenge?.email ?? String(data.get("email") ?? "")).trim();
     const password = String(data.get("password") ?? "");
     const validation = validateCredentials(
       email,
@@ -64,6 +68,9 @@ export function AuthPage({ mode }: { mode: "login" | "register" | "reset" }) {
             ? "Si existe una cuenta, recibirás el enlace de recuperación."
             : "Si existe una cuenta, el enlace de recuperación aparece en la terminal del emulador local.",
         );
+      } else if (register && service.requestRegistrationCode && service.completeRegistration) {
+        if (challenge) await service.completeRegistration(email, challenge.id, String(data.get("code") ?? ""), password);
+        else await sendCode(email);
       } else if (register) await service.register(email, password);
       else await service.login(email, password);
     } catch (cause) {
@@ -71,6 +78,24 @@ export function AuthPage({ mode }: { mode: "login" | "register" | "reset" }) {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function sendCode(email: string) {
+    const sent = await service.requestRegistrationCode!(email);
+    setChallenge({ ...sent, email });
+    setMessage(import.meta.env.VITE_USE_EMULATORS === "false"
+      ? "Revisa tu correo. El código caduca en diez minutos."
+      : "Consulta el código de cinco dígitos en la terminal de simulación.");
+  }
+
+  async function action(run: () => Promise<void>) {
+    if (busy || !online) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try { await run(); }
+    catch (cause) { setError(errorMessage(cause)); }
+    finally { setBusy(false); }
   }
 
   return (
@@ -121,6 +146,7 @@ export function AuthPage({ mode }: { mode: "login" | "register" | "reset" }) {
             autoComplete="email"
             required
             maxLength={254}
+            readOnly={!!challenge}
           />
           {!reset && (
             <>
@@ -150,6 +176,9 @@ export function AuthPage({ mode }: { mode: "login" | "register" | "reset" }) {
               )}
             </>
           )}
+          {challenge && <label>Código de cinco dígitos
+            <input key={challenge.id} name="code" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{5}" maxLength={5} required />
+          </label>}
           <Feedback error={error} message={message} />
           <button className="primary" disabled={busy || !online}>
             {busy
@@ -157,10 +186,32 @@ export function AuthPage({ mode }: { mode: "login" | "register" | "reset" }) {
               : reset
                 ? "Solicitar recuperación"
                 : register
-                  ? "Crear mi cuenta"
+                  ? challenge ? "Verificar y crear cuenta" : service.requestRegistrationCode ? "Enviar código" : "Crear mi cuenta"
                   : "Ingresar"}
           </button>
         </form>
+        {challenge && <div className="actions">
+          <button type="button" disabled={busy || !online} onClick={() => void action(() => sendCode(challenge.email))}>Reenviar código</button>
+          <button type="button" disabled={busy} onClick={() => { setChallenge(null); setError(""); setMessage(""); }}>Cambiar correo</button>
+        </div>}
+        {!reset && (service.googleLogin || service.beginGoogle) && <div className="actions">
+          {!transfer ? <button type="button" disabled={busy || !online} onClick={() => void action(async () => {
+            if (service.googleLogin) await service.googleLogin();
+            else {
+              const pending = await service.beginGoogle!();
+              setTransfer(pending);
+              await openGooglePortal(pending.id);
+            }
+          })}>Continuar con Google</button> : <div className="notice notice-info">
+            <p>En el navegador, escribe este código para autorizar esta app: <strong>{transfer.pairing}</strong></p>
+            <button type="button" disabled={busy || !online} onClick={() => void action(async () => {
+              if (Date.now() >= transfer.expiresAt) { setTransfer(null); throw new Error("La solicitud venció. Vuelve a abrir Google."); }
+              if (!await service.pollGoogle!(transfer)) setMessage("Completa la autorización en el navegador y vuelve a este botón.");
+            })}>Ya autoricé · continuar</button>
+            <button type="button" disabled={busy} onClick={() => void action(() => openGooglePortal(transfer.id))}>Abrir navegador</button>
+            <button type="button" disabled={busy} onClick={() => setTransfer(null)}>Cancelar</button>
+          </div>}
+        </div>}
         {!reset && (
           <p className="auth-switch">
             {register ? "¿Ya tienes cuenta?" : "¿Es tu primera visita?"}{" "}

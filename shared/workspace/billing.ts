@@ -17,6 +17,10 @@ export interface PassOffer {
   estimatedExpiry: number;
 }
 
+export const PLAY_PRODUCTS: Readonly<Record<PassId, string>> = {
+  "30-days": PLAY_PASS, "6-months": "khypupyme_6_meses", "1-year": "khypupyme_1_ano",
+};
+
 const PASS_CATALOG: Readonly<Record<PassId, Omit<PassOffer, "id" | "estimatedExpiry">>> = {
   "30-days": { label: "30 días", priceMinor: PASS_PRICE_MINOR, savingsMinor: 0, duration: { days: PASS_DAYS } },
   "6-months": { label: "6 meses", priceMinor: 21_000, savingsMinor: 2_400, duration: { months: 6 } },

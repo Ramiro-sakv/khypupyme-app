@@ -9,6 +9,7 @@ android/**/build/
 dist/
 dist-android/
 dist-windows/
+dist-windows-simulation/
 dist-test/
 src-tauri/gen/
 *-run.log

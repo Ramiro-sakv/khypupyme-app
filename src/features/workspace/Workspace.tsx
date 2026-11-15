@@ -19,7 +19,7 @@ import { useCorrectionAuthorization } from "./useCorrectionAuthorization";
 import BusinessPlanPanel, { BusinessPlanBanner } from "../billing/BusinessPlanPanel";
 import { useBusinessPlan } from "../billing/useBusinessPlan";
 import { AppError } from "../../../shared/app-errors";
-import { isBillingEnabled, isBillingSimulation } from "../billing/profile";
+import { isBillingEnabled } from "../billing/profile";
 
 const WorkspaceHome = lazy(() => import("./WorkspaceHome"));
 function WorkspaceContent({
@@ -47,12 +47,11 @@ function WorkspaceContent({
   const billingEnabled = isBillingEnabled && !business.tutorialSessionId;
   const billing = useBusinessPlan(repository, business.id, billingEnabled);
   const hasAccess = billing.plan?.status === "trial" || billing.plan?.status === "active";
-  const readOnly = isBillingSimulation && billingEnabled ? !!billing.error || !hasAccess
-    : billing.plan?.status === "expired" || billing.plan?.status === "trial-available";
+  const readOnly = billingEnabled && (!!billing.error || !hasAccess);
   const [dismissedGate, setDismissedGate] = useState("");
   if (hasAccess && !billing.error && dismissedGate) setDismissedGate("");
   const gate = billing.error ? "error" : billing.plan ? `${billing.plan.status}:${billing.plan.expiresAt}` : "loading";
-  const showGate = isBillingSimulation && billingEnabled && readOnly && dismissedGate !== gate;
+  const showGate = billingEnabled && readOnly && dismissedGate !== gate;
   const { view } = useWorkspaceNavigation();
   const dashboard = view === "inicio" && business.typeConfirmed;
   const protection = useCorrectionAuthorization(business, repository);

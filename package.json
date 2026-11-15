@@ -1,6 +1,6 @@
 {
   "name": "khypupyme-app",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
@@ -33,7 +33,8 @@
     "android:bundle:hosted": "node scripts/build-android-hosted.mjs",
     "android:build": "pnpm android:sync && cd android && gradlew.bat assembleDebug",
     "windows:build": "tauri build --bundles nsis",
-    "windows:build:hosted": "node scripts/build-windows-hosted.mjs"
+    "windows:build:hosted": "node scripts/build-windows-hosted.mjs",
+    "windows:build:simulation": "node scripts/build-windows-simulation.mjs"
   },
   "dependencies": {
     "@capacitor/android": "8.6.0",

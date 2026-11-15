@@ -8,7 +8,7 @@ import { exportBusiness } from "../../functions/src/billing/exportBusiness";
 import { WorkspaceService } from "../../functions/src/workspace/WorkspaceService";
 import { AccountService } from "../../functions/src/workspace/AccountService";
 import { DEFAULT_ANSWERS } from "../../shared/workspace/catalog";
-import { DAY_MS, periodEnd } from "../../shared/workspace/billing";
+import { DAY_MS, periodEnd, PLAY_PRODUCTS } from "../../shared/workspace/billing";
 import { requireTestEmulators, testProjectId } from "../emulator-environment";
 
 requireTestEmulators();
@@ -91,7 +91,9 @@ it("QR y Play acreditan una vez, se recuperan y revierten solo su vigencia", asy
   await Promise.all([billing.currentQr(owner, first.id), billing.currentQr(owner, first.id)]);
   expect((await billing.plan(owner, first.id, true)).expiresAt).toBe(now + 30 * DAY_MS);
   const play = await billing.start(owner, first.id, "play");
-  Object.assign(playEvent, { reference: "play-" + randomUUID(), intentId: play.id, confirmedAt: now });
+  Object.assign(playEvent, { reference: "play-" + randomUUID(), intentId: play.id, confirmedAt: now, productId: PLAY_PRODUCTS["6-months"] });
+  await expect(billing.restorePlay(owner, playEvent.reference)).rejects.toMatchObject({ appCode: "BILLING_REFERENCE" });
+  playEvent.productId = PLAY_PRODUCTS["30-days"];
   await expect(billing.restorePlay(stranger, playEvent.reference)).rejects.toMatchObject({ appCode: "BILLING_OWNER" });
   await expect(billing.restorePlay(owner, playEvent.reference)).rejects.toThrow("interrumpida");
   const secondDevice = new BillingService(db, providers, () => now);

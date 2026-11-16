@@ -92,7 +92,7 @@ export class BillingService {
   }
 
   async simulateTrialExpiry(uid: string, businessId: string, emailVerified: boolean) {
-    if (!this.simulation) throw new AppError("La simulación solo está disponible en los emuladores aislados.", 403, "BILLING_SIMULATION");
+    if (!this.simulation) throw new AppError("La simulación requiere un entorno de pruebas.", 403, "BILLING_SIMULATION");
     const ref = this.db.doc(licensePath(identifier(businessId)));
     await this.db.runTransaction(async (tx) => {
       await this.business(uid, businessId, tx);
@@ -139,7 +139,9 @@ export class BillingService {
       if (existing?.ownerUid === uid && existing.status === "pending" &&
           (existing.expiresAt > now || (channel === "qr" && existing.qrReference))) {
         if ((existing.passId ?? "30-days") !== (passId ?? "30-days"))
-          throw new AppError("Hay un QR pendiente para otro pase. Consulta o vence ese QR antes de cambiar de plan.", 409, "BILLING_QR_PENDING");
+          throw new AppError(channel === "card-test"
+            ? "Hay un pago de prueba pendiente para otro pase. Cancélalo antes de cambiar."
+            : "Hay un QR pendiente para otro pase. Consulta o vence ese QR antes de cambiar de plan.", 409, "BILLING_QR_PENDING");
         return existing;
       }
       const next: Checkout = {
@@ -203,6 +205,28 @@ export class BillingService {
     return typeof id === "string" ? this.check(uid, businessId, id) : null;
   }
 
+  async currentCard(uid: string, businessId: string) {
+    if (!this.simulation || !this.providers.channels.includes("card-test"))
+      throw new AppError("La tarjeta ficticia requiere un entorno de pruebas.", 403, "BILLING_SIMULATION");
+    await this.business(uid, businessId);
+    const id = (await this.db.doc(pendingPath(businessId, "card-test")).get()).get("id");
+    return typeof id === "string" ? this.check(uid, businessId, id) : null;
+  }
+
+  async simulateCard(uid: string, businessId: string, id: string, status: "paid" | "declined" | "expired" | "refunded") {
+    if (!this.simulation || !this.providers.channels.includes("card-test"))
+      throw new AppError("La tarjeta ficticia requiere un entorno de pruebas.", 403, "BILLING_SIMULATION");
+    await this.business(uid, businessId);
+    const checkout = await this.ownedIntent(uid, id);
+    if (checkout.businessId !== businessId || checkout.channel !== "card-test")
+      throw new AppError("El pago de prueba pertenece a otra operación.", 403, "BILLING_OWNER");
+    if (status === "declined")
+      throw new AppError("El simulador rechazó la tarjeta. Puedes elegir la tarjeta de prueba que aprueba el pago.", 400, "CARD_TEST_DECLINED");
+    await this.record({ reference: "card-test-" + id, channel: "card-test", intentId: id, status,
+      ...(status === "paid" ? { confirmedAt: this.now() } : {}) });
+    return publicIntent(await this.ownedIntent(uid, id));
+  }
+
   async check(uid: string, businessId: string, intentId: string): Promise<PaymentIntent> {
     await this.business(uid, businessId);
     const checkout = await this.ownedIntent(uid, intentId);
@@ -212,7 +236,8 @@ export class BillingService {
       if (event) await this.record(event);
     }
     const current = await this.ownedIntent(uid, intentId);
-    if (current.status === "pending" && current.expiresAt <= this.now() && current.channel === "qr" && !current.qrReference)
+    if (current.status === "pending" && current.expiresAt <= this.now() &&
+        (current.channel === "card-test" || (current.channel === "qr" && !current.qrReference)))
       return publicIntent({ ...current, status: "expired" });
     return publicIntent(current);
   }
@@ -282,6 +307,12 @@ export class BillingService {
         throw new AppError("El producto de Google Play no coincide con el pase solicitado.", 409, "BILLING_REFERENCE");
       if (event.status === "pending" || previous?.state === "refunded" ||
           (!previous && checkout.status === "refunded" && event.status === "refunded")) return;
+      if (event.channel === "card-test") {
+        if (!this.simulation || event.reference !== "card-test-" + checkout.id ||
+            (event.status === "refunded" && !previous) ||
+            (event.status === "paid" && !previous && (checkout.status !== "pending" || this.now() >= checkout.expiresAt)))
+          throw new AppError("La solicitud de prueba venció o cambió de estado. Consulta el pago.", 409, "BILLING_SIMULATION_STATE");
+      }
       if (this.simulation && checkout.status === "expired" && event.status === "paid")
         throw new AppError("Este QR de prueba venció. Genera uno nuevo.", 409, "BILLING_SIMULATION_STATE");
       if (event.status === "expired") {

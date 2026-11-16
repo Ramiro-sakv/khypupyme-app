@@ -144,3 +144,31 @@ it("fija precio y duración del pase en el QR y aísla compras y reembolsos", as
   expect((await billing.plan(owner, first.id, true)).status).toBe("expired");
   expect((await billing.plan(owner, second.id, true)).expiresAt).toBe(periodEnd(now, { months: 12 }));
 });
+
+it("recupera y simula tarjeta con aislamiento, rechazo, confirmación única y reembolso", async () => {
+  const uid = randomUUID();
+  const account = new AccountService(db);
+  const create = (name: string) => account.create(uid, {
+    operationId: randomUUID(), name, industryId: "convenience", answers: DEFAULT_ANSWERS,
+  });
+  const shop = await create("Tienda de prueba de tarjeta");
+  const other = await create("Segundo espacio de prueba");
+  let now = Date.now();
+  const service = new BillingService(db, { channels: ["card-test"] }, () => now, true);
+  const standard = new BillingService(db, { channels: [] });
+  const intent = await service.start(uid, shop.id, "card-test", "6-months");
+  const act = (outcome: Parameters<BillingService["simulateCard"]>[3]) => service.simulateCard(uid, shop.id, intent.id, outcome);
+  await expect(standard.simulateCard(uid, shop.id, intent.id, "paid")).rejects.toMatchObject({ appCode: "BILLING_SIMULATION" });
+  await expect(service.simulateCard(uid, other.id, intent.id, "paid")).rejects.toMatchObject({ appCode: "BILLING_OWNER" });
+  await expect(act("declined")).rejects.toMatchObject({ appCode: "CARD_TEST_DECLINED" });
+  expect(await service.currentCard(uid, shop.id)).toMatchObject({ id: intent.id, status: "pending", priceMinor: 21_000 });
+  await Promise.all([act("paid"), act("paid")]);
+  expect((await service.plan(uid, shop.id, true)).expiresAt).toBe(periodEnd(now, { months: 6 }));
+  await act("refunded");
+  expect((await service.plan(uid, shop.id, true)).status).toBe("expired");
+  expect(await service.currentCard(uid, shop.id)).toMatchObject({ status: "refunded" });
+  const abandoned = await service.start(uid, shop.id, "card-test", "1-year");
+  now = abandoned.expiresAt;
+  await expect(service.simulateCard(uid, shop.id, abandoned.id, "paid")).rejects.toMatchObject({ appCode: "BILLING_SIMULATION_STATE" });
+  expect(await service.currentCard(uid, shop.id)).toMatchObject({ status: "expired" });
+});

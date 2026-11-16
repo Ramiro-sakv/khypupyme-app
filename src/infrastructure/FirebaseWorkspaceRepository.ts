@@ -3,7 +3,7 @@ import type {
   TutorialRequest,
   TutorialReply,
 } from "../../shared/workspace/timber-tutorial";
-import { httpsCallable } from "firebase/functions";
+import { httpsCallable, httpsCallableFromURL } from "firebase/functions";
 import type { Functions } from "firebase/functions";
 import type {
   NewBusiness,
@@ -20,10 +20,13 @@ import type {
 
 import type { BillingRequest, BusinessPlan, PaymentIntent } from "../../shared/workspace/billing";
 export class FirebaseWorkspaceRepository implements WorkspaceRepository {
-  constructor(private readonly functions: Functions) {}
+  constructor(private readonly functions: Functions, private readonly apiOrigin?: string) {}
   private async call<T>(name: string, input: unknown): Promise<T> {
     try {
-      return (await httpsCallable<unknown, T>(this.functions, name)(input)).data;
+      const callable = this.apiOrigin
+        ? httpsCallableFromURL<unknown, T>(this.functions, `${this.apiOrigin}/api/${name}`, { timeout: 115_000 })
+        : httpsCallable<unknown, T>(this.functions, name);
+      return (await callable(input)).data;
     } catch (cause) {
       const code = cause && typeof cause === "object" && "code" in cause ? cause.code : null;
       if (code === "functions/internal" || code === "functions/unknown") {

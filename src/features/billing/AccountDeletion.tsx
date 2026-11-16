@@ -4,6 +4,7 @@ import { useAuth } from "../auth/auth-context";
 import { useIdentityConfirmation } from "../auth/useIdentityConfirmation";
 import { errorMessage } from "../../shared/errors";
 import type { WorkspaceRepository } from "../workspace/WorkspaceRepository";
+import { isRenderPilot } from "./profile";
 
 export default function AccountDeletion({ repository }: { repository: WorkspaceRepository }) {
   const { user } = useAuth();
@@ -43,7 +44,8 @@ export function PrivacyNotice() {
   return <section className="card">
     <h1>Privacidad de KhypuPyme</h1>
     <p>Usamos los datos de tu cuenta para autenticarte y recuperar el acceso. Guardamos los datos que registras en cada negocio para que puedas consultarlos en tus dispositivos.</p>
-    <p>Google Play o el proveedor de QR procesa el cobro. KhypuPyme utiliza una referencia del pago y su estado para validar la vigencia del plan.</p>
+    {isRenderPilot ? <p>Los pagos de este piloto son ficticios. Se guarda el importe y el resultado de prueba de cada pase.</p>
+      : <p>Google Play o el proveedor de QR procesa el cobro. KhypuPyme utiliza una referencia del pago y su estado para validar la vigencia del plan.</p>}
     <p>Puedes descargar los registros desde Configuración y solicitar la baja de tu cuenta. Los registros de cobro que deban conservarse por obligaciones legales se tratan por separado.</p>
     <Link to="/eliminar-cuenta">Solicitar eliminación de cuenta</Link>
   </section>;

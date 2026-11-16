@@ -11,7 +11,7 @@ import type { WorkspaceRepository } from "./WorkspaceRepository";
 import Account from "./AccountPage";
 import AccountDeletion, { PrivacyNotice } from "../billing/AccountDeletion";
 import WebCheckout from "../billing/WebCheckout";
-import { isBillingEnabled, isBillingSimulation } from "../billing/profile";
+import { isBillingEnabled, isBillingSimulation, isRenderPilot } from "../billing/profile";
 export function WorkspaceApp({
   repository,
 }: {
@@ -32,7 +32,7 @@ export function WorkspaceApp({
         Saltar al contenido
       </a>
       <div className="environment-banner">
-        {isBillingSimulation
+        {isRenderPilot ? "Piloto privado · Datos ficticios · Pagos de prueba" : isBillingSimulation
           ? "Simulación · Usa una cuenta ficticia · Sin cobros reales"
           : import.meta.env.VITE_USE_EMULATORS === "false"
             ? "Beta de KhypuPyme · Servicio alojado"
@@ -59,7 +59,7 @@ export function WorkspaceApp({
         ) : (
           <Routes>
             <Route path="/ingresar" element={<AuthPage key="login" mode="login" />} />
-            <Route path="/registro" element={<AuthPage key="register" mode="register" />} />
+            <Route path="/registro" element={isRenderPilot ? <Navigate to="/ingresar" replace /> : <AuthPage key="register" mode="register" />} />
             <Route path="/recuperar" element={<AuthPage key="reset" mode="reset" />} />
             {googleAvailable && !nativeGoogle && <Route path="/autorizar-app" element={<GoogleTransferPage />} />}
             {isBillingEnabled && <>

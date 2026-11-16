@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: khypupyme-piloto
+    runtime: node
+    plan: free
+    branch: feat/piloto-render
+    autoDeployTrigger: 'off'
+    buildCommand: npx --yes pnpm@11.25.0 install --frozen-lockfile --prod=false && node scripts/build-render-pilot.mjs
+    startCommand: node functions/lib/functions/src/renderPilot.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: 24.22.1
+      - key: KHYPU_SERVICE_PROFILE
+        value: render-pilot
+      - key: KHYPU_HOSTED_PROJECT
+        value: khypupyme-piloto
+      - key: KHYPU_BILLING_MODE
+        value: simulation
+      - key: VITE_SERVICE_PROFILE
+        value: render-pilot
+      - key: VITE_USE_EMULATORS
+        value: 'false'
+      - key: VITE_FIREBASE_PROJECT_ID
+        value: khypupyme-piloto
+      - key: VITE_FIREBASE_AUTH_DOMAIN
+        value: khypupyme-piloto.firebaseapp.com
+      - key: VITE_FIREBASE_API_KEY
+        sync: false
+      - key: VITE_FIREBASE_APP_ID
+        sync: false
+      - key: KHYPU_PILOT_UID
+        sync: false
+      - key: KHYPU_FIREBASE_SERVICE_ACCOUNT
+        sync: false

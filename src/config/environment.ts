@@ -3,10 +3,15 @@ export function readEnvironment(env: Record<string, unknown>) {
   const useEmulators = env.VITE_USE_EMULATORS ?? 'true';
   const profile = env.VITE_EMULATOR_PROFILE ?? 'local';
   if(useEmulators==='false'){
-    if(profile!=='local'||env.VITE_SERVICE_PROFILE!=='hosted'||typeof projectId!=='string'||projectId.startsWith('demo-')||!projectId.match(/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/)||!['VITE_FIREBASE_API_KEY','VITE_FIREBASE_AUTH_DOMAIN','VITE_FIREBASE_APP_ID'].every(k=>typeof env[k]==='string'&&(env[k] as string).length>5))throw new Error('Configuración alojada incompleta. No cambies el perfil local sin preparar el servicio.');
+    const render = env.VITE_SERVICE_PROFILE === 'render-pilot';
+    if(profile!=='local'||(!render&&env.VITE_SERVICE_PROFILE!=='hosted')||typeof projectId!=='string'||projectId.startsWith('demo-')||!projectId.match(/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/)||!['VITE_FIREBASE_API_KEY','VITE_FIREBASE_AUTH_DOMAIN','VITE_FIREBASE_APP_ID'].every(k=>typeof env[k]==='string'&&(env[k] as string).length>5))throw new Error('Configuración alojada incompleta. No cambies el perfil local sin preparar el servicio.');
     if(env.VITE_FIREBASE_AUTH_DOMAIN!==`${projectId}.firebaseapp.com`)throw new Error('Dominio de autenticación no autorizado.');
+    const native = ['windows', 'android'].includes(String(env.VITE_RUNTIME_TARGET));
+    const pilotOrigin = env.VITE_KHYPU_PILOT_ORIGIN;
+    if (render && (projectId !== 'khypupyme-piloto' || (native && (typeof pilotOrigin !== 'string' || !/^https:\/\/[a-z0-9-]+\.onrender\.com$/.test(pilotOrigin)))))
+      throw new Error('Configura el proyecto piloto y la URL oficial de Render.');
     const checkout = env.VITE_KHYPU_CHECKOUT_ORIGIN;
-    if (env.VITE_RUNTIME_TARGET === 'windows') {
+    if (!render && env.VITE_RUNTIME_TARGET === 'windows') {
       if (typeof checkout !== 'string') throw new Error('Falta la URL HTTPS del portal de pagos.');
       const url = new URL(checkout);
       if (url.protocol !== 'https:' || url.origin !== checkout || url.username || url.password)

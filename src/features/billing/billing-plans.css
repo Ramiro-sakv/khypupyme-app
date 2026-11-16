@@ -1,24 +1,39 @@
 .plan-entry { max-width: 68rem; margin: 0 auto; }
 .plan-simulation { display: grid; gap: 1rem; }
 .plan-simulation :is(p, h1, h2) { margin: 0; }
-.plan-header { padding: .9rem 1rem; border-radius: .8rem; background: var(--soft, #f3ead9); }
+.plan-header { display: grid; grid-template-columns: minmax(0, 1fr) minmax(9rem, 35%); align-items: stretch; overflow: hidden; border-radius: 1rem; color: #fff9ee; background: linear-gradient(125deg, #113e34, #224d42 60%, #614b36); }
+.plan-header > div { grid-area: 1 / 1; padding: clamp(1rem, 3vw, 2rem); align-self: center; }
+.plan-header img { grid-area: 1 / 2; width: 100%; height: 100%; max-height: 10rem; min-height: 5.5rem; object-fit: cover; object-position: center 53%; }
 .plan-header p { font-weight: 600; margin-bottom: .35rem; }
+.plan-header h1, .plan-header h2 { color: inherit; }
 .plan-entry-actions { margin-top: 1rem; }
 .plan-trial-card, .plan-review { display: grid; gap: .65rem; padding: 1rem; border: 1px solid var(--line, #d9cbb6); border-radius: .8rem; background: var(--soft, #f3ead9); }
 .plan-trial-card h2 { font-size: 1.15rem; }
+.plan-trial-card { background: linear-gradient(120deg, #e6f2df, #fbf0d8); border-color: #c5d5b3; color: #183c2c; }
 .plan-offers { display: grid; gap: .9rem; min-width: 0; }
 .plan-offers fieldset { min-width: 0; padding: 0; margin: 0; border: 0; }
 .plan-offers legend { font-weight: 700; margin-bottom: .25rem; }
 .plan-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .65rem; margin-top: .75rem; }
 .plan-options .plan-option { display: grid; justify-items: start; align-content: start; gap: .45rem; min-height: 9.5rem; padding: .75rem; border: 1px solid var(--line, #d9cbb6); border-radius: .75rem; background: #fffdf8; cursor: pointer; }
-.plan-option:has(input:checked) { border-color: var(--industry-accent, #145045); background: var(--soft, #f3ead9); box-shadow: inset 0 0 0 1px var(--industry-accent, #145045); }
+.plan-options .plan-option:nth-child(1) { background: #fff3dc; }
+.plan-options .plan-option:nth-child(2) { background: #e9f0ff; }
+.plan-options .plan-option:nth-child(3) { background: #f2e7f1; }
+.plan-options .plan-option:has(input:checked) { border-color: var(--industry-accent, #145045); box-shadow: inset 0 0 0 2px var(--industry-accent, #145045); }
 .plan-option:focus-within { outline: 2px solid var(--industry-accent, #145045); outline-offset: 3px; }
 .plan-option input[type="radio"] { width: 1.25rem; min-height: 0; height: 1.25rem; margin: 0; accent-color: var(--industry-accent, #145045); }
 .plan-price { font-size: 1.35rem; font-weight: 750; font-variant-numeric: tabular-nums; }
 .plan-saving, .plan-highlight { font-weight: 650; }
 .plan-highlight { color: var(--industry-accent, #145045); }
 .plan-expiry { font-size: .85rem; }
+.card-test-checkout { display: grid; grid-template-columns: minmax(10rem, 14rem) minmax(0, 1fr); align-items: start; gap: 1rem; padding: 1rem; border: 1px solid #d9c9db; border-radius: 1rem; background: #faf2fa; }
+.card-test-details { display: grid; gap: .6rem; }
+.card-test-details h3 { margin: 0; }
+.card-test-visual { display: grid; align-content: space-between; gap: .5rem; min-height: 7.5rem; padding: .85rem; border-radius: .85rem; color: #fff4e5; background: linear-gradient(135deg, #412642, #653a62 68%, #925a64); box-shadow: 0 6px 15px #4320402e; }
+.card-test-visual strong { letter-spacing: .13em; }
 @media (max-width: 700px) {
   .plan-options { grid-template-columns: minmax(0, 1fr); }
   .plan-options .plan-option { min-height: 0; }
+  .plan-header { grid-template-columns: minmax(0, 1fr) minmax(5rem, 30%); }
+  .card-test-checkout { grid-template-columns: minmax(0, 1fr); }
+  .card-test-visual { max-width: 15rem; }
 }

@@ -32,6 +32,7 @@ export function createWorkspaceServices() {
     );
   return {
     authService: new FirebaseAuthService(auth, functions),
-    repository: new FirebaseWorkspaceRepository(functions),
+    repository: new FirebaseWorkspaceRepository(functions, import.meta.env.VITE_SERVICE_PROFILE === "render-pilot"
+      ? import.meta.env.VITE_KHYPU_PILOT_ORIGIN || location.origin : undefined),
   };
 }

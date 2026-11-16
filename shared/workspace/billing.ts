@@ -36,7 +36,7 @@ export function passOffers(startsAt: number): PassOffer[] {
 
 export function passDetails(id: PassId) { return PASS_CATALOG[id]; }
 
-export type PaymentChannel = "play" | "qr";
+export type PaymentChannel = "play" | "qr" | "card-test";
 export type PaymentStatus = "pending" | "paid" | "expired" | "refunded";
 export type PlanStatus = "unavailable" | "trial-available" | "trial" | "active" | "expired";
 export interface BusinessPlan {
@@ -63,9 +63,11 @@ export type BillingRequest =
   | { kind: "plan" | "activate" | "simulate-trial-expiry"; businessId: string }
   | { kind: "start"; businessId: string; channel: PaymentChannel; passId?: PassId }
   | { kind: "current-qr"; businessId: string }
+  | { kind: "current-card-test"; businessId: string }
   | { kind: "check"; businessId: string; intentId: string }
   | { kind: "restore-play"; purchaseToken: string }
-  | { kind: "simulate-qr"; businessId: string; intentId: string; outcome: "paid" | "expired" | "refunded" };
+  | { kind: "simulate-qr"; businessId: string; intentId: string; outcome: "paid" | "expired" | "refunded" }
+  | { kind: "simulate-card"; businessId: string; intentId: string; outcome: "paid" | "declined" | "expired" | "refunded" };
 
 export interface AccessPeriod {
   id: string;

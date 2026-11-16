@@ -10,9 +10,9 @@ function nextBillingResponse(page: import("@playwright/test").Page, kind: string
     response.request().postDataJSON()?.data?.kind === kind);
 }
 
-test("prueba, QR simulado, renovación desde otro navegador y solicitud de baja", async ({ page, browser, isMobile, request }) => {
+test("prueba, QR, tarjeta ficticia y solicitud de baja", async ({ page, browser, isMobile, request }) => {
   test.skip(process.env.VITE_BILLING_SIMULATION !== "true", "Requiere el entorno aislado de facturación.");
-  test.setTimeout(90_000);
+  test.setTimeout(110_000);
   const email = `piloto-${randomUUID()}@example.invalid`;
   const password = "khypupyme-piloto-seguro";
   const name = "Tienda piloto ficticia";
@@ -120,6 +120,20 @@ test("prueba, QR simulado, renovación desde otro navegador y solicitud de baja"
     expect(await (await refund).json()).toMatchObject({ result: { expiresAt: trialEnd } });
     await expect(page.getByText("Prueba activa", { exact: true })).toBeVisible();
   } finally { await other.close(); }
+
+  const card = page.getByRole("region", { name: "Pagar con tarjeta de prueba" });
+  await page.getByRole("radio", { name: /6 meses/ }).check();
+  await card.getByRole("button", { name: /Revisar pago/ }).click();
+  await card.getByLabel("Resultado de la tarjeta de prueba").selectOption("declined");
+  await card.getByRole("button", { name: /Confirmar/ }).click();
+  await expect(card.getByRole("alert")).toContainText("rechazó la tarjeta");
+  await card.getByLabel("Resultado de la tarjeta de prueba").selectOption("paid");
+  await card.getByRole("button", { name: /Confirmar/ }).click();
+  await expect(card.getByText("Pago ficticio confirmado")).toBeVisible();
+  await page.reload();
+  await expect(card.getByText("Pago ficticio confirmado")).toBeVisible();
+  await card.getByRole("button", { name: "Simular reembolso" }).click();
+  await expect(card.getByText("Reembolso simulado")).toBeVisible();
 
   await go("Caja");
   const opening = page.waitForResponse((response) => response.url().endsWith("/workspaceCommand") &&

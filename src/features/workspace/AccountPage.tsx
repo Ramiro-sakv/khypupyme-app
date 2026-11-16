@@ -75,11 +75,13 @@ export default function Account({
               (await repository.business(id));
             if (active) setBusiness(selected);
           } catch (e) {
-            if (active) setLoadError(errorMessage(e, "No se pudo recuperar el último negocio. Revisa la conexión y la fecha del respaldo en la terminal."));
+            if (active) setLoadError(errorMessage(e, "No se pudo recuperar el último negocio. Comprueba tu conexión y vuelve a cargar."));
           }
         }
       } catch (e) {
-        if (active) setLoadError(errorMessage(e, "No se pudieron cargar tus negocios. Comprueba que KhypuPyme indique que los emuladores están listos en la terminal."));
+        if (active) setLoadError(errorMessage(e, import.meta.env.VITE_USE_EMULATORS === "false"
+          ? "No se pudieron cargar tus negocios. Si el servidor estaba en reposo, espera un minuto y vuelve a cargar."
+          : "No se pudieron cargar tus negocios. Comprueba que KhypuPyme indique que los emuladores están listos en la terminal."));
       } finally {
         if (active) setLoading(false);
       }

@@ -3,3 +3,4 @@ export const isBillingSimulation = import.meta.env.VITE_BILLING_SIMULATION === "
   import.meta.env.VITE_USE_EMULATORS !== "false";
 
 export const isBillingEnabled = import.meta.env.VITE_USE_EMULATORS === "false" || isBillingSimulation;
+export const isRenderPilot = import.meta.env.VITE_SERVICE_PROFILE === "render-pilot";

@@ -1,13 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { DAY_MS, PASS_DAYS, SIMULATION_TRIAL_DAYS, TRIAL_DAYS, PLAY_PRODUCTS } from "../../../shared/workspace/billing";
-import type { BusinessPlan, PassId, PaymentIntent } from "../../../shared/workspace/billing";
+import type { BillingRequest, BusinessPlan, PassId, PaymentIntent } from "../../../shared/workspace/billing";
 import { useAuth } from "../auth/auth-context";
 import { errorMessage } from "../../shared/errors";
 import { bob, localDate } from "../workspace/format";
 import { useWorkspace } from "../workspace/context";
 import { playBilling } from "./play";
-import { isBillingSimulation } from "./profile";
+import { isBillingSimulation, isRenderPilot } from "./profile";
+import { TestCardCheckout } from "./TestCardCheckout";
+import planPhoto from "../../assets/planes-khypupyme.jpg";
 import "./billing-plans.css";
 
 const date = (value: number) => localDate(new Date(value).toISOString(), true);
@@ -33,10 +35,12 @@ export default function BusinessPlanPanel({ qrOnly = false, entry = false }: { q
   const { service } = useAuth();
   const plan = billing?.plan;
   const callable = repository.billing?.bind(repository);
+  const cardRequest = useCallback((input: BillingRequest) => repository.billing!<PaymentIntent | null>(input), [repository]);
   const android = import.meta.env.VITE_RUNTIME_TARGET === "android";
   const windows = import.meta.env.VITE_RUNTIME_TARGET === "windows";
   const playEnabled = !!plan?.channels.includes("play") && android;
   const qrEnabled = !!plan?.channels.includes("qr") && !android;
+  const cardEnabled = !!plan?.channels.includes("card-test") && !qrOnly;
   const [intent, setIntent] = useState<PaymentIntent | null>(null);
   const [selection, setSelection] = useState<PassId | null>(null);
   const hasOffers = !!plan?.offers?.length;
@@ -60,7 +64,7 @@ export default function BusinessPlanPanel({ qrOnly = false, entry = false }: { q
   }, [playEnabled, playProduct, priceAttempt]);
 
   useEffect(() => {
-    if ((!isBillingSimulation && !(hasOffers && qrEnabled)) || !repository.billing) return;
+    if (!qrEnabled || (!isBillingSimulation && !hasOffers) || !repository.billing) return;
     let active = true;
     repository.billing<PaymentIntent | null>({ kind: "current-qr", businessId: business.id }).then((payment) => {
       if (!active) return;
@@ -105,8 +109,11 @@ export default function BusinessPlanPanel({ qrOnly = false, entry = false }: { q
 
   return <section className={`card ${(hasOffers || entry) ? "plan-simulation" : ""}`} id="plan-negocio">
     <header className="plan-header">
+      <img src={planPhoto} alt="" width="960" height="640" />
+      <div>
       {entry && <p>{business.name}</p>}
       {entry ? <h1>Elige un plan para tu negocio</h1> : <h2>{qrOnly ? `Pago de ${business.name}` : "Plan del negocio"}</h2>}
+      </div>
     </header>
     {plan && <p><strong>{labels[plan.status]}</strong>{plan.expiresAt ? ` · ${plan.status === "expired" ? "Venció" : "Vence"} el ${date(plan.expiresAt)}` : ""}</p>}
     {billing.error && <p role="alert">{billing.error} <button type="button" onClick={refresh}>Reintentar</button></p>}
@@ -143,7 +150,7 @@ export default function BusinessPlanPanel({ qrOnly = false, entry = false }: { q
         refresh();
       })}>Consultar compras de Google Play</button>
     </div>}
-    {isBillingSimulation && !qrOnly && plan?.status === "trial" && <div className="actions">
+    {(isBillingSimulation || isRenderPilot) && !qrOnly && plan?.status === "trial" && <div className="actions">
       <button type="button" disabled={working} onClick={() => void execute(async () => {
         await callable<BusinessPlan>({ kind: "simulate-trial-expiry", businessId: business.id });
         setFeedback("La prueba ficticia venció. Puedes revisar el modo de consulta.");
@@ -165,9 +172,9 @@ export default function BusinessPlanPanel({ qrOnly = false, entry = false }: { q
           {plan?.offers?.map((offer) => <label className="plan-option" key={offer.id}>
             <input type="radio" name="business-pass" checked={selection === offer.id} onChange={() => { setSelection(offer.id); setError(""); }} />
             <strong>{offer.label}</strong>
-            <span className="plan-price">{android ? (price?.product === PLAY_PRODUCTS[offer.id] ? price.label : "Consultar en Google Play") : bob(offer.priceMinor)}</span>
-            {!android && offer.savingsMinor > 0 && <span className="plan-saving">Ahorra {bob(offer.savingsMinor)}</span>}
-            {!android && offer.id === "1-year" && <span className="plan-highlight">Mayor ahorro</span>}
+            <span className="plan-price">{android && !cardEnabled ? (price?.product === PLAY_PRODUCTS[offer.id] ? price.label : "Consultar en Google Play") : bob(offer.priceMinor)}</span>
+            {(!android || cardEnabled) && offer.savingsMinor > 0 && <span className="plan-saving">Ahorra {bob(offer.savingsMinor)}</span>}
+            {(!android || cardEnabled) && offer.id === "1-year" && <span className="plan-highlight">Mayor ahorro</span>}
             <span className="plan-expiry">Vigencia estimada hasta {date(offer.estimatedExpiry)}</span>
           </label>)}
         </div>
@@ -177,10 +184,11 @@ export default function BusinessPlanPanel({ qrOnly = false, entry = false }: { q
       {pendingOffer && <p role="status">QR pendiente · {pendingLabel} · {bob(pendingOffer.priceMinor)}. {differentPending && (isBillingSimulation ? "Simula su vencimiento antes de elegir otro pase." : "Consulta o espera el vencimiento del QR antes de cambiar de pase.")}</p>}
       {selectedOffer && !pendingOffer && <div className="plan-review">
         <strong>Revisa tu pase</strong>
-        <p>{business.name} · {selectedOffer.label} · {android ? playPrice ?? "Consultar en Google Play" : bob(selectedOffer.priceMinor)}</p>
+        <p>{business.name} · {selectedOffer.label} · {android && !cardEnabled ? playPrice ?? "Consultar en Google Play" : bob(selectedOffer.priceMinor)}</p>
         <p>Vigencia estimada hasta {date(selectedOffer.estimatedExpiry)}.</p>
       </div>}
     </div>}
+    {cardEnabled && !billing.error && <TestCardCheckout businessId={business.id} offer={selectedOffer} offers={plan?.offers ?? []} request={cardRequest} refresh={refresh} />}
     {qrEnabled && !externalCheckout && !billing.error && <div className="actions">
       {(!hasOffers || !pendingOffer) && <button disabled={working || (hasOffers && (!selection || recovery !== "ready"))} onClick={() => void execute(async () => {
         try {

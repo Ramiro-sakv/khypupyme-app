@@ -13,7 +13,7 @@ if (simulation) {
     VITE_KHYPU_SIGNUP_CODE: 'true',
     VITE_KHYPU_CHECKOUT_ORIGIN: '',
   });
-} else if (process.env.VITE_SERVICE_PROFILE === 'hosted') {
+} else if (['hosted', 'render-pilot'].includes(process.env.VITE_SERVICE_PROFILE)) {
   if (process.env.VITE_USE_EMULATORS !== 'false') throw new Error('El perfil alojado requiere VITE_USE_EMULATORS=false.');
   const { readEnvironment } = await import('../src/config/environment.ts');
   readEnvironment({ ...process.env, VITE_RUNTIME_TARGET: target });

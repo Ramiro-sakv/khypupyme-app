@@ -51,7 +51,9 @@ function services(includeBilling = false) {
   return {
     mode,
     commands: new CommerceService(db, undefined, enforceBilling),
-    billing: new BillingService(db, includeBilling ? billingProviders(mode) : { channels: [] }, Date.now, mode === "simulation", mode === "simulation" || (mode === "hosted" && process.env.KHYPU_MULTI_PASS === "true")),
+    billing: new BillingService(db, includeBilling ? billingProviders(mode) : { channels: [] }, Date.now,
+      mode === "simulation" || mode === "render-pilot",
+      mode === "simulation" || mode === "render-pilot" || (mode === "hosted" && process.env.KHYPU_MULTI_PASS === "true")),
     queries: new CommerceQueries(db),
     account: new AccountService(db),
     db,
@@ -273,30 +275,34 @@ export const workspaceBilling = onCall({ ...options, secrets: [qrBasic, qrWebhoo
     const { uid, token } = request.auth;
     const { billing, mode } = services(true);
     const raw = request.data as Record<string, unknown> | null;
-    const kind = oneOf(["plan", "activate", "start", "check", "current-qr", "restore-play", "simulate-qr", "simulate-trial-expiry"])(raw?.kind);
+    const kind = oneOf(["plan", "activate", "start", "check", "current-qr", "current-card-test", "restore-play", "simulate-qr", "simulate-card", "simulate-trial-expiry"])(raw?.kind);
     if (kind === "restore-play") {
       const input = object(raw, { kind: () => kind, purchaseToken: (v) => text(v, 1, 4096) });
       return await billing.restorePlay(uid, input.purchaseToken as string);
     }
     const input = object(raw, {
       kind: () => kind, businessId: identifier,
-      ...(kind === "start" ? { channel: oneOf(["play", "qr"]), ...(raw && Object.hasOwn(raw, "passId") ? { passId: oneOf(SIMULATION_PASS_IDS) } : {}) } : {}),
-      ...(kind === "check" || kind === "simulate-qr" ? { intentId: identifier } : {}),
+      ...(kind === "start" ? { channel: oneOf(["play", "qr", "card-test"]), ...(raw && Object.hasOwn(raw, "passId") ? { passId: oneOf(SIMULATION_PASS_IDS) } : {}) } : {}),
+      ...(["check", "simulate-qr", "simulate-card"].includes(kind) ? { intentId: identifier } : {}),
       ...(kind === "simulate-qr" ? { outcome: oneOf(["paid", "expired", "refunded"]) } : {}),
+      ...(kind === "simulate-card" ? { outcome: oneOf(["paid", "declined", "expired", "refunded"]) } : {}),
     });
     const id = input.businessId as string;
     if (mode === "local") {
       if (kind !== "plan") throw new AppError("El emulador habitual no emite licencias.", 403, "BILLING_LOCAL");
       return { ...await billing.plan(uid, id, token.email_verified === true), status: "unavailable", expiresAt: null };
     }
-    if (kind === "simulate-qr" || kind === "simulate-trial-expiry") {
-      if (mode !== "simulation") throw new AppError("La simulación solo está disponible en los emuladores aislados.", 403, "BILLING_SIMULATION");
+    if (kind === "simulate-qr" || kind === "simulate-trial-expiry" || kind === "simulate-card") {
+      if (mode !== "simulation" && (mode !== "render-pilot" || kind === "simulate-qr"))
+        throw new AppError("Esta acción requiere el entorno de pruebas correspondiente.", 403, "BILLING_SIMULATION");
       if (kind === "simulate-trial-expiry") return await billing.simulateTrialExpiry(uid, id, token.email_verified === true);
+      if (kind === "simulate-card") return await billing.simulateCard(uid, id, input.intentId as string, input.outcome as "paid" | "declined" | "expired" | "refunded");
       return await billing.simulateQr(uid, id, input.intentId as string, input.outcome as "paid" | "expired" | "refunded");
     }
     if (kind === "activate") return await billing.activate(uid, id, token.email_verified === true);
-    if (kind === "start") return await billing.start(uid, id, input.channel as "play" | "qr", input.passId as PassId | undefined);
+    if (kind === "start") return await billing.start(uid, id, input.channel as "play" | "qr" | "card-test", input.passId as PassId | undefined);
     if (kind === "current-qr") return await billing.currentQr(uid, id);
+    if (kind === "current-card-test") return await billing.currentCard(uid, id);
     if (kind === "check") return await billing.check(uid, id, input.intentId as string);
     return await billing.plan(uid, id, token.email_verified === true);
   } catch (cause) { return workspaceFailure("workspaceBilling", cause); }

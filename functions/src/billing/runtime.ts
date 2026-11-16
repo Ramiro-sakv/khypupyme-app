@@ -2,10 +2,14 @@ import { AppError } from "../../../shared/app-errors.js";
 import type { PaymentProviders } from "./providers.js";
 import { productionPayments } from "./ProductionPayments.js";
 
-export type ServerMode = "local" | "simulation" | "hosted";
+export type ServerMode = "local" | "simulation" | "hosted" | "render-pilot";
 
 export function serverMode(env = process.env): ServerMode {
   const project = env.GCLOUD_PROJECT ?? "";
+  if (env.KHYPU_SERVICE_PROFILE === "render-pilot" && project === "khypupyme-piloto" &&
+      env.KHYPU_HOSTED_PROJECT === project && env.KHYPU_BILLING_MODE === "simulation" &&
+      !env.FUNCTIONS_EMULATOR && !env.FIRESTORE_EMULATOR_HOST && !env.FIREBASE_AUTH_EMULATOR_HOST && !env.K_SERVICE)
+    return "render-pilot";
   if (env.FUNCTIONS_EMULATOR === "true" && /^demo-[a-z0-9-]+$/.test(project) &&
       /^127\.0\.0\.1:(8080|18080)$/.test(env.FIRESTORE_EMULATOR_HOST ?? "") &&
       /^127\.0\.0\.1:(9099|19099)$/.test(env.FIREBASE_AUTH_EMULATOR_HOST ?? "")) {
@@ -24,8 +28,9 @@ export function serverMode(env = process.env): ServerMode {
 export const externalBillingEnabled = () => ["staging", "live"].includes(process.env.KHYPU_BILLING_MODE ?? "");
 
 export function billingProviders(mode: ServerMode): PaymentProviders {
+  if (mode === "render-pilot") return { channels: ["card-test"] };
   if (mode === "simulation") return {
-    channels: ["qr"],
+    channels: ["qr", "card-test"],
     qr: {
       async create(id, _amountMinor, expiresAt) {
         return { reference: "sim-" + id, image: "", expiresAt };

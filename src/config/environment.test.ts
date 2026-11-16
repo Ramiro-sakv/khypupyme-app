@@ -28,6 +28,18 @@ describe('aislamiento del entorno', () => {
       authHost: 'http://127.0.0.1:19099', firestorePort: 18080, functionsPort: 15001,
     });
   });
+  it('restringe el piloto de Render al proyecto autorizado y a HTTPS en instaladores', () => {
+    const pilot = {
+      VITE_USE_EMULATORS: 'false', VITE_SERVICE_PROFILE: 'render-pilot',
+      VITE_FIREBASE_PROJECT_ID: 'khypupyme-piloto', VITE_FIREBASE_AUTH_DOMAIN: 'khypupyme-piloto.firebaseapp.com',
+      VITE_FIREBASE_API_KEY: 'fixture-key', VITE_FIREBASE_APP_ID: 'fixture-app',
+    };
+    expect(readEnvironment(pilot).projectId).toBe('khypupyme-piloto');
+    expect(() => readEnvironment({ ...pilot, VITE_FIREBASE_PROJECT_ID: 'otro-piloto', VITE_FIREBASE_AUTH_DOMAIN: 'otro-piloto.firebaseapp.com' })).toThrow();
+    expect(() => readEnvironment({ ...pilot, VITE_RUNTIME_TARGET: 'android' })).toThrow();
+    expect(() => readEnvironment({ ...pilot, VITE_RUNTIME_TARGET: 'android', VITE_KHYPU_PILOT_ORIGIN: 'http://demo.onrender.com' })).toThrow();
+    expect(readEnvironment({ ...pilot, VITE_RUNTIME_TARGET: 'windows', VITE_KHYPU_PILOT_ORIGIN: 'https://demo.onrender.com' }).projectId).toBe('khypupyme-piloto');
+  });
   it('limita los destinos nativos habituales a sus emuladores locales', () => {
     expect(readEnvironment({ VITE_RUNTIME_TARGET: 'android' })).toMatchObject({ firestoreHost: '10.0.2.2', functionsPort: 5001 });
     expect(readEnvironment({ VITE_RUNTIME_TARGET: 'windows' }).firestoreHost).toBe('127.0.0.1');

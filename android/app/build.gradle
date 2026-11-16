@@ -14,8 +14,8 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         buildConfigField "String", "AUTH_PORTAL", "\"${authPortal}\""
-        versionCode 100002
-        versionName "1.0.0-beta.2"
+        versionCode 100003
+        versionName "1.0.0-rc.1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

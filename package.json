@@ -1,6 +1,6 @@
 {
   "name": "khypupyme-app",
-  "version": "1.0.0-beta.2",
+  "version": "1.0.0-rc.1",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
@@ -27,6 +27,8 @@
     "backup": "node scripts/emulators.mjs --backup",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm build:functions",
     "build:functions": "pnpm --filter @khypupyme/functions build",
+    "build:pilot": "node scripts/build-render-pilot.mjs",
+    "start:pilot": "node functions/lib/functions/src/renderPilot.js",
     "build:android:web": "node scripts/build-native-web.mjs android",
     "build:windows:web": "node scripts/build-native-web.mjs windows",
     "android:sync": "pnpm build:android:web && cap sync android",

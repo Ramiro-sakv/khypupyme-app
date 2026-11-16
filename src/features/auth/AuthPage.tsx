@@ -1,5 +1,6 @@
-import { Icon } from "../workspace/Icon";
 import { useState } from "react";
+import shopPhoto from "../../assets/comercio-khypupyme.jpg";
+import { isRenderPilot } from "../billing/profile";
 import { openGooglePortal } from "./googlePortal";
 import type { GoogleTransfer, RegistrationChallenge } from "./types";
 import type { SubmitEvent } from "react";
@@ -100,28 +101,11 @@ export function AuthPage({ mode }: { mode: "login" | "register" | "reset" }) {
 
   return (
     <section className="auth-grid">
-      <div className="intro">
-        <span className="eyebrow">TU CUADERNO DIGITAL</span>
-        <h1>{title}</h1>
-        <p>
-          Un lugar para llevar las cuentas de tu comercio, paso a paso y sin
-          complicarte.
-        </p>
-        <div className="intro-note">
-          <Icon name="chart" />
-          <p>
-            Desde la primera venta,
-            <br />
-            <strong>hasta entender tus números.</strong>
-          </p>
-        </div>
-        <p className="muted">
-          Inventario, compras, ventas, servicios y fiados. Una vista clara de tu
-          día a día.
-        </p>
-        <div className="intro-trust">
-          <Icon name="shield" />
-          Cada negocio, en su propio espacio.
+      <div className="intro auth-photo">
+        <img src={shopPhoto} alt="" width="960" height="1200" fetchPriority="high" />
+        <div className="auth-photo-text">
+          <h1>{title}</h1>
+          <p>Inventario, ventas y caja para tu negocio.</p>
         </div>
       </div>
       <div className="card auth-card">
@@ -135,7 +119,7 @@ export function AuthPage({ mode }: { mode: "login" | "register" | "reset" }) {
         <p>
           {reset
             ? "Escribe el correo de tu cuenta."
-            : "Usa tu correo para administrar tu negocio."}
+            : isRenderPilot ? "Ingresa con la cuenta habilitada para el piloto." : "Usa tu correo para administrar tu negocio."}
         </p>
         <form onSubmit={submit} aria-busy={busy}>
           <label htmlFor="email">Correo electrónico</label>
@@ -212,7 +196,7 @@ export function AuthPage({ mode }: { mode: "login" | "register" | "reset" }) {
             <button type="button" disabled={busy} onClick={() => setTransfer(null)}>Cancelar</button>
           </div>}
         </div>}
-        {!reset && (
+        {!reset && !isRenderPilot && (
           <p className="auth-switch">
             {register ? "¿Ya tienes cuenta?" : "¿Es tu primera visita?"}{" "}
             <Link to={register ? "/ingresar" : "/registro"}>

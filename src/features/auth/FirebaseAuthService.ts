@@ -16,7 +16,8 @@ export class FirebaseAuthService implements AuthService {
   }
 
   get requestRegistrationCode() {
-    if (!this.functions || (import.meta.env.VITE_USE_EMULATORS !== "false" && import.meta.env.VITE_KHYPU_SIGNUP_CODE !== "true")) return;
+    if (!this.functions || import.meta.env.VITE_SERVICE_PROFILE === "render-pilot" ||
+        (import.meta.env.VITE_USE_EMULATORS !== "false" && import.meta.env.VITE_KHYPU_SIGNUP_CODE !== "true")) return;
     return (email: string) => this.call<RegistrationChallenge>("workspaceRegistration", { kind: "send", email });
   }
 

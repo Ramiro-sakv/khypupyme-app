@@ -1,0 +1,16 @@
+# Compilación y dependencias
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+.vs/
+*.user
+
+# Configuración y credenciales locales
+.env
+.env.*
+!.env.example
+*.local.json
+*.pfx
+*.pem
+*.key

@@ -4,6 +4,7 @@ import { useCommerce, useCommerceData } from "./CommerceContext";
 import { CommerceHeading, LoadFeedback, NoRecords, OperationForm, Pages, PaymentField, useCommercialForm } from "./CommerceUi";
 import { bob, dateLabel, documentName, methodLabel } from "./models";
 import type { EntryDocument, EntryInfo, Page } from "./models";
+import { documentTimber, documentUnit } from "../timber/measures";
 
 const historyKinds = ["sale", "purchase", "quote", "return", "expense", "void-expense",
   "stock-loss", "open-cash", "close-cash", "collect"];
@@ -71,6 +72,7 @@ export function DocumentPage({ id, back, convert }: {
           <Button icon="document" onClick={() => void savePdf()} disabled={loadingPdf}>{loadingPdf ? "Generando…" : "Guardar PDF"}</Button>
         </div>
         <p>Comprobante no fiscal</p>
+        {document.practice && <Alert>PRÁCTICA — DATOS FICTICIOS</Alert>}
         {document.customerName && <p>{document.customerName}</p>}
         {document.method && <p>Forma de pago · {methodLabel(document.method)}</p>}
         {document.expiresOn && <p>Vigencia hasta {dateLabel(document.expiresOn)}</p>}
@@ -87,11 +89,12 @@ export function DocumentPage({ id, back, convert }: {
         {document.sourceId && <Button variant="plain" onClick={() => showDocument(document.sourceId!)}>Ver operación de origen</Button>}
       </Card>
       {document.lines.length > 0 && <Card><DataTable caption="Productos confirmados" columns={["Producto", "Piezas", "Importe unitario", "Subtotal"]}
-        rows={document.lines.map((line) => ({ id: line.productId, cells: [
+        rows={document.lines.map((line) => ({ id: line.lineId, cells: [
           <div>{line.name}<small className="record-secondary">{line.code}
             {line.returnedQuantity > 0 ? " · Devueltas " + line.returnedQuantity : ""}
-            {line.restocked === false ? " · Sin reintegro" : ""}</small></div>,
-          line.quantity, bob(line.unitMinor), bob(line.subtotalMinor),
+            {line.restocked === false ? " · Sin reintegro" : ""}</small>
+            {line.timber && <small className="record-secondary">{documentTimber(document, line)}</small>}</div>,
+          line.quantity, bob(line.unitMinor) + documentUnit(document, line), bob(line.subtotalMinor),
         ] }))} /></Card>}
       <div className="inline-actions">
         {document.kind === "quote" && !document.linked && <Button onClick={() => convert(document)}>Preparar venta desde la cotización</Button>}
@@ -116,21 +119,25 @@ function ReturnEditor({ document, close }: { document: EntryDocument; close: () 
     action="Confirmar devolución" onSubmit={(event) => {
       event.preventDefault();
       void form.submit(() => {
-        const lines = Object.entries(chosen).filter(([, item]) => Number(item.quantity) > 0)
-          .map(([productId, item]) => ({ productId, quantity: Number(item.quantity), restock: item.restock }));
+        const lines = document.lines.flatMap((line) => {
+          const item = chosen[line.lineId];
+          return item && Number(item.quantity) > 0 ? [{ productId: line.productId, originalLineId: line.lineId,
+            quantity: Number(item.quantity), restock: item.restock }] : [];
+        });
         if (!lines.length) throw new Error("Indica al menos una pieza para devolver.");
         return { kind: "return", sourceId: document.id, note, method, lines };
       }, (result) => showDocument(result.entityId));
     }}>
     {document.lines.filter((line) => line.returnedQuantity < line.quantity).map((line) => {
-      const current = chosen[line.productId] ?? { quantity: "0", restock: true };
+      const current = chosen[line.lineId] ?? { quantity: "0", restock: true };
       const remaining = line.quantity - line.returnedQuantity;
-      return <div className="return-line" key={line.productId}>
-        <TextField label={"Piezas a devolver de " + line.name} hint={remaining + " disponibles de la venta original"}
+      return <div className="return-line" key={line.lineId}>
+        <TextField label={"Piezas a devolver de " + line.name + (line.timber ? " · " + documentTimber(document, line) : "")}
+          hint={remaining + " disponibles de la venta original"}
           type="number" min={0} max={remaining} step={1} value={current.quantity}
-          onChange={(event) => setChosen({ ...chosen, [line.productId]: { ...current, quantity: event.target.value } })} />
+          onChange={(event) => setChosen({ ...chosen, [line.lineId]: { ...current, quantity: event.target.value } })} />
         <label className="trade-check"><input type="checkbox" checked={current.restock}
-          onChange={(event) => setChosen({ ...chosen, [line.productId]: { ...current, restock: event.target.checked } })} />
+          onChange={(event) => setChosen({ ...chosen, [line.lineId]: { ...current, restock: event.target.checked } })} />
           Reintegrar a existencias</label>
       </div>;
     })}

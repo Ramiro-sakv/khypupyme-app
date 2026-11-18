@@ -4,6 +4,7 @@ using KhypuPyme.Api.Businesses;
 using KhypuPyme.Api.Commerce;
 using KhypuPyme.Api.Health;
 using KhypuPyme.Api.Persistence;
+using KhypuPyme.Api.Timber;
 using Microsoft.EntityFrameworkCore;
 
 var provisionClients = args.Contains("--register-native-clients", StringComparer.Ordinal);
@@ -18,6 +19,7 @@ builder.AddAccounts();
 builder.Services.AddScoped<BusinessAccess>();
 builder.Services.AddScoped<CommerceService>();
 builder.Services.AddScoped<CommerceReads>();
+builder.Services.AddScoped<TimberPracticeService>();
 
 var app = builder.Build();
 if (provisionClients)
@@ -39,5 +41,6 @@ app.MapGroup("/api/v1/health").WithTags("Health").MapHealthEndpoints();
 app.MapAccounts();
 app.MapBusinesses();
 app.MapCommerce();
+app.MapTimberPractice();
 app.MapNativeAuthorization();
 app.Run();

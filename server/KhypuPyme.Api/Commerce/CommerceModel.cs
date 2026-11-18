@@ -1,4 +1,5 @@
 using KhypuPyme.Api.Businesses;
+using KhypuPyme.Api.Timber;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -15,6 +16,7 @@ internal static class CommerceModel
         products.Property(x => x.Name).HasMaxLength(100);
         products.Property(x => x.Code).HasMaxLength(40);
         products.Property(x => x.NormalizedCode).HasMaxLength(40);
+        products.Property(x => x.Species).HasMaxLength(100);
         products.ToTable(table => table.HasCheckConstraint("products_balance",
             """
             "Stock" BETWEEN 0 AND 1000000 AND "ValueMinor" BETWEEN 0 AND 1000000000000
@@ -52,12 +54,24 @@ internal static class CommerceModel
         entries.HasOne<Customer>().WithMany().HasForeignKey(x => new { x.BusinessId, x.CustomerId }).OnDelete(DeleteBehavior.NoAction);
 
         var lines = BusinessTable<EntryLine>(model, "commerce_lines");
-        lines.HasKey(x => new { x.BusinessId, x.EntryId, x.ProductId });
+        lines.HasKey(x => new { x.BusinessId, x.EntryId, x.LineId });
+        lines.Property(x => x.LineId).ValueGeneratedNever();
         lines.HasOne<Entry>().WithMany(x => x.Lines).HasForeignKey(x => new { x.BusinessId, x.EntryId }).OnDelete(DeleteBehavior.NoAction);
         lines.HasOne<Product>().WithMany().HasForeignKey(x => new { x.BusinessId, x.ProductId }).OnDelete(DeleteBehavior.NoAction);
         lines.ToTable(table => table.HasCheckConstraint("commerce_lines_quantities",
             """
             "Quantity" BETWEEN 1 AND 1000000 AND "UnitMinor" >= 0 AND "SubtotalMinor" >= 0 AND "CostMinor" >= 0
+            """));
+
+        var timber = BusinessTable<TimberStock>(model, "timber_stock");
+        timber.HasKey(x => new { x.BusinessId, x.ProductId, x.LengthMicros, x.ThicknessMicros, x.WidthMicros });
+        timber.HasOne<Product>().WithMany().HasForeignKey(x => new { x.BusinessId, x.ProductId }).OnDelete(DeleteBehavior.NoAction);
+        timber.ToTable(table => table.HasCheckConstraint("timber_stock_amounts",
+            """
+            "Stock" BETWEEN 0 AND 1000000 AND "ValueMinor" BETWEEN 0 AND 1000000000000
+            AND ("Stock" > 0 OR "ValueMinor" = 0)
+            AND "LengthMicros" BETWEEN 304800000 AND 6096000000 AND "LengthMicros" % 304800000 = 0
+            AND "ThicknessMicros" BETWEEN 1 AND 10000000000 AND "WidthMicros" BETWEEN 1 AND 10000000000
             """));
 
         var debts = BusinessTable<Receivable>(model, "receivables");

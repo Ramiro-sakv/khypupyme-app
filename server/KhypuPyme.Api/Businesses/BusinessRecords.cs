@@ -4,6 +4,7 @@ public sealed class Business
 {
     public Guid Id { get; init; }
     public Guid OwnerId { get; init; }
+    public Guid? PracticeOriginId { get; init; }
     public required string Name { get; init; }
     public required string Industry { get; init; }
     public required string CreationDigest { get; init; }

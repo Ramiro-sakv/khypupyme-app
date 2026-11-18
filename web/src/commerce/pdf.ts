@@ -1,6 +1,7 @@
 import type { Content, TableCell, TDocumentDefinitions } from "pdfmake/interfaces";
 import type { EntryDocument } from "./models";
 import { bob, dateLabel, documentName, methodLabel } from "./models";
+import { documentTimber, documentUnit } from "../timber/measures";
 
 function buildDocument(record: EntryDocument): TDocumentDefinitions {
   const heading = documentName(record.kind);
@@ -10,6 +11,7 @@ function buildDocument(record: EntryDocument): TDocumentDefinitions {
     { text: "Comprobante no fiscal", color: "#466058", margin: [0, 0, 0, 9] },
     { text: dateLabel(record.date) + (record.expiresOn ? " · Vigente hasta " + dateLabel(record.expiresOn) : "") },
   ];
+  if (record.practice) content.push({ text: "PRÁCTICA — DATOS FICTICIOS", bold: true, color: "#784622", margin: [0, 5, 0, 0] });
   if (record.customerName) content.push({ text: record.customerName });
   if (record.method) content.push({ text: "Forma de pago · " + methodLabel(record.method) });
   if (record.note) content.push({ text: record.note, margin: [0, 5, 0, 0] });
@@ -18,9 +20,10 @@ function buildDocument(record: EntryDocument): TDocumentDefinitions {
     const body: TableCell[][] = [
       ["Producto", "Piezas", "Importe unitario", "Subtotal"].map((text) => ({ text, bold: true, fillColor: "#e7f1eb" })),
       ...record.lines.map((line) => [
-        { stack: [{ text: line.name }, { text: line.code, color: "#466058", fontSize: 9 }] },
+        { stack: [{ text: line.name }, { text: line.code, color: "#466058", fontSize: 9 },
+          ...(line.timber ? [{ text: documentTimber(record, line), color: "#466058", fontSize: 9 }] : [])] },
         { text: String(line.quantity), alignment: "right" as const },
-        { text: bob(line.unitMinor), alignment: "right" as const },
+        { text: bob(line.unitMinor) + documentUnit(record, line), alignment: "right" as const },
         { text: bob(line.subtotalMinor), alignment: "right" as const },
       ]),
     ];

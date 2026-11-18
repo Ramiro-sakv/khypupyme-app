@@ -15,7 +15,7 @@ export type Receivable = Schema["ReceivableInfo"];
 export type Report = Schema["CommerceReport"];
 export type Page<T> = { items: T[]; hasMore: boolean };
 
-export const commercePath = (id: string) => businessApi + "/" + id + "/commerce";
+export const commercePath = (id: string, practice?: boolean) => businessApi + "/" + id + (practice ? "/practice-commerce" : "/commerce");
 export const moneyLimit = 1_000_000_000_000;
 const currency = new Intl.NumberFormat("es-BO", { style: "currency", currency: "BOB" });
 export const bob = (minor: number) => currency.format(minor / 100);

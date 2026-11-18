@@ -1,4 +1,6 @@
-﻿$ErrorActionPreference = 'Stop'
+﻿param([ValidateSet(4, 5)][int]$Block = 4)
+
+$ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Postgres.Local.ps1')
 $root = Split-Path -Parent $PSScriptRoot
 $project = Join-Path $root 'server/KhypuPyme.Api'
@@ -8,7 +10,7 @@ if (Get-NetTCPConnection -State Listen -LocalPort 5183 -ErrorAction SilentlyCont
     throw 'El puerto local de pruebas 5183 debe estar libre.'
 }
 
-$directory = Join-Path $env:TEMP ('khypupyme-block4-' + [Guid]::NewGuid().ToString('N'))
+$directory = Join-Path $env:TEMP ("khypupyme-block$Block-" + [Guid]::NewGuid().ToString('N'))
 [IO.Directory]::CreateDirectory($directory) | Out-Null
 $process = $null
 $previous = @{}
@@ -48,7 +50,7 @@ try {
     if (-not $ready) { throw "La API de prueba no quedó disponible. Consulta $directory." }
     @{
         owner = Get-DatabasePassword (Read-DatabaseCredentials) 'khypupyme2_test_owner'
-    } | ConvertTo-Json -Compress | node (Join-Path $PSScriptRoot 'test-block4.mjs')
+    } | ConvertTo-Json -Compress | node (Join-Path $PSScriptRoot "test-block$Block.mjs")
     if ($LASTEXITCODE -ne 0) { throw "Fallo del recorrido. Registros técnicos en $directory." }
 }
 finally {

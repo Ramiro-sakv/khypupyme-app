@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { change, get } from "../api/client";
 import { Alert, Button, Card } from "../ui/Primitives";
 import { BusinessPicker } from "./BusinessPicker";
@@ -7,6 +8,8 @@ import { BusinessWorkspace, isWorkspaceView } from "./BusinessWorkspace";
 import type { BusinessView } from "./BusinessWorkspace";
 import { businessApi } from "./models";
 import type { BusinessProfile, BusinessSelection, IndustryOption } from "./models";
+import { TimberPractice } from "../timber/TimberPractice";
+import type { PracticeControls } from "../timber/TimberPractice";
 
 function readView(): BusinessView {
   const view = new URLSearchParams(location.search).get("vista");
@@ -76,9 +79,12 @@ export function BusinessesPage({ accountId }: { accountId: string }) {
   if (view === "negocios" || !business) return <BusinessPicker industries={industries}
     lastId={business?.id} select={select} create={() => navigate("crear")} />;
 
-  return <BusinessWorkspace key={business.id} accountId={accountId} business={business}
+  const renderWorkspace = (active: BusinessProfile, practice?: PracticeControls, practiceEntry?: ReactNode) =>
+    <BusinessWorkspace key={active.id} accountId={accountId} business={active} practice={practice} practiceEntry={practiceEntry}
     industry={industries.find((option) => option.id === business.industry)?.name ?? business.industry}
     view={view} navigate={navigate} onSave={(updated) => {
       setBusiness((current) => current?.id === updated.id ? updated : current);
     }} />;
+  return business.industry === "timber" ? <TimberPractice key={business.id} business={business} accountId={accountId}
+    home={view === "inicio"} onExit={() => navigate("inicio", true)} render={renderWorkspace} /> : renderWorkspace(business);
 }

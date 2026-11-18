@@ -71,4 +71,22 @@
 | Conciliación del informe | El caso de prueba produjo Bs 225,00 en ventas netas, Bs 507,00 en compras, Bs 107,00 en costo vendido, Bs 0,00 en gastos netos, Bs 50,00 en pérdidas y Bs 68,00 de resultado. |
 | Edge a 390 px y PDF | Compra de diez piezas, alta de cliente sin perder el carrito y restauración tras recarga. Tras perder la respuesta de la venta, la consulta manual confirmó Bs 200,00 y ocho piezas restantes. Se verificaron el importe y el número en pantalla, historial y texto del PDF descargado. |
 
-El siguiente alcance es **Bloque 5 · Sicomoro, madera y práctica**, cuando el propietario lo indique.
+## Bloque 5 · Sicomoro, madera y práctica
+
+- Catálogo de madera con nombre, especie, código y tarifa por pie tablar en cada tramo de largo. Supercorta de 1 a 2 pies, corta de 3 a 6 y larga de 7 a 20. El equivalente métrico se captura en milímetros. Las fichas por pieza siguen disponibles.
+- El inventario detalla largo, espesor, ancho, piezas, volumen y valor. El carrito admite listas de anchos, multiplicadores y selección desde existencias. Las compras guardan su costo por pieza. Las ventas suman volumen exacto y redondean el importe por grupo de producto, largo y espesor antes de repartir los centavos entre medidas. El límite es de 20 grupos y 100 líneas por operación.
+- Compras, ventas, cotizaciones y devoluciones conservan la medida de cada línea. El comprobante incluye todas las especies y medidas. La devolución se vincula a la línea original y usa su costo histórico. Cambiar las unidades de presentación conserva las medidas almacenadas y la unidad de los comprobantes emitidos.
+- La práctica reanuda el avance confirmado por el servidor. Admite valores distintos de los sugeridos, guía movible y documentos ficticios identificados. Finalizar o abandonar elimina el espacio temporal y limpia sus borradores y solicitudes locales. El negocio real usa otro contexto y conserva sus registros.
+
+### Verificación
+
+| Comprobación | Resultado |
+|---|---|
+| Lint, TypeScript y compilaciones | Aprobados. Vite mantiene el aviso de tamaño de PDF y fuentes cargados bajo demanda. |
+| Compra y venta en PostgreSQL | Diez tablas de 2″ × 6″ × 10′ a Bs 50 cada una, venta de dos por Bs 200 y ocho restantes con valor de Bs 400. |
+| Venta mixta, devolución y faltantes | Dos especies y tres medidas en un comprobante por Bs 325,21. Devolución parcial con costo histórico. Solicitar cuatro piezas de un ancho con tres disponibles se rechazó sin mover caja ni descontar la otra medida. |
+| Anchos y cálculo | La primera lista produjo siete piezas y 51,67 pies tablares. La lista con multiplicadores produjo 16 piezas y 165 pies tablares. Aprobados la equivalencia métrica, la normalización de ancho comercial y el redondeo del importe desde el volumen exacto. |
+| Práctica y navegador | Aprobados avance con valores distintos, pausa, reanudación, regeneración de PDF y eliminación del espacio temporal. Edge a 360 px confirmó revisión, Escape, faltante en el carrito y movimiento de la guía con teclado y arrastre. |
+| Compatibilidad | Aprobado el recorrido de regresión del bloque 4. Migración aplicada a PostgreSQL de pruebas y desarrollo. |
+
+La comprobación de PostgreSQL usa `scripts/Test-Block5.ps1`. El recorrido de Edge se habilita indicando la ruta a `playwright-core` en `KHYPU_TEST_PLAYWRIGHT` y dejando Vite de prueba disponible en el puerto 5283. Las cuentas y negocios de prueba se crean y retiran únicamente en `khypupyme2_test`.

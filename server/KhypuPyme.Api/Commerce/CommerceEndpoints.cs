@@ -2,6 +2,7 @@ using System.Data;
 using KhypuPyme.Api.Accounts;
 using KhypuPyme.Api.Businesses;
 using KhypuPyme.Api.Persistence;
+using KhypuPyme.Api.Timber;
 using Microsoft.EntityFrameworkCore;
 
 namespace KhypuPyme.Api.Commerce;
@@ -10,13 +11,21 @@ internal static class CommerceEndpoints
 {
     public static void MapCommerce(this WebApplication app)
     {
-        var group = app.MapGroup("/api/v1/businesses/{businessId:guid}/commerce").WithTags("Comercio")
-            .RequireAuthorization("Account");
+        MapGroup(app.MapGroup("/api/v1/businesses/{businessId:guid}/commerce"));
+        MapGroup(app.MapGroup("/api/v1/businesses/{businessId:guid}/practice-commerce").WithMetadata(new PracticeCommerce()));
+    }
+
+    private static void MapGroup(RouteGroupBuilder group)
+    {
+        group.WithTags("Comercio").RequireAuthorization("Account");
         var reads = group.MapGroup("").AddEndpointFilter<ReadCommerceScope>();
         reads.MapGet("/products", (string? search, bool? active, int? page, CommerceReads service, CancellationToken ct) =>
             service.ProductsAsync(search, active, page, ct)).Produces<CommercePage<ProductInfo>>();
         reads.MapGet("/products/{id:guid}", async (Guid id, CommerceReads service, CancellationToken ct) =>
             Found(await service.ProductAsync(id, ct))).Produces<ProductInfo>();
+        reads.MapGet("/timber-stock/{id:guid}", (Guid id, long? length, long? thickness, long? width, string? widths, int? page,
+            CommerceReads service, CancellationToken ct) => service.TimberStockAsync(id, length, thickness, width, widths, page, ct))
+            .Produces<CommercePage<TimberStockInfo>>();
         reads.MapGet("/customers", (string? search, int? page, CommerceReads service, CancellationToken ct) =>
             service.CustomersAsync(search, page, ct)).Produces<CommercePage<CustomerInfo>>();
         reads.MapGet("/customers/{id:guid}", async (Guid id, CommerceReads service, CancellationToken ct) =>
@@ -39,7 +48,8 @@ internal static class CommerceEndpoints
     private static async Task<IResult> ExecuteAsync(Guid businessId, CommerceCommand request, HttpContext http,
         CommerceService service, CancellationToken ct)
     {
-        try { return Results.Ok(await service.ExecuteAsync(BusinessAccess.AccountId(http), businessId, request, ct)); }
+        var practice = http.GetEndpoint()?.Metadata.GetMetadata<PracticeCommerce>() is not null;
+        try { return Results.Ok(await service.ExecuteAsync(BusinessAccess.AccountId(http), businessId, request, practice, ct)); }
         catch (CommerceFailure error) { return AuthErrors.Fail(error.Message, error.Status); }
     }
 
@@ -57,9 +67,10 @@ internal sealed class ReadCommerceScope(BusinessAccess access, KhypuPymeDbContex
         var http = context.HttpContext;
         var business = Guid.Parse((string)http.Request.RouteValues["businessId"]!);
         var ct = http.RequestAborted;
+        var practice = http.GetEndpoint()?.Metadata.GetMetadata<PracticeCommerce>() is not null;
         http.Response.Headers.CacheControl = "no-store";
         await using var tx = await access.OpenAsync(BusinessAccess.AccountId(http), business, ct, IsolationLevel.RepeatableRead);
-        if (!await db.Businesses.AnyAsync(x => x.Id == business, ct)) return Results.NotFound();
+        if (!await db.Businesses.AnyAsync(x => x.Id == business && (x.PracticeOriginId != null) == practice, ct)) return Results.NotFound();
         try { return await next(context); }
         catch (CommerceFailure error) { return AuthErrors.Fail(error.Message, error.Status); }
     }

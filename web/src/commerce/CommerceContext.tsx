@@ -16,10 +16,11 @@ type Workspace = {
 };
 const Context = createContext<Workspace | null>(null);
 
-export function CommerceProvider({ accountId, businessId, children, showDocument }: {
+export function CommerceProvider({ accountId, businessId, children, showDocument, practice, onConfirmed }: {
   accountId: string; businessId: string; children: ReactNode; showDocument: (id: string) => void;
+  practice?: boolean; onConfirmed?: () => void;
 }) {
-  const path = commercePath(businessId);
+  const path = commercePath(businessId, practice);
   const scope = accountId + ":" + businessId;
   const [pending, setPending] = useState<PendingRecord>();
   const [ready, setReady] = useState(false);
@@ -55,6 +56,7 @@ export function CommerceProvider({ accountId, businessId, children, showDocument
     }
     setConfirmation({ result, draft: record.draft });
     setRevision((current) => current + 1);
+    onConfirmed?.();
     return result;
   }
 

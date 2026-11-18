@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using KhypuPyme.Api.Businesses;
 using KhypuPyme.Api.Persistence;
+using KhypuPyme.Api.Timber;
 using Microsoft.EntityFrameworkCore;
 using static KhypuPyme.Api.Commerce.CommerceRules;
 
@@ -9,19 +10,20 @@ namespace KhypuPyme.Api.Commerce;
 
 internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess access, TimeProvider clock)
 {
-    public async Task<CommandResult> ExecuteAsync(Guid accountId, Guid businessId, CommerceCommand command, CancellationToken ct)
+    public async Task<CommandResult> ExecuteAsync(Guid accountId, Guid businessId, CommerceCommand command, bool practiceChannel, CancellationToken ct)
     {
         if (command.OperationId == Guid.Empty || command.Kind is null or { Length: > 30 })
             throw new CommerceFailure("La solicitud comercial no es válida.");
 
         await using var transaction = await access.OpenAsync(accountId, businessId, ct);
-        var business = await db.Businesses.AsNoTracking().SingleOrDefaultAsync(x => x.Id == businessId, ct)
+        var business = await db.Businesses.AsNoTracking().SingleOrDefaultAsync(x => x.Id == businessId &&
+            (x.PracticeOriginId != null) == practiceChannel, ct)
             ?? throw new CommerceFailure("No se encontró el negocio.", 404);
 
         // Orden fijo de bloqueos: identificador de cuenta, luego el negocio.
         var requestKey = accountId.ToString("N") + command.OperationId.ToString("N");
         await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({requestKey}, 4))", ct);
-        var digest = Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(command)));
+        var digest = Digest(command);
         var receipt = await db.Set<CommerceReceipt>().FindAsync([accountId, command.OperationId], ct);
         if (receipt is not null)
         {
@@ -32,6 +34,11 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
 
         await db.Database.ExecuteSqlInterpolatedAsync(
             $"SELECT pg_advisory_xact_lock(hashtextextended({businessId.ToString()}, 3))", ct);
+        var practice = practiceChannel
+            ? await db.Set<TimberPractice>().SingleOrDefaultAsync(x => x.SandboxId == businessId, ct)
+            : null;
+        if (practiceChannel && practice?.State != "active")
+            throw new CommerceFailure("Reanuda la práctica antes de registrar movimientos.", 409);
         var work = new CommerceTransaction(db, business, command, clock.GetUtcNow(), ct);
         var entityId = command.Kind switch
         {
@@ -46,6 +53,7 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
             _ => throw new CommerceFailure("El tipo de operación no es válido."),
         };
 
+        if (practice is not null) PracticeSteps.Advance(practice, work);
         db.Add(new CommerceReceipt
         {
             Id = command.OperationId, AccountId = accountId, BusinessId = businessId,
@@ -56,13 +64,27 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
         return new CommandResult(command.OperationId, command.Kind, entityId);
     }
 
+    private static string Digest(CommerceCommand command)
+    {
+        // Los comandos comunes conservan el hash del bloque anterior.
+        object serialized = command.TimberProduct is not null || command.Lines?.Any(x => x?.Timber is not null || x?.OriginalLineId is not null) == true
+            ? command
+            : new
+            {
+                command.OperationId, command.Kind, command.EntityId, command.CustomerId, command.SourceId, command.Name,
+                command.Code, command.Phone, command.Method, command.Note, command.AmountMinor, command.DiscountMinor,
+                command.Active, Lines = command.Lines?.Select(x => x is null ? null : new { x.ProductId, x.Quantity, x.UnitMinor, x.Restock }),
+            };
+        return Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(serialized)));
+    }
+
     private static async Task<Guid> SaveProductAsync(CommerceTransaction work)
     {
         var input = work.Command;
         var name = Text(input.Name, 100, "el nombre del producto", true);
         var code = Text(input.Code, 40, "el código del producto", true);
         var normalizedCode = Text(code.ToUpperInvariant(), 40, "el código del producto", true);
-        var price = Money(input.AmountMinor, "un precio");
+        var price = Money(input.TimberProduct?.ShortMinor ?? input.AmountMinor, "un precio");
         var products = work.Db.Set<Product>();
         if (await products.AnyAsync(x => x.NormalizedCode == normalizedCode && x.Id != input.EntityId, work.Ct))
             throw new CommerceFailure("Ya existe un producto con ese código.", 409);
@@ -81,6 +103,7 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
             products.Add(product);
         }
         product.NormalizedCode = normalizedCode;
+        TimberInventory.SetProfile(product, input.TimberProduct, work.Business.Industry == "timber", input.EntityId is null);
         product.PriceMinor = price;
         return product.Id;
     }
@@ -138,7 +161,11 @@ internal sealed class CommerceTransaction(KhypuPymeDbContext db, Business busine
             BusinessId = business.Id, BusinessName = business.Name,
             Id = command.OperationId, Kind = command.Kind, Sequence = sequence,
             Number = $"{prefix}-{Today.Year}-{sequence:D6}", Date = Today, CreatedAt = now,
+            Practice = business.PracticeOriginId is not null,
             Note = Text(command.Note, 240, "la referencia"),
+            TimberUnits = business.Industry == "timber"
+                ? await db.BusinessSettings.Where(x => x.BusinessId == business.Id).Select(x => x.TimberUnits).SingleAsync(ct)
+                : null,
         };
         db.Add(entry);
         return entry;

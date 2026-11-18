@@ -1,0 +1,82 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { pathToFileURL } from "node:url";
+import { timberLabel } from "../web/src/timber/measures.ts";
+
+export async function checkBrowser(cookies) {
+  const module = await import(pathToFileURL(process.env.KHYPU_TEST_PLAYWRIGHT).href);
+  const browser = await module.chromium.launch({ channel: "msedge", headless: true });
+  try {
+    const base = "http://127.0.0.1:5283";
+    const context = await browser.newContext({ viewport: { width: 360, height: 780 } });
+    await context.addCookies([...cookies].map(([name, value]) => ({ name, value, url: base })));
+    const page = await context.newPage();
+    page.setDefaultTimeout(10_000);
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.goto(base + "/?vista=ventas");
+    await page.getByRole("button", { name: /Tabla seca.*Pino/ }).click();
+    await page.getByRole("button", { name: "Elegir medida disponible" }).click();
+    const picked = timberLabel({ lengthMicros: 3_048_000_000, thicknessMicros: 50_800_000, widthMicros: 152_400_000 }, "metric");
+    await page.getByRole("button", { name: "Elegir " + picked, exact: true }).click();
+    await page.getByLabel("Piezas de la medida elegida").fill("100");
+    await page.getByText("Pedido 100 · Disponible 7 · Faltan 93").waitFor();
+    await page.getByRole("button", { name: "Revisar", exact: true }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("checkbox").check();
+    assert.equal(await dialog.getByRole("button", { name: "Confirmar venta" }).isDisabled(), true);
+    await page.keyboard.press("Escape");
+    await dialog.waitFor({ state: "hidden" });
+    assert.equal(await page.evaluate(() => document.activeElement?.textContent), "Carrito");
+    await page.getByLabel("Piezas de la medida elegida").fill("2");
+    await page.getByText("Pedido 2 · Disponible 7").waitFor();
+    await page.getByRole("button", { name: "Revisar", exact: true }).click();
+    assert.equal(await dialog.getByRole("button", { name: "Confirmar venta" }).isDisabled(), true);
+    assert.match(await dialog.innerText(), /200,00/);
+    await dialog.getByRole("checkbox").check();
+    await dialog.getByRole("button", { name: "Confirmar venta" }).click();
+    await page.getByRole("heading", { name: "Venta confirmada" }).waitFor();
+    await page.getByText("50,8 mm × 152,4 mm × 3048 mm", { exact: false }).waitFor();
+    const downloading = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Guardar PDF" }).click();
+    const download = await downloading;
+    assert.match(download.suggestedFilename(), /\.pdf$/);
+    assert.equal((await readFile(await download.path())).subarray(0, 4).toString(), "%PDF");
+
+    await page.getByRole("link", { name: "Inicio", exact: true }).click();
+    await page.getByRole("button", { name: "Iniciar práctica" }).click();
+    const guide = page.getByRole("complementary", { name: "Guía de la práctica" });
+    await guide.getByRole("heading", { name: "Abre la caja de práctica" }).waitFor();
+    const move = guide.getByRole("button", { name: /Mover guía/ });
+    const before = await guide.boundingBox();
+    await move.focus();
+    await page.keyboard.press("ArrowUp");
+    const shifted = await guide.boundingBox();
+    assert.ok(shifted.y < before.y);
+    const handle = await move.boundingBox();
+    await page.mouse.move(handle.x + 10, handle.y + 10);
+    await page.mouse.down();
+    await page.mouse.move(handle.x + 10, handle.y - 15);
+    await page.mouse.up();
+    const dragged = await guide.boundingBox();
+    assert.ok(dragged.y < shifted.y);
+    await guide.getByRole("button", { name: "Minimizar" }).click();
+    await guide.getByRole("button", { name: "Mostrar guía" }).click();
+    await guide.getByRole("button", { name: "Ir a caja" }).click();
+    await page.getByLabel("Fondo inicial (Bs)").fill("17");
+    await page.getByRole("button", { name: "Confirmar apertura" }).click();
+    await guide.getByRole("heading", { name: "Crea un producto de madera" }).waitFor();
+    await page.reload();
+    await guide.getByRole("heading", { name: "Crea un producto de madera" }).waitFor();
+    await guide.getByRole("button", { name: "Pausar", exact: true }).click();
+    await page.getByRole("button", { name: "Reanudar práctica" }).click();
+    await guide.getByRole("heading", { name: "Crea un producto de madera" }).waitFor();
+    await guide.getByRole("button", { name: "Abandonar", exact: true }).click();
+    await guide.getByRole("button", { name: "Eliminar esta práctica" }).click();
+    await page.getByText("Práctica eliminada.", { exact: true }).waitFor();
+    assert.deepEqual(errors, []);
+    console.log("Navegador a 360 px: faltante, revisión, Escape, guía por teclado y arrastre, pausa, recarga y limpieza confirmados.");
+  } finally {
+    await browser.close();
+  }
+}

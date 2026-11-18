@@ -94,7 +94,12 @@ namespace KhypuPyme.Api.Persistence.Migrations
                     b.Property<Guid>("OwnerId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("PracticeOriginId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("OwnerId", "PracticeOriginId");
 
                     b.HasIndex("OwnerId", "Name", "Id");
 
@@ -285,6 +290,9 @@ namespace KhypuPyme.Api.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool>("Practice")
+                        .HasColumnType("boolean");
+
                     b.Property<long>("PurchasesMinor")
                         .HasColumnType("bigint");
 
@@ -296,6 +304,9 @@ namespace KhypuPyme.Api.Persistence.Migrations
 
                     b.Property<Guid?>("SourceId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("TimberUnits")
+                        .HasColumnType("text");
 
                     b.Property<long>("TotalMinor")
                         .HasColumnType("bigint");
@@ -330,7 +341,7 @@ namespace KhypuPyme.Api.Persistence.Migrations
                     b.Property<Guid>("EntryId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("ProductId")
+                    b.Property<Guid>("LineId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Code")
@@ -340,9 +351,18 @@ namespace KhypuPyme.Api.Persistence.Migrations
                     b.Property<long>("CostMinor")
                         .HasColumnType("bigint");
 
+                    b.Property<long?>("LengthMicros")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<Guid?>("OriginalLineId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
 
                     b.Property<int>("Quantity")
                         .HasColumnType("integer");
@@ -350,13 +370,22 @@ namespace KhypuPyme.Api.Persistence.Migrations
                     b.Property<bool?>("Restocked")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("Species")
+                        .HasColumnType("text");
+
                     b.Property<long>("SubtotalMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("ThicknessMicros")
                         .HasColumnType("bigint");
 
                     b.Property<long>("UnitMinor")
                         .HasColumnType("bigint");
 
-                    b.HasKey("BusinessId", "EntryId", "ProductId");
+                    b.Property<long?>("WidthMicros")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("BusinessId", "EntryId", "LineId");
 
                     b.HasIndex("BusinessId", "ProductId");
 
@@ -382,6 +411,9 @@ namespace KhypuPyme.Api.Persistence.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
 
+                    b.Property<long?>("LongMinor")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -395,8 +427,18 @@ namespace KhypuPyme.Api.Persistence.Migrations
                     b.Property<long>("PriceMinor")
                         .HasColumnType("bigint");
 
+                    b.Property<long?>("ShortMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Species")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<int>("Stock")
                         .HasColumnType("integer");
+
+                    b.Property<long?>("SuperShortMinor")
+                        .HasColumnType("bigint");
 
                     b.Property<long>("ValueMinor")
                         .HasColumnType("bigint");
@@ -438,6 +480,69 @@ namespace KhypuPyme.Api.Persistence.Migrations
                     b.ToTable("receivables", "khypupyme", t =>
                         {
                             t.HasCheckConstraint("receivables_balance", "\"OriginalMinor\" > 0 AND \"BalanceMinor\" BETWEEN 0 AND \"OriginalMinor\"");
+                        });
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Timber.TimberPractice", b =>
+                {
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OriginId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("SandboxId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Step")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("OwnerId", "OriginId");
+
+                    b.HasIndex("SandboxId")
+                        .IsUnique();
+
+                    b.ToTable("timber_practices", "khypupyme");
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Timber.TimberStock", b =>
+                {
+                    b.Property<Guid>("BusinessId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("LengthMicros")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("ThicknessMicros")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("WidthMicros")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Stock")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("ValueMinor")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("BusinessId", "ProductId", "LengthMicros", "ThicknessMicros", "WidthMicros");
+
+                    b.ToTable("timber_stock", "khypupyme", t =>
+                        {
+                            t.HasCheckConstraint("timber_stock_amounts", "\"Stock\" BETWEEN 0 AND 1000000 AND \"ValueMinor\" BETWEEN 0 AND 1000000000000\r\nAND (\"Stock\" > 0 OR \"ValueMinor\" = 0)\r\nAND \"LengthMicros\" BETWEEN 304800000 AND 6096000000 AND \"LengthMicros\" % 304800000 = 0\r\nAND \"ThicknessMicros\" BETWEEN 1 AND 10000000000 AND \"WidthMicros\" BETWEEN 1 AND 10000000000");
                         });
                 });
 
@@ -796,6 +901,12 @@ namespace KhypuPyme.Api.Persistence.Migrations
                         .HasForeignKey("OwnerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("KhypuPyme.Api.Businesses.Business", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId", "PracticeOriginId")
+                        .HasPrincipalKey("OwnerId", "Id")
+                        .OnDelete(DeleteBehavior.NoAction);
                 });
 
             modelBuilder.Entity("KhypuPyme.Api.Businesses.BusinessSettings", b =>
@@ -907,6 +1018,31 @@ namespace KhypuPyme.Api.Persistence.Migrations
                     b.HasOne("KhypuPyme.Api.Commerce.Entry", null)
                         .WithMany()
                         .HasForeignKey("BusinessId", "SaleId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Timber.TimberPractice", b =>
+                {
+                    b.HasOne("KhypuPyme.Api.Businesses.Business", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId", "OriginId")
+                        .HasPrincipalKey("OwnerId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Timber.TimberStock", b =>
+                {
+                    b.HasOne("KhypuPyme.Api.Businesses.Business", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("KhypuPyme.Api.Commerce.Product", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId", "ProductId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
                 });

@@ -1,6 +1,7 @@
 using KhypuPyme.Api.Accounts;
 using KhypuPyme.Api.Businesses;
 using KhypuPyme.Api.Commerce;
+using KhypuPyme.Api.Timber;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -37,11 +38,22 @@ public sealed class KhypuPymeDbContext(DbContextOptions<KhypuPymeDbContext> opti
             entry.ToTable("businesses");
             entry.HasKey(x => x.Id);
             entry.HasAlternateKey(x => new { x.OwnerId, x.Id });
+            entry.HasOne<Business>().WithMany().HasPrincipalKey(x => new { x.OwnerId, x.Id })
+                .HasForeignKey(x => new { x.OwnerId, x.PracticeOriginId }).OnDelete(DeleteBehavior.NoAction);
             entry.HasOne<IdentityUser<Guid>>().WithMany().HasForeignKey(x => x.OwnerId);
             entry.Property(x => x.Name).HasMaxLength(100);
             entry.Property(x => x.Industry).HasMaxLength(32);
             entry.Property(x => x.CreationDigest).HasMaxLength(64);
             entry.HasIndex(x => new { x.OwnerId, x.Name, x.Id });
+        });
+
+        modelBuilder.Entity<TimberPractice>(entry =>
+        {
+            entry.ToTable("timber_practices");
+            entry.HasKey(x => new { x.OwnerId, x.OriginId });
+            entry.HasIndex(x => x.SandboxId).IsUnique();
+            entry.HasOne<Business>().WithMany().HasPrincipalKey(x => new { x.OwnerId, x.Id })
+                .HasForeignKey(x => new { x.OwnerId, x.OriginId });
         });
 
         modelBuilder.Entity<BusinessSettings>(entry =>

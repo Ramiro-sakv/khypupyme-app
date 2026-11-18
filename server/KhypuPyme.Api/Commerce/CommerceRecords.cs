@@ -13,6 +13,10 @@ internal sealed class Product : IBusinessRecord
     public int Stock { get; set; }
     public long ValueMinor { get; set; }
     public bool Active { get; set; } = true;
+    public string? Species { get; set; }
+    public long? SuperShortMinor { get; set; }
+    public long? ShortMinor { get; set; }
+    public long? LongMinor { get; set; }
 }
 
 internal sealed class Customer : IBusinessRecord
@@ -49,6 +53,8 @@ internal sealed class Entry : IBusinessRecord
     public required DateOnly Date { get; init; }
     public required DateTimeOffset CreatedAt { get; init; }
     public DateOnly? ExpiresOn { get; set; }
+    public string? TimberUnits { get; set; }
+    public bool Practice { get; init; }
     public string? Method { get; set; }
     public string Note { get; set; } = "";
     public long TotalMinor { get; set; }
@@ -67,6 +73,8 @@ internal sealed class EntryLine : IBusinessRecord
 {
     public Guid BusinessId { get; init; }
     public Guid EntryId { get; init; }
+    public Guid LineId { get; init; } = Guid.NewGuid();
+    public Guid? OriginalLineId { get; init; }
     public Guid ProductId { get; init; }
     public required string Name { get; init; }
     public required string Code { get; init; }
@@ -75,6 +83,13 @@ internal sealed class EntryLine : IBusinessRecord
     public long SubtotalMinor { get; init; }
     public long CostMinor { get; init; }
     public bool? Restocked { get; init; }
+    public string? Species { get; init; }
+    public long? LengthMicros { get; init; }
+    public long? ThicknessMicros { get; init; }
+    public long? WidthMicros { get; init; }
+
+    public Timber.TimberDimensions? Timber => LengthMicros is long l && ThicknessMicros is long t && WidthMicros is long w
+        ? new(l, t, w) : null;
 }
 
 internal sealed class Receivable : IBusinessRecord

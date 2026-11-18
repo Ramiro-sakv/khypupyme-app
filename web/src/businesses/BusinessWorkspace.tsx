@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { MouseEvent } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { Icon } from "../ui/Icon";
 import type { IconName } from "../ui/Icon";
 import { CommerceProvider, useCommerceData } from "../commerce/CommerceContext";
@@ -15,6 +15,10 @@ import { BusinessHome } from "./BusinessHome";
 import { BusinessSettings } from "./BusinessSettings";
 import { industryTheme } from "./industryThemes";
 import type { BusinessProfile } from "./models";
+import { PracticeGuide } from "../timber/TimberPractice";
+import type { PracticeControls } from "../timber/TimberPractice";
+import { unitsOf } from "../timber/measures";
+import { Alert } from "../ui/Primitives";
 
 const workspaceViews = [
   "inicio", "ventas", "compras", "cotizaciones", "catalogo", "clientes", "caja", "fiados", "gastos", "historial", "informes", "configuracion",
@@ -45,9 +49,10 @@ const navigation: Navigation[] = [
 type WorkspaceProps = {
   accountId: string; business: BusinessProfile; industry: string; view: WorkspaceView;
   navigate: (view: BusinessView) => void; onSave: (profile: BusinessProfile) => void;
+  practice?: PracticeControls; practiceEntry?: ReactNode;
 };
 
-export function BusinessWorkspace({ accountId, business, industry, view, navigate, onSave }: WorkspaceProps) {
+export function BusinessWorkspace({ accountId, business, industry, view, navigate, onSave, practice, practiceEntry }: WorkspaceProps) {
   const theme = industryTheme(business.industry);
   const content = useRef<HTMLDivElement>(null);
   const more = useRef<HTMLDetailsElement>(null);
@@ -55,6 +60,8 @@ export function BusinessWorkspace({ accountId, business, industry, view, navigat
   const [quote, setQuote] = useState<EntryDocument>();
   const [historyKind, setHistoryKind] = useState("");
   const documentId = document?.origin === view ? document.id : undefined;
+  const units = business.industry === "timber" ? unitsOf(business.timberUnits) : undefined;
+  const menu = practice ? navigation.filter((item) => item.id !== "negocios" && item.id !== "configuracion") : navigation;
 
   useEffect(() => {
     content.current?.querySelector("h1")?.focus({ preventScroll: true });
@@ -82,7 +89,7 @@ export function BusinessWorkspace({ accountId, business, industry, view, navigat
     </a>;
   }
   function trade(kind: TradeKind) {
-    return <TradePage key={kind} kind={kind} proposal={kind === "sale" ? quote : undefined}
+    return <TradePage key={kind} kind={kind} units={units} proposal={kind === "sale" ? quote : undefined}
       dismissProposal={() => setQuote(undefined)} onHistory={() => { setHistoryKind(kind); go("historial"); }} />;
   }
   function renderView() {
@@ -90,7 +97,7 @@ export function BusinessWorkspace({ accountId, business, industry, view, navigat
       convert={(source) => { setQuote(source); go("ventas"); }} />;
     switch (view) {
       case "inicio": return <CommercialHome business={business} industry={industry} icon={theme.icon} navigate={go} />;
-      case "catalogo": return <CatalogPage />;
+      case "catalogo": return <CatalogPage units={units} />;
       case "clientes": return <CustomersPage />;
       case "ventas": return trade("sale");
       case "compras": return trade("purchase");
@@ -100,7 +107,8 @@ export function BusinessWorkspace({ accountId, business, industry, view, navigat
       case "fiados": return <ReceivablesPage />;
       case "historial": return <HistoryPage key={historyKind} initialKind={historyKind} />;
       case "informes": return <ReportsPage />;
-      case "configuracion": return <BusinessSettings profile={business} industry={industry} onSave={onSave} />;
+      case "configuracion": return practice ? <Alert>Para cambiar la configuración, pausa la práctica y vuelve al negocio.</Alert> :
+        <BusinessSettings profile={business} industry={industry} onSave={onSave} />;
     }
   }
 
@@ -110,7 +118,7 @@ export function BusinessWorkspace({ accountId, business, industry, view, navigat
         <span className="workspace-business-icon"><Icon name={theme.icon} /></span>
         <div><strong>{business.name}</strong><span>{industry}</span></div>
       </div>
-      <ul>{navigation.map((item) => <li key={item.id} className={item.mobile ? undefined : "desktop-nav-item"}>{link(item)}</li>)}
+      <ul>{menu.map((item) => <li key={item.id} className={item.mobile ? undefined : "desktop-nav-item"}>{link(item)}</li>)}
         <li className="mobile-nav-more"><details ref={more} onKeyDown={(event) => {
           if (event.key === "Escape" && more.current?.open) {
             more.current.open = false;
@@ -118,16 +126,19 @@ export function BusinessWorkspace({ accountId, business, industry, view, navigat
           }
         }}>
           <summary><Icon name="grid" />Más</summary>
-          <ul>{navigation.filter((item) => !item.mobile).map((item) => <li key={item.id}>{link(item)}</li>)}</ul>
+          <ul>{menu.filter((item) => !item.mobile).map((item) => <li key={item.id}>{link(item)}</li>)}</ul>
         </details></li>
       </ul>
     </nav>
     <div className="workspace-content" ref={content}>
       {(view !== "inicio" || documentId) && <p className="commerce-business-label">{business.name}</p>}
-      <CommerceProvider accountId={accountId} businessId={business.id} showDocument={openDocument}>
+      {practice && <Alert>PRÁCTICA — DATOS FICTICIOS</Alert>}
+      {practiceEntry}
+      <CommerceProvider accountId={accountId} businessId={business.id} practice={!!practice} onConfirmed={practice?.refresh} showDocument={openDocument}>
         {renderView()}
       </CommerceProvider>
     </div>
+    {practice && <PracticeGuide controls={practice} view={view} navigate={go} />}
   </div>;
 }
 

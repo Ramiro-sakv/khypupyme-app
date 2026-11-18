@@ -30,7 +30,7 @@ internal static class BusinessEndpoints
             return AuthErrors.Fail("Selecciona una página válida y busca hasta 80 caracteres.");
 
         await using var transaction = await access.OpenAsync(BusinessAccess.AccountId(http), null, ct);
-        var query = db.Businesses.AsNoTracking();
+        var query = db.Businesses.AsNoTracking().Where(item => item.PracticeOriginId == null);
         if (!string.IsNullOrWhiteSpace(search))
         {
             var escaped = search.Trim().Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
@@ -52,7 +52,7 @@ internal static class BusinessEndpoints
         var business = await (from selection in db.AccountSelections
                               join item in db.Businesses on new { selection.OwnerId, Id = selection.BusinessId }
                                 equals new { item.OwnerId, item.Id }
-                              where selection.OwnerId == owner
+                              where selection.OwnerId == owner && item.PracticeOriginId == null
                               select new BusinessCard(item.Id, item.Name, item.Industry)).FirstOrDefaultAsync(ct);
         return Results.Ok(new SelectedBusiness(business));
     }
@@ -62,7 +62,7 @@ internal static class BusinessEndpoints
     {
         http.Response.Headers.CacheControl = "no-store";
         await using var transaction = await access.OpenAsync(BusinessAccess.AccountId(http), id, ct);
-        var business = await db.Businesses.SingleOrDefaultAsync(x => x.Id == id, ct);
+        var business = await db.Businesses.SingleOrDefaultAsync(x => x.Id == id && x.PracticeOriginId == null, ct);
         if (business is null) return Results.NotFound();
         var settings = await db.BusinessSettings.SingleAsync(x => x.BusinessId == id, ct);
         return Results.Ok(Profile(business, settings));
@@ -118,7 +118,7 @@ internal static class BusinessEndpoints
     {
         var owner = BusinessAccess.AccountId(http);
         await using var transaction = await access.OpenAsync(owner, id, ct);
-        if (!await db.Businesses.AnyAsync(x => x.Id == id, ct)) return Results.NotFound();
+        if (!await db.Businesses.AnyAsync(x => x.Id == id && x.PracticeOriginId == null, ct)) return Results.NotFound();
         await access.LockSelectionAsync(owner, ct);
         await SetSelectionAsync(db, owner, id, ct);
         await db.SaveChangesAsync(ct);
@@ -131,7 +131,7 @@ internal static class BusinessEndpoints
     {
         if (input.BusinessId != id) return AuthErrors.Fail("La configuración pertenece a otro negocio.");
         await using var transaction = await access.OpenAsync(BusinessAccess.AccountId(http), id, ct);
-        var business = await db.Businesses.SingleOrDefaultAsync(x => x.Id == id, ct);
+        var business = await db.Businesses.SingleOrDefaultAsync(x => x.Id == id && x.PracticeOriginId == null, ct);
         if (business is null) return Results.NotFound();
 
         var city = input.City?.Trim() ?? "";

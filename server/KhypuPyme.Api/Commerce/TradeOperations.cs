@@ -1,10 +1,13 @@
+using System.Numerics;
 using Microsoft.EntityFrameworkCore;
+using KhypuPyme.Api.Timber;
 using static KhypuPyme.Api.Commerce.CommerceRules;
 
 namespace KhypuPyme.Api.Commerce;
 
 internal sealed class TradeOperations(CommerceTransaction work)
 {
+    private readonly TimberInventory inventory = new(work);
     public async Task<Guid> PurchaseAsync()
     {
         var rows = await PrepareAsync(useCatalogPrice: false);
@@ -13,7 +16,7 @@ internal sealed class TradeOperations(CommerceTransaction work)
         entry.TotalMinor = entry.PurchasesMinor = Total(rows.Select(x => x.Subtotal));
         foreach (var row in rows)
         {
-            AddStock(row.Product, row.Quantity, row.Subtotal);
+            await inventory.AddAsync(row.Product, row.Timber, row.Quantity, row.Subtotal);
             entry.Lines.Add(Snapshot(entry, row, row.Subtotal, row.Subtotal));
         }
         await work.ApplyCashAsync(entry, -entry.TotalMinor);
@@ -61,7 +64,7 @@ internal sealed class TradeOperations(CommerceTransaction work)
         {
             var net = row.Subtotal - Share(discount, runningGross, runningGross + row.Subtotal, gross);
             runningGross += row.Subtotal;
-            var cost = quote ? 0 : RemoveStock(row.Product, row.Quantity);
+            var cost = quote ? 0 : await inventory.RemoveAsync(row.Product, row.Timber, row.Quantity);
             entry.CostMinor += cost;
             entry.Lines.Add(Snapshot(entry, row, net, cost));
         }
@@ -80,45 +83,51 @@ internal sealed class TradeOperations(CommerceTransaction work)
             throw new CommerceFailure("La cotización venció o ya se convirtió en venta.", 409);
         if (source.CustomerId != entry.CustomerId || source.DiscountMinor != entry.DiscountMinor ||
             rows.Length != source.Lines.Count || rows.Any(row => !source.Lines.Any(line =>
-                line.ProductId == row.Product.Id && line.Quantity == row.Quantity && line.UnitMinor == row.UnitMinor)))
+                line.ProductId == row.Product.Id && line.Quantity == row.Quantity && line.UnitMinor == row.UnitMinor && line.Timber == row.Timber)))
             throw new CommerceFailure("La cotización cambió. Emite otra antes de convertirla.", 409);
         entry.SourceId = source.Id;
     }
 
     public async Task<Guid> ReturnAsync()
     {
-        var requested = Lines(work.Command.Lines);
+        var requested = Lines(work.Command.Lines, returning: true);
         var sale = await work.SourceAsync("sale", includeLines: true);
         var returned = await work.Db.Set<Entry>()
             .Where(x => x.Kind == "return" && x.SourceId == sale.Id)
-            .SelectMany(x => x.Lines).GroupBy(x => x.ProductId)
+            .SelectMany(x => x.Lines).GroupBy(x => x.OriginalLineId ?? x.ProductId)
             .ToDictionaryAsync(group => group.Key, group => group.Sum(row => row.Quantity), work.Ct);
 
         var entry = await work.NewEntryAsync("DEV");
+        entry.TimberUnits = sale.TimberUnits;
         entry.SourceId = sale.Id;
         entry.CustomerId = sale.CustomerId;
         entry.CustomerName = sale.CustomerName;
         entry.Note = Text(work.Command.Note, 240, "el motivo de la devolución", true);
         entry.Method = Payment(work.Command.Method);
+        var selected = new HashSet<Guid>();
         foreach (var input in requested)
         {
-            var original = sale.Lines.SingleOrDefault(x => x.ProductId == input.ProductId)
+            var original = sale.Lines.SingleOrDefault(x => x.ProductId == input.ProductId &&
+                (input.OriginalLineId is null ? x.LengthMicros == null : x.LineId == input.OriginalLineId))
                 ?? throw new CommerceFailure("El producto no pertenece a la venta original.");
-            var before = returned.GetValueOrDefault(input.ProductId);
+            if (!selected.Add(original.LineId)) throw new CommerceFailure("Indica una cantidad por línea de la venta original.");
+            var before = returned.GetValueOrDefault(original.LineId);
             if (before + input.Quantity > original.Quantity)
                 throw new CommerceFailure($"Solo quedan {original.Quantity - before} piezas de {original.Name} por devolver.", 409);
             var refund = Share(original.SubtotalMinor, before, before + input.Quantity, original.Quantity);
             var cost = Share(original.CostMinor, before, before + input.Quantity, original.Quantity);
             var restock = input.Restock ?? true;
-            if (restock) AddStock(await work.ProductAsync(input.ProductId), input.Quantity, cost);
+            if (restock) await inventory.AddAsync(await work.ProductAsync(input.ProductId), original.Timber, input.Quantity, cost);
             else entry.LossesMinor += cost;
             entry.TotalMinor += refund;
             entry.CostMinor -= cost;
             entry.Lines.Add(new EntryLine
             {
                 BusinessId = entry.BusinessId, EntryId = entry.Id, ProductId = original.ProductId,
-                Name = original.Name, Code = original.Code, Quantity = input.Quantity,
+                Name = original.Name, Code = original.Code, Quantity = input.Quantity, OriginalLineId = original.LineId,
                 UnitMinor = original.UnitMinor, SubtotalMinor = refund, CostMinor = cost, Restocked = restock,
+                Species = original.Species, LengthMicros = original.LengthMicros, ThicknessMicros = original.ThicknessMicros,
+                WidthMicros = original.WidthMicros,
             });
         }
 
@@ -141,9 +150,10 @@ internal sealed class TradeOperations(CommerceTransaction work)
         foreach (var line in inputs)
         {
             var product = await work.ProductAsync(line.ProductId);
-            var cost = RemoveStock(product, line.Quantity);
+            var dimension = TimberInventory.Check(product, line.Timber);
+            var cost = await inventory.RemoveAsync(product, dimension, line.Quantity);
             entry.LossesMinor += cost;
-            entry.Lines.Add(Snapshot(entry, new TradeRow(product, line.Quantity, 0, 0), cost, cost));
+            entry.Lines.Add(Snapshot(entry, new TradeRow(product, line.Quantity, 0, 0, dimension), cost, cost));
         }
         entry.TotalMinor = Total(entry.Lines.Select(x => x.CostMinor));
         return entry.Id;
@@ -157,10 +167,29 @@ internal sealed class TradeOperations(CommerceTransaction work)
         {
             var product = await work.ProductAsync(line.ProductId);
             if (!product.Active) throw new CommerceFailure($"{product.Name} está archivado.", 409);
+            var dimension = TimberInventory.Check(product, line.Timber);
             var unit = Money(line.UnitMinor, useCatalogPrice ? "el precio unitario" : "el costo unitario");
-            if (useCatalogPrice && unit != product.PriceMinor)
+            if (useCatalogPrice && unit != (dimension is null ? product.PriceMinor : TimberMeasures.Rate(product, dimension)))
                 throw new CommerceFailure($"Cambió el precio de {product.Name}. Actualízalo y vuelve a revisar.", 409);
-            rows.Add(new TradeRow(product, line.Quantity, unit, Money(unit * line.Quantity, "un subtotal")));
+            var subtotal = useCatalogPrice && dimension is not null ? 0 : Money(unit * line.Quantity, "un subtotal");
+            rows.Add(new TradeRow(product, line.Quantity, unit, subtotal, dimension));
+        }
+        if (useCatalogPrice)
+        {
+            var groups = rows.Select((row, index) => (row, index)).Where(x => x.row.Timber is not null)
+                .GroupBy(x => (x.row.Product.Id, x.row.Timber!.LengthMicros, x.row.Timber.ThicknessMicros, x.row.UnitMinor));
+            foreach (var group in groups)
+            {
+                BigInteger cumulative = 0;
+                long before = 0;
+                foreach (var (row, index) in group.OrderBy(x => x.row.Timber!.WidthMicros))
+                {
+                    cumulative += TimberMeasures.Volume(row.Timber!, row.Quantity);
+                    var after = TimberMeasures.Total(cumulative, row.UnitMinor);
+                    rows[index] = row with { Subtotal = after - before };
+                    before = after;
+                }
+            }
         }
         return rows.ToArray();
     }
@@ -170,7 +199,9 @@ internal sealed class TradeOperations(CommerceTransaction work)
         BusinessId = entry.BusinessId, EntryId = entry.Id, ProductId = row.Product.Id,
         Name = row.Product.Name, Code = row.Product.Code, Quantity = row.Quantity,
         UnitMinor = row.UnitMinor, SubtotalMinor = subtotal, CostMinor = cost,
+        Species = row.Product.Species, LengthMicros = row.Timber?.LengthMicros, ThicknessMicros = row.Timber?.ThicknessMicros,
+        WidthMicros = row.Timber?.WidthMicros,
     };
 
-    private sealed record TradeRow(Product Product, int Quantity, long UnitMinor, long Subtotal);
+    private sealed record TradeRow(Product Product, int Quantity, long UnitMinor, long Subtotal, TimberDimensions? Timber);
 }

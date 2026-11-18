@@ -20,7 +20,10 @@ internal sealed class CommerceReads(KhypuPymeDbContext db, TimeProvider clock, S
         if (term is not null)
             query = query.Where(x => EF.Functions.ILike(x.Name, term, "\\") || EF.Functions.ILike(x.Code, term, "\\") ||
                 (x.Species != null && EF.Functions.ILike(x.Species, term, "\\")) ||
-                (x.Model != null && EF.Functions.ILike(x.Model, term, "\\")));
+                (x.Model != null && EF.Functions.ILike(x.Model, term, "\\")) ||
+                (x.Brand != null && EF.Functions.ILike(x.Brand, term, "\\")) ||
+                (x.Presentation != null && EF.Functions.ILike(x.Presentation, term, "\\")) ||
+                (x.Tone != null && EF.Functions.ILike(x.Tone, term, "\\")));
         return PageAsync(store.Describe(query.OrderBy(x => x.Name).ThenBy(x => x.Id)), page, ct);
     }
 
@@ -91,9 +94,11 @@ internal sealed class CommerceReads(KhypuPymeDbContext db, TimeProvider clock, S
 
         var balance = entry.Kind == "sale" && entry.Method == "credit"
             ? await db.Set<Receivable>().Where(x => x.SaleId == id).Select(x => x.BalanceMinor).SingleOrDefaultAsync(ct) : 0;
+        var containers = await db.Set<ContainerMovement>().AsNoTracking().Where(x => x.EntryId == id).OrderBy(x => x.Name)
+            .Select(x => new ContainerMovementInfo(x.Name, x.Delivered, x.Returned, x.CustomerBalance, x.Available, x.Added)).ToArrayAsync(ct);
         return new EntryDocument(entry.Id, entry.Number, entry.Kind, entry.Date, entry.ExpiresOn, entry.BusinessName,
             entry.CustomerId, entry.CustomerName, entry.Method, entry.Note, entry.TotalMinor, entry.DiscountMinor, entry.CashDeltaMinor,
-            entry.DebtDeltaMinor, entry.SourceId, linked, lines, entry.TimberUnits, entry.Practice, balance);
+            entry.DebtDeltaMinor, entry.SourceId, linked, lines, entry.TimberUnits, entry.Practice, balance, containers);
     }
 
     public async Task<CashStatus> CashAsync(CancellationToken ct) =>
@@ -122,7 +127,8 @@ internal sealed class CommerceReads(KhypuPymeDbContext db, TimeProvider clock, S
 
         var grouped = await Entries.Where(x => x.Date >= start && x.Date <= end &&
                 (x.Kind == "sale" || x.Kind == "return" || x.Kind == "purchase" ||
-                    x.Kind == "expense" || x.Kind == "void-expense" || x.Kind == "stock-loss"))
+                    x.Kind == "expense" || x.Kind == "void-expense" || x.Kind == "stock-loss" ||
+                    x.Kind == "discard-lot" || x.Kind == "exchange" || x.Kind == "inspection"))
             .GroupBy(x => x.Date).Select(rows => new ResultDay(rows.Key, rows.Sum(x => x.SalesMinor),
                 rows.Sum(x => x.CostMinor), rows.Sum(x => x.PurchasesMinor), rows.Sum(x => x.ExpensesMinor), rows.Sum(x => x.LossesMinor)))
             .ToDictionaryAsync(x => x.Date, ct);

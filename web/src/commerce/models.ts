@@ -38,6 +38,8 @@ const documentNames: Record<string, string> = {
   "void-expense": "Anulación de gasto", collect: "Cobro de fiado", "stock-loss": "Pérdida de inventario",
   "open-cash": "Apertura de caja", "close-cash": "Cierre de caja",
   exchange: "Cambio de prenda", inspection: "Inspección",
+  containers: "Movimiento de envases", "container-stock": "Entrada de envases",
+  "hold-lot": "Lote apartado", "release-lot": "Lote liberado", "discard-lot": "Baja de lote",
 };
 export const documentName = (kind: string) => documentNames[kind] ?? kind;
 export const dateLabel = (day: string) => new Intl.DateTimeFormat("es-BO", {

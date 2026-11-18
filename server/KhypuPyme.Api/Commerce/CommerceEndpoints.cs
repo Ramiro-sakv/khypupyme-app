@@ -28,14 +28,20 @@ internal static class CommerceEndpoints
             Found(await store.CodeAsync(code, ct))).Produces<ProductInfo>();
         reads.MapGet("/variants", (string? model, StoreReads store, CancellationToken ct) =>
             store.VariantsAsync(model, ct)).Produces<ProductInfo[]>();
-        reads.MapGet("/lots/{id:guid}", (Guid id, int? page, StoreReads store, CancellationToken ct) =>
-            store.LotsAsync(id, page, ct)).Produces<CommercePage<LotInfo>>();
+        reads.MapGet("/lots/{id:guid}", (Guid id, string? lot, bool? sellable, int? page, StoreReads store, CancellationToken ct) =>
+            store.LotsAsync(id, lot, sellable, page, ct)).Produces<CommercePage<LotInfo>>();
         reads.MapGet("/serials", (Guid? product, string? search, string? state, int? page, StoreReads store, CancellationToken ct) =>
             store.SerialsAsync(product, search, state, page, ct)).Produces<CommercePage<SerialInfo>>();
         reads.MapGet("/serial", async (string? serial, StoreReads store, CancellationToken ct) =>
             Found(await store.SerialAsync(serial, ct))).Produces<UnitHistory>();
         reads.MapGet("/attention", (StoreReads store, CancellationToken ct) =>
             store.AttentionAsync(ct)).Produces<StoreAttention>();
+        reads.MapGet("/containers", async (Guid? customer, KhypuPymeDbContext db, CancellationToken ct) =>
+        {
+            if (customer is Guid id && !await db.Set<Customer>().AnyAsync(x => x.Id == id, ct))
+                throw new CommerceFailure("El cliente no está disponible en este negocio.", 404);
+            return await ContainerService.ListAsync(customer, db, ct);
+        }).Produces<ContainerInfo[]>();
         reads.MapGet("/timber-stock/{id:guid}", (Guid id, long? length, long? thickness, long? width, string? widths, int? page,
             CommerceReads service, CancellationToken ct) => service.TimberStockAsync(id, length, thickness, width, widths, page, ct))
             .Produces<CommercePage<TimberStockInfo>>();

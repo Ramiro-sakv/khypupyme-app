@@ -416,6 +416,9 @@ namespace KhypuPyme.Api.Persistence.Migrations
                     b.Property<int>("BoxSize")
                         .HasColumnType("integer");
 
+                    b.Property<string>("Brand")
+                        .HasColumnType("text");
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -447,6 +450,9 @@ namespace KhypuPyme.Api.Persistence.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
 
+                    b.Property<string>("Presentation")
+                        .HasColumnType("text");
+
                     b.Property<long>("PriceMinor")
                         .HasColumnType("bigint");
 
@@ -472,6 +478,9 @@ namespace KhypuPyme.Api.Persistence.Migrations
 
                     b.Property<long?>("SuperShortMinor")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("Tone")
+                        .HasColumnType("text");
 
                     b.Property<bool>("TrackLots")
                         .HasColumnType("boolean");
@@ -527,6 +536,100 @@ namespace KhypuPyme.Api.Persistence.Migrations
                     b.ToTable("receivables", "khypupyme", t =>
                         {
                             t.HasCheckConstraint("receivables_balance", "\"OriginalMinor\" > 0 AND \"BalanceMinor\" BETWEEN 0 AND \"OriginalMinor\"");
+                        });
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Retail.ContainerBalance", b =>
+                {
+                    b.Property<Guid>("BusinessId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TypeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.HasKey("BusinessId", "TypeId", "CustomerId");
+
+                    b.HasIndex("BusinessId", "CustomerId");
+
+                    b.ToTable("container_balances", "khypupyme", t =>
+                        {
+                            t.HasCheckConstraint("container_balance_quantity", " \"Quantity\" BETWEEN 0 AND 1000000 ");
+                        });
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Retail.ContainerMovement", b =>
+                {
+                    b.Property<Guid>("BusinessId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("EntryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TypeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Added")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Available")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CustomerBalance")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Delivered")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Returned")
+                        .HasColumnType("integer");
+
+                    b.HasKey("BusinessId", "EntryId", "TypeId");
+
+                    b.HasIndex("BusinessId", "TypeId");
+
+                    b.ToTable("container_movements", "khypupyme");
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Retail.ContainerType", b =>
+                {
+                    b.Property<Guid>("BusinessId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Available")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Borrowed")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("BusinessId", "Id");
+
+                    b.HasIndex("BusinessId", "Key")
+                        .IsUnique();
+
+                    b.ToTable("container_types", "khypupyme", t =>
+                        {
+                            t.HasCheckConstraint("container_type_quantities", " \"Available\" >= 0 AND \"Borrowed\" >= 0 AND \"Available\" + \"Borrowed\" <= 1000000 ");
                         });
                 });
 
@@ -608,6 +711,9 @@ namespace KhypuPyme.Api.Persistence.Migrations
 
                     b.Property<DateOnly?>("ExpiresOn")
                         .HasColumnType("date");
+
+                    b.Property<bool>("Held")
+                        .HasColumnType("boolean");
 
                     b.Property<decimal>("Quantity")
                         .HasPrecision(20, 8)
@@ -1162,6 +1268,57 @@ namespace KhypuPyme.Api.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("BusinessId", "SaleId")
                         .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Retail.ContainerBalance", b =>
+                {
+                    b.HasOne("KhypuPyme.Api.Businesses.Business", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("KhypuPyme.Api.Commerce.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId", "CustomerId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("KhypuPyme.Api.Retail.ContainerType", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId", "TypeId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Retail.ContainerMovement", b =>
+                {
+                    b.HasOne("KhypuPyme.Api.Businesses.Business", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("KhypuPyme.Api.Commerce.Entry", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId", "EntryId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("KhypuPyme.Api.Retail.ContainerType", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId", "TypeId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Retail.ContainerType", b =>
+                {
+                    b.HasOne("KhypuPyme.Api.Businesses.Business", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 

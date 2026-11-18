@@ -53,7 +53,7 @@ export async function checkBrowser(cookies, businesses) {
     await dialog.getByLabel("Forma de pago").selectOption("qr");
     await dialog.getByRole("checkbox").check();
     await dialog.getByRole("button", { name: "Confirmar cambio" }).click();
-    await page.getByRole("heading", { name: /Cambio de prenda confirmada/ }).waitFor();
+    await page.getByRole("heading", { name: "Cambio de prenda confirmado" }).waitFor();
 
     await open(businesses.appliances);
     await page.getByRole("heading", { name: "Garantías e inspecciones" }).waitFor();

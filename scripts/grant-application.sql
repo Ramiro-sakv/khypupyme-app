@@ -18,3 +18,5 @@ GRANT SELECT, INSERT, UPDATE ON khypupyme.timber_stock, khypupyme.timber_practic
 GRANT DELETE ON khypupyme.businesses TO :"app_name";
 GRANT SELECT, INSERT, UPDATE ON khypupyme.retail_lots, khypupyme.equipment_units TO :"app_name";
 GRANT SELECT, INSERT ON khypupyme.equipment_movements TO :"app_name";
+GRANT SELECT, INSERT, UPDATE ON khypupyme.container_types, khypupyme.container_balances TO :"app_name";
+GRANT SELECT, INSERT ON khypupyme.container_movements TO :"app_name";

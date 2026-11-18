@@ -45,6 +45,8 @@
 .serial-picker { display: grid; gap: .65rem; }
 .store-series { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); gap: .35rem; overflow-wrap: anywhere; }
 .industry-home-card { display: grid; gap: .55rem; background: var(--accent-soft); }
+.container-row { display: grid; gap: .35rem; padding: .65rem; border: 1px solid var(--line); border-radius: .5rem; }
+.container-row p { margin: 0; }
 @media (max-width: 440px) { .barcode-field { grid-template-columns: minmax(0, 1fr); } }
 .timber-group { display: grid; gap: .75rem; background: var(--surface); }
 .timber-group :is(h3, p), .practice-guide p { margin-block: .2rem; }

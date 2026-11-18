@@ -15,12 +15,16 @@ import { prepareTimber, stockKey, useTimberAvailability } from "../timber/trade"
 import { BarcodeField, MeasuredFields, SerialPicker, VariantMatrix, equivalence } from "../retail/TradeFields";
 import { fromBase, measurePreview, productAvailability, quantityLabel, seriesFromText, unitLabels } from "../retail/measures";
 import type { Measure } from "../retail/measures";
+import { ContainerFields, prepareContainerMoves, useContainerBalances } from "../retail/Containers";
+import type { ContainerDraft } from "../retail/Containers";
+import { PetLotField, useSelectedLots } from "../retail/PetLots";
 
 export type TradeKind = "sale" | "purchase" | "quote";
 type Line = { id: string; key?: string; name: string; quantity: string; priceMinor: number; cost: string; timber?: Capture; rates?: Rates;
   measure?: Omit<Measure, "quantity">; series?: string };
 type TradeDraft = {
   lines: Line[]; customer?: { id: string; name: string }; discount: string; note: string; method: string; quote?: string;
+  containers?: ContainerDraft;
 };
 const emptyDraft: TradeDraft = { lines: [], discount: "0", method: "cash", note: "" };
 const titles: Record<TradeKind, string> = { sale: "Venta nueva", purchase: "Compra nueva", quote: "Cotización nueva" };
@@ -44,6 +48,13 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
   const frozen = form.processing || workspace.pending?.draft?.key === draftKey;
   const isPurchase = kind === "purchase";
   const quote = kind === "quote";
+  const mixed = industry === "beverages";
+  const withContainers = mixed && kind === "sale";
+  const petSale = industry === "pets" && kind === "sale";
+  const selectedLots = useSelectedLots(petSale ? value.lines.flatMap((line) =>
+    line.measure?.lot ? [{ id: line.id, lot: line.measure.lot }] : []) : []);
+  const containerBalances = useContainerBalances(withContainers, value.customer?.id);
+  const containers = prepareContainerMoves(value.containers ?? {}, containerBalances.data, value.customer?.id);
 
   useEffect(() => {
     if (confirmation?.draft?.key === draftKey) void reload();
@@ -64,10 +75,11 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
       serials.every((serial) => serial.length <= 80) && (!value.quote || quantity === Number(line.quantity)) : /^\d+$/.test(line.quantity)) &&
       quantity >= 1 && quantity <= 1_000_000;
     const unitMinor = isPurchase ? parseMoney(line.cost) : line.priceMinor;
-    const measured = measure && product?.retail ? measurePreview(measure.quantity, measure.unit, product.retail, isPurchase, unitMinor) : undefined;
+    const measured = measure && product?.retail ? measurePreview(measure.quantity, measure.unit, product.retail, isPurchase, unitMinor, measure.loose, mixed) : undefined;
     const subtotal = measure ? isPurchase && product?.retail?.trackLots && !measure.lot ? null : measured?.subtotal ?? null :
       validQuantity && unitMinor !== null && quantity * unitMinor <= moneyLimit ? quantity * unitMinor : null;
-    const available = product?.retail ? product.sellableStock ?? 0 : product?.stock;
+    const available = petSale && measure?.lot ? selectedLots.stock?.[line.id] :
+      product?.retail ? product.sellableStock ?? 0 : product?.stock;
     const requested = measure ? measured?.base : validQuantity ? quantity : undefined;
     return {
       line, product, quantity, unitMinor, subtotal, measure, serials, requested, available,
@@ -86,13 +98,13 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
   const total = value.lines.length > 0 && lines.every((item) => item.subtotal !== null) && timber.groups.every((group) => group.total !== null) &&
     !limitReached && !timber.problem && !invalidSeries && !duplicateLots &&
     gross <= moneyLimit && discount !== null && discount <= gross ? gross - discount : null;
-  const unavailable = !current.data || lines.some(({ product, changed, shortage }) =>
-    !product?.active || changed || (kind === "sale" && shortage)) ||
+  const unavailable = !current.data || lines.some(({ product, changed, shortage, measure, available }) =>
+    !product?.active || changed || (kind === "sale" && (shortage || petSale && !!measure?.lot && available === undefined))) ||
     timberLines.some((line) => !current.data?.[line.id]?.active || !current.data[line.id].timber) ||
     (kind === "sale" && timberLines.length > 0 && (!availability.stock || shortageByMeasure));
   const requiresCustomer = kind === "sale" && value.method === "credit" && (!value.customer || total === 0);
-  const reviewKey = JSON.stringify([value.lines, value.discount, value.method, value.customer?.id, value.quote, total, timber.commands]);
-  const canSend = total !== null && !unavailable && !requiresCustomer && !error && acknowledged === reviewKey;
+  const reviewKey = JSON.stringify([value.lines, value.discount, value.method, value.customer?.id, value.quote, total, timber.commands, value.containers]);
+  const canSend = total !== null && !unavailable && !requiresCustomer && !error && !containers.error && acknowledged === reviewKey;
   const totalText = total === null ? "Pendiente" : bob(total);
 
   function add(product: Product, newLot = false) {
@@ -145,7 +157,7 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
             customer: proposal.customerId && proposal.customerName ? { id: proposal.customerId, name: proposal.customerName } : undefined,
             lines: proposal.lines.map((line) => ({ id: line.productId, name: line.name, quantity: line.details?.measure?.quantity ?? String(line.quantity),
               priceMinor: line.unitMinor, cost: "", key: line.timber ? line.lineId : undefined,
-              measure: line.details?.measure ? { unit: line.details.measure.unit } : undefined,
+              measure: line.details?.measure ? { unit: line.details.measure.unit, loose: line.details.measure.loose } : undefined,
               series: line.details?.direction === "choose-series" ? "" : undefined,
               rates: line.timber ? { species: line.species ?? "", superShortMinor: line.unitMinor, shortMinor: line.unitMinor, longMinor: line.unitMinor } : undefined,
               timber: line.timber ? { units: unitsOf(proposal.timberUnits), length: "", thickness: "", widths: "",
@@ -157,8 +169,9 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
     <div className="trade-split">
       <Card>
         <h2>Productos</h2>
-        {industry === "convenience" && <BarcodeField add={add} disabled={frozen} />}
-        <SearchForm label={industry === "clothing" ? "Buscar por modelo o código" : "Buscar por nombre, especie o código"}
+        {["convenience", "grocery", "beverages"].includes(industry ?? "") && <BarcodeField add={add} disabled={frozen} />}
+        <SearchForm label={industry === "clothing" ? "Buscar por modelo o código" : industry === "cosmetics" ?
+          "Buscar por producto, marca, presentación o tono" : "Buscar por nombre, especie o código"}
           onSearch={(query) => { setSearch(query); setPage(1); setSelectedModel(""); }} />
         {!products.data ? <LoadFeedback {...products} /> : products.data.items.length === 0 ? <NoRecords>Consulta el catálogo para dar de alta artículos.</NoRecords> :
           <ul className="trade-products">
@@ -217,8 +230,10 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
             <div className="page-heading"><h3>{line.name}</h3>
               <Button variant="plain" onClick={() => remove(key)} disabled={frozen}>Quitar</Button></div>
             {measure && product?.retail && <MeasuredFields profile={product.retail} quantity={line.quantity} measure={measure}
-              buying={isPurchase} disabled={frozen} onQuantity={(quantity) => edit(key, { quantity })}
+              buying={isPurchase} mixed={mixed} disabled={frozen} onQuantity={(quantity) => edit(key, { quantity })}
               onMeasure={(entry) => edit(key, { measure: entry })} />}
+            {petSale && measure && product?.retail?.trackLots && <PetLotField product={product} lot={measure.lot} disabled={frozen}
+              onChange={(lot) => edit(key, { measure: { ...measure, lot } })} />}
             {serials && isPurchase && <label className="timber-widths"><span>Series recibidas</span>
               <textarea rows={4} value={line.series} disabled={frozen} onChange={(event) => edit(key, { series: event.target.value })}
                 placeholder="Una serie por línea" /><small>{serials.length} equipos</small></label>}
@@ -229,7 +244,9 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
             {value.quote && serials && serials.length !== Number(line.quantity) && <p>Selecciona {line.quantity} series para convertir la cotización.</p>}
             {measure && requested !== undefined && unit && <p>Equivale a {equivalence(requested, unit)}</p>}
             {!isPurchase && requested !== undefined && available !== undefined && <p className={shortage ? "trade-issue" : undefined}>
-              Pedido {measure ? quantityLabel(fromBase(requested, unit!)) : requested} · Disponible {product ? productAvailability(product) : "—"}
+              Pedido {measure ? quantityLabel(fromBase(requested, unit!)) : requested} · Disponible {
+                petSale && unit && measure?.lot ? quantityLabel(fromBase(available, unit)) + " " + unitLabels[unit] :
+                  product ? productAvailability(product) : "—"}
               {shortage && " · Faltan " + quantityLabel(unit ? fromBase(requested - available, unit) : requested - available)}
             </p>}
             {isPurchase ? <TextField label={"Costo por " + (measure ? unitLabels[measure.unit] : "equipo") + " (Bs)"} value={line.cost}
@@ -266,6 +283,7 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
         {timber.problem && <Alert tone="error">{timber.problem}</Alert>}
         {availability.loading && <p role="status">Consultando existencias por medida…</p>}
         {availability.error && <Alert tone="error">{availability.error} <Button variant="secondary" onClick={availability.retry}>Reintentar medidas</Button></Alert>}
+        {selectedLots.error && <Alert tone="error">{selectedLots.error} <Button variant="secondary" onClick={selectedLots.reload}>Reintentar lote</Button></Alert>}
         {current.error && <Alert tone="error">{current.error} <Button variant="secondary" onClick={current.reload}>Reintentar disponibilidad</Button></Alert>}
       </Card>
     </div>
@@ -279,10 +297,15 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
           kind, method: quote ? undefined : value.method,
           customerId: isPurchase ? undefined : value.customer?.id,
           discountMinor: discount ?? undefined, sourceId: value.quote, note: value.note,
+          containers: containers.moves.length ? containers.moves : undefined,
           lines: [...lines.map(({ line, quantity, unitMinor, measure, serials }): CommandLine =>
             ({ productId: line.id, quantity: measure ? 1 : quantity, unitMinor, measure, serials })), ...timber.commands],
         }), (result) => workspace.showDocument(result.entityId), flush);
       }}>
+        {withContainers && <details className="buyer"><summary>Envases entregados y devueltos</summary>
+          <ContainerFields balances={containerBalances} draft={value.containers ?? {}} customer={value.customer?.id} disabled={frozen}
+            update={(draft) => update((old) => ({ ...old, containers: draft }))} />
+        </details>}
         {!isPurchase && <TextField label="Descuento total (Bs)" inputMode="decimal" value={value.discount} disabled={frozen}
           onChange={(event) => update((draft) => ({ ...draft, discount: event.target.value }))} />}
         {!quote && <PaymentField value={value.method} credit={kind === "sale"} disabled={frozen}
@@ -293,6 +316,7 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
         {unavailable && <Alert>Verifica disponibilidad y precios de las líneas en el carrito.</Alert>}
         {quote && shortageByMeasure && <Alert>Hay medidas con faltantes. Se volverán a verificar al convertir la cotización en venta.</Alert>}
         {requiresCustomer && <Alert>El fiado requiere un cliente registrado y un importe positivo.</Alert>}
+        {containers.error && <Alert tone="error">{containers.error}</Alert>}
         {form.error && <Alert tone="error">{form.error}</Alert>}
         <label className="trade-check">
           <input type="checkbox" checked={acknowledged === reviewKey} disabled={frozen || total === null}

@@ -828,6 +828,8 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
+                    lot?: string;
+                    sellable?: boolean;
                     page?: number;
                 };
                 header?: never;
@@ -957,6 +959,43 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["StoreAttention"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/commerce/containers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    customer?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ContainerInfo"][];
                     };
                 };
             };
@@ -1514,6 +1553,8 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
+                    lot?: string;
+                    sellable?: boolean;
                     page?: number;
                 };
                 header?: never;
@@ -1643,6 +1684,43 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["StoreAttention"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/practice-commerce/containers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    customer?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ContainerInfo"][];
                     };
                 };
             };
@@ -2200,6 +2278,10 @@ export interface components {
             exchangeLines?: null | components["schemas"]["CommandLine"][];
             serial?: null | string;
             release?: null | boolean;
+            cosmeticProduct?: null | components["schemas"]["CosmeticProfile"];
+            containers?: null | components["schemas"]["ContainerInput"][];
+            /** Format: int32 */
+            stockQuantity?: null | number;
         };
         CommercePageOfCustomerInfo: {
             items: components["schemas"]["CustomerInfo"][];
@@ -2240,6 +2322,43 @@ export interface components {
             stockValueMinor: number;
             /** Format: int64 */
             receivablesMinor: number;
+        };
+        ContainerInfo: {
+            /** Format: uuid */
+            typeId: string;
+            name: string;
+            /** Format: int32 */
+            available: number;
+            /** Format: int32 */
+            borrowed: number;
+            /** Format: int32 */
+            customerBalance: number;
+        };
+        ContainerInput: {
+            /** Format: uuid */
+            typeId: string;
+            /** Format: int32 */
+            delivered: number;
+            /** Format: int32 */
+            returned: number;
+        };
+        ContainerMovementInfo: {
+            name: string;
+            /** Format: int32 */
+            delivered: number;
+            /** Format: int32 */
+            returned: number;
+            /** Format: int32 */
+            customerBalance: null | number;
+            /** Format: int32 */
+            available: number;
+            /** Format: int32 */
+            added: number;
+        };
+        CosmeticProfile: {
+            brand: string;
+            presentation: string;
+            tone?: null | string;
         };
         CsrfToken: {
             token: string;
@@ -2308,6 +2427,7 @@ export interface components {
             practice: boolean;
             /** Format: int64 */
             debtBalanceMinor: number;
+            containers: components["schemas"]["ContainerMovementInfo"][];
         };
         EntryInfo: {
             /** Format: uuid */
@@ -2366,6 +2486,7 @@ export interface components {
             /** Format: double */
             quantity: number;
             sellable: boolean;
+            held: boolean;
         };
         NewBusiness: {
             /** Format: uuid */
@@ -2418,6 +2539,7 @@ export interface components {
             measuredStock: null | number;
             /** Format: double */
             sellableStock: null | number;
+            cosmetic: null | components["schemas"]["CosmeticProfile"];
         };
         ReceivableInfo: {
             /** Format: uuid */
@@ -2453,6 +2575,8 @@ export interface components {
             lot?: null | string;
             /** Format: date */
             expiresOn?: null | string;
+            /** Format: int32 */
+            loose?: null | number;
         };
         RetailProfile: {
             unit: string;

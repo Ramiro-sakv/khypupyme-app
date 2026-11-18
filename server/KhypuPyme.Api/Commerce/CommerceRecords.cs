@@ -22,6 +22,9 @@ internal sealed class Product : IBusinessRecord
     public bool TrackLots { get; set; }
     public decimal Reorder { get; set; }
     public decimal MeasureStock { get; set; }
+    public string? Brand { get; set; }
+    public string? Presentation { get; set; }
+    public string? Tone { get; set; }
     public string? Model { get; set; }
     public string? ModelKey { get; set; }
     public string? Size { get; set; }

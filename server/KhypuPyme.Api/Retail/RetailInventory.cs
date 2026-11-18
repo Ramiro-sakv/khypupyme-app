@@ -1,3 +1,4 @@
+using System.Globalization;
 using KhypuPyme.Api.Commerce;
 using Microsoft.EntityFrameworkCore;
 using static KhypuPyme.Api.Commerce.CommerceRules;
@@ -27,7 +28,7 @@ internal sealed class RetailInventory(CommerceTransaction work)
 
     public async Task<(long Cost, LotAllocation[] Lots)> RemoveAsync(Product product, RetailInput input, decimal quantity, bool loss = false)
     {
-        if (input.ExpiresOn is not null || input.Lot is not null && (!loss || !product.TrackLots))
+        if (input.ExpiresOn is not null || input.Lot is not null && (!product.TrackLots || !loss && work.Business.Industry != "pets"))
             throw new CommerceFailure("La venta asigna automáticamente primero el lote vendible más próximo a vencer.");
         if (!product.TrackLots)
         {
@@ -38,8 +39,8 @@ internal sealed class RetailInventory(CommerceTransaction work)
         }
 
         var query = Lots.Where(x => x.ProductId == product.Id && x.Quantity > 0);
-        if (!loss) query = query.Where(x => x.ExpiresOn == null || x.ExpiresOn >= work.Today);
-        else
+        if (!loss) query = query.Where(x => !x.Held && (x.ExpiresOn == null || x.ExpiresOn >= work.Today));
+        if (loss || input.Lot is not null)
         {
             var code = LotCode(input.Lot);
             query = query.Where(x => x.Lot == code);
@@ -63,6 +64,44 @@ internal sealed class RetailInventory(CommerceTransaction work)
         var total = selected.Sum(x => x.CostMinor);
         Subtract(product, quantity, total);
         return (total, selected.ToArray());
+    }
+
+    public async Task<Guid> CorrectLotAsync()
+    {
+        if (work.Business.Industry != "cosmetics")
+            throw new CommerceFailure("Esta corrección de lote corresponde al rubro de cosméticos.");
+        var product = await work.ProductAsync(work.Command.EntityId ?? Guid.Empty);
+        var code = LotCode(work.Command.Code);
+        var lot = await Lots.FindAsync([product.BusinessId, product.Id, code], work.Ct);
+        if (lot is null || lot.Quantity == 0)
+            throw new CommerceFailure("Ese lote no tiene existencias.", 409);
+        var entry = await work.NewEntryAsync("LOT");
+        entry.Note = Text(work.Command.Note, 240, "el motivo de la corrección", true);
+        var baseQuantity = lot.Quantity;
+        var allocation = new LotAllocation(lot.Lot, lot.ExpiresOn, baseQuantity, lot.ValueMinor);
+        switch (work.Command.Kind)
+        {
+            case "hold-lot" when !lot.Held:
+                lot.Held = true;
+                break;
+            case "release-lot" when lot.Held && (lot.ExpiresOn == null || lot.ExpiresOn >= work.Today):
+                lot.Held = false;
+                break;
+            case "discard-lot":
+                entry.TotalMinor = entry.LossesMinor = lot.ValueMinor;
+                Subtract(product, lot.Quantity, lot.ValueMinor);
+                lot.Quantity = 0;
+                lot.ValueMinor = 0;
+                break;
+            default:
+                throw new CommerceFailure("El estado del lote cambió o el lote está vencido. Actualiza existencias.", 409);
+        }
+        var unit = product.RetailUnit switch { "piece" => "piece", "ml" or "l" => "ml", _ => "g" };
+        var measure = new RetailInput(baseQuantity.ToString("0.########", CultureInfo.InvariantCulture), unit);
+        entry.Lines.Add(new EntryLine { BusinessId = entry.BusinessId, EntryId = entry.Id, ProductId = product.Id,
+            Name = product.Name, Code = product.Code, Quantity = 1, BaseQuantity = baseQuantity, SubtotalMinor = entry.TotalMinor,
+            CostMinor = entry.LossesMinor, DetailsJson = LineDetails.Save(new(measure, baseQuantity, [allocation])) });
+        return entry.Id;
     }
 
     public async Task<(long Cost, LotAllocation[] Lots)> RefundAsync(Product product, LineDetails detail, decimal before, decimal count,

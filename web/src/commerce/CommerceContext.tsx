@@ -139,13 +139,14 @@ export function useCommerce() {
   return value;
 }
 
-export function useCommerceData<T>(relative: string) {
+export function useCommerceData<T>(relative: string | null) {
   const { path, revision } = useCommerce();
-  const resource = path + relative;
+  const resource = relative === null ? null : path + relative;
   const [refresh, setRefresh] = useState(0);
   const key = resource + "@" + revision + ":" + refresh;
   const [state, setState] = useState<{ key: string; data?: T; error?: string }>();
   useEffect(() => {
+    if (resource === null) return;
     const abort = new AbortController();
     void get<T>(resource, abort.signal).then((data) => {
       if (!abort.signal.aborted) setState({ key, data });

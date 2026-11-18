@@ -88,6 +88,7 @@ internal sealed class TradeOperations(CommerceTransaction work)
         if (!quote)
         {
             entry.SalesMinor = entry.TotalMinor;
+            await new ContainerService(work).MoveAsync(entry, work.Command.Containers);
             await work.ApplyCashAsync(entry, entry.TotalMinor);
         }
         return entry.Id;
@@ -172,7 +173,8 @@ internal sealed class TradeOperations(CommerceTransaction work)
                 throw new CommerceFailure("Selecciona una variante de la venta original para el cambio.");
             var measure = input.Measure;
             var measured = details?.Measure is { } originalMeasure &&
-                measure is not null && measure.Unit == originalMeasure.Unit && measure.Lot is null && measure.ExpiresOn is null;
+                measure is not null && measure.Unit == (originalMeasure.Unit == "box" ? "piece" : originalMeasure.Unit) &&
+                measure.Lot is null && measure.ExpiresOn is null && measure.Loose is null;
             if ((details?.Measure is not null || measure is not null) && !measured ||
                 input.Serials is not null || input.Timber is not null)
                 throw new CommerceFailure("Usa la unidad y la identificación de la línea original.");
@@ -285,11 +287,12 @@ internal sealed class TradeOperations(CommerceTransaction work)
             if (StoreProfiles.Retail(product) is { } profile)
             {
                 var measure = line.Measure ?? throw new CommerceFailure("Indica la cantidad y la unidad del producto.");
-                if (useCatalogPrice && (measure.Lot is not null || measure.ExpiresOn is not null))
+                if (useCatalogPrice && (measure.ExpiresOn is not null ||
+                    measure.Lot is not null && !(work.Business.Industry == "pets" && work.Command.Kind == "sale")))
                     throw new CommerceFailure("Los lotes vendibles se asignan al confirmar la venta.");
-                var (captured, stored) = RetailMeasures.Convert(measure, profile, !useCatalogPrice);
-                var factor = useCatalogPrice ? RetailMeasures.Factor(profile.Unit, profile, false) : 1;
-                var subtotal = RetailMeasures.Subtotal(unit, useCatalogPrice ? stored : captured, factor);
+                var (_, stored) = RetailMeasures.Convert(measure, profile, !useCatalogPrice, work.Business.Industry == "beverages");
+                var factor = RetailMeasures.Factor(useCatalogPrice ? profile.Unit : measure.Unit, profile, !useCatalogPrice || measure.Unit == "box");
+                var subtotal = RetailMeasures.Subtotal(unit, stored, factor);
                 rows.Add(new TradeRow(product, profile.Unit == "piece" ? (int)stored : 1, unit, subtotal, null, measure, stored));
             }
             else

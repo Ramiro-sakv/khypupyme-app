@@ -15,6 +15,8 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
     {
         if (command.OperationId == Guid.Empty || command.Kind is null or { Length: > 30 })
             throw new CommerceFailure("La solicitud comercial no es válida.");
+        if (command.Containers is not null && command.Kind is not ("sale" or "containers"))
+            throw new CommerceFailure("Registra los envases en una venta o en su movimiento independiente.");
 
         await using var transaction = await access.OpenAsync(accountId, businessId, ct);
         var business = await db.Businesses.AsNoTracking().SingleOrDefaultAsync(x => x.Id == businessId &&
@@ -49,6 +51,9 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
             "sale" or "quote" => await new TradeOperations(work).SellAsync(),
             "return" or "exchange" => await new TradeOperations(work).ReturnAsync(),
             "inspection" => await new EquipmentInventory(work).InspectAsync(),
+            "containers" => await new ContainerService(work).RegisterAsync(),
+            "container-stock" => await new ContainerService(work).ReceiveStockAsync(),
+            "hold-lot" or "release-lot" or "discard-lot" => await new RetailInventory(work).CorrectLotAsync(),
             "stock-loss" => await new TradeOperations(work).LossAsync(),
             "open-cash" or "close-cash" or "expense" or "void-expense" or "collect"
                 => await new CashOperations(work).ExecuteAsync(),
@@ -73,7 +78,17 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
             command.ExchangeLines is not null || command.Serial is not null || command.Release is not null ||
             command.Lines?.Any(x => x?.Measure is not null || x?.Serials is not null) == true;
         var timber = command.TimberProduct is not null || command.Lines?.Any(x => x?.Timber is not null || x?.OriginalLineId is not null) == true;
-        object serialized = specialized ? command : timber
+        bool extended = command.CosmeticProduct is not null || command.Containers is not null || command.StockQuantity is not null ||
+            command.Lines?.Any(x => x?.Measure?.Loose is not null) == true;
+        object serialized = extended ? command : specialized
+            ? new
+            {
+                command.OperationId, command.Kind, command.EntityId, command.CustomerId, command.SourceId, command.Name,
+                command.Code, command.Phone, command.Method, command.Note, command.AmountMinor, command.DiscountMinor, command.Active,
+                Lines = command.Lines?.Select(PreviousLine), command.TimberProduct, command.RetailProduct, command.ApparelProduct,
+                command.EquipmentProduct, ExchangeLines = command.ExchangeLines?.Select(PreviousLine), command.Serial, command.Release,
+            }
+            : timber
             ? new
             {
                 command.OperationId, command.Kind, command.EntityId, command.CustomerId, command.SourceId, command.Name,
@@ -88,6 +103,13 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
                 command.Active, Lines = command.Lines?.Select(x => x is null ? null : new { x.ProductId, x.Quantity, x.UnitMinor, x.Restock }),
             };
         return Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(serialized)));
+
+        static object? PreviousLine(CommandLine? line) => line is null ? null : new
+        {
+            line.ProductId, line.Quantity, line.UnitMinor, line.Restock, line.Timber, line.OriginalLineId,
+            Measure = line.Measure is { } m ? new { m.Quantity, m.Unit, m.Lot, m.ExpiresOn } : null,
+            line.Serials,
+        };
     }
 
     private static async Task<Guid> SaveProductAsync(CommerceTransaction work)

@@ -6,10 +6,11 @@ import { bob, editableMoney, parseMoney } from "./models";
 import type { Customer, Page, Product } from "./models";
 import { TimberStockTable } from "../timber/TimberFields";
 import type { Dimensions, StockRow, TimberUnits } from "../timber/measures";
-import { initialProductFields, ProductFields, productFieldsCommand, retailIndustry } from "../retail/ProductFields";
+import { initialProductFields, measuredIndustry, ProductFields, productFieldsCommand, retailIndustry } from "../retail/ProductFields";
 import { LotsTable, VariantMatrix } from "../retail/TradeFields";
 import { fromBase, productAvailability, unitLabels } from "../retail/measures";
 import type { Lot } from "../retail/measures";
+import { LotCorrection } from "../retail/LotCorrection";
 
 export function CatalogPage({ units, industry, focus }: { units?: TimberUnits; industry?: string; focus?: string }) {
   const { showDocument } = useCommerce();
@@ -18,6 +19,7 @@ export function CatalogPage({ units, industry, focus }: { units?: TimberUnits; i
   const [editing, setEditing] = useState<Product | "new" | null>(null);
   const [loss, setLoss] = useState<{ product: Product; row?: StockRow; lot?: Lot }>();
   const [stock, setStock] = useState<Product>();
+  const [correction, setCorrection] = useState<{ product: Product; lot: Lot }>();
   const [filter, setFilter] = useState(focus ?? "");
   const data = useCommerceData<Page<Product>>("/products?" + new URLSearchParams({ page: String(page), search, ...(filter ? { attention: filter } : {}) }));
 
@@ -29,6 +31,8 @@ export function CatalogPage({ units, industry, focus }: { units?: TimberUnits; i
       product={editing === "new" ? undefined : editing} timberIndustry={units !== undefined} industry={industry} onClose={() => setEditing(null)} />}
     {loss && <LossEditor key={loss.product.id + (loss.lot?.lot ?? "")} product={loss.product} timber={loss.row?.timber} available={loss.row?.stock} lot={loss.lot}
       onClose={() => setLoss(undefined)} onDone={showDocument} />}
+    {correction && <LotCorrection key={correction.product.id + ":" + correction.lot.lot} product={correction.product} lot={correction.lot}
+      close={() => setCorrection(undefined)} />}
     {stock && units && <Card>
       <div className="page-heading"><div><h2>{stock.name}</h2><p>{stock.timber?.species} · {stock.code}</p></div>
         <Button variant="secondary" onClick={() => setStock(undefined)}>Cerrar existencias</Button></div>
@@ -40,19 +44,25 @@ export function CatalogPage({ units, industry, focus }: { units?: TimberUnits; i
     {stock && (stock.apparel || stock.retail?.trackLots) && <Card>
       <div className="page-heading"><h2>{stock.apparel?.model ?? stock.name}</h2><Button variant="secondary" onClick={() => setStock(undefined)}>Cerrar existencias</Button></div>
       {stock.apparel && <VariantMatrix key={stock.apparel.model} model={stock.apparel.model} />}
-      {stock.retail?.trackLots && <LotsTable key={stock.id} product={stock} choose={(lot) => setLoss({ product: stock, lot })} />}
+      {stock.retail?.trackLots && <LotsTable key={stock.id} product={stock}
+        choose={industry !== "cosmetics" ? (lot) => setLoss({ product: stock, lot }) : undefined}
+        actions={industry === "cosmetics" ? (lot) => <Button variant="secondary" onClick={() => setCorrection({ product: stock, lot })}>Gestionar lote</Button> : undefined} />}
     </Card>}
     <Card>
-      {industry === "convenience" && <SelectField label="Ver existencias" value={filter} onChange={(event) => { setFilter(event.target.value); setPage(1); }}>
+      {measuredIndustry(industry) && <SelectField label="Ver existencias" value={filter} onChange={(event) => { setFilter(event.target.value); setPage(1); }}>
         <option value="">Todo el catálogo</option><option value="reorder">Reposición</option><option value="expiring">Lotes que vencen en 30 días</option>
+        {industry === "cosmetics" && <option value="held">Lotes apartados</option>}
       </SelectField>}
-      <SearchForm label={units ? "Buscar por producto, especie o código" : industry === "clothing" ? "Buscar por modelo o código" : "Buscar por producto o código"} onSearch={(value) => { setSearch(value); setPage(1); }} />
+      <SearchForm label={units ? "Buscar por producto, especie o código" : industry === "clothing" ? "Buscar por modelo o código" :
+        industry === "cosmetics" ? "Buscar por marca, presentación o tono" : "Buscar por producto o código"}
+        onSearch={(value) => { setSearch(value); setPage(1); }} />
       {!data.data ? <LoadFeedback {...data} /> : data.data.items.length === 0 ? <NoRecords>Crea un producto para registrar sus compras y ventas.</NoRecords> :
         <DataTable caption="Existencias por producto" columns={["Producto", "Disponible", "Precio", "Valor de stock", "Acciones"]}
           rows={data.data.items.map((product) => ({ id: product.id, cells: [
             <span>{product.name}<small className="record-secondary">{product.timber?.species && product.timber.species + " · "}
               {product.code} · {product.active ? "Activo" : "Archivado"}</small>
-              {product.apparel && <small className="record-secondary">{product.apparel.model} · {product.apparel.size} · {product.apparel.color}</small>}</span>,
+              {product.apparel && <small className="record-secondary">{product.apparel.model} · {product.apparel.size} · {product.apparel.color}</small>}
+              {product.cosmetic && <small className="record-secondary">{[product.cosmetic.brand, product.cosmetic.presentation, product.cosmetic.tone].filter(Boolean).join(" · ")}</small>}</span>,
             productAvailability(product), product.timber ? <div className="timber-rates">
               <span>1–2 pies · {bob(product.timber.superShortMinor)}</span>
               <span>3–6 pies · {bob(product.timber.shortMinor)}</span>
@@ -114,7 +124,7 @@ function ProductEditor({ product, timberIndustry, industry, onClose }: { product
     {timber ? ["Supercorta · 1–2 pies", "Corta · 3–6 pies", "Larga · 7–20 pies"].map((category, index) =>
       <TextField key={category} label={category + " (Bs por pie tablar)"} inputMode="decimal" required value={rates[index]}
         onChange={(event) => setRates(rates.map((rate, position) => position === index ? event.target.value : rate))} />) :
-      <TextField label={setup.kind === "convenience" ? "Precio por " + unitLabels[setup.unit] + " (Bs)" : "Precio unitario (Bs)"}
+      <TextField label={measuredIndustry(setup.kind) ? "Precio por " + unitLabels[setup.unit] + " (Bs)" : "Precio unitario (Bs)"}
         inputMode="decimal" required value={price} onChange={(event) => setPrice(event.target.value)} />}
     {product && <SelectField label="Estado" value={active ? "active" : "archived"} onChange={(event) => setActive(event.target.value === "active")}>
       <option value="active">Activo</option><option value="archived">Archivado</option>

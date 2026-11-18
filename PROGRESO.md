@@ -112,3 +112,24 @@ La comprobación de PostgreSQL usa `scripts/Test-Block5.ps1`. El recorrido de Ed
 | Compatibilidad | Aprobados los recorridos PostgreSQL de los bloques 4 y 5. Migración aplicada en las bases locales de prueba y desarrollo. |
 
 El bloque se verifica con `scripts/Test-Block6.ps1`. El recorrido de Edge usa la misma configuración opcional del bloque 5.
+
+## Bloque 7A · Abarrotes, Bebidas, Cosméticos y Mascotas
+
+- Abarrotes recibe por presentación, vende con la unidad y tarifa de su ficha y consume primero el lote vendible que vence antes. La reposición usa existencias vendibles.
+- Bebidas admite cajas y unidades sueltas en una línea. El comprobante guarda la equivalencia y los envases entregados y devueltos. El servidor verifica las devoluciones contra el saldo previo del cliente y luego calcula la disponibilidad para nuevas entregas. Los movimientos de envases se pueden registrar también sin venta y representan únicamente cantidades físicas.
+- Cosméticos busca por marca, presentación o tono. Apartar un lote mantiene su cantidad y valor, pero impide venderlo. Liberar un lote vendible o darlo de baja exige un motivo. La baja registra la pérdida de inventario en Informes.
+- Mascotas exige rastrear el origen del alimento por peso. La venta permite registrar el lote de la bolsa abierta y conserva su vencimiento y la cantidad utilizada en el comprobante.
+- Se dejó una cuenta verificada en PostgreSQL de desarrollo con cuatro negocios de práctica vacíos. El registro local deposita sus códigos en el buzón de Windows descrito en el README.
+
+### Verificación
+
+| Rubro | Recorrido y resultado |
+|---|---|
+| Abarrotes | Dos cajas de 24 menos cinco unidades dejaron 43 vendibles. La venta tomó el lote más próximo a vencer y se rechazó una venta que habría consumido piezas vencidas. |
+| Bebidas | Una caja de 24 más dos sueltas se vendieron en una línea. Un cliente con saldo de cuatro no pudo devolver cinco, incluso al recibir más envases en la misma operación. Se verificaron el saldo, la devolución independiente y la idempotencia de la venta. |
+| Cosméticos | Se encontró el mismo producto por marca, presentación y tono. Apartar el lote mantuvo Bs 60 de valor y bloqueó su venta, liberarlo devolvió las tres piezas a disponibilidad y la baja quedó en el informe. |
+| Mascotas | Vender 0,5 kg de una bolsa seleccionada guardó su código y vencimiento. Se rechazó vender desde ese lote más del saldo disponible, aunque otro lote tuviera stock. |
+| Interfaz y cuenta local | Edge a 360 px completó los cuatro recorridos. El ingreso a la cuenta de prueba se confirmó desde la pantalla de inicio de sesión. |
+| Compatibilidad | Lint, TypeScript, compilaciones y regresiones de los bloques 4 a 6 aprobados. Migración aplicada en las bases de prueba y desarrollo. |
+
+La comprobación de PostgreSQL usa `scripts/Test-Block7a.ps1`. El recorrido de Edge usa la configuración opcional del bloque 5.

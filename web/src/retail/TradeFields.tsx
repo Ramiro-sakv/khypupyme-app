@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { ApiError, get } from "../api/client";
 import { Alert, Button, Card, DataTable, SelectField, TextField } from "../ui/Primitives";
 import { useCommerce, useCommerceData } from "../commerce/CommerceContext";
@@ -60,16 +61,18 @@ export function VariantMatrix({ model, choose, disabled, excluded, requireStock 
     })] }))} />;
 }
 
-export function MeasuredFields({ profile, quantity, measure, buying, disabled, onQuantity, onMeasure }: {
-  profile: NonNullable<Product["retail"]>; quantity: string; measure: Omit<Measure, "quantity">; buying: boolean; disabled: boolean;
+export function MeasuredFields({ profile, quantity, measure, buying, mixed, disabled, onQuantity, onMeasure }: {
+  profile: NonNullable<Product["retail"]>; quantity: string; measure: Omit<Measure, "quantity">; buying: boolean; mixed?: boolean; disabled: boolean;
   onQuantity: (quantity: string) => void; onMeasure: (measure: Omit<Measure, "quantity">) => void;
 }) {
   return <div className="store-fields">
-    <TextField label="Cantidad" inputMode="decimal" value={quantity} disabled={disabled}
+    <TextField label={mixed && measure.unit === "box" ? "Cajas" : "Cantidad"} inputMode="decimal" value={quantity} disabled={disabled}
       onChange={(event) => onQuantity(event.target.value)} />
-    <SelectField label="Unidad" value={measure.unit} disabled={disabled} onChange={(event) => onMeasure({ ...measure, unit: event.target.value })}>
-      {retailUnits(profile, buying).map((unit) => <option value={unit} key={unit}>{unitLabels[unit]}</option>)}
+    <SelectField label="Unidad" value={measure.unit} disabled={disabled} onChange={(event) => onMeasure({ ...measure, unit: event.target.value, loose: undefined })}>
+      {retailUnits(profile, buying, mixed).map((unit) => <option value={unit} key={unit}>{unit === "box" && mixed ? "Cajas y sueltos" : unitLabels[unit]}</option>)}
     </SelectField>
+    {mixed && measure.unit === "box" && <TextField label="Unidades sueltas" type="number" min={0} max={1_000_000}
+      step={1} value={measure.loose ?? 0} disabled={disabled} onChange={(event) => onMeasure({ ...measure, loose: Number(event.target.value) })} />}
     {buying && profile.trackLots && <>
       <TextField label="Código del lote" maxLength={60} value={measure.lot ?? ""} disabled={disabled}
         onChange={(event) => onMeasure({ ...measure, lot: event.target.value })} />
@@ -101,22 +104,24 @@ export function SerialPicker({ productId, selected, choose, disabled }: {
   </Card>;
 }
 
-export function LotsTable({ product, choose }: { product: Product; choose?: (lot: Lot) => void }) {
+export function LotsTable({ product, choose, actions }: { product: Product; choose?: (lot: Lot) => void;
+  actions?: (lot: Lot) => ReactNode }) {
   const [page, setPage] = useState(1);
   const query = useCommerceData<Page<Lot>>("/lots/" + product.id + "?page=" + page);
   if (!product.retail) return null;
   const unit = product.retail.unit;
   return <>
     {!query.data ? <LoadFeedback {...query} /> : <DataTable caption={"Lotes de " + product.name}
-      columns={["Lote", "Vencimiento", "Existencia (" + unitLabels[unit] + ")", "Estado", ...(choose ? ["Acción"] : [])]}
+      columns={["Lote", "Vencimiento", "Existencia (" + unitLabels[unit] + ")", "Estado", ...(choose || actions ? ["Acción"] : [])]}
       rows={query.data.items.map((lot) => ({ id: lot.lot, cells: [
         lot.lot, lot.expiresOn ? dateLabel(lot.expiresOn) : "Sin fecha", quantityLabel(fromBase(lot.quantity, unit)),
-        lot.sellable ? "Vendible" : "Vencido", ...(choose ? [<Button variant="secondary" onClick={() => choose(lot)}>Registrar pérdida</Button>] : []),
+        lot.held ? "Apartado" : lot.sellable ? "Vendible" : "Vencido",
+        ...(actions ? [actions(lot)] : choose ? [<Button variant="secondary" onClick={() => choose(lot)}>Registrar pérdida</Button>] : []),
       ] }))} />}
     <Pages index={page} hasMore={query.data?.hasMore} onChange={setPage} />
   </>;
 }
 
 export function equivalence(amount: number, unit: string) {
-  return quantityLabel(amount) + " " + baseUnit(unit);
+  return quantityLabel(amount) + " " + (unit === "piece" && amount !== 1 ? "unidades" : baseUnit(unit));
 }

@@ -1,4 +1,4 @@
-﻿param([ValidateSet(4, 5, 6)][int]$Block = 4)
+﻿param([ValidateSet('4', '5', '6', '7a')][string]$Block = '4')
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Postgres.Local.ps1')

@@ -14,7 +14,7 @@ internal sealed class StoreReads(KhypuPymeDbContext db, TimeProvider clock)
     public IQueryable<ProductInfo> Describe(IQueryable<Product> products)
     {
         var today = Today;
-        var lots = db.Set<RetailLot>().AsNoTracking().Where(lot => lot.ExpiresOn == null || lot.ExpiresOn >= today);
+        var lots = db.Set<RetailLot>().AsNoTracking().Where(lot => !lot.Held && (lot.ExpiresOn == null || lot.ExpiresOn >= today));
         return products.Select(x => new ProductInfo(x.Id, x.Name, x.Code, x.PriceMinor, x.Stock, x.ValueMinor, x.Active,
             x.Species == null ? null : new TimberPrices(x.Species, x.SuperShortMinor!.Value, x.ShortMinor!.Value, x.LongMinor!.Value),
             x.RetailUnit == null ? null : new RetailProfile(x.RetailUnit, x.BoxSize, x.TrackLots,
@@ -22,7 +22,8 @@ internal sealed class StoreReads(KhypuPymeDbContext db, TimeProvider clock)
             x.Model == null ? null : new ApparelProfile(x.Model, x.Size!, x.Color!),
             x.WarrantyMonths == null ? null : new EquipmentProfile(x.WarrantyMonths.Value), x.RetailUnit == null ? null : x.MeasureStock,
             x.RetailUnit == null ? null : !x.TrackLots ? x.MeasureStock :
-                lots.Where(lot => lot.ProductId == x.Id && lot.BusinessId == x.BusinessId).Sum(lot => lot.Quantity)));
+                lots.Where(lot => lot.ProductId == x.Id && lot.BusinessId == x.BusinessId).Sum(lot => lot.Quantity),
+            x.Brand == null ? null : new CosmeticProfile(x.Brand, x.Presentation!, x.Tone)));
     }
 
     public Task<ProductInfo?> CodeAsync(string? code, CancellationToken ct)
@@ -38,12 +39,19 @@ internal sealed class StoreReads(KhypuPymeDbContext db, TimeProvider clock)
             .OrderBy(x => x.Size).ThenBy(x => x.Color)).ToArrayAsync(ct);
     }
 
-    public Task<CommercePage<LotInfo>> LotsAsync(Guid product, int? page, CancellationToken ct)
+    public Task<CommercePage<LotInfo>> LotsAsync(Guid product, string? lot, bool? sellable, int? page, CancellationToken ct)
     {
         var today = Today;
-        return CommerceReads.PageAsync(db.Set<RetailLot>().AsNoTracking().Where(x => x.ProductId == product && x.Quantity > 0)
+        var query = db.Set<RetailLot>().AsNoTracking().Where(x => x.ProductId == product && x.Quantity > 0);
+        if (lot is not null)
+        {
+            var key = Text(lot, 60, "el lote", true).ToUpperInvariant();
+            query = query.Where(x => x.Lot == key);
+        }
+        if (sellable == true) query = query.Where(x => !x.Held && (x.ExpiresOn == null || x.ExpiresOn >= today));
+        return CommerceReads.PageAsync(query
             .OrderBy(x => x.ExpiresOn == null).ThenBy(x => x.ExpiresOn).ThenBy(x => x.Lot)
-            .Select(x => new LotInfo(x.Lot, x.ExpiresOn, x.Quantity, x.ExpiresOn == null || x.ExpiresOn >= today)), page, ct);
+            .Select(x => new LotInfo(x.Lot, x.ExpiresOn, x.Quantity, !x.Held && (x.ExpiresOn == null || x.ExpiresOn >= today), x.Held)), page, ct);
     }
 
     public Task<CommercePage<SerialInfo>> SerialsAsync(Guid? product, string? search, string? state, int? page, CancellationToken ct)
@@ -83,7 +91,7 @@ internal sealed class StoreReads(KhypuPymeDbContext db, TimeProvider clock)
         var products = db.Set<Product>().AsNoTracking().Where(x => x.Active);
         var lots = db.Set<RetailLot>().AsNoTracking().Where(x => x.Quantity > 0);
         var reorder = await products.Where(AtReorder(today, lots)).CountAsync(ct);
-        var expiring = await lots.CountAsync(x => x.ExpiresOn >= today && x.ExpiresOn <= end &&
+        var expiring = await lots.CountAsync(x => !x.Held && x.ExpiresOn >= today && x.ExpiresOn <= end &&
             products.Any(p => p.Id == x.ProductId && p.BusinessId == x.BusinessId), ct);
         var inspections = await db.Set<EquipmentUnit>().CountAsync(x => x.State == "inspection", ct);
         return new StoreAttention(reorder, expiring, inspections);
@@ -97,14 +105,15 @@ internal sealed class StoreReads(KhypuPymeDbContext db, TimeProvider clock)
         return attention switch
         {
             "reorder" => products.Where(AtReorder(today, lots)),
-            "expiring" => products.Where(p => lots.Any(x => x.ProductId == p.Id && x.BusinessId == p.BusinessId && x.ExpiresOn >= today && x.ExpiresOn <= end)),
+            "expiring" => products.Where(p => lots.Any(x => x.ProductId == p.Id && x.BusinessId == p.BusinessId && !x.Held && x.ExpiresOn >= today && x.ExpiresOn <= end)),
+            "held" => products.Where(p => lots.Any(x => x.ProductId == p.Id && x.BusinessId == p.BusinessId && x.Held)),
             _ => throw new CommerceFailure("Elige reposición o próximos vencimientos."),
         };
     }
 
     private static Expression<Func<Product, bool>> AtReorder(DateOnly today, IQueryable<RetailLot> lots) =>
         p => p.RetailUnit != null && (p.TrackLots ?
-            lots.Where(x => x.ProductId == p.Id && x.BusinessId == p.BusinessId && (x.ExpiresOn == null || x.ExpiresOn >= today))
+            lots.Where(x => x.ProductId == p.Id && x.BusinessId == p.BusinessId && !x.Held && (x.ExpiresOn == null || x.ExpiresOn >= today))
                 .Sum(x => x.Quantity) : p.MeasureStock) <= p.Reorder;
 
     private IQueryable<SerialInfo> DescribeUnits(IQueryable<EquipmentUnit> units) =>

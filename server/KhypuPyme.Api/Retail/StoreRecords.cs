@@ -6,7 +6,8 @@ namespace KhypuPyme.Api.Retail;
 public sealed record RetailProfile(string Unit, int BoxSize, bool TrackLots, decimal Reorder);
 public sealed record ApparelProfile(string Model, string Size, string Color);
 public sealed record EquipmentProfile(int WarrantyMonths);
-public sealed record RetailInput(string Quantity, string Unit, string? Lot = null, DateOnly? ExpiresOn = null);
+public sealed record RetailInput(string Quantity, string Unit, string? Lot = null, DateOnly? ExpiresOn = null, int? Loose = null);
+public sealed record CosmeticProfile(string Brand, string Presentation, string? Tone = null);
 public sealed record LotAllocation(string Lot, DateOnly? ExpiresOn, decimal Quantity, long CostMinor);
 public sealed record LineDetails(RetailInput? Measure = null, decimal? BaseQuantity = null,
     LotAllocation[]? Lots = null, ApparelProfile? Apparel = null, string? Serial = null, DateOnly? WarrantyUntil = null,
@@ -16,7 +17,7 @@ public sealed record LineDetails(RetailInput? Measure = null, decimal? BaseQuant
     internal static string? Save(LineDetails? value) => value is null ? null : JsonSerializer.Serialize(value);
 }
 
-public sealed record LotInfo(string Lot, DateOnly? ExpiresOn, decimal Quantity, bool Sellable);
+public sealed record LotInfo(string Lot, DateOnly? ExpiresOn, decimal Quantity, bool Sellable, bool Held);
 public sealed record SerialInfo(string Serial, Guid ProductId, string ProductName, string State, DateOnly? WarrantyUntil);
 public sealed record SerialMovement(string Kind, Guid EntryId, string Number, DateOnly Date, string Note, DateOnly? WarrantyUntil);
 public sealed record UnitHistory(SerialInfo Unit, SerialMovement[] Movements);
@@ -30,6 +31,7 @@ internal sealed class RetailLot : IBusinessRecord
     public DateOnly? ExpiresOn { get; init; }
     public decimal Quantity { get; set; }
     public long ValueMinor { get; set; }
+    public bool Held { get; set; }
 }
 
 internal sealed class EquipmentUnit : IBusinessRecord

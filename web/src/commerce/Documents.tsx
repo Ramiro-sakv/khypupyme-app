@@ -5,11 +5,12 @@ import { CommerceHeading, LoadFeedback, NoRecords, OperationForm, Pages, Payment
 import { bob, dateLabel, documentName, methodLabel } from "./models";
 import type { EntryDocument, EntryInfo, Page } from "./models";
 import { documentTimber, documentUnit } from "../timber/measures";
-import { describeLine, lineQuantity, lineRate, remainingQuantity, unitLabels } from "../retail/measures";
+import { describeLine, lineQuantity, lineRate, remainingQuantity, returnUnit, unitLabels } from "../retail/measures";
 import { ExchangeEditor } from "../retail/ExchangeEditor";
 
 const historyKinds = ["sale", "purchase", "quote", "return", "expense", "void-expense",
-  "stock-loss", "open-cash", "close-cash", "collect", "exchange", "inspection"];
+  "stock-loss", "open-cash", "close-cash", "collect", "exchange", "inspection",
+  "containers", "container-stock", "hold-lot", "release-lot", "discard-lot"];
 
 export function HistoryPage({ initialKind }: { initialKind: string }) {
   const [kind, setKind] = useState(initialKind);
@@ -64,7 +65,7 @@ export function DocumentPage({ id, back, convert, openSerial }: {
     finally { setLoadingPdf(false); }
   }
   return <div className="commerce-stack">
-    <CommerceHeading title={document ? documentName(document.kind) + " confirmada" : "Detalle de operación"}>
+    <CommerceHeading title={document ? documentTitle(document.kind) : "Detalle de operación"}>
       <Button variant="secondary" icon="back" onClick={back}>Volver</Button>
     </CommerceHeading>
     {!document ? <LoadFeedback {...data} /> : <>
@@ -100,6 +101,8 @@ export function DocumentPage({ id, back, convert, openSerial }: {
             {line.timber && <small className="record-secondary">{documentTimber(document, line)}</small>}</div>,
           lineQuantity(line), bob(line.unitMinor) + documentUnit(document, line) + lineRate(line), bob(line.subtotalMinor),
         ] }))} /></Card>}
+      {document.containers.length > 0 && <Card><DataTable caption="Envases" columns={["Tipo", "Entrada", "Entregados", "Devueltos", "Saldo del cliente"]}
+        rows={document.containers.map((row) => ({ id: row.name, cells: [row.name, row.added, row.delivered, row.returned, row.customerBalance ?? "—"] }))} /></Card>}
       <div className="inline-actions">
         {document.kind === "quote" && !document.linked && <Button onClick={() => convert(document)}>Preparar venta desde la cotización</Button>}
         {["sale", "exchange"].includes(document.kind) && document.lines.some((line) => remainingQuantity(line) > 0) &&
@@ -114,6 +117,12 @@ export function DocumentPage({ id, back, convert, openSerial }: {
       {action === "void" && <VoidEditor document={document} close={() => setAction(null)} />}
     </>}
   </div>;
+}
+
+function documentTitle(kind: string) {
+  const name = documentName(kind);
+  if (kind === "hold-lot" || kind === "release-lot") return name;
+  return name + (["exchange", "containers", "expense", "collect", "close-cash"].includes(kind) ? " confirmado" : " confirmada");
 }
 
 function ReturnEditor({ document, close }: { document: EntryDocument; close: () => void }) {
@@ -132,7 +141,7 @@ function ReturnEditor({ document, close }: { document: EntryDocument; close: () 
           const measured = line.details?.measure;
           return [{ productId: line.productId, originalLineId: line.lineId,
             quantity: measured ? 1 : Number(item.quantity), restock: item.restock,
-            measure: measured ? { quantity: item.quantity.trim(), unit: measured.unit } : undefined }];
+            measure: measured ? { quantity: item.quantity.trim(), unit: returnUnit(measured) } : undefined }];
         });
         if (!lines.length) throw new Error("Indica al menos una pieza para devolver.");
         return { kind: "return", sourceId: document.id, note, method, lines };
@@ -143,10 +152,10 @@ function ReturnEditor({ document, close }: { document: EntryDocument; close: () 
       const remaining = remainingQuantity(line);
       const measured = line.details?.measure;
       return <div className="return-line" key={line.lineId}>
-        <TextField label={(measured ? "Cantidad a devolver (" + unitLabels[measured.unit] + ") de " : "Piezas a devolver de ") +
+        <TextField label={(measured ? "Cantidad a devolver (" + unitLabels[returnUnit(measured)] + ") de " : "Piezas a devolver de ") +
           line.name + (line.timber ? " · " + documentTimber(document, line) : line.details ? " · " + describeLine(line) : "")}
           hint={remaining + " disponibles de la venta original"}
-          type="number" min={0} max={remaining} step={measured && measured.unit !== "piece" ? 0.001 : 1} value={current.quantity}
+          type="number" min={0} max={remaining} step={measured && returnUnit(measured) !== "piece" ? 0.001 : 1} value={current.quantity}
           onChange={(event) => setChosen({ ...chosen, [line.lineId]: { ...current, quantity: event.target.value } })} />
         <label className="trade-check"><input type="checkbox" checked={current.restock}
           onChange={(event) => setChosen({ ...chosen, [line.lineId]: { ...current, restock: event.target.checked } })} />

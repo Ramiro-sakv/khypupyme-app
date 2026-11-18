@@ -31,6 +31,10 @@ function buildDocument(record: EntryDocument): TDocumentDefinitions {
     ];
     content.push({ table: { headerRows: 1, widths: ["*", 40, 81, 75], body }, layout: "lightHorizontalLines", margin: [0, 14, 0, 14] });
   }
+  if (record.containers.length > 0) content.push({ table: { headerRows: 1, widths: ["*", 55, 60, 60, 75],
+    body: [["Envase", "Entrada", "Entregados", "Devueltos", "Saldo cliente"].map((title) => ({ text: title, bold: true, fillColor: "#e7f1eb" })),
+      ...record.containers.map((row) => [row.name, String(row.added), String(row.delivered), String(row.returned), String(row.customerBalance ?? "—")])] },
+    layout: "lightHorizontalLines", margin: [0, 6, 0, 10] });
   if (record.discountMinor) content.push({ text: "Descuento · " + bob(record.discountMinor), alignment: "right" });
   content.push({ text: (record.kind === "exchange" ? "Diferencia cobrada (+) o devuelta (−) · " : "Total confirmado · ") + bob(record.totalMinor), style: "total" });
   if (record.cashDeltaMinor) content.push({ text: "Movimiento de caja · " + bob(record.cashDeltaMinor), alignment: "right" });

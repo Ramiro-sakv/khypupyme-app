@@ -6,6 +6,7 @@ namespace KhypuPyme.Api.Retail;
 
 internal static class StoreProfiles
 {
+    public static bool IsRetail(string industry) => industry is "convenience" or "grocery" or "beverages" or "cosmetics" or "pets";
     public static RetailProfile? Retail(Product product) => product.RetailUnit is null ? null :
         new(product.RetailUnit, product.BoxSize, product.TrackLots, product.Reorder);
     public static ApparelProfile? Apparel(Product product) => product.Model is null ? null : new(product.Model, product.Size!, product.Color!);
@@ -13,9 +14,12 @@ internal static class StoreProfiles
     public static async Task SaveAsync(CommerceTransaction work, Product product)
     {
         var command = work.Command;
-        if (command.RetailProduct is { } retail && work.Business.Industry == "convenience")
+        if (command.RetailProduct is { } retail && IsRetail(work.Business.Industry))
         {
             var factor = RetailMeasures.Factor(retail.Unit, retail, false);
+            if (!retail.TrackLots && (work.Business.Industry == "cosmetics" ||
+                work.Business.Industry == "pets" && retail.Unit is "g" or "kg" or "lb"))
+                throw new CommerceFailure("Habilita lotes para conservar el origen de este producto.");
             if (retail.BoxSize is < 1 or > 100_000 || retail.Unit != "piece" && retail.BoxSize != 1 ||
                 retail.Reorder is < 0 or > RetailMeasures.MaxBase || retail.Reorder * factor > RetailMeasures.MaxBase ||
                 decimal.Round(retail.Reorder, 3) != retail.Reorder ||
@@ -30,6 +34,15 @@ internal static class StoreProfiles
         }
         else if (command.RetailProduct is not null || product.RetailUnit is not null)
             throw new CommerceFailure("Esta ficha de tienda requiere su configuración de existencias.");
+
+        if (command.CosmeticProduct is { } cosmetic && work.Business.Industry == "cosmetics" && product.RetailUnit is not null)
+        {
+            product.Brand = Text(cosmetic.Brand, 80, "la marca", true);
+            product.Presentation = Text(cosmetic.Presentation, 80, "la presentación", true);
+            product.Tone = Text(cosmetic.Tone, 60, "el tono");
+        }
+        else if (command.CosmeticProduct is not null || product.Brand is not null || work.Business.Industry == "cosmetics" && product.RetailUnit is not null)
+            throw new CommerceFailure("Indica la marca y presentación de la ficha de cosméticos.");
 
         if (command.ApparelProduct is { } apparel && work.Business.Industry == "clothing")
         {

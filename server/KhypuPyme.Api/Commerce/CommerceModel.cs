@@ -104,6 +104,23 @@ internal static class CommerceModel
         equipment.HasOne<EquipmentUnit>().WithMany().HasForeignKey(x => new { x.BusinessId, Key = x.SerialKey }).OnDelete(DeleteBehavior.NoAction);
         equipment.HasOne<Entry>().WithMany().HasForeignKey(x => new { x.BusinessId, x.EntryId }).OnDelete(DeleteBehavior.NoAction);
 
+        var containers = BusinessTable<ContainerType>(model, "container_types");
+        containers.HasKey(x => new { x.BusinessId, x.Id });
+        containers.HasIndex(x => new { x.BusinessId, x.Key }).IsUnique();
+        containers.ToTable(table => table.HasCheckConstraint("container_type_quantities",
+            """ "Available" >= 0 AND "Borrowed" >= 0 AND "Available" + "Borrowed" <= 1000000 """));
+
+        var balances = BusinessTable<ContainerBalance>(model, "container_balances");
+        balances.HasKey(x => new { x.BusinessId, x.TypeId, x.CustomerId });
+        balances.HasOne<ContainerType>().WithMany().HasForeignKey(x => new { x.BusinessId, Id = x.TypeId }).OnDelete(DeleteBehavior.NoAction);
+        balances.HasOne<Customer>().WithMany().HasForeignKey(x => new { x.BusinessId, Id = x.CustomerId }).OnDelete(DeleteBehavior.NoAction);
+        balances.ToTable(table => table.HasCheckConstraint("container_balance_quantity", """ "Quantity" BETWEEN 0 AND 1000000 """));
+
+        var containerMovements = BusinessTable<ContainerMovement>(model, "container_movements");
+        containerMovements.HasKey(x => new { x.BusinessId, x.EntryId, x.TypeId });
+        containerMovements.HasOne<ContainerType>().WithMany().HasForeignKey(x => new { x.BusinessId, Id = x.TypeId }).OnDelete(DeleteBehavior.NoAction);
+        containerMovements.HasOne<Entry>().WithMany().HasForeignKey(x => new { x.BusinessId, Id = x.EntryId }).OnDelete(DeleteBehavior.NoAction);
+
         var debts = BusinessTable<Receivable>(model, "receivables");
         debts.HasKey(x => new { x.BusinessId, x.SaleId });
         debts.HasOne<Entry>().WithMany().HasForeignKey(x => new { x.BusinessId, x.SaleId }).OnDelete(DeleteBehavior.NoAction);

@@ -12,11 +12,11 @@ internal static partial class RetailMeasures
     [GeneratedRegex(@"^\d{1,7}(?:[.,]\d{1,3})?$", RegexOptions.CultureInvariant)]
     private static partial Regex QuantityPattern();
 
-    public static decimal Quantity(string? raw)
+    public static decimal Quantity(string? raw, bool allowZero = false)
     {
         if (raw is null || !QuantityPattern().IsMatch(raw) ||
             !decimal.TryParse(raw.Replace(',', '.'), NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var amount)
-            || amount is <= 0 or > QuantityLimit)
+            || amount < (allowZero ? 0 : 0.001m) || amount > QuantityLimit)
             throw new CommerceFailure("Indica una cantidad positiva con hasta tres decimales.");
         return amount;
     }
@@ -33,13 +33,15 @@ internal static partial class RetailMeasures
         _ => throw new CommerceFailure("La unidad elegida no corresponde a este producto."),
     };
 
-    public static (decimal Captured, decimal Base) Convert(RetailInput input, RetailProfile profile, bool buying)
+    public static (decimal Captured, decimal Base) Convert(RetailInput input, RetailProfile profile, bool buying, bool mixed = false)
     {
-        var captured = Quantity(input.Quantity);
-        var factor = Factor(input.Unit, profile, buying);
+        if (input.Loose is int loose && (!mixed || input.Unit != "box" || loose is < 0 or > QuantityLimit))
+            throw new CommerceFailure("Indica unidades sueltas enteras solamente junto a cajas de bebidas.");
+        var captured = Quantity(input.Quantity, allowZero: input.Loose is > 0);
+        var factor = Factor(input.Unit, profile, buying || mixed);
         if (profile.Unit == "piece" && captured != decimal.Truncate(captured))
             throw new CommerceFailure("Las cajas y unidades se registran en cantidades enteras.");
-        var stored = captured * factor;
+        var stored = captured * factor + (input.Loose ?? 0);
         if (stored > MaxBase || profile.Unit == "piece" && stored > QuantityLimit)
             throw new CommerceFailure("La cantidad convertida supera el límite de existencias.");
         return (captured, stored);

@@ -21,9 +21,11 @@ import { unitsOf } from "../timber/measures";
 import { Alert, Button, Card } from "../ui/Primitives";
 import { SerialHistory } from "../retail/SerialHistory";
 import type { StoreAttention } from "../retail/measures";
+import { ContainersPage } from "../retail/Containers";
+import { measuredIndustry } from "../retail/ProductFields";
 
 const workspaceViews = [
-  "inicio", "ventas", "compras", "cotizaciones", "catalogo", "clientes", "caja", "fiados", "gastos", "historial", "informes", "configuracion", "series",
+  "inicio", "ventas", "compras", "cotizaciones", "catalogo", "clientes", "caja", "fiados", "gastos", "historial", "informes", "configuracion", "series", "envases",
 ] as const;
 export type WorkspaceView = typeof workspaceViews[number];
 export type BusinessView = WorkspaceView | "negocios" | "crear";
@@ -64,8 +66,10 @@ export function BusinessWorkspace({ accountId, business, industry, view, navigat
   const [focus, setFocus] = useState("");
   const documentId = document?.origin === view ? document.id : undefined;
   const units = business.industry === "timber" ? unitsOf(business.timberUnits) : undefined;
-  const menu: Navigation[] = practice ? navigation.filter((item) => item.id !== "negocios" && item.id !== "configuracion") :
-    business.industry === "appliances" ? [...navigation.slice(0, -2), { id: "series", name: "Series y garantías", icon: "appliance" }, ...navigation.slice(-2)] : navigation;
+  const extra: Navigation | undefined = business.industry === "appliances" ? { id: "series", name: "Series y garantías", icon: "appliance" } :
+    business.industry === "beverages" ? { id: "envases", name: "Envases", icon: "parcel" } : undefined;
+  const menu = practice ? navigation.filter((item) => item.id !== "negocios" && item.id !== "configuracion") :
+    extra ? [...navigation.slice(0, -2), extra, ...navigation.slice(-2)] : navigation;
 
   useEffect(() => {
     (content.current?.querySelector<HTMLElement>("[data-entry-focus]") ?? content.current?.querySelector("h1"))?.focus({ preventScroll: true });
@@ -115,6 +119,7 @@ export function BusinessWorkspace({ accountId, business, industry, view, navigat
       case "historial": return <HistoryPage key={historyKind} initialKind={historyKind} />;
       case "series": return business.industry === "appliances" ? <SerialHistory key={focus} initial={focus.startsWith("serial:") ? focus.slice(7) : undefined}
         filter={focus === "inspection" ? focus : undefined} /> : <Alert>Esta vista pertenece al rubro de Electrodomésticos.</Alert>;
+      case "envases": return business.industry === "beverages" ? <ContainersPage /> : <Alert>Esta vista pertenece al rubro de Bebidas.</Alert>;
       case "informes": return <ReportsPage />;
       case "configuracion": return practice ? <Alert>Para cambiar la configuración, pausa la práctica y vuelve al negocio.</Alert> :
         <BusinessSettings profile={business} industry={industry} onSave={onSave} />;
@@ -169,19 +174,22 @@ function CommercialHome({ business, industry, icon, navigate, openSalesHistory }
     industryPanel={business.industry === "clothing" ? <Card className="industry-home-card">
       <h2>Tallas, colores y cambios</h2><Button variant="secondary" onClick={() => navigate("catalogo")}>Consultar variantes</Button>
       <Button variant="secondary" onClick={openSalesHistory}>Buscar venta para un cambio</Button>
-    </Card> : (business.industry === "convenience" || business.industry === "appliances") &&
+    </Card> : (measuredIndustry(business.industry) || business.industry === "appliances") &&
       <IndustryAttention industry={business.industry} navigate={navigate} />} />;
 }
 
 function IndustryAttention({ industry, navigate }: { industry: string; navigate: (view: BusinessView, focus?: string) => void }) {
   const attention = useCommerceData<StoreAttention>("/attention");
-  const store = industry === "convenience";
+  const store = measuredIndustry(industry);
   function count(value?: number) { return value == null ? "" : " · " + value; }
   return <Card className="industry-home-card">
-    <h2>{store ? "Reposición y vencimientos" : "Garantías e inspecciones"}</h2>
+    <h2>{industry === "beverages" ? "Reposición y envases" : industry === "pets" ? "Alimento y lotes de origen" :
+      industry === "cosmetics" ? "Lotes de cosméticos" : store ? "Reposición y vencimientos" : "Garantías e inspecciones"}</h2>
     {store ? <>
       <Button variant="secondary" onClick={() => navigate("catalogo", "reorder")}>Reponer productos{count(attention.data?.reorder)}</Button>
       <Button variant="secondary" onClick={() => navigate("catalogo", "expiring")}>Lotes que vencen en 30 días{count(attention.data?.expiring)}</Button>
+      {industry === "beverages" && <Button variant="secondary" onClick={() => navigate("envases")}>Gestionar envases</Button>}
+      {industry === "cosmetics" && <Button variant="secondary" onClick={() => navigate("catalogo", "held")}>Revisar lotes apartados</Button>}
     </> : <>
       <Button variant="secondary" onClick={() => navigate("series")}>Buscar historial por serie</Button>
       <Button variant="secondary" onClick={() => navigate("series", "inspection")}>Equipos en inspección{count(attention.data?.inspections)}</Button>

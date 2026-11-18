@@ -471,7 +471,7 @@ export interface paths {
             parameters: {
                 query?: {
                     search?: string;
-                    page?: number | string;
+                    page?: number;
                 };
                 header?: never;
                 path?: never;
@@ -667,6 +667,423 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/businesses/{businessId}/commerce/products": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    search?: string;
+                    active?: boolean;
+                    page?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CommercePageOfProductInfo"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/commerce/products/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductInfo"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/commerce/customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    search?: string;
+                    page?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CommercePageOfCustomerInfo"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/commerce/customers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CustomerInfo"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/commerce/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    kind?: string;
+                    cashSession?: string;
+                    page?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CommercePageOfEntryInfo"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/commerce/documents/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EntryDocument"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/commerce/cash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CashStatus"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/commerce/debts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    paid?: boolean;
+                    page?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CommercePageOfReceivableInfo"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/commerce/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    from?: string;
+                    to?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CommerceReport"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/commerce/commands/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    businessId: string;
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CommandResult"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/commerce/commands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    businessId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CommerceCommand"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CommandResult"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -690,16 +1107,167 @@ export interface components {
             phone: string;
             timberUnits: null | string;
         };
+        CashInfo: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            openedAt: string;
+            /** Format: date-time */
+            closedAt: null | string;
+            /** Format: int64 */
+            openingMinor: number;
+            /** Format: int64 */
+            expectedMinor: number;
+            /** Format: int64 */
+            countedMinor: null | number;
+        };
+        CashStatus: {
+            session: null | components["schemas"]["CashInfo"];
+        };
         CodePasswordInput: {
             email: null | string;
             code: null | string;
             password: null | string;
         };
+        CommandLine: {
+            /** Format: uuid */
+            productId: string;
+            /** Format: int32 */
+            quantity: number;
+            /** Format: int64 */
+            unitMinor?: null | number;
+            restock?: null | boolean;
+        };
+        CommandResult: {
+            /** Format: uuid */
+            operationId: string;
+            kind: string;
+            /** Format: uuid */
+            entityId: string;
+        };
+        CommerceCommand: {
+            /** Format: uuid */
+            operationId: string;
+            kind: string;
+            /** Format: uuid */
+            entityId?: null | string;
+            /** Format: uuid */
+            customerId?: null | string;
+            /** Format: uuid */
+            sourceId?: null | string;
+            name?: null | string;
+            code?: null | string;
+            phone?: null | string;
+            method?: null | string;
+            note?: null | string;
+            /** Format: int64 */
+            amountMinor?: null | number;
+            /** Format: int64 */
+            discountMinor?: null | number;
+            active?: null | boolean;
+            lines?: null | components["schemas"]["CommandLine"][];
+        };
+        CommercePageOfCustomerInfo: {
+            items: components["schemas"]["CustomerInfo"][];
+            hasMore: boolean;
+        };
+        CommercePageOfEntryInfo: {
+            items: components["schemas"]["EntryInfo"][];
+            hasMore: boolean;
+        };
+        CommercePageOfProductInfo: {
+            items: components["schemas"]["ProductInfo"][];
+            hasMore: boolean;
+        };
+        CommercePageOfReceivableInfo: {
+            items: components["schemas"]["ReceivableInfo"][];
+            hasMore: boolean;
+        };
+        CommerceReport: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            totals: components["schemas"]["ResultDay"];
+            days: components["schemas"]["ResultDay"][];
+            /** Format: int64 */
+            stockValueMinor: number;
+            /** Format: int64 */
+            receivablesMinor: number;
+        };
         CsrfToken: {
             token: string;
         };
+        CustomerInfo: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            phone: string;
+        };
+        DocumentLine: {
+            /** Format: uuid */
+            productId: string;
+            name: string;
+            code: string;
+            /** Format: int32 */
+            quantity: number;
+            /** Format: int64 */
+            unitMinor: number;
+            /** Format: int64 */
+            subtotalMinor: number;
+            /** Format: int64 */
+            costMinor: number;
+            restocked: null | boolean;
+            /** Format: int32 */
+            returnedQuantity: number;
+        };
         EmailInput: {
             email: null | string;
+        };
+        EntryDocument: {
+            /** Format: uuid */
+            id: string;
+            number: string;
+            kind: string;
+            /** Format: date */
+            date: string;
+            /** Format: date */
+            expiresOn: null | string;
+            businessName: string;
+            /** Format: uuid */
+            customerId: null | string;
+            customerName: null | string;
+            method: null | string;
+            note: string;
+            /** Format: int64 */
+            totalMinor: number;
+            /** Format: int64 */
+            discountMinor: number;
+            /** Format: int64 */
+            cashDeltaMinor: number;
+            /** Format: int64 */
+            debtDeltaMinor: number;
+            /** Format: uuid */
+            sourceId: null | string;
+            linked: boolean;
+            lines: components["schemas"]["DocumentLine"][];
+        };
+        EntryInfo: {
+            /** Format: uuid */
+            id: string;
+            number: string;
+            kind: string;
+            /** Format: date */
+            date: string;
+            method: null | string;
+            customerName: null | string;
+            /** Format: int64 */
+            totalMinor: number;
+            /** Format: int64 */
+            cashDeltaMinor: number;
+            /** Format: uuid */
+            sourceId: null | string;
+            linked: boolean;
         };
         HealthStatus: {
             status: string;
@@ -722,6 +1290,47 @@ export interface components {
             email: null | string;
             password: null | string;
         };
+        ProductInfo: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            code: string;
+            /** Format: int64 */
+            priceMinor: number;
+            /** Format: int32 */
+            stock: number;
+            /** Format: int64 */
+            valueMinor: number;
+            active: boolean;
+        };
+        ReceivableInfo: {
+            /** Format: uuid */
+            saleId: string;
+            number: string;
+            /** Format: date */
+            date: string;
+            customerName: string;
+            /** Format: int64 */
+            originalMinor: number;
+            /** Format: int64 */
+            balanceMinor: number;
+        };
+        ResultDay: {
+            /** Format: date */
+            date: string;
+            /** Format: int64 */
+            salesMinor: number;
+            /** Format: int64 */
+            costMinor: number;
+            /** Format: int64 */
+            purchasesMinor: number;
+            /** Format: int64 */
+            expensesMinor: number;
+            /** Format: int64 */
+            lossesMinor: number;
+            /** Format: int64 */
+            resultMinor?: number;
+        };
         SelectedBusiness: {
             business: null | components["schemas"]["BusinessCard"];
         };
@@ -729,6 +1338,8 @@ export interface components {
             email: null | string;
             googleConfigured: boolean;
             googleLinked: boolean;
+            /** Format: uuid */
+            accountId: null | string;
         };
         SettingsInput: {
             /** Format: uuid */

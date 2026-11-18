@@ -1,0 +1,160 @@
+using System.Security.Cryptography;
+using System.Text.Json;
+using KhypuPyme.Api.Businesses;
+using KhypuPyme.Api.Persistence;
+using Microsoft.EntityFrameworkCore;
+using static KhypuPyme.Api.Commerce.CommerceRules;
+
+namespace KhypuPyme.Api.Commerce;
+
+internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess access, TimeProvider clock)
+{
+    public async Task<CommandResult> ExecuteAsync(Guid accountId, Guid businessId, CommerceCommand command, CancellationToken ct)
+    {
+        if (command.OperationId == Guid.Empty || command.Kind is null or { Length: > 30 })
+            throw new CommerceFailure("La solicitud comercial no es válida.");
+
+        await using var transaction = await access.OpenAsync(accountId, businessId, ct);
+        var business = await db.Businesses.AsNoTracking().SingleOrDefaultAsync(x => x.Id == businessId, ct)
+            ?? throw new CommerceFailure("No se encontró el negocio.", 404);
+
+        // Orden fijo de bloqueos: identificador de cuenta, luego el negocio.
+        var requestKey = accountId.ToString("N") + command.OperationId.ToString("N");
+        await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({requestKey}, 4))", ct);
+        var digest = Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(command)));
+        var receipt = await db.Set<CommerceReceipt>().FindAsync([accountId, command.OperationId], ct);
+        if (receipt is not null)
+        {
+            if (receipt.BusinessId != businessId || receipt.Digest != digest)
+                throw new CommerceFailure("Ese identificador ya se utilizó con otra solicitud.", 409);
+            return new CommandResult(receipt.Id, receipt.Kind, receipt.EntityId);
+        }
+
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT pg_advisory_xact_lock(hashtextextended({businessId.ToString()}, 3))", ct);
+        var work = new CommerceTransaction(db, business, command, clock.GetUtcNow(), ct);
+        var entityId = command.Kind switch
+        {
+            "product" => await SaveProductAsync(work),
+            "customer" => await SaveCustomerAsync(work),
+            "purchase" => await new TradeOperations(work).PurchaseAsync(),
+            "sale" or "quote" => await new TradeOperations(work).SellAsync(),
+            "return" => await new TradeOperations(work).ReturnAsync(),
+            "stock-loss" => await new TradeOperations(work).LossAsync(),
+            "open-cash" or "close-cash" or "expense" or "void-expense" or "collect"
+                => await new CashOperations(work).ExecuteAsync(),
+            _ => throw new CommerceFailure("El tipo de operación no es válido."),
+        };
+
+        db.Add(new CommerceReceipt
+        {
+            Id = command.OperationId, AccountId = accountId, BusinessId = businessId,
+            Digest = digest, Kind = command.Kind, EntityId = entityId,
+        });
+        await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+        return new CommandResult(command.OperationId, command.Kind, entityId);
+    }
+
+    private static async Task<Guid> SaveProductAsync(CommerceTransaction work)
+    {
+        var input = work.Command;
+        var name = Text(input.Name, 100, "el nombre del producto", true);
+        var code = Text(input.Code, 40, "el código del producto", true);
+        var normalizedCode = Text(code.ToUpperInvariant(), 40, "el código del producto", true);
+        var price = Money(input.AmountMinor, "un precio");
+        var products = work.Db.Set<Product>();
+        if (await products.AnyAsync(x => x.NormalizedCode == normalizedCode && x.Id != input.EntityId, work.Ct))
+            throw new CommerceFailure("Ya existe un producto con ese código.", 409);
+
+        Product product;
+        if (input.EntityId is Guid existing)
+        {
+            product = await work.ProductAsync(existing);
+            product.Name = name;
+            product.Code = code;
+            product.Active = input.Active ?? product.Active;
+        }
+        else
+        {
+            product = new Product { BusinessId = work.Business.Id, Id = input.OperationId, Name = name, Code = code };
+            products.Add(product);
+        }
+        product.NormalizedCode = normalizedCode;
+        product.PriceMinor = price;
+        return product.Id;
+    }
+
+    private static async Task<Guid> SaveCustomerAsync(CommerceTransaction work)
+    {
+        var input = work.Command;
+        var name = Text(input.Name, 100, "el nombre del cliente", true);
+        var phone = Text(input.Phone, 32, "el teléfono");
+        if (input.EntityId is Guid id)
+        {
+            var record = await work.CustomerAsync(id);
+            record.Name = name;
+            record.Phone = phone;
+            return record.Id;
+        }
+
+        var customer = new Customer { BusinessId = work.Business.Id, Id = input.OperationId, Name = name, Phone = phone };
+        work.Db.Add(customer);
+        return customer.Id;
+    }
+}
+
+internal sealed class CommerceTransaction(KhypuPymeDbContext db, Business business,
+    CommerceCommand command, DateTimeOffset now, CancellationToken ct)
+{
+    public KhypuPymeDbContext Db => db;
+    public Business Business => business;
+    public CommerceCommand Command => command;
+    public DateTimeOffset Now => now;
+    public DateOnly Today => LocalDate(now);
+    public CancellationToken Ct => ct;
+
+    public async Task<Product> ProductAsync(Guid id) =>
+        await db.Set<Product>().FindAsync([business.Id, id], ct)
+        ?? throw new CommerceFailure("El producto no está disponible en este negocio.", 404);
+
+    public async Task<Customer> CustomerAsync(Guid id) =>
+        await db.Set<Customer>().FindAsync([business.Id, id], ct)
+        ?? throw new CommerceFailure("El cliente no está disponible en este negocio.", 404);
+
+    public async Task<Entry> SourceAsync(string kind, bool includeLines = false)
+    {
+        var query = db.Set<Entry>().Where(x => x.Id == command.SourceId && x.Kind == kind);
+        if (includeLines) query = query.Include(x => x.Lines);
+        return await query.SingleOrDefaultAsync(ct)
+            ?? throw new CommerceFailure("La operación de origen no está disponible en este negocio.", 404);
+    }
+
+    public async Task<Entry> NewEntryAsync(string prefix)
+    {
+        var sequence = (await db.Set<Entry>().MaxAsync(x => (long?)x.Sequence, ct) ?? 0) + 1;
+        var entry = new Entry
+        {
+            BusinessId = business.Id, BusinessName = business.Name,
+            Id = command.OperationId, Kind = command.Kind, Sequence = sequence,
+            Number = $"{prefix}-{Today.Year}-{sequence:D6}", Date = Today, CreatedAt = now,
+            Note = Text(command.Note, 240, "la referencia"),
+        };
+        db.Add(entry);
+        return entry;
+    }
+
+    public Task<CashSession?> OpenCashAsync() => db.Set<CashSession>().SingleOrDefaultAsync(x => x.ClosedAt == null, ct);
+
+    public async Task ApplyCashAsync(Entry entry, long delta)
+    {
+        if (entry.Method != "cash") return;
+        var session = await OpenCashAsync() ?? throw new CommerceFailure("Abre una caja para registrar efectivo.", 409);
+        var balance = session.ExpectedMinor + delta;
+        if (balance < 0)
+            throw new CommerceFailure("El saldo de caja no alcanza para este pago en efectivo.", 409);
+        session.ExpectedMinor = Money(balance, "un saldo de caja");
+        entry.CashSessionId = session.Id;
+        entry.CashDeltaMinor = delta;
+    }
+}

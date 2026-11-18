@@ -1,3 +1,4 @@
+using System.Data;
 using System.Security.Claims;
 using KhypuPyme.Api.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -10,9 +11,10 @@ internal sealed class BusinessAccess(KhypuPymeDbContext db)
     public static Guid AccountId(HttpContext http) =>
         Guid.Parse(http.User.FindFirstValue("sub") ?? http.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-    public async Task<IDbContextTransaction> OpenAsync(Guid account, Guid? business, CancellationToken ct)
+    public async Task<IDbContextTransaction> OpenAsync(Guid account, Guid? business, CancellationToken ct,
+        IsolationLevel isolation = IsolationLevel.ReadCommitted)
     {
-        var transaction = await db.Database.BeginTransactionAsync(ct);
+        var transaction = await db.Database.BeginTransactionAsync(isolation, ct);
         try
         {
             await SetAsync(account, business, ct);

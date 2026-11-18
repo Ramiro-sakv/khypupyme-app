@@ -3,17 +3,17 @@ import { change, get } from "../api/client";
 import { Alert, Button, Card } from "../ui/Primitives";
 import { BusinessPicker } from "./BusinessPicker";
 import { BusinessWizard } from "./BusinessWizard";
-import { BusinessWorkspace } from "./BusinessWorkspace";
+import { BusinessWorkspace, isWorkspaceView } from "./BusinessWorkspace";
 import type { BusinessView } from "./BusinessWorkspace";
 import { businessApi } from "./models";
 import type { BusinessProfile, BusinessSelection, IndustryOption } from "./models";
 
 function readView(): BusinessView {
   const view = new URLSearchParams(location.search).get("vista");
-  return view === "configuracion" || view === "negocios" || view === "crear" ? view : "inicio";
+  return view === "negocios" || view === "crear" || isWorkspaceView(view) ? view : "inicio";
 }
 
-export function BusinessesPage() {
+export function BusinessesPage({ accountId }: { accountId: string }) {
   const [view, setView] = useState(readView);
   const [industries, setIndustries] = useState<IndustryOption[]>([]);
   const [business, setBusiness] = useState<BusinessProfile | null>(null);
@@ -76,7 +76,7 @@ export function BusinessesPage() {
   if (view === "negocios" || !business) return <BusinessPicker industries={industries}
     lastId={business?.id} select={select} create={() => navigate("crear")} />;
 
-  return <BusinessWorkspace business={business}
+  return <BusinessWorkspace key={business.id} accountId={accountId} business={business}
     industry={industries.find((option) => option.id === business.industry)?.name ?? business.industry}
     view={view} navigate={navigate} onSave={(updated) => {
       setBusiness((current) => current?.id === updated.id ? updated : current);

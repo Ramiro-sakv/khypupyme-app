@@ -1,10 +1,14 @@
 const auth = "/api/v1/auth";
 
+export class ApiError extends Error {
+  constructor(readonly status: number, message: string) { super(message); }
+}
+
 async function read<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, { ...init, cache: "no-store", credentials: "same-origin" });
   if (!response.ok) {
     const problem = await response.json().catch(() => null) as { detail?: string } | null;
-    throw new Error(problem?.detail ?? ({
+    throw new ApiError(response.status, problem?.detail ?? ({
       401: "Ingresa de nuevo para continuar.",
       404: "No se encontró el negocio.",
       429: "Espera antes de volver a intentar.",

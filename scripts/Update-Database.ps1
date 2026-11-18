@@ -1,4 +1,4 @@
-﻿param([ValidateSet('Development', 'Test', 'Both')][string]$Database = 'Both')
+﻿param([ValidateSet('Development', 'Test', 'Both')][string]$Database = 'Both', [ValidateSet('Debug', 'Release')][string]$Configuration = 'Debug')
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Postgres.Local.ps1')
@@ -17,7 +17,7 @@ try {
     foreach ($target in $databases) {
         Write-Host "Aplicando migraciones a $target"
         $env:ConnectionStrings__KhypuPyme = Get-LocalConnectionString $target 'owner'
-        dotnet ef database update --project $project
+        dotnet ef database update --project $project --configuration $Configuration
         if ($LASTEXITCODE -ne 0) { throw "Falló la migración de $target." }
 
         $owner = "${target}_owner"
@@ -31,7 +31,7 @@ try {
         try {
             $env:ASPNETCORE_ENVIRONMENT = 'Development'
             $env:DOTNET_ENVIRONMENT = 'Development'
-            dotnet run --project $project --no-launch-profile --no-build -- --register-native-clients
+            dotnet run --project $project --configuration $Configuration --no-launch-profile --no-build -- --register-native-clients
             if ($LASTEXITCODE -ne 0) { throw "Falló el registro de clientes locales en $target." }
         }
         finally {

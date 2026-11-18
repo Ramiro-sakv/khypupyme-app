@@ -1,5 +1,6 @@
 using KhypuPyme.Api.Accounts;
 using KhypuPyme.Api.Businesses;
+using KhypuPyme.Api.Commerce;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -20,6 +21,7 @@ public sealed class KhypuPymeDbContext(DbContextOptions<KhypuPymeDbContext> opti
         base.OnModelCreating(modelBuilder);
         modelBuilder.HasDefaultSchema(Schema);
         modelBuilder.UseOpenIddict<Guid>();
+        CommerceModel.Configure(modelBuilder);
         modelBuilder.Entity<IdentityUser<Guid>>().HasIndex(user => user.NormalizedEmail).IsUnique();
 
         modelBuilder.Entity<EmailChallenge>(entry =>

@@ -51,6 +51,15 @@ El código tiene diez minutos de vigencia y la contraseña requiere al menos doc
 Después de ingresar, **Mis negocios** permite buscar, paginar y crear un negocio en tres pasos.
 El último negocio seleccionado se abre al volver a ingresar. El rubro queda fijo desde el alta.
 
+## Núcleo comercial
+
+Desde Inicio, abre caja para operar con efectivo, crea un producto en Catálogo y registra una compra
+para darle existencias. En Ventas, añade productos y abre **Revisar** para elegir cliente y forma de pago,
+verificar el total y confirmar. El historial permite abrir el comprobante no fiscal o descargar su PDF.
+
+Si una operación queda incierta, usa **Consultar estado**. La app conserva su solicitud original
+y permite reintentar cuando el servidor todavía no la registra.
+
 ### Google y clientes instalados
 
 **Continuar con Google** se habilita cuando el servidor recibe `Google__ClientId` y
@@ -90,6 +99,13 @@ El puerto 5183 debe estar libre.
 ```powershell
 .\scripts\Update-Database.ps1 -Database Test
 .\scripts\Test-Block2.ps1
+```
+
+Para verificar el núcleo comercial en la base de pruebas, con el puerto 5183 libre:
+
+```powershell
+.\scripts\Update-Database.ps1 -Database Test -Configuration Release
+.\scripts\Test-Block4.ps1
 ```
 
 Alcance y referencia en [PLAN.md](PLAN.md). Resultados en [PROGRESO.md](PROGRESO.md).

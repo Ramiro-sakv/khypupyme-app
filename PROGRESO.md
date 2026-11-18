@@ -53,4 +53,22 @@
 | Paletas | Los 21 rubros del servidor tienen paleta. El contraste mínimo comprobado entre texto y fondo de los pares de rubro fue de 5,41:1. |
 | Gráfica y Revisar | Aprobados estado vacío en la app y prueba aislada con datos ficticios para barras, tabla, Escape, minimización, conservación de campos y devolución de foco. |
 
-El siguiente alcance es **Bloque 4 · Núcleo comercial, documentos e informes**, cuando el propietario lo indique.
+## Bloque 4 · Núcleo comercial, documentos e informes
+
+- Catálogo por piezas, clientes, caja, compras, ventas, cotizaciones, devoluciones, gastos, fiados, cobro del saldo, historial e informes. La venta admite cliente ocasional y alta de cliente dentro de Revisar. Las cotizaciones duran siete días y su conversión comprueba precio y stock.
+- Las escrituras comerciales utilizan una sola transacción en PostgreSQL. El bloqueo por negocio serializa operaciones de existencias y caja. El identificador se vincula a cuenta, negocio y contenido. Las tablas comerciales tienen políticas por negocio, claves foráneas compuestas y movimientos históricos de solo inserción para el rol de la API.
+- Los documentos guardan nombre, precios, cantidades y subtotales confirmados. La descarga PDF se genera en el navegador desde ese registro, con fuentes locales y aviso no fiscal.
+- IndexedDB guarda borradores y solicitudes originales por cuenta y negocio. Si la respuesta resulta incierta, se consulta su estado desde la app y se habilita el reintento manual cuando el servidor aún no registra la operación.
+- Informes separa compras, costo vendido, gastos y pérdidas. Inicio consulta la caja y las cifras confirmadas. Los casos de madera por especie y medidas pertenecen al siguiente bloque.
+
+### Verificación
+
+| Comprobación | Resultado |
+|---|---|
+| Lint, TypeScript y compilaciones | Aprobados. Vite informó que los paquetes de PDF y fuentes superan 500 kB. Ambos se cargan al generar un comprobante. |
+| PostgreSQL de pruebas | Aprobados aislamiento, reversión íntegra de una compra rechazada, respuesta idempotente y dos ventas que disputan la última unidad. |
+| Devoluciones, gastos y fiados | Aprobados devolución parcial, redondeo acumulado, pérdida sin reintegro, anulación sin duplicado y cobro completo. |
+| Conciliación del informe | El caso de prueba produjo Bs 225,00 en ventas netas, Bs 507,00 en compras, Bs 107,00 en costo vendido, Bs 0,00 en gastos netos, Bs 50,00 en pérdidas y Bs 68,00 de resultado. |
+| Edge a 390 px y PDF | Compra de diez piezas, alta de cliente sin perder el carrito y restauración tras recarga. Tras perder la respuesta de la venta, la consulta manual confirmó Bs 200,00 y ocho piezas restantes. Se verificaron el importe y el número en pantalla, historial y texto del PDF descargado. |
+
+El siguiente alcance es **Bloque 5 · Sicomoro, madera y práctica**, cuando el propietario lo indique.

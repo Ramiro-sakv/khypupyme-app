@@ -77,13 +77,14 @@ function AccountApp() {
               disabled={acting} onClick={() => void accountAction(linkGoogle)}>Vincular Google</Button>}
             <Button variant="secondary" disabled={acting} onClick={() => void accountAction(async () => {
               await change(auth + "/logout", "POST");
-              setSession({ ...session, email: null, googleLinked: false });
+              setSession({ ...session, email: null, accountId: null, googleLinked: false });
               history.replaceState(null, "", "/");
             })}>Cerrar sesión</Button>
           </div>
         </div>
         {googleNotice && <Alert>{googleNotice}</Alert>}
-        <BusinessesPage key={session.email} />
+        {session.accountId ? <BusinessesPage key={session.accountId} accountId={session.accountId} />
+          : <Alert tone="error">Reinicia la API local para cargar las operaciones comerciales.</Alert>}
       </>
     ) : (
       <AuthPage google={session.googleConfigured} notice={googleNotice} returnTo={returnTo} onSignIn={refreshSession} />

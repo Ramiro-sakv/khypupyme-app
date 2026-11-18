@@ -1,22 +1,25 @@
 import { Icon } from "../ui/Icon";
 import type { IconName } from "../ui/Icon";
-import { Button, Card, DataTable, EmptyState } from "../ui/Primitives";
+import { Alert, Button, Card, DataTable, EmptyState } from "../ui/Primitives";
 import type { BusinessProfile } from "./models";
 
 type Day = { date: string; salesMinor: number; expensesMinor: number };
-type CashSummary = { state: "open" | "closed"; label: string };
+type CashSummary = { state: "open" | "closed"; label: string; detail?: string };
 
 const bolivianos = new Intl.NumberFormat("es-BO", { style: "currency", currency: "BOB" });
 const shortDay = new Intl.DateTimeFormat("es-BO", { day: "numeric", month: "short", timeZone: "UTC" });
 
-export function SalesChart({ days }: { days: readonly Day[] }) {
+export function SalesChart({ days, subtitle = "Movimientos confirmados por día", error, action }:
+  { days: readonly Day[]; subtitle?: string; error?: string; action?: () => void }) {
   const hasActivity = days.some(({ salesMinor, expensesMinor }) => salesMinor !== 0 || expensesMinor !== 0);
   return <Card className="sales-card">
-    <div className="card-title">
-      <span className="ui-icon-surface"><Icon name="chart" /></span>
-      <div><h2>Ventas y gastos</h2><p>Movimientos confirmados por día</p></div>
+    <div className="page-heading">
+      <div className="card-title"><span className="ui-icon-surface"><Icon name="chart" /></span>
+        <div><h2>Ventas y gastos</h2><p>{subtitle}</p></div>
+      </div>
+      {action && <Button variant="plain" onClick={action}>Ver informes</Button>}
     </div>
-    {hasActivity ? <ConfirmedChart days={days} /> : <div className="chart-empty">
+    {error ? <Alert tone="error">{error}</Alert> : hasActivity ? <ConfirmedChart days={days} /> : <div className="chart-empty">
       <EmptyState icon="chart" title="Sin datos para graficar">Los importes aparecerán aquí al confirmar movimientos del negocio.</EmptyState>
     </div>}
   </Card>;
@@ -54,14 +57,18 @@ function ConfirmedChart({ days }: { days: readonly Day[] }) {
   </>;
 }
 
-export function BusinessHome({ business, industry, icon, cash, days, openSettings, openSelector }: {
+export function BusinessHome({ business, industry, icon, cash, days, cashError, reportError, openCash, openSale, openPurchase, openReports }: {
   business: BusinessProfile;
   industry: string;
   icon: IconName;
   cash: CashSummary | null;
   days: readonly Day[];
-  openSettings: () => void;
-  openSelector: () => void;
+  cashError?: string;
+  reportError?: string;
+  openCash: () => void;
+  openSale: () => void;
+  openPurchase: () => void;
+  openReports: () => void;
 }) {
   return <>
     <div className="business-hero">
@@ -81,15 +88,18 @@ export function BusinessHome({ business, industry, icon, cash, days, openSetting
           <strong className="status-chip" data-state={cash?.state ?? "unknown"}>
             {cash?.label ?? "Sin datos de caja"}
           </strong>
-          {!cash && <p className="cash-caption">Aún no hay un estado de caja confirmado.</p>}
+          {cashError ? <Alert tone="error">{cashError}</Alert> : cash?.detail && <p className="cash-caption">{cash.detail}</p>}
         </Card>
         <Card className="home-actions">
           <h2>Acciones principales</h2>
-          <Button variant="secondary" icon="settings" onClick={openSettings}>Configuración del negocio</Button>
-          <Button variant="secondary" icon="shops" onClick={openSelector}>Cambiar negocio</Button>
+          <Button variant={cash?.state === "open" ? "secondary" : "primary"} icon="cash" onClick={openCash}>
+            {cash?.state === "open" ? "Ver caja" : "Abrir caja"}
+          </Button>
+          <Button variant="secondary" icon="shops" onClick={openSale}>Vender</Button>
+          <Button variant="secondary" icon="parcel" onClick={openPurchase}>Registrar compra</Button>
         </Card>
       </aside>
-      <SalesChart days={days} />
+      <SalesChart days={days} error={reportError} action={openReports} />
     </div>
   </>;
 }

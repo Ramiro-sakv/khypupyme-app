@@ -131,6 +131,316 @@ namespace KhypuPyme.Api.Persistence.Migrations
                     b.ToTable("business_settings", "khypupyme");
                 });
 
+            modelBuilder.Entity("KhypuPyme.Api.Commerce.CashSession", b =>
+                {
+                    b.Property<Guid>("BusinessId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long?>("CountedMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("ExpectedMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset>("OpenedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("OpeningMinor")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("BusinessId", "Id");
+
+                    b.HasIndex("BusinessId")
+                        .IsUnique()
+                        .HasFilter("\"ClosedAt\" IS NULL");
+
+                    b.HasIndex("BusinessId", "OpenedAt", "Id");
+
+                    b.ToTable("cash_sessions", "khypupyme", t =>
+                        {
+                            t.HasCheckConstraint("cash_amounts", "\"OpeningMinor\" BETWEEN 0 AND 1000000000000 AND \"ExpectedMinor\" BETWEEN 0 AND 1000000000000\r\nAND (\"CountedMinor\" IS NULL OR \"CountedMinor\" BETWEEN 0 AND 1000000000000)");
+                        });
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Commerce.CommerceReceipt", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BusinessId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Digest")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("EntityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("AccountId", "Id");
+
+                    b.HasIndex("AccountId", "BusinessId");
+
+                    b.ToTable("commerce_receipts", "khypupyme");
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Commerce.Customer", b =>
+                {
+                    b.Property<Guid>("BusinessId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.HasKey("BusinessId", "Id");
+
+                    b.HasIndex("BusinessId", "Name", "Id");
+
+                    b.ToTable("customers", "khypupyme");
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Commerce.Entry", b =>
+                {
+                    b.Property<Guid>("BusinessId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("BusinessName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("CashDeltaMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid?>("CashSessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("CostMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CustomerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CustomerName")
+                        .HasColumnType("text");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<long>("DebtDeltaMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("DiscountMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("ExpensesMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateOnly?>("ExpiresOn")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("LossesMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Method")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Note")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("PurchasesMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("SalesMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("Sequence")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid?>("SourceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("TotalMinor")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("BusinessId", "Id");
+
+                    b.HasIndex("BusinessId", "CashSessionId");
+
+                    b.HasIndex("BusinessId", "CustomerId");
+
+                    b.HasIndex("BusinessId", "Date");
+
+                    b.HasIndex("BusinessId", "Sequence")
+                        .IsUnique();
+
+                    b.HasIndex("BusinessId", "SourceId");
+
+                    b.HasIndex("BusinessId", "Kind", "Sequence");
+
+                    b.HasIndex("BusinessId", "Kind", "SourceId")
+                        .IsUnique()
+                        .HasFilter("\"Kind\" IN ('void-expense','sale','collect')");
+
+                    b.ToTable("commerce_entries", "khypupyme");
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Commerce.EntryLine", b =>
+                {
+                    b.Property<Guid>("BusinessId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("EntryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("CostMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<bool?>("Restocked")
+                        .HasColumnType("boolean");
+
+                    b.Property<long>("SubtotalMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("UnitMinor")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("BusinessId", "EntryId", "ProductId");
+
+                    b.HasIndex("BusinessId", "ProductId");
+
+                    b.ToTable("commerce_lines", "khypupyme", t =>
+                        {
+                            t.HasCheckConstraint("commerce_lines_quantities", "\"Quantity\" BETWEEN 1 AND 1000000 AND \"UnitMinor\" >= 0 AND \"SubtotalMinor\" >= 0 AND \"CostMinor\" >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Commerce.Product", b =>
+                {
+                    b.Property<Guid>("BusinessId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("NormalizedCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<long>("PriceMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Stock")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("ValueMinor")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("BusinessId", "Id");
+
+                    b.HasIndex("BusinessId", "NormalizedCode")
+                        .IsUnique();
+
+                    b.HasIndex("BusinessId", "Name", "Id");
+
+                    b.ToTable("products", "khypupyme", t =>
+                        {
+                            t.HasCheckConstraint("products_balance", "\"Stock\" BETWEEN 0 AND 1000000 AND \"ValueMinor\" BETWEEN 0 AND 1000000000000\r\nAND \"PriceMinor\" BETWEEN 0 AND 1000000000000 AND (\"Stock\" > 0 OR \"ValueMinor\" = 0)");
+                        });
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Commerce.Receivable", b =>
+                {
+                    b.Property<Guid>("BusinessId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SaleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("BalanceMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("OriginalMinor")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("BusinessId", "SaleId");
+
+                    b.HasIndex("BusinessId", "CustomerId");
+
+                    b.ToTable("receivables", "khypupyme", t =>
+                        {
+                            t.HasCheckConstraint("receivables_balance", "\"OriginalMinor\" > 0 AND \"BalanceMinor\" BETWEEN 0 AND \"OriginalMinor\"");
+                        });
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUser<System.Guid>", b =>
                 {
                     b.Property<Guid>("Id")
@@ -498,6 +808,109 @@ namespace KhypuPyme.Api.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("KhypuPyme.Api.Commerce.CashSession", b =>
+                {
+                    b.HasOne("KhypuPyme.Api.Businesses.Business", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Commerce.CommerceReceipt", b =>
+                {
+                    b.HasOne("KhypuPyme.Api.Businesses.Business", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId", "BusinessId")
+                        .HasPrincipalKey("OwnerId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Commerce.Customer", b =>
+                {
+                    b.HasOne("KhypuPyme.Api.Businesses.Business", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Commerce.Entry", b =>
+                {
+                    b.HasOne("KhypuPyme.Api.Businesses.Business", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("KhypuPyme.Api.Commerce.CashSession", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId", "CashSessionId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("KhypuPyme.Api.Commerce.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId", "CustomerId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("KhypuPyme.Api.Commerce.Entry", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId", "SourceId")
+                        .OnDelete(DeleteBehavior.NoAction);
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Commerce.EntryLine", b =>
+                {
+                    b.HasOne("KhypuPyme.Api.Businesses.Business", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("KhypuPyme.Api.Commerce.Entry", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("BusinessId", "EntryId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("KhypuPyme.Api.Commerce.Product", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId", "ProductId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Commerce.Product", b =>
+                {
+                    b.HasOne("KhypuPyme.Api.Businesses.Business", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Commerce.Receivable", b =>
+                {
+                    b.HasOne("KhypuPyme.Api.Businesses.Business", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("KhypuPyme.Api.Commerce.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId", "CustomerId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("KhypuPyme.Api.Commerce.Entry", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId", "SaleId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser<System.Guid>", null)
@@ -547,6 +960,11 @@ namespace KhypuPyme.Api.Persistence.Migrations
                     b.Navigation("Application");
 
                     b.Navigation("Authorization");
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Commerce.Entry", b =>
+                {
+                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("OpenIddict.EntityFrameworkCore.Models.OpenIddictEntityFrameworkCoreApplication<System.Guid>", b =>

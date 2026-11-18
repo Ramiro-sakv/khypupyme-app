@@ -38,7 +38,7 @@ internal static class AccountEndpoints
         var user = await users.GetUserAsync(context.User);
         var googleConfigured = GoogleFlow.IsEnabled(context.RequestServices.GetRequiredService<IConfiguration>());
         var linked = user is not null && (await users.GetLoginsAsync(user)).Any(login => login.LoginProvider == "Google");
-        return TypedResults.Ok(new SessionInfo(user?.Email, googleConfigured, linked));
+        return TypedResults.Ok(new SessionInfo(user?.Email, googleConfigured, linked, user?.Id));
     }
 
     private static bool ValidEmail(string? email) =>
@@ -143,7 +143,7 @@ internal sealed class CsrfFilter(IAntiforgery antiforgery) : IEndpointFilter
 }
 
 public sealed record CsrfToken(string Token);
-public sealed record SessionInfo(string? Email, bool GoogleConfigured, bool GoogleLinked);
+public sealed record SessionInfo(string? Email, bool GoogleConfigured, bool GoogleLinked, Guid? AccountId);
 public sealed record EmailInput(string? Email);
 public sealed record PasswordInput(string? Email, string? Password);
 public sealed record CodePasswordInput(string? Email, string? Code, string? Password);

@@ -4,6 +4,7 @@ import { change, get, linkGoogle } from "./api/client";
 import { AuthPage } from "./accounts/AuthPage";
 import { BusinessesPage } from "./businesses/BusinessesPage";
 import { StatusPage } from "./StatusPage";
+import { Alert, Button } from "./ui/Primitives";
 
 type Session = components["schemas"]["SessionInfo"];
 const auth = "/api/v1/auth";
@@ -63,25 +64,25 @@ function AccountApp() {
       <a href="/?view=status">Estado local</a>
     </header>
     {loading && <p role="status">Consultando sesión…</p>}
-    {error && <p className="form-error" role="alert">{error}</p>}
-    {!loading && !session && <button type="button" onClick={() => {
+    {error && <Alert tone="error">{error}</Alert>}
+    {!loading && !session && <Button onClick={() => {
       setError(""); setLoading(true); setRevision((value) => value + 1);
-    }}>Reintentar</button>}
+    }}>Reintentar</Button>}
     {!loading && session && (session.email ? (
       <>
         <div className="session-bar">
           <span>{session.email}</span>
           <div className="inline-actions">
-            {session.googleConfigured && !session.googleLinked && <button type="button" className="secondary"
-              disabled={acting} onClick={() => void accountAction(linkGoogle)}>Vincular Google</button>}
-            <button type="button" className="secondary" disabled={acting} onClick={() => void accountAction(async () => {
+            {session.googleConfigured && !session.googleLinked && <Button variant="secondary"
+              disabled={acting} onClick={() => void accountAction(linkGoogle)}>Vincular Google</Button>}
+            <Button variant="secondary" disabled={acting} onClick={() => void accountAction(async () => {
               await change(auth + "/logout", "POST");
               setSession({ ...session, email: null, googleLinked: false });
               history.replaceState(null, "", "/");
-            })}>Cerrar sesión</button>
+            })}>Cerrar sesión</Button>
           </div>
         </div>
-        {googleNotice && <p className="form-notice" role="status">{googleNotice}</p>}
+        {googleNotice && <Alert>{googleNotice}</Alert>}
         <BusinessesPage key={session.email} />
       </>
     ) : (

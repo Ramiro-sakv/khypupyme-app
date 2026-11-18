@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { change } from "../api/client";
+import { Alert, Button, TextField } from "../ui/Primitives";
 
 type Mode = "login" | "register" | "recover";
 const auth = "/api/v1/auth";
@@ -76,41 +77,35 @@ export function AuthPage({ google, returnTo, notice, onSignIn }: {
       <div className="account-card">
         <h2>{title}</h2>
         {returnTo && mode === "login" && <p>Ingresa para autorizar la aplicación instalada.</p>}
-        {error && <p role="alert" className="form-error">{error}</p>}
-        {feedback && <p role="status" className="form-notice">{feedback}</p>}
+        {error && <Alert tone="error">{error}</Alert>}
+        {feedback && <Alert>{feedback}</Alert>}
         <form className="account-form" onSubmit={(event) => void submit(event)}>
-          <label>Correo electrónico
-            <input type="email" maxLength={256} autoComplete="email" required value={email}
-              onChange={(event) => setEmail(event.target.value)} />
-          </label>
+          <TextField label="Correo electrónico" type="email" maxLength={256} autoComplete="email" required value={email}
+            onChange={(event) => setEmail(event.target.value)} />
           {verified && mode !== "login" && (
-            <label>Código de cinco dígitos
-              <input inputMode="numeric" pattern="[0-9]{5}" autoComplete="one-time-code" maxLength={5}
-                required value={code} onChange={(event) => setCode(event.target.value)} />
-            </label>
+            <TextField label="Código de cinco dígitos" inputMode="numeric" pattern="[0-9]{5}" autoComplete="one-time-code" maxLength={5}
+              required value={code} onChange={(event) => setCode(event.target.value)} />
           )}
           {(mode === "login" || verified) && (
-            <label>{mode === "recover" ? "Nueva contraseña" : "Contraseña"}
-              <input type="password" autoComplete={mode === "login" ? "current-password" : "new-password"}
-                minLength={mode === "login" ? undefined : 12} maxLength={128} required value={password}
-                onChange={(event) => setPassword(event.target.value)} />
-            </label>
+            <TextField label={mode === "recover" ? "Nueva contraseña" : "Contraseña"} type="password"
+              autoComplete={mode === "login" ? "current-password" : "new-password"} minLength={mode === "login" ? undefined : 12}
+              maxLength={128} required value={password} onChange={(event) => setPassword(event.target.value)} />
           )}
-          <button type="submit" disabled={busy}>{busy ? "Procesando…" :
+          <Button type="submit" disabled={busy}>{busy ? "Procesando…" :
             mode === "login" ? "Ingresar" : !verified ? "Enviar código" :
-              mode === "register" ? "Crear cuenta" : "Guardar contraseña"}</button>
-          {mode !== "login" && verified && <button type="button" className="secondary"
-            disabled={busy} onClick={() => void run(sendCode)}>Reenviar código</button>}
+              mode === "register" ? "Crear cuenta" : "Guardar contraseña"}</Button>
+          {mode !== "login" && verified && <Button variant="secondary"
+            disabled={busy} onClick={() => void run(sendCode)}>Reenviar código</Button>}
         </form>
         {mode === "login" ? (
           <div className="account-actions">
             {google ? <a className="secondary link-button" href={auth + "/google/start" +
               (returnTo ? "?returnTo=" + encodeURIComponent(returnTo) : "")}>Continuar con Google</a>
               : <p className="muted">Continuar con Google estará disponible al configurar Google.</p>}
-            <button type="button" className="text-button" disabled={busy} onClick={() => open("register")}>Crear cuenta</button>
-            <button type="button" className="text-button" disabled={busy} onClick={() => open("recover")}>Olvidé mi contraseña</button>
+            <Button variant="plain" disabled={busy} onClick={() => open("register")}>Crear cuenta</Button>
+            <Button variant="plain" disabled={busy} onClick={() => open("recover")}>Olvidé mi contraseña</Button>
           </div>
-        ) : <button type="button" className="text-button" disabled={busy} onClick={() => open("login")}>Volver al ingreso</button>}
+        ) : <Button variant="plain" disabled={busy} onClick={() => open("login")}>Volver al ingreso</Button>}
       </div>
     </section>
   );

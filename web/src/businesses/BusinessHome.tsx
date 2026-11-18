@@ -1,0 +1,95 @@
+import { Icon } from "../ui/Icon";
+import type { IconName } from "../ui/Icon";
+import { Button, Card, DataTable, EmptyState } from "../ui/Primitives";
+import type { BusinessProfile } from "./models";
+
+type Day = { date: string; salesMinor: number; expensesMinor: number };
+type CashSummary = { state: "open" | "closed"; label: string };
+
+const bolivianos = new Intl.NumberFormat("es-BO", { style: "currency", currency: "BOB" });
+const shortDay = new Intl.DateTimeFormat("es-BO", { day: "numeric", month: "short", timeZone: "UTC" });
+
+export function SalesChart({ days }: { days: readonly Day[] }) {
+  const hasActivity = days.some(({ salesMinor, expensesMinor }) => salesMinor !== 0 || expensesMinor !== 0);
+  return <Card className="sales-card">
+    <div className="card-title">
+      <span className="ui-icon-surface"><Icon name="chart" /></span>
+      <div><h2>Ventas y gastos</h2><p>Movimientos confirmados por día</p></div>
+    </div>
+    {hasActivity ? <ConfirmedChart days={days} /> : <div className="chart-empty">
+      <EmptyState icon="chart" title="Sin datos para graficar">Los importes aparecerán aquí al confirmar movimientos del negocio.</EmptyState>
+    </div>}
+  </Card>;
+}
+
+function ConfirmedChart({ days }: { days: readonly Day[] }) {
+  const maximum = Math.max(...days.flatMap(({ salesMinor, expensesMinor }) => [Math.abs(salesMinor), Math.abs(expensesMinor)]));
+  function bar(value: number, kind: "sales" | "expenses") {
+    const height = Math.abs(value) / maximum * 50 + "%";
+    return <span className={"chart-column__bar chart-column__bar--" + kind}
+      style={{ height, bottom: value >= 0 ? "50%" : undefined, top: value < 0 ? "50%" : undefined }} />;
+  }
+  function label(date: string) {
+    return shortDay.format(new Date(date + "T00:00:00Z"));
+  }
+  return <>
+    <div className="chart-legend"><span>Ventas netas</span><span>Gastos operativos</span></div>
+    <div className="chart-scroll">
+      <div className="mini-chart" aria-hidden="true">
+        {days.map((day) => <div className="chart-day" key={day.date}>
+          <div className="chart-pair">
+            <div className="chart-column">{bar(day.salesMinor, "sales")}</div>
+            <div className="chart-column">{bar(-day.expensesMinor, "expenses")}</div>
+          </div>
+          <span>{label(day.date)}</span>
+        </div>)}
+      </div>
+    </div>
+    <details className="chart-details">
+      <summary>Ver cifras por día</summary>
+      <DataTable caption="Ventas y gastos diarios en bolivianos" columns={["Fecha", "Ventas netas", "Gastos operativos"]}
+        rows={days.map((day) => ({ id: day.date, cells: [label(day.date), bolivianos.format(day.salesMinor / 100),
+          bolivianos.format(day.expensesMinor / 100)] }))} />
+    </details>
+  </>;
+}
+
+export function BusinessHome({ business, industry, icon, cash, days, openSettings, openSelector }: {
+  business: BusinessProfile;
+  industry: string;
+  icon: IconName;
+  cash: CashSummary | null;
+  days: readonly Day[];
+  openSettings: () => void;
+  openSelector: () => void;
+}) {
+  return <>
+    <div className="business-hero">
+      <div className="hero-detail">
+        <span className="hero-industry"><Icon name={icon} />{industry}</span>
+        <h1 tabIndex={-1}>{business.name}</h1>
+        {business.city && <p>{business.city}</p>}
+      </div>
+      <span className="hero-symbol"><Icon name={icon} /></span>
+    </div>
+    <div className="workspace-grid">
+      <aside className="home-sidebar" aria-label="Caja y acciones principales">
+        <Card className="cash-card">
+          <div className="card-title"><span className="ui-icon-surface"><Icon name="cash" /></span>
+            <div><h2>Caja</h2><p>Estado del negocio</p></div>
+          </div>
+          <strong className="status-chip" data-state={cash?.state ?? "unknown"}>
+            {cash?.label ?? "Sin datos de caja"}
+          </strong>
+          {!cash && <p className="cash-caption">Aún no hay un estado de caja confirmado.</p>}
+        </Card>
+        <Card className="home-actions">
+          <h2>Acciones principales</h2>
+          <Button variant="secondary" icon="settings" onClick={openSettings}>Configuración del negocio</Button>
+          <Button variant="secondary" icon="shops" onClick={openSelector}>Cambiar negocio</Button>
+        </Card>
+      </aside>
+      <SalesChart days={days} />
+    </div>
+  </>;
+}

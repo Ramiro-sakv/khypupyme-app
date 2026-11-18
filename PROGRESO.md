@@ -36,4 +36,21 @@
 | Web | Edge a 390 px completó alta, ingreso, asistente, búsqueda, reapertura del último negocio y cierre de sesión sobre la base de pruebas. |
 | Google real | Pendiente de credenciales OAuth. La prueba local comprobó la respuesta de configuración pendiente y mantuvo la autenticación externa fuera del recorrido automatizado. |
 
-El siguiente alcance es **Bloque 3 · Diseño, Inicio y navegación**, cuando el propietario lo indique.
+## Bloque 3 · Diseño, Inicio y navegación
+
+- Sistema compartido de campos, botones, alertas, tarjetas, tablas y estados vacíos. Las 21 identidades de rubro se aplican en Mis negocios, el asistente y el espacio activo.
+- Inicio identifica el negocio y reúne Caja, acciones disponibles y gráfica de ventas y gastos. El bloque comercial todavía debe aportar datos confirmados, por lo que Caja y la gráfica muestran estados vacíos y las pantallas comerciales quedan fuera de la navegación.
+- Navegación lateral en escritorio, compacta en tablet y fija abajo en móvil. La vista se guarda en `vista` para recargar o usar Atrás. La configuración conserva el rubro y actualiza los datos visibles del negocio.
+- **Revisar** ocupa una fila propia debajo del carrito. El diálogo conserva sus campos al minimizar, admite Escape y devuelve el foco al carrito. El componente espera su integración con el carrito comercial.
+
+### Verificación
+
+| Comprobación | Resultado |
+|---|---|
+| Lint, TypeScript y compilación web | Aprobados. |
+| Edge con PostgreSQL de pruebas | Completados ingreso, asistente con regreso al paso anterior, búsqueda, cambio de negocio, guardado, recarga y Atrás. |
+| 360, 768 y 1440 px | Aprobadas navegación con teclado y toque emulado, foco al cambiar de vista y ausencia de desborde horizontal. En móvil, el espacio reservado dejó Revisar por encima de la navegación. |
+| Paletas | Los 21 rubros del servidor tienen paleta. El contraste mínimo comprobado entre texto y fondo de los pares de rubro fue de 5,41:1. |
+| Gráfica y Revisar | Aprobados estado vacío en la app y prueba aislada con datos ficticios para barras, tabla, Escape, minimización, conservación de campos y devolución de foco. |
+
+El siguiente alcance es **Bloque 4 · Núcleo comercial, documentos e informes**, cuando el propietario lo indique.

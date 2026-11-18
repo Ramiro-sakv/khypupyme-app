@@ -3,6 +3,7 @@ using System.Text.Json;
 using KhypuPyme.Api.Businesses;
 using KhypuPyme.Api.Persistence;
 using KhypuPyme.Api.Timber;
+using KhypuPyme.Api.Retail;
 using Microsoft.EntityFrameworkCore;
 using static KhypuPyme.Api.Commerce.CommerceRules;
 
@@ -46,7 +47,8 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
             "customer" => await SaveCustomerAsync(work),
             "purchase" => await new TradeOperations(work).PurchaseAsync(),
             "sale" or "quote" => await new TradeOperations(work).SellAsync(),
-            "return" => await new TradeOperations(work).ReturnAsync(),
+            "return" or "exchange" => await new TradeOperations(work).ReturnAsync(),
+            "inspection" => await new EquipmentInventory(work).InspectAsync(),
             "stock-loss" => await new TradeOperations(work).LossAsync(),
             "open-cash" or "close-cash" or "expense" or "void-expense" or "collect"
                 => await new CashOperations(work).ExecuteAsync(),
@@ -66,9 +68,19 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
 
     private static string Digest(CommerceCommand command)
     {
-        // Los comandos comunes conservan el hash del bloque anterior.
-        object serialized = command.TimberProduct is not null || command.Lines?.Any(x => x?.Timber is not null || x?.OriginalLineId is not null) == true
-            ? command
+        // Los contratos anteriores mantienen sus huellas, incluso cuando se agregan campos opcionales.
+        bool specialized = command.RetailProduct is not null || command.ApparelProduct is not null || command.EquipmentProduct is not null ||
+            command.ExchangeLines is not null || command.Serial is not null || command.Release is not null ||
+            command.Lines?.Any(x => x?.Measure is not null || x?.Serials is not null) == true;
+        var timber = command.TimberProduct is not null || command.Lines?.Any(x => x?.Timber is not null || x?.OriginalLineId is not null) == true;
+        object serialized = specialized ? command : timber
+            ? new
+            {
+                command.OperationId, command.Kind, command.EntityId, command.CustomerId, command.SourceId, command.Name,
+                command.Code, command.Phone, command.Method, command.Note, command.AmountMinor, command.DiscountMinor, command.Active,
+                Lines = command.Lines?.Select(x => x is null ? null : new { x.ProductId, x.Quantity, x.UnitMinor, x.Restock, x.Timber, x.OriginalLineId }),
+                command.TimberProduct,
+            }
             : new
             {
                 command.OperationId, command.Kind, command.EntityId, command.CustomerId, command.SourceId, command.Name,
@@ -104,6 +116,7 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
         }
         product.NormalizedCode = normalizedCode;
         TimberInventory.SetProfile(product, input.TimberProduct, work.Business.Industry == "timber", input.EntityId is null);
+        await StoreProfiles.SaveAsync(work, product);
         product.PriceMinor = price;
         return product.Id;
     }
@@ -145,9 +158,9 @@ internal sealed class CommerceTransaction(KhypuPymeDbContext db, Business busine
         await db.Set<Customer>().FindAsync([business.Id, id], ct)
         ?? throw new CommerceFailure("El cliente no está disponible en este negocio.", 404);
 
-    public async Task<Entry> SourceAsync(string kind, bool includeLines = false)
+    public async Task<Entry> SourceAsync(string kind, bool includeLines = false, bool allowExchange = false)
     {
-        var query = db.Set<Entry>().Where(x => x.Id == command.SourceId && x.Kind == kind);
+        var query = db.Set<Entry>().Where(x => x.Id == command.SourceId && (x.Kind == kind || allowExchange && x.Kind == "exchange"));
         if (includeLines) query = query.Include(x => x.Lines);
         return await query.SingleOrDefaultAsync(ct)
             ?? throw new CommerceFailure("La operación de origen no está disponible en este negocio.", 404);

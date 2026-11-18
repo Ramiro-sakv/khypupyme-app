@@ -1,6 +1,7 @@
 using System.Numerics;
 using Microsoft.EntityFrameworkCore;
 using KhypuPyme.Api.Timber;
+using KhypuPyme.Api.Retail;
 using static KhypuPyme.Api.Commerce.CommerceRules;
 
 namespace KhypuPyme.Api.Commerce;
@@ -8,6 +9,8 @@ namespace KhypuPyme.Api.Commerce;
 internal sealed class TradeOperations(CommerceTransaction work)
 {
     private readonly TimberInventory inventory = new(work);
+    private readonly RetailInventory retail = new(work);
+    private readonly EquipmentInventory equipment = new(work);
     public async Task<Guid> PurchaseAsync()
     {
         var rows = await PrepareAsync(useCatalogPrice: false);
@@ -16,8 +19,24 @@ internal sealed class TradeOperations(CommerceTransaction work)
         entry.TotalMinor = entry.PurchasesMinor = Total(rows.Select(x => x.Subtotal));
         foreach (var row in rows)
         {
-            await inventory.AddAsync(row.Product, row.Timber, row.Quantity, row.Subtotal);
-            entry.Lines.Add(Snapshot(entry, row, row.Subtotal, row.Subtotal));
+            if (row.Measure is { } measure)
+            {
+                var lots = await retail.BuyAsync(row.Product, measure, row.BaseQuantity!.Value, row.Subtotal);
+                entry.Lines.Add(Snapshot(entry, row, row.Subtotal, row.Subtotal, new(measure, row.BaseQuantity, lots, RateUnit: measure.Unit)));
+            }
+            else if (row.Serials is { Length: > 0 } serials)
+            {
+                foreach (var serial in serials)
+                {
+                    await equipment.BuyAsync(row.Product, serial, row.UnitMinor, entry);
+                    entry.Lines.Add(Snapshot(entry, row with { Quantity = 1 }, row.UnitMinor, row.UnitMinor, new(Serial: serial)));
+                }
+            }
+            else
+            {
+                await inventory.AddAsync(row.Product, row.Timber, row.Quantity, row.Subtotal);
+                entry.Lines.Add(Snapshot(entry, row, row.Subtotal, row.Subtotal));
+            }
         }
         await work.ApplyCashAsync(entry, -entry.TotalMinor);
         return entry.Id;
@@ -64,9 +83,7 @@ internal sealed class TradeOperations(CommerceTransaction work)
         {
             var net = row.Subtotal - Share(discount, runningGross, runningGross + row.Subtotal, gross);
             runningGross += row.Subtotal;
-            var cost = quote ? 0 : await inventory.RemoveAsync(row.Product, row.Timber, row.Quantity);
-            entry.CostMinor += cost;
-            entry.Lines.Add(Snapshot(entry, row, net, cost));
+            await AddSaleLinesAsync(entry, row, net, quote);
         }
         if (!quote)
         {
@@ -76,6 +93,37 @@ internal sealed class TradeOperations(CommerceTransaction work)
         return entry.Id;
     }
 
+    private async Task AddSaleLinesAsync(Entry entry, TradeRow row, long net, bool quote, string? direction = null)
+    {
+        if (!quote && row.Serials is { Length: > 0 } serials)
+        {
+            for (var i = 0; i < serials.Length; i++)
+            {
+                var unit = await equipment.SellAsync(row.Product, serials[i], entry);
+                entry.CostMinor += unit.CostMinor;
+                entry.Lines.Add(Snapshot(entry, row with { Quantity = 1 }, Share(net, i, i + 1, serials.Length), unit.CostMinor,
+                    new(Serial: unit.Serial, WarrantyUntil: unit.WarrantyUntil, Direction: direction)));
+            }
+        }
+        else if (row.Measure is { } measure)
+        {
+            var take = quote ? (Cost: 0L, Lots: Array.Empty<LotAllocation>()) :
+                await retail.RemoveAsync(row.Product, measure, row.BaseQuantity!.Value);
+            entry.CostMinor += take.Cost;
+            entry.Lines.Add(Snapshot(entry, row, net, take.Cost,
+                new(measure, row.BaseQuantity, take.Lots, Direction: direction, RateUnit: row.Product.RetailUnit)));
+        }
+        else
+        {
+            var cost = quote ? 0 : await inventory.RemoveAsync(row.Product, row.Timber, row.Quantity);
+            entry.CostMinor += cost;
+            var variant = StoreProfiles.Apparel(row.Product);
+            if (quote && row.Product.WarrantyMonths is not null) direction = "choose-series";
+            entry.Lines.Add(Snapshot(entry, row, net, cost, variant is null && direction is null ? null :
+                new(Apparel: variant, Direction: direction)));
+        }
+    }
+
     private async Task LinkQuoteAsync(Entry entry, TradeRow[] rows)
     {
         var source = await work.SourceAsync("quote", includeLines: true);
@@ -83,42 +131,72 @@ internal sealed class TradeOperations(CommerceTransaction work)
             throw new CommerceFailure("La cotización venció o ya se convirtió en venta.", 409);
         if (source.CustomerId != entry.CustomerId || source.DiscountMinor != entry.DiscountMinor ||
             rows.Length != source.Lines.Count || rows.Any(row => !source.Lines.Any(line =>
-                line.ProductId == row.Product.Id && line.Quantity == row.Quantity && line.UnitMinor == row.UnitMinor && line.Timber == row.Timber)))
+                line.ProductId == row.Product.Id && line.Quantity == row.Quantity && line.UnitMinor == row.UnitMinor &&
+                line.Timber == row.Timber && line.BaseQuantity == row.BaseQuantity &&
+                (row.Measure is null || LineDetails.Parse(line.DetailsJson)?.Measure?.Unit == row.Measure.Unit))))
             throw new CommerceFailure("La cotización cambió. Emite otra antes de convertirla.", 409);
         entry.SourceId = source.Id;
     }
 
     public async Task<Guid> ReturnAsync()
     {
+        var exchange = work.Command.Kind == "exchange";
+        if (exchange && work.Business.Industry != "clothing")
+            throw new CommerceFailure("Los cambios por talla y color corresponden al rubro de ropa.");
         var requested = Lines(work.Command.Lines, returning: true);
-        var sale = await work.SourceAsync("sale", includeLines: true);
+        var sale = await work.SourceAsync("sale", includeLines: true, allowExchange: work.Business.Industry == "clothing");
         var returned = await work.Db.Set<Entry>()
-            .Where(x => x.Kind == "return" && x.SourceId == sale.Id)
-            .SelectMany(x => x.Lines).GroupBy(x => x.OriginalLineId ?? x.ProductId)
-            .ToDictionaryAsync(group => group.Key, group => group.Sum(row => row.Quantity), work.Ct);
+            .Where(x => (x.Kind == "return" || x.Kind == "exchange") && x.SourceId == sale.Id)
+            .SelectMany(x => x.Lines.Where(line => x.Kind == "return" || line.OriginalLineId != null))
+            .GroupBy(x => x.OriginalLineId ?? x.ProductId)
+            .ToDictionaryAsync(group => group.Key, group => group.Sum(row => row.BaseQuantity ?? row.Quantity), work.Ct);
 
-        var entry = await work.NewEntryAsync("DEV");
+        var entry = await work.NewEntryAsync(exchange ? "CAM" : "DEV");
         entry.TimberUnits = sale.TimberUnits;
         entry.SourceId = sale.Id;
         entry.CustomerId = sale.CustomerId;
         entry.CustomerName = sale.CustomerName;
-        entry.Note = Text(work.Command.Note, 240, "el motivo de la devolución", true);
+        entry.Note = Text(work.Command.Note, 240, exchange ? "el motivo del cambio" : "el motivo de la devolución", true);
         entry.Method = Payment(work.Command.Method);
         var selected = new HashSet<Guid>();
         foreach (var input in requested)
         {
-            var original = sale.Lines.SingleOrDefault(x => x.ProductId == input.ProductId &&
-                (input.OriginalLineId is null ? x.LengthMicros == null : x.LineId == input.OriginalLineId))
+            var original = sale.Lines.SingleOrDefault(x => x.ProductId == input.ProductId && (sale.Kind != "exchange" || x.OriginalLineId == null) &&
+                (input.OriginalLineId is null ? x.LengthMicros == null && x.DetailsJson == null : x.LineId == input.OriginalLineId))
                 ?? throw new CommerceFailure("El producto no pertenece a la venta original.");
             if (!selected.Add(original.LineId)) throw new CommerceFailure("Indica una cantidad por línea de la venta original.");
             var before = returned.GetValueOrDefault(original.LineId);
-            if (before + input.Quantity > original.Quantity)
-                throw new CommerceFailure($"Solo quedan {original.Quantity - before} piezas de {original.Name} por devolver.", 409);
-            var refund = Share(original.SubtotalMinor, before, before + input.Quantity, original.Quantity);
-            var cost = Share(original.CostMinor, before, before + input.Quantity, original.Quantity);
+            var product = await work.ProductAsync(input.ProductId);
+            var details = LineDetails.Parse(original.DetailsJson);
+            if (exchange && details?.Apparel is null)
+                throw new CommerceFailure("Selecciona una variante de la venta original para el cambio.");
+            var measure = input.Measure;
+            var measured = details?.Measure is { } originalMeasure &&
+                measure is not null && measure.Unit == originalMeasure.Unit && measure.Lot is null && measure.ExpiresOn is null;
+            if ((details?.Measure is not null || measure is not null) && !measured ||
+                input.Serials is not null || input.Timber is not null)
+                throw new CommerceFailure("Usa la unidad y la identificación de la línea original.");
+            var count = measured ? RetailMeasures.Convert(measure!, StoreProfiles.Retail(product)!, false).Base : input.Quantity;
+            var whole = original.BaseQuantity ?? original.Quantity;
+            if (before + count > whole)
+                throw new CommerceFailure($"La cantidad de {original.Name} supera lo pendiente de la venta original.", 409);
+            var refund = RetailMeasures.Proportion(original.SubtotalMinor, before, before + count, whole);
             var restock = input.Restock ?? true;
-            if (restock) await inventory.AddAsync(await work.ProductAsync(input.ProductId), original.Timber, input.Quantity, cost);
-            else entry.LossesMinor += cost;
+            long cost;
+            if (measured)
+            {
+                var result = await retail.RefundAsync(product, details!, before, count, original.CostMinor, restock);
+                cost = result.Cost;
+                details = details! with { Measure = measure, BaseQuantity = count, Lots = result.Lots };
+            }
+            else
+            {
+                cost = RetailMeasures.Proportion(original.CostMinor, before, before + count, whole);
+                if (details?.Serial is { } serial) await equipment.RefundAsync(product, serial, sale, entry, restock);
+                else if (restock) await inventory.AddAsync(product, original.Timber, input.Quantity, cost);
+            }
+            if (!restock) entry.LossesMinor += cost;
+            if (details is not null) details = details with { Direction = exchange ? "returned" : null };
             entry.TotalMinor += refund;
             entry.CostMinor -= cost;
             entry.Lines.Add(new EntryLine
@@ -127,7 +205,7 @@ internal sealed class TradeOperations(CommerceTransaction work)
                 Name = original.Name, Code = original.Code, Quantity = input.Quantity, OriginalLineId = original.LineId,
                 UnitMinor = original.UnitMinor, SubtotalMinor = refund, CostMinor = cost, Restocked = restock,
                 Species = original.Species, LengthMicros = original.LengthMicros, ThicknessMicros = original.ThicknessMicros,
-                WidthMicros = original.WidthMicros,
+                WidthMicros = original.WidthMicros, BaseQuantity = measured ? count : null, DetailsJson = LineDetails.Save(details),
             });
         }
 
@@ -137,8 +215,24 @@ internal sealed class TradeOperations(CommerceTransaction work)
         var paidRefund = entry.TotalMinor - credit;
         entry.DebtDeltaMinor = -credit;
         entry.SalesMinor = -entry.TotalMinor;
-        if (paidRefund == 0 && credit > 0) entry.Method = "credit";
-        await work.ApplyCashAsync(entry, -paidRefund);
+        if (exchange)
+        {
+            var replacement = await PrepareAsync(useCatalogPrice: true, work.Command.ExchangeLines ?? []);
+            if (replacement.Any(row => row.Product.Model is null || entry.Lines.Any(line => line.ProductId == row.Product.Id)))
+                throw new CommerceFailure("Selecciona una variante de ropa distinta como reemplazo.");
+            var newTotal = Total(replacement.Select(row => row.Subtotal));
+            foreach (var row in replacement) await AddSaleLinesAsync(entry, row, row.Subtotal, false, "replacement");
+            entry.SalesMinor += newTotal;
+            entry.TotalMinor = newTotal - paidRefund;
+            if (work.Command.AmountMinor != entry.TotalMinor)
+                throw new CommerceFailure("Cambió el importe del cambio. Vuelve a consultar la venta y revisa la diferencia.", 409);
+            if (entry.TotalMinor != 0) await work.ApplyCashAsync(entry, entry.TotalMinor);
+        }
+        else
+        {
+            if (paidRefund == 0 && credit > 0) entry.Method = "credit";
+            await work.ApplyCashAsync(entry, -paidRefund);
+        }
         return entry.Id;
     }
 
@@ -150,6 +244,20 @@ internal sealed class TradeOperations(CommerceTransaction work)
         foreach (var line in inputs)
         {
             var product = await work.ProductAsync(line.ProductId);
+            if (product.WarrantyMonths is not null)
+                throw new CommerceFailure("La baja de un equipo se resuelve por su serie desde Inspección.");
+            if (StoreProfiles.Retail(product) is { } profile)
+            {
+                var measure = line.Measure ?? throw new CommerceFailure("Indica la cantidad y la unidad de la salida.");
+                var amount = RetailMeasures.Convert(measure, profile, false).Base;
+                var loss = await retail.RemoveAsync(product, measure, amount, loss: true);
+                entry.LossesMinor += loss.Cost;
+                entry.Lines.Add(Snapshot(entry, new TradeRow(product, 1, 0, 0, null, measure, amount), loss.Cost, loss.Cost,
+                    new(measure, amount, loss.Lots)));
+                continue;
+            }
+            if (line.Measure is not null || line.Serials is not null)
+                throw new CommerceFailure("La ficha no admite esas unidades de control.");
             var dimension = TimberInventory.Check(product, line.Timber);
             var cost = await inventory.RemoveAsync(product, dimension, line.Quantity);
             entry.LossesMinor += cost;
@@ -159,9 +267,9 @@ internal sealed class TradeOperations(CommerceTransaction work)
         return entry.Id;
     }
 
-    private async Task<TradeRow[]> PrepareAsync(bool useCatalogPrice)
+    private async Task<TradeRow[]> PrepareAsync(bool useCatalogPrice, CommandLine[]? replacements = null)
     {
-        var inputs = Lines(work.Command.Lines);
+        var inputs = Lines(replacements ?? work.Command.Lines, buying: !useCatalogPrice);
         var rows = new List<TradeRow>(inputs.Length);
         foreach (var line in inputs)
         {
@@ -171,8 +279,25 @@ internal sealed class TradeOperations(CommerceTransaction work)
             var unit = Money(line.UnitMinor, useCatalogPrice ? "el precio unitario" : "el costo unitario");
             if (useCatalogPrice && unit != (dimension is null ? product.PriceMinor : TimberMeasures.Rate(product, dimension)))
                 throw new CommerceFailure($"Cambió el precio de {product.Name}. Actualízalo y vuelve a revisar.", 409);
-            var subtotal = useCatalogPrice && dimension is not null ? 0 : Money(unit * line.Quantity, "un subtotal");
-            rows.Add(new TradeRow(product, line.Quantity, unit, subtotal, dimension));
+            var serials = equipment.Validate(product, line, required: work.Command.Kind != "quote");
+            if (work.Command.Kind == "quote" && serials.Length > 0)
+                throw new CommerceFailure("Selecciona la serie al confirmar la venta.");
+            if (StoreProfiles.Retail(product) is { } profile)
+            {
+                var measure = line.Measure ?? throw new CommerceFailure("Indica la cantidad y la unidad del producto.");
+                if (useCatalogPrice && (measure.Lot is not null || measure.ExpiresOn is not null))
+                    throw new CommerceFailure("Los lotes vendibles se asignan al confirmar la venta.");
+                var (captured, stored) = RetailMeasures.Convert(measure, profile, !useCatalogPrice);
+                var factor = useCatalogPrice ? RetailMeasures.Factor(profile.Unit, profile, false) : 1;
+                var subtotal = RetailMeasures.Subtotal(unit, useCatalogPrice ? stored : captured, factor);
+                rows.Add(new TradeRow(product, profile.Unit == "piece" ? (int)stored : 1, unit, subtotal, null, measure, stored));
+            }
+            else
+            {
+                if (line.Measure is not null) throw new CommerceFailure("La ficha no admite esa unidad.");
+                var subtotal = useCatalogPrice && dimension is not null ? 0 : Money(unit * line.Quantity, "un subtotal");
+                rows.Add(new TradeRow(product, line.Quantity, unit, subtotal, dimension, Serials: serials));
+            }
         }
         if (useCatalogPrice)
         {
@@ -194,14 +319,16 @@ internal sealed class TradeOperations(CommerceTransaction work)
         return rows.ToArray();
     }
 
-    private static EntryLine Snapshot(Entry entry, TradeRow row, long subtotal, long cost) => new()
+    private static EntryLine Snapshot(Entry entry, TradeRow row, long subtotal, long cost, LineDetails? details = null) => new()
     {
         BusinessId = entry.BusinessId, EntryId = entry.Id, ProductId = row.Product.Id,
         Name = row.Product.Name, Code = row.Product.Code, Quantity = row.Quantity,
         UnitMinor = row.UnitMinor, SubtotalMinor = subtotal, CostMinor = cost,
         Species = row.Product.Species, LengthMicros = row.Timber?.LengthMicros, ThicknessMicros = row.Timber?.ThicknessMicros,
         WidthMicros = row.Timber?.WidthMicros,
+        BaseQuantity = row.BaseQuantity, DetailsJson = LineDetails.Save(details),
     };
 
-    private sealed record TradeRow(Product Product, int Quantity, long UnitMinor, long Subtotal, TimberDimensions? Timber);
+    private sealed record TradeRow(Product Product, int Quantity, long UnitMinor, long Subtotal, TimberDimensions? Timber,
+        RetailInput? Measure = null, decimal? BaseQuantity = null, string[]? Serials = null);
 }

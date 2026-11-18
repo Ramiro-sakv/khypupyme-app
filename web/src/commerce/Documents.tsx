@@ -5,9 +5,11 @@ import { CommerceHeading, LoadFeedback, NoRecords, OperationForm, Pages, Payment
 import { bob, dateLabel, documentName, methodLabel } from "./models";
 import type { EntryDocument, EntryInfo, Page } from "./models";
 import { documentTimber, documentUnit } from "../timber/measures";
+import { describeLine, lineQuantity, lineRate, remainingQuantity, unitLabels } from "../retail/measures";
+import { ExchangeEditor } from "../retail/ExchangeEditor";
 
 const historyKinds = ["sale", "purchase", "quote", "return", "expense", "void-expense",
-  "stock-loss", "open-cash", "close-cash", "collect"];
+  "stock-loss", "open-cash", "close-cash", "collect", "exchange", "inspection"];
 
 export function HistoryPage({ initialKind }: { initialKind: string }) {
   const [kind, setKind] = useState(initialKind);
@@ -44,15 +46,15 @@ export function EntryList({ kind, cashSession, caption }: { kind?: string; cashS
   </Card>;
 }
 
-export function DocumentPage({ id, back, convert }: {
-  id: string; back: () => void; convert: (quote: EntryDocument) => void;
+export function DocumentPage({ id, back, convert, openSerial }: {
+  id: string; back: () => void; convert: (quote: EntryDocument) => void; openSerial?: (serial: string) => void;
 }) {
   const data = useCommerceData<EntryDocument>("/documents/" + id);
   const document = data.data;
   const { showDocument } = useCommerce();
   const [error, setError] = useState("");
   const [loadingPdf, setLoadingPdf] = useState(false);
-  const [action, setAction] = useState<"return" | "void" | null>(null);
+  const [action, setAction] = useState<"return" | "void" | "exchange" | null>(null);
   async function savePdf() {
     if (!document) return;
     setError("");
@@ -82,28 +84,33 @@ export function DocumentPage({ id, back, convert }: {
         {error && <Alert tone="error">{error}</Alert>}
         <dl className="business-summary document-summary">
           {!!document.discountMinor && <><dt>Descuento</dt><dd>{bob(document.discountMinor)}</dd></>}
-          <dt>Total confirmado</dt><dd className="trade-total">{bob(document.totalMinor)}</dd>
+          <dt>{document.kind === "exchange" ? "Diferencia cobrada (+) o devuelta (−)" : "Total confirmado"}</dt><dd className="trade-total">{bob(document.totalMinor)}</dd>
           {!!document.cashDeltaMinor && <><dt>Movimiento de caja</dt><dd>{bob(document.cashDeltaMinor)}</dd></>}
           {!!document.debtDeltaMinor && <><dt>Movimiento del fiado</dt><dd>{bob(document.debtDeltaMinor)}</dd></>}
         </dl>
         {document.sourceId && <Button variant="plain" onClick={() => showDocument(document.sourceId!)}>Ver operación de origen</Button>}
       </Card>
-      {document.lines.length > 0 && <Card><DataTable caption="Productos confirmados" columns={["Producto", "Piezas", "Importe unitario", "Subtotal"]}
+      {document.lines.length > 0 && <Card><DataTable caption="Productos confirmados" columns={["Producto", "Cantidad", "Importe unitario", "Subtotal"]}
         rows={document.lines.map((line) => ({ id: line.lineId, cells: [
           <div>{line.name}<small className="record-secondary">{line.code}
             {line.returnedQuantity > 0 ? " · Devueltas " + line.returnedQuantity : ""}
             {line.restocked === false ? " · Sin reintegro" : ""}</small>
+            {line.details && <small className="record-secondary">{describeLine(line)}</small>}
+            {line.details?.serial && openSerial && <Button variant="plain" onClick={() => openSerial(line.details!.serial!)}>Historial de la serie</Button>}
             {line.timber && <small className="record-secondary">{documentTimber(document, line)}</small>}</div>,
-          line.quantity, bob(line.unitMinor) + documentUnit(document, line), bob(line.subtotalMinor),
+          lineQuantity(line), bob(line.unitMinor) + documentUnit(document, line) + lineRate(line), bob(line.subtotalMinor),
         ] }))} /></Card>}
       <div className="inline-actions">
         {document.kind === "quote" && !document.linked && <Button onClick={() => convert(document)}>Preparar venta desde la cotización</Button>}
-        {document.kind === "sale" && document.lines.some((line) => line.returnedQuantity < line.quantity) &&
+        {["sale", "exchange"].includes(document.kind) && document.lines.some((line) => remainingQuantity(line) > 0) &&
           <Button variant="secondary" onClick={() => setAction("return")}>Registrar devolución</Button>}
+        {["sale", "exchange"].includes(document.kind) && document.lines.some((line) => line.details?.apparel && remainingQuantity(line) > 0) &&
+          <Button onClick={() => setAction("exchange")}>Iniciar cambio</Button>}
         {document.kind === "expense" && !document.linked &&
           <Button variant="secondary" onClick={() => setAction("void")}>Anular gasto</Button>}
       </div>
       {action === "return" && <ReturnEditor document={document} close={() => setAction(null)} />}
+      {action === "exchange" && <ExchangeEditor document={document} close={() => setAction(null)} />}
       {action === "void" && <VoidEditor document={document} close={() => setAction(null)} />}
     </>}
   </div>;
@@ -121,24 +128,29 @@ function ReturnEditor({ document, close }: { document: EntryDocument; close: () 
       void form.submit(() => {
         const lines = document.lines.flatMap((line) => {
           const item = chosen[line.lineId];
-          return item && Number(item.quantity) > 0 ? [{ productId: line.productId, originalLineId: line.lineId,
-            quantity: Number(item.quantity), restock: item.restock }] : [];
+          if (!item || Number(item.quantity.replace(",", ".")) <= 0 || !item.quantity) return [];
+          const measured = line.details?.measure;
+          return [{ productId: line.productId, originalLineId: line.lineId,
+            quantity: measured ? 1 : Number(item.quantity), restock: item.restock,
+            measure: measured ? { quantity: item.quantity.trim(), unit: measured.unit } : undefined }];
         });
         if (!lines.length) throw new Error("Indica al menos una pieza para devolver.");
         return { kind: "return", sourceId: document.id, note, method, lines };
       }, (result) => showDocument(result.entityId));
     }}>
-    {document.lines.filter((line) => line.returnedQuantity < line.quantity).map((line) => {
+    {document.lines.filter((line) => remainingQuantity(line) > 0).map((line) => {
       const current = chosen[line.lineId] ?? { quantity: "0", restock: true };
-      const remaining = line.quantity - line.returnedQuantity;
+      const remaining = remainingQuantity(line);
+      const measured = line.details?.measure;
       return <div className="return-line" key={line.lineId}>
-        <TextField label={"Piezas a devolver de " + line.name + (line.timber ? " · " + documentTimber(document, line) : "")}
+        <TextField label={(measured ? "Cantidad a devolver (" + unitLabels[measured.unit] + ") de " : "Piezas a devolver de ") +
+          line.name + (line.timber ? " · " + documentTimber(document, line) : line.details ? " · " + describeLine(line) : "")}
           hint={remaining + " disponibles de la venta original"}
-          type="number" min={0} max={remaining} step={1} value={current.quantity}
+          type="number" min={0} max={remaining} step={measured && measured.unit !== "piece" ? 0.001 : 1} value={current.quantity}
           onChange={(event) => setChosen({ ...chosen, [line.lineId]: { ...current, quantity: event.target.value } })} />
         <label className="trade-check"><input type="checkbox" checked={current.restock}
           onChange={(event) => setChosen({ ...chosen, [line.lineId]: { ...current, restock: event.target.checked } })} />
-          Reintegrar a existencias</label>
+          {line.details?.serial ? "Enviar a inspección" : "Reintegrar a existencias"}</label>
       </div>;
     })}
     {document.method === "credit" && <p>La devolución reduce primero el saldo fiado. Si corresponde, el excedente se reembolsa por el método elegido.</p>}

@@ -5,6 +5,7 @@ using KhypuPyme.Api.Commerce;
 using KhypuPyme.Api.Health;
 using KhypuPyme.Api.Persistence;
 using KhypuPyme.Api.Timber;
+using KhypuPyme.Api.Retail;
 using Microsoft.EntityFrameworkCore;
 
 var provisionClients = args.Contains("--register-native-clients", StringComparer.Ordinal);
@@ -19,6 +20,7 @@ builder.AddAccounts();
 builder.Services.AddScoped<BusinessAccess>();
 builder.Services.AddScoped<CommerceService>();
 builder.Services.AddScoped<CommerceReads>();
+builder.Services.AddScoped<StoreReads>();
 builder.Services.AddScoped<TimberPracticeService>();
 
 var app = builder.Build();

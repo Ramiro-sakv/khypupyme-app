@@ -679,6 +679,7 @@ export interface paths {
                 query?: {
                     search?: string;
                     active?: boolean;
+                    attention?: string;
                     page?: number;
                 };
                 header?: never;
@@ -731,6 +732,231 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ProductInfo"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/commerce/products/code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    code?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductInfo"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/commerce/variants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    model?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductInfo"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/commerce/lots/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CommercePageOfLotInfo"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/commerce/serials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    product?: string;
+                    search?: string;
+                    state?: string;
+                    page?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CommercePageOfSerialInfo"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/commerce/serial": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    serial?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UnitHistory"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/commerce/attention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StoreAttention"];
                     };
                 };
             };
@@ -1139,6 +1365,7 @@ export interface paths {
                 query?: {
                     search?: string;
                     active?: boolean;
+                    attention?: string;
                     page?: number;
                 };
                 header?: never;
@@ -1191,6 +1418,231 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ProductInfo"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/practice-commerce/products/code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    code?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductInfo"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/practice-commerce/variants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    model?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductInfo"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/practice-commerce/lots/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CommercePageOfLotInfo"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/practice-commerce/serials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    product?: string;
+                    search?: string;
+                    state?: string;
+                    page?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CommercePageOfSerialInfo"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/practice-commerce/serial": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    serial?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UnitHistory"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/practice-commerce/attention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StoreAttention"];
                     };
                 };
             };
@@ -1653,6 +2105,11 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ApparelProfile: {
+            model: string;
+            size: string;
+            color: string;
+        };
         BusinessCard: {
             /** Format: uuid */
             id: string;
@@ -1705,6 +2162,8 @@ export interface components {
             timber?: null | components["schemas"]["TimberDimensions"];
             /** Format: uuid */
             originalLineId?: null | string;
+            measure?: null | components["schemas"]["RetailInput"];
+            serials?: null | string[];
         };
         CommandResult: {
             /** Format: uuid */
@@ -1735,6 +2194,12 @@ export interface components {
             active?: null | boolean;
             lines?: null | components["schemas"]["CommandLine"][];
             timberProduct?: null | components["schemas"]["TimberPrices"];
+            retailProduct?: null | components["schemas"]["RetailProfile"];
+            apparelProduct?: null | components["schemas"]["ApparelProfile"];
+            equipmentProduct?: null | components["schemas"]["EquipmentProfile"];
+            exchangeLines?: null | components["schemas"]["CommandLine"][];
+            serial?: null | string;
+            release?: null | boolean;
         };
         CommercePageOfCustomerInfo: {
             items: components["schemas"]["CustomerInfo"][];
@@ -1744,12 +2209,20 @@ export interface components {
             items: components["schemas"]["EntryInfo"][];
             hasMore: boolean;
         };
+        CommercePageOfLotInfo: {
+            items: components["schemas"]["LotInfo"][];
+            hasMore: boolean;
+        };
         CommercePageOfProductInfo: {
             items: components["schemas"]["ProductInfo"][];
             hasMore: boolean;
         };
         CommercePageOfReceivableInfo: {
             items: components["schemas"]["ReceivableInfo"][];
+            hasMore: boolean;
+        };
+        CommercePageOfSerialInfo: {
+            items: components["schemas"]["SerialInfo"][];
             hasMore: boolean;
         };
         CommercePageOfTimberStockInfo: {
@@ -1797,6 +2270,9 @@ export interface components {
             lineId: string;
             species: null | string;
             timber: null | components["schemas"]["TimberDimensions"];
+            details: null | components["schemas"]["LineDetails"];
+            /** Format: double */
+            returnedBaseQuantity: number;
         };
         EmailInput: {
             email: null | string;
@@ -1830,6 +2306,8 @@ export interface components {
             lines: components["schemas"]["DocumentLine"][];
             timberUnits: null | string;
             practice: boolean;
+            /** Format: int64 */
+            debtBalanceMinor: number;
         };
         EntryInfo: {
             /** Format: uuid */
@@ -1848,6 +2326,10 @@ export interface components {
             sourceId: null | string;
             linked: boolean;
         };
+        EquipmentProfile: {
+            /** Format: int32 */
+            warrantyMonths: number;
+        };
         HealthStatus: {
             status: string;
         };
@@ -1855,6 +2337,35 @@ export interface components {
             id: string;
             name: string;
             description: string;
+        };
+        LineDetails: {
+            measure?: null | components["schemas"]["RetailInput"];
+            /** Format: double */
+            baseQuantity?: null | number;
+            lots?: null | components["schemas"]["LotAllocation"][];
+            apparel?: null | components["schemas"]["ApparelProfile"];
+            serial?: null | string;
+            /** Format: date */
+            warrantyUntil?: null | string;
+            direction?: null | string;
+            rateUnit?: null | string;
+        };
+        LotAllocation: {
+            lot: string;
+            /** Format: date */
+            expiresOn: null | string;
+            /** Format: double */
+            quantity: number;
+            /** Format: int64 */
+            costMinor: number;
+        };
+        LotInfo: {
+            lot: string;
+            /** Format: date */
+            expiresOn: null | string;
+            /** Format: double */
+            quantity: number;
+            sellable: boolean;
         };
         NewBusiness: {
             /** Format: uuid */
@@ -1900,6 +2411,13 @@ export interface components {
             valueMinor: number;
             active: boolean;
             timber: null | components["schemas"]["TimberPrices"];
+            retail: null | components["schemas"]["RetailProfile"];
+            apparel: null | components["schemas"]["ApparelProfile"];
+            equipment: null | components["schemas"]["EquipmentProfile"];
+            /** Format: double */
+            measuredStock: null | number;
+            /** Format: double */
+            sellableStock: null | number;
         };
         ReceivableInfo: {
             /** Format: uuid */
@@ -1929,8 +2447,43 @@ export interface components {
             /** Format: int64 */
             resultMinor?: number;
         };
+        RetailInput: {
+            quantity: string;
+            unit: string;
+            lot?: null | string;
+            /** Format: date */
+            expiresOn?: null | string;
+        };
+        RetailProfile: {
+            unit: string;
+            /** Format: int32 */
+            boxSize: number;
+            trackLots: boolean;
+            /** Format: double */
+            reorder: number;
+        };
         SelectedBusiness: {
             business: null | components["schemas"]["BusinessCard"];
+        };
+        SerialInfo: {
+            serial: string;
+            /** Format: uuid */
+            productId: string;
+            productName: string;
+            state: string;
+            /** Format: date */
+            warrantyUntil: null | string;
+        };
+        SerialMovement: {
+            kind: string;
+            /** Format: uuid */
+            entryId: string;
+            number: string;
+            /** Format: date */
+            date: string;
+            note: string;
+            /** Format: date */
+            warrantyUntil: null | string;
         };
         SessionInfo: {
             email: null | string;
@@ -1945,6 +2498,14 @@ export interface components {
             city: null | string;
             phone: null | string;
             timberUnits: null | string;
+        };
+        StoreAttention: {
+            /** Format: int32 */
+            reorder: number;
+            /** Format: int32 */
+            expiring: number;
+            /** Format: int32 */
+            inspections: number;
         };
         TimberDimensions: {
             /** Format: int64 */
@@ -1969,6 +2530,10 @@ export interface components {
             stock: number;
             /** Format: int64 */
             valueMinor: number;
+        };
+        UnitHistory: {
+            unit: components["schemas"]["SerialInfo"];
+            movements: components["schemas"]["SerialMovement"][];
         };
     };
     responses: never;

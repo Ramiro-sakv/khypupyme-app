@@ -90,3 +90,25 @@
 | Compatibilidad | Aprobado el recorrido de regresión del bloque 4. Migración aplicada a PostgreSQL de pruebas y desarrollo. |
 
 La comprobación de PostgreSQL usa `scripts/Test-Block5.ps1`. El recorrido de Edge se habilita indicando la ruta a `playwright-core` en `KHYPU_TEST_PLAYWRIGHT` y dejando Vite de prueba disponible en el puerto 5283. Las cuentas y negocios de prueba se crean y retiran únicamente en `khypupyme2_test`.
+
+## Bloque 6 · Tienda 24/7, Ropa y Electrodomésticos
+
+- Tienda abre la venta desde el lector y permite comprar por caja o unidad según la ficha. Las unidades de peso y volumen se convierten a gramos o mililitros. Las capturas admiten hasta tres decimales y la libra estándar equivale exactamente a 453,59237 g. El importe usa la tarifa guardada de la ficha y la cantidad sin redondear. [NIST, Handbook 44, apéndice C](https://nvlpubs.nist.gov/nistpubs/hb/2026/NIST.HB.44-2026.pdf)
+- Cada compra con control de lote conserva el código y su vencimiento cuando se declara. La venta consume primero el lote vendible que vence antes. El control usa la fecha de Bolivia y excluye los lotes desde el día siguiente a su vencimiento. Inicio muestra reposición con saldo vendible y lotes que caducan en los próximos 30 días.
+- Ropa consulta el modelo en una matriz de tallas y colores. El cambio se inicia desde la venta y elige el reemplazo del mismo modelo. La transacción registra el reintegro de la variante anterior, la salida de la nueva y la diferencia revisada. Si la venta original conserva un fiado, primero se aplica ahí el importe correspondiente de la devolución.
+- Electrodomésticos permite pegar una lista de series en compras y elegir unidades disponibles en ventas. El historial por serie enlaza sus comprobantes, conserva la garantía declarada al vender y permite resolver la inspección como reintegro o baja con motivo. El equipo en inspección conserva su costo y queda fuera del stock vendible.
+- Los tres rubros tienen accesos y paneles propios en Inicio y comparten el carrito, Revisar, la recuperación de solicitudes y los comprobantes. Las fichas por piezas anteriores conservan su modelo.
+
+### Verificación
+
+| Comprobación | Resultado |
+|---|---|
+| Tienda | Dos cajas de 24 menos cinco vendidas dejaron 43 unidades vendibles. La operación usó el lote más próximo a vencer. Una venta de 44 se rechazó aunque existían unidades vencidas. |
+| Conversiones | Compra de 2 kg y venta de 1 lb dejaron 1.546,40763 g. Devolver media libra dejó 1.773,203815 g. Comprar 3 L y vender 500 mL dejó 2.500 mL. |
+| Ropa | Se rechazaron una variante duplicada y un cambio con stock insuficiente. Un cambio de talla registró Bs 20 de diferencia y actualizó las dos variantes. |
+| Electrodomésticos | Se rechazaron series duplicadas en la misma lista y en compras posteriores. Pasaron venta por serie, garantía histórica, devolución a inspección y regreso a stock. |
+| Edge a 360 px | Pasaron el lector con Enter, el aviso de faltante, la revisión con Escape, el cambio desde la venta y el historial de garantía desde el comprobante. |
+| Lint, tipos y compilación | Aprobados. Vite mantuvo el aviso sobre PDF y fuentes cargados bajo demanda. |
+| Compatibilidad | Aprobados los recorridos PostgreSQL de los bloques 4 y 5. Migración aplicada en las bases locales de prueba y desarrollo. |
+
+El bloque se verifica con `scripts/Test-Block6.ps1`. El recorrido de Edge usa la misma configuración opcional del bloque 5.

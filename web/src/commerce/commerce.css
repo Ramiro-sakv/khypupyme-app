@@ -36,6 +36,16 @@
 .report-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); gap: .8rem; }
 .pending-box { display: grid; gap: .4rem; overflow-wrap: anywhere; padding: .85rem; margin-bottom: .8rem; background: #f7edd7; border: 1px solid #e4d0a8; border-radius: .65rem; }
 .pending-box > span { color: #514b40; font-size: .82rem; }
+.store-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); gap: .6rem; }
+.store-line { display: grid; gap: .7rem; margin-top: .8rem; }
+.store-line :is(h3, p) { margin-block: .2rem; }
+.barcode-field { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: .6rem;
+  padding: .65rem; background: var(--accent-soft); border-radius: .6rem; margin-top: .65rem; }
+.barcode-field > small { grid-column: 1 / -1; }
+.serial-picker { display: grid; gap: .65rem; }
+.store-series { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); gap: .35rem; overflow-wrap: anywhere; }
+.industry-home-card { display: grid; gap: .55rem; background: var(--accent-soft); }
+@media (max-width: 440px) { .barcode-field { grid-template-columns: minmax(0, 1fr); } }
 .timber-group { display: grid; gap: .75rem; background: var(--surface); }
 .timber-group :is(h3, p), .practice-guide p { margin-block: .2rem; }
 .timber-trade, .timber-rates { display: grid; gap: .35rem; margin-block: .75rem; }

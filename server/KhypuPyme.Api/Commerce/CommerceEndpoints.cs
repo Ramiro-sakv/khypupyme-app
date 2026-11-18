@@ -3,6 +3,7 @@ using KhypuPyme.Api.Accounts;
 using KhypuPyme.Api.Businesses;
 using KhypuPyme.Api.Persistence;
 using KhypuPyme.Api.Timber;
+using KhypuPyme.Api.Retail;
 using Microsoft.EntityFrameworkCore;
 
 namespace KhypuPyme.Api.Commerce;
@@ -19,10 +20,22 @@ internal static class CommerceEndpoints
     {
         group.WithTags("Comercio").RequireAuthorization("Account");
         var reads = group.MapGroup("").AddEndpointFilter<ReadCommerceScope>();
-        reads.MapGet("/products", (string? search, bool? active, int? page, CommerceReads service, CancellationToken ct) =>
-            service.ProductsAsync(search, active, page, ct)).Produces<CommercePage<ProductInfo>>();
+        reads.MapGet("/products", (string? search, bool? active, string? attention, int? page, CommerceReads service, CancellationToken ct) =>
+            service.ProductsAsync(search, active, attention, page, ct)).Produces<CommercePage<ProductInfo>>();
         reads.MapGet("/products/{id:guid}", async (Guid id, CommerceReads service, CancellationToken ct) =>
             Found(await service.ProductAsync(id, ct))).Produces<ProductInfo>();
+        reads.MapGet("/products/code", async (string? code, StoreReads store, CancellationToken ct) =>
+            Found(await store.CodeAsync(code, ct))).Produces<ProductInfo>();
+        reads.MapGet("/variants", (string? model, StoreReads store, CancellationToken ct) =>
+            store.VariantsAsync(model, ct)).Produces<ProductInfo[]>();
+        reads.MapGet("/lots/{id:guid}", (Guid id, int? page, StoreReads store, CancellationToken ct) =>
+            store.LotsAsync(id, page, ct)).Produces<CommercePage<LotInfo>>();
+        reads.MapGet("/serials", (Guid? product, string? search, string? state, int? page, StoreReads store, CancellationToken ct) =>
+            store.SerialsAsync(product, search, state, page, ct)).Produces<CommercePage<SerialInfo>>();
+        reads.MapGet("/serial", async (string? serial, StoreReads store, CancellationToken ct) =>
+            Found(await store.SerialAsync(serial, ct))).Produces<UnitHistory>();
+        reads.MapGet("/attention", (StoreReads store, CancellationToken ct) =>
+            store.AttentionAsync(ct)).Produces<StoreAttention>();
         reads.MapGet("/timber-stock/{id:guid}", (Guid id, long? length, long? thickness, long? width, string? widths, int? page,
             CommerceReads service, CancellationToken ct) => service.TimberStockAsync(id, length, thickness, width, widths, page, ct))
             .Produces<CommercePage<TimberStockInfo>>();

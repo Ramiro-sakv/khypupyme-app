@@ -2,6 +2,7 @@ import type { Content, TableCell, TDocumentDefinitions } from "pdfmake/interface
 import type { EntryDocument } from "./models";
 import { bob, dateLabel, documentName, methodLabel } from "./models";
 import { documentTimber, documentUnit } from "../timber/measures";
+import { describeLine, lineQuantity, lineRate } from "../retail/measures";
 
 function buildDocument(record: EntryDocument): TDocumentDefinitions {
   const heading = documentName(record.kind);
@@ -18,19 +19,20 @@ function buildDocument(record: EntryDocument): TDocumentDefinitions {
 
   if (record.lines.length > 0) {
     const body: TableCell[][] = [
-      ["Producto", "Piezas", "Importe unitario", "Subtotal"].map((text) => ({ text, bold: true, fillColor: "#e7f1eb" })),
+      ["Producto", "Cantidad", "Importe unitario", "Subtotal"].map((text) => ({ text, bold: true, fillColor: "#e7f1eb" })),
       ...record.lines.map((line) => [
         { stack: [{ text: line.name }, { text: line.code, color: "#466058", fontSize: 9 },
-          ...(line.timber ? [{ text: documentTimber(record, line), color: "#466058", fontSize: 9 }] : [])] },
-        { text: String(line.quantity), alignment: "right" as const },
-        { text: bob(line.unitMinor) + documentUnit(record, line), alignment: "right" as const },
+          ...(line.timber ? [{ text: documentTimber(record, line), color: "#466058", fontSize: 9 }] : []),
+          ...(line.details ? [{ text: describeLine(line), color: "#466058", fontSize: 9 }] : [])] },
+        { text: lineQuantity(line), alignment: "right" as const },
+        { text: bob(line.unitMinor) + documentUnit(record, line) + lineRate(line), alignment: "right" as const },
         { text: bob(line.subtotalMinor), alignment: "right" as const },
       ]),
     ];
     content.push({ table: { headerRows: 1, widths: ["*", 40, 81, 75], body }, layout: "lightHorizontalLines", margin: [0, 14, 0, 14] });
   }
   if (record.discountMinor) content.push({ text: "Descuento · " + bob(record.discountMinor), alignment: "right" });
-  content.push({ text: "Total confirmado · " + bob(record.totalMinor), style: "total" });
+  content.push({ text: (record.kind === "exchange" ? "Diferencia cobrada (+) o devuelta (−) · " : "Total confirmado · ") + bob(record.totalMinor), style: "total" });
   if (record.cashDeltaMinor) content.push({ text: "Movimiento de caja · " + bob(record.cashDeltaMinor), alignment: "right" });
   if (record.debtDeltaMinor) content.push({ text: "Movimiento del fiado · " + bob(record.debtDeltaMinor), alignment: "right" });
 

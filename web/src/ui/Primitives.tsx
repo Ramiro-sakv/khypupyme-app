@@ -1,5 +1,5 @@
 import { useId } from "react";
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
+import type { ButtonHTMLAttributes, ComponentPropsWithRef, ReactNode, SelectHTMLAttributes } from "react";
 import { Icon } from "./Icon";
 import type { IconName } from "./Icon";
 
@@ -18,7 +18,7 @@ function described(id: string, hint?: string, error?: string) {
   return [hint && id + "-hint", error && id + "-error"].filter(Boolean).join(" ") || undefined;
 }
 
-export function TextField({ id, label, hint, error, ...props }: InputHTMLAttributes<HTMLInputElement> & FieldDetails) {
+export function TextField({ id, label, hint, error, ...props }: ComponentPropsWithRef<"input"> & FieldDetails) {
   const generatedId = useId();
   const fieldId = id ?? generatedId;
   return <FieldFrame id={fieldId} label={label} hint={hint} error={error}>

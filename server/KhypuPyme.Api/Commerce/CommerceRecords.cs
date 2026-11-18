@@ -17,6 +17,17 @@ internal sealed class Product : IBusinessRecord
     public long? SuperShortMinor { get; set; }
     public long? ShortMinor { get; set; }
     public long? LongMinor { get; set; }
+    public string? RetailUnit { get; set; }
+    public int BoxSize { get; set; }
+    public bool TrackLots { get; set; }
+    public decimal Reorder { get; set; }
+    public decimal MeasureStock { get; set; }
+    public string? Model { get; set; }
+    public string? ModelKey { get; set; }
+    public string? Size { get; set; }
+    public string? Color { get; set; }
+    public string? VariantKey { get; set; }
+    public int? WarrantyMonths { get; set; }
 }
 
 internal sealed class Customer : IBusinessRecord
@@ -87,6 +98,8 @@ internal sealed class EntryLine : IBusinessRecord
     public long? LengthMicros { get; init; }
     public long? ThicknessMicros { get; init; }
     public long? WidthMicros { get; init; }
+    public string? DetailsJson { get; init; }
+    public decimal? BaseQuantity { get; init; }
 
     public Timber.TimberDimensions? Timber => LengthMicros is long l && ThicknessMicros is long t && WidthMicros is long w
         ? new(l, t, w) : null;

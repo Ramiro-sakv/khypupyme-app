@@ -344,12 +344,19 @@ namespace KhypuPyme.Api.Persistence.Migrations
                     b.Property<Guid>("LineId")
                         .HasColumnType("uuid");
 
+                    b.Property<decimal?>("BaseQuantity")
+                        .HasPrecision(20, 8)
+                        .HasColumnType("numeric(20,8)");
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<long>("CostMinor")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("DetailsJson")
+                        .HasColumnType("jsonb");
 
                     b.Property<long?>("LengthMicros")
                         .HasColumnType("bigint");
@@ -406,13 +413,29 @@ namespace KhypuPyme.Api.Persistence.Migrations
                     b.Property<bool>("Active")
                         .HasColumnType("boolean");
 
+                    b.Property<int>("BoxSize")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
 
+                    b.Property<string>("Color")
+                        .HasColumnType("text");
+
                     b.Property<long?>("LongMinor")
                         .HasColumnType("bigint");
+
+                    b.Property<decimal>("MeasureStock")
+                        .HasPrecision(20, 8)
+                        .HasColumnType("numeric(20,8)");
+
+                    b.Property<string>("Model")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ModelKey")
+                        .HasColumnType("text");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -427,8 +450,18 @@ namespace KhypuPyme.Api.Persistence.Migrations
                     b.Property<long>("PriceMinor")
                         .HasColumnType("bigint");
 
+                    b.Property<decimal>("Reorder")
+                        .HasPrecision(20, 8)
+                        .HasColumnType("numeric(20,8)");
+
+                    b.Property<string>("RetailUnit")
+                        .HasColumnType("text");
+
                     b.Property<long?>("ShortMinor")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("Size")
+                        .HasColumnType("text");
 
                     b.Property<string>("Species")
                         .HasMaxLength(100)
@@ -440,19 +473,33 @@ namespace KhypuPyme.Api.Persistence.Migrations
                     b.Property<long?>("SuperShortMinor")
                         .HasColumnType("bigint");
 
+                    b.Property<bool>("TrackLots")
+                        .HasColumnType("boolean");
+
                     b.Property<long>("ValueMinor")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("VariantKey")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("WarrantyMonths")
+                        .HasColumnType("integer");
+
                     b.HasKey("BusinessId", "Id");
 
+                    b.HasIndex("BusinessId", "ModelKey");
+
                     b.HasIndex("BusinessId", "NormalizedCode")
+                        .IsUnique();
+
+                    b.HasIndex("BusinessId", "VariantKey")
                         .IsUnique();
 
                     b.HasIndex("BusinessId", "Name", "Id");
 
                     b.ToTable("products", "khypupyme", t =>
                         {
-                            t.HasCheckConstraint("products_balance", "\"Stock\" BETWEEN 0 AND 1000000 AND \"ValueMinor\" BETWEEN 0 AND 1000000000000\r\nAND \"PriceMinor\" BETWEEN 0 AND 1000000000000 AND (\"Stock\" > 0 OR \"ValueMinor\" = 0)");
+                            t.HasCheckConstraint("products_balance", "\"Stock\" BETWEEN 0 AND 1000000 AND \"ValueMinor\" BETWEEN 0 AND 1000000000000\r\nAND \"PriceMinor\" BETWEEN 0 AND 1000000000000 AND (\"Stock\" > 0 OR \"MeasureStock\" > 0 OR \"ValueMinor\" = 0)\r\nAND \"MeasureStock\" BETWEEN 0 AND 1000000000\r\nAND (\"RetailUnit\" IS NOT NULL OR \"MeasureStock\" = 0)");
                         });
                 });
 
@@ -480,6 +527,102 @@ namespace KhypuPyme.Api.Persistence.Migrations
                     b.ToTable("receivables", "khypupyme", t =>
                         {
                             t.HasCheckConstraint("receivables_balance", "\"OriginalMinor\" > 0 AND \"BalanceMinor\" BETWEEN 0 AND \"OriginalMinor\"");
+                        });
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Retail.EquipmentMovement", b =>
+                {
+                    b.Property<Guid>("BusinessId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SerialKey")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("EntryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateOnly?>("WarrantyUntil")
+                        .HasColumnType("date");
+
+                    b.HasKey("BusinessId", "SerialKey", "EntryId");
+
+                    b.HasIndex("BusinessId", "EntryId");
+
+                    b.ToTable("equipment_movements", "khypupyme");
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Retail.EquipmentUnit", b =>
+                {
+                    b.Property<Guid>("BusinessId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Key")
+                        .HasColumnType("text");
+
+                    b.Property<long>("CostMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("SaleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Serial")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateOnly?>("WarrantyUntil")
+                        .HasColumnType("date");
+
+                    b.HasKey("BusinessId", "Key");
+
+                    b.HasIndex("BusinessId", "SaleId");
+
+                    b.HasIndex("BusinessId", "ProductId", "State");
+
+                    b.ToTable("equipment_units", "khypupyme", t =>
+                        {
+                            t.HasCheckConstraint("equipment_unit_state", " \"State\" IN ('available','sold','inspection','discarded') AND \"CostMinor\" BETWEEN 0 AND 1000000000000 ");
+                        });
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Retail.RetailLot", b =>
+                {
+                    b.Property<Guid>("BusinessId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Lot")
+                        .HasColumnType("text");
+
+                    b.Property<DateOnly?>("ExpiresOn")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(20, 8)
+                        .HasColumnType("numeric(20,8)");
+
+                    b.Property<long>("ValueMinor")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("BusinessId", "ProductId", "Lot");
+
+                    b.HasIndex("BusinessId", "ProductId", "ExpiresOn");
+
+                    b.ToTable("retail_lots", "khypupyme", t =>
+                        {
+                            t.HasCheckConstraint("retail_lot_balance", " \"Quantity\" BETWEEN 0 AND 1000000000 AND \"ValueMinor\" BETWEEN 0 AND 1000000000000 AND (\"Quantity\" > 0 OR \"ValueMinor\" = 0) ");
                         });
                 });
 
@@ -1018,6 +1161,62 @@ namespace KhypuPyme.Api.Persistence.Migrations
                     b.HasOne("KhypuPyme.Api.Commerce.Entry", null)
                         .WithMany()
                         .HasForeignKey("BusinessId", "SaleId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Retail.EquipmentMovement", b =>
+                {
+                    b.HasOne("KhypuPyme.Api.Businesses.Business", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("KhypuPyme.Api.Commerce.Entry", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId", "EntryId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("KhypuPyme.Api.Retail.EquipmentUnit", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId", "SerialKey")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Retail.EquipmentUnit", b =>
+                {
+                    b.HasOne("KhypuPyme.Api.Businesses.Business", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("KhypuPyme.Api.Commerce.Product", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId", "ProductId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("KhypuPyme.Api.Commerce.Entry", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId", "SaleId")
+                        .OnDelete(DeleteBehavior.NoAction);
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Retail.RetailLot", b =>
+                {
+                    b.HasOne("KhypuPyme.Api.Businesses.Business", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("KhypuPyme.Api.Commerce.Product", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId", "ProductId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
                 });

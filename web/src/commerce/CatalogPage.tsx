@@ -6,23 +6,28 @@ import { bob, editableMoney, parseMoney } from "./models";
 import type { Customer, Page, Product } from "./models";
 import { TimberStockTable } from "../timber/TimberFields";
 import type { Dimensions, StockRow, TimberUnits } from "../timber/measures";
+import { initialProductFields, ProductFields, productFieldsCommand, retailIndustry } from "../retail/ProductFields";
+import { LotsTable, VariantMatrix } from "../retail/TradeFields";
+import { fromBase, productAvailability, unitLabels } from "../retail/measures";
+import type { Lot } from "../retail/measures";
 
-export function CatalogPage({ units }: { units?: TimberUnits }) {
+export function CatalogPage({ units, industry, focus }: { units?: TimberUnits; industry?: string; focus?: string }) {
   const { showDocument } = useCommerce();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<Product | "new" | null>(null);
-  const [loss, setLoss] = useState<{ product: Product; row?: StockRow }>();
+  const [loss, setLoss] = useState<{ product: Product; row?: StockRow; lot?: Lot }>();
   const [stock, setStock] = useState<Product>();
-  const data = useCommerceData<Page<Product>>("/products?" + new URLSearchParams({ page: String(page), search }));
+  const [filter, setFilter] = useState(focus ?? "");
+  const data = useCommerceData<Page<Product>>("/products?" + new URLSearchParams({ page: String(page), search, ...(filter ? { attention: filter } : {}) }));
 
   return <div className="commerce-stack">
     <CommerceHeading title="Catálogo">
       <Button icon="plus" onClick={() => { setLoss(undefined); setStock(undefined); setEditing("new"); }}>Nuevo producto</Button>
     </CommerceHeading>
     {editing && <ProductEditor key={editing === "new" ? "new" : editing.id}
-      product={editing === "new" ? undefined : editing} timberIndustry={units !== undefined} onClose={() => setEditing(null)} />}
-    {loss && <LossEditor key={loss.product.id} product={loss.product} timber={loss.row?.timber} available={loss.row?.stock}
+      product={editing === "new" ? undefined : editing} timberIndustry={units !== undefined} industry={industry} onClose={() => setEditing(null)} />}
+    {loss && <LossEditor key={loss.product.id + (loss.lot?.lot ?? "")} product={loss.product} timber={loss.row?.timber} available={loss.row?.stock} lot={loss.lot}
       onClose={() => setLoss(undefined)} onDone={showDocument} />}
     {stock && units && <Card>
       <div className="page-heading"><div><h2>{stock.name}</h2><p>{stock.timber?.species} · {stock.code}</p></div>
@@ -32,23 +37,36 @@ export function CatalogPage({ units }: { units?: TimberUnits }) {
         <TimberStockTable key={stock.id + ":loss"} product={stock} units={units} pick={(row) => setLoss({ product: stock, row })} />
       </details>}
     </Card>}
+    {stock && (stock.apparel || stock.retail?.trackLots) && <Card>
+      <div className="page-heading"><h2>{stock.apparel?.model ?? stock.name}</h2><Button variant="secondary" onClick={() => setStock(undefined)}>Cerrar existencias</Button></div>
+      {stock.apparel && <VariantMatrix key={stock.apparel.model} model={stock.apparel.model} />}
+      {stock.retail?.trackLots && <LotsTable key={stock.id} product={stock} choose={(lot) => setLoss({ product: stock, lot })} />}
+    </Card>}
     <Card>
-      <SearchForm label={units ? "Buscar por producto, especie o código" : "Buscar por producto o código"} onSearch={(value) => { setSearch(value); setPage(1); }} />
+      {industry === "convenience" && <SelectField label="Ver existencias" value={filter} onChange={(event) => { setFilter(event.target.value); setPage(1); }}>
+        <option value="">Todo el catálogo</option><option value="reorder">Reposición</option><option value="expiring">Lotes que vencen en 30 días</option>
+      </SelectField>}
+      <SearchForm label={units ? "Buscar por producto, especie o código" : industry === "clothing" ? "Buscar por modelo o código" : "Buscar por producto o código"} onSearch={(value) => { setSearch(value); setPage(1); }} />
       {!data.data ? <LoadFeedback {...data} /> : data.data.items.length === 0 ? <NoRecords>Crea un producto para registrar sus compras y ventas.</NoRecords> :
-        <DataTable caption="Existencias por producto" columns={["Producto", "Piezas", "Precio", "Valor de stock", "Acciones"]}
+        <DataTable caption="Existencias por producto" columns={["Producto", "Disponible", "Precio", "Valor de stock", "Acciones"]}
           rows={data.data.items.map((product) => ({ id: product.id, cells: [
             <span>{product.name}<small className="record-secondary">{product.timber?.species && product.timber.species + " · "}
-              {product.code} · {product.active ? "Activo" : "Archivado"}</small></span>,
-            product.stock, product.timber ? <div className="timber-rates">
+              {product.code} · {product.active ? "Activo" : "Archivado"}</small>
+              {product.apparel && <small className="record-secondary">{product.apparel.model} · {product.apparel.size} · {product.apparel.color}</small>}</span>,
+            productAvailability(product), product.timber ? <div className="timber-rates">
               <span>1–2 pies · {bob(product.timber.superShortMinor)}</span>
               <span>3–6 pies · {bob(product.timber.shortMinor)}</span>
               <span>7–20 pies · {bob(product.timber.longMinor)}</span>
               <small>Por pie tablar</small>
-            </div> : bob(product.priceMinor), bob(product.valueMinor),
+            </div> : bob(product.priceMinor) + (product.retail ? " / " + unitLabels[product.retail.unit] : ""), bob(product.valueMinor),
             <div className="inline-actions">
               <Button variant="secondary" onClick={() => { setLoss(undefined); setStock(undefined); setEditing(product); }}>Editar</Button>
               {product.timber && units && <Button variant="secondary" onClick={() => { setEditing(null); setLoss(undefined); setStock(product); }}>Ver medidas</Button>}
-              {!product.timber && product.stock > 0 && <Button variant="plain" onClick={() => { setEditing(null); setStock(undefined); setLoss({ product }); }}>Registrar pérdida</Button>}
+              {(product.apparel || product.retail?.trackLots) && <Button variant="secondary" onClick={() => {
+                setEditing(null); setLoss(undefined); setStock(product);
+              }}>{product.apparel ? "Ver matriz" : "Ver lotes"}</Button>}
+              {!product.timber && !product.equipment && !product.retail?.trackLots && (product.measuredStock ?? product.stock) > 0 &&
+                <Button variant="plain" onClick={() => { setEditing(null); setStock(undefined); setLoss({ product }); }}>Registrar pérdida</Button>}
             </div>,
           ] }))} />}
       <Pages index={page} hasMore={data.data?.hasMore} onChange={setPage} />
@@ -56,13 +74,14 @@ export function CatalogPage({ units }: { units?: TimberUnits }) {
   </div>;
 }
 
-function ProductEditor({ product, timberIndustry, onClose }: { product?: Product; timberIndustry: boolean; onClose: () => void }) {
+function ProductEditor({ product, timberIndustry, industry, onClose }: { product?: Product; timberIndustry: boolean; industry?: string; onClose: () => void }) {
   const [name, setName] = useState(product?.name ?? "");
   const [code, setCode] = useState(product?.code ?? "");
   const [price, setPrice] = useState(product ? editableMoney(product.priceMinor) : "");
   const [active, setActive] = useState(product?.active ?? true);
   const [timber, setTimber] = useState(product ? !!product.timber : timberIndustry);
   const [species, setSpecies] = useState(product?.timber?.species ?? "");
+  const [setup, setSetup] = useState(() => initialProductFields(industry, product));
   const [rates, setRates] = useState((["superShortMinor", "shortMinor", "longMinor"] as const).map((key) => {
     const saved = product?.timber?.[key];
     return saved === undefined ? "" : editableMoney(saved);
@@ -81,7 +100,7 @@ function ProductEditor({ product, timberIndustry, onClose }: { product?: Product
         }
         const amountMinor = parseMoney(price);
         if (amountMinor === null) throw new Error("Escribe un precio con hasta dos decimales.");
-        return { kind: "product", entityId: product?.id, name, code, active, amountMinor };
+        return { kind: "product", entityId: product?.id, name, code, active, amountMinor, ...productFieldsCommand(setup) };
       }, onClose);
     }}>
     {timberIndustry && !product && <SelectField label="Tipo de producto" value={timber ? "timber" : "piece"}
@@ -91,18 +110,20 @@ function ProductEditor({ product, timberIndustry, onClose }: { product?: Product
     <TextField label="Nombre del producto" required maxLength={100} value={name} onChange={(event) => setName(event.target.value)} />
     {timber && <TextField label="Especie" required maxLength={80} value={species} onChange={(event) => setSpecies(event.target.value)} />}
     <TextField label="Código" required maxLength={40} value={code} onChange={(event) => setCode(event.target.value)} />
+    {retailIndustry(industry) && <ProductFields industry={industry} edits={!!product} fields={setup} setFields={setSetup} />}
     {timber ? ["Supercorta · 1–2 pies", "Corta · 3–6 pies", "Larga · 7–20 pies"].map((category, index) =>
       <TextField key={category} label={category + " (Bs por pie tablar)"} inputMode="decimal" required value={rates[index]}
         onChange={(event) => setRates(rates.map((rate, position) => position === index ? event.target.value : rate))} />) :
-      <TextField label="Precio unitario (Bs)" inputMode="decimal" required value={price} onChange={(event) => setPrice(event.target.value)} />}
+      <TextField label={setup.kind === "convenience" ? "Precio por " + unitLabels[setup.unit] + " (Bs)" : "Precio unitario (Bs)"}
+        inputMode="decimal" required value={price} onChange={(event) => setPrice(event.target.value)} />}
     {product && <SelectField label="Estado" value={active ? "active" : "archived"} onChange={(event) => setActive(event.target.value === "active")}>
       <option value="active">Activo</option><option value="archived">Archivado</option>
     </SelectField>}
   </OperationForm>;
 }
 
-function LossEditor({ product, timber, available, onClose, onDone }: {
-  product: Product; timber?: Dimensions; available?: number; onClose: () => void; onDone: (id: string) => void;
+function LossEditor({ product, timber, available, lot, onClose, onDone }: {
+  product: Product; timber?: Dimensions; available?: number; lot?: Lot; onClose: () => void; onDone: (id: string) => void;
 }) {
   const [qty, setQty] = useState("1");
   const [note, setNote] = useState("");
@@ -111,10 +132,15 @@ function LossEditor({ product, timber, available, onClose, onDone }: {
     error={form.error} blocked={form.blocked} action="Confirmar salida"
     onSubmit={(event) => {
       event.preventDefault();
-      void form.submit(() => ({ kind: "stock-loss", note, lines: [{ productId: product.id, quantity: Number(qty), timber }] }),
+      void form.submit(() => ({ kind: "stock-loss", note, lines: [{ productId: product.id, quantity: product.retail ? 1 : Number(qty), timber,
+        measure: product.retail ? { unit: product.retail.unit, quantity: qty.trim(), lot: lot?.lot } : undefined }] }),
         (result) => { onClose(); onDone(result.entityId); });
     }}>
-    <TextField label="Piezas perdidas" type="number" min={1} max={available ?? product.stock} step={1} required value={qty}
+    {lot && <p>Lote {lot.lot}</p>}
+    <TextField label={product.retail ? "Cantidad perdida (" + unitLabels[product.retail.unit] + ")" : "Piezas perdidas"} type="number"
+      min={product.retail && product.retail.unit !== "piece" ? 0.001 : 1}
+      max={product.retail ? fromBase(lot?.quantity ?? product.measuredStock ?? 0, product.retail.unit) : available ?? product.stock}
+      step={product.retail && product.retail.unit !== "piece" ? 0.001 : 1} required value={qty}
       onChange={(event) => setQty(event.target.value)} />
     <TextField label="Motivo" required maxLength={240} value={note} onChange={(event) => setNote(event.target.value)} />
   </OperationForm>;

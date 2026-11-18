@@ -1,33 +1,31 @@
 using KhypuPyme.Api.Persistence;
 using Microsoft.EntityFrameworkCore;
 using KhypuPyme.Api.Timber;
+using KhypuPyme.Api.Retail;
 using static KhypuPyme.Api.Commerce.CommerceRules;
 
 namespace KhypuPyme.Api.Commerce;
 
-internal sealed class CommerceReads(KhypuPymeDbContext db, TimeProvider clock)
+internal sealed class CommerceReads(KhypuPymeDbContext db, TimeProvider clock, StoreReads store)
 {
     private const int PageSize = 20;
     private IQueryable<Entry> Entries => db.Set<Entry>().AsNoTracking();
 
-    public Task<CommercePage<ProductInfo>> ProductsAsync(string? search, bool? active, int? page, CancellationToken ct)
+    public Task<CommercePage<ProductInfo>> ProductsAsync(string? search, bool? active, string? attention, int? page, CancellationToken ct)
     {
         var query = db.Set<Product>().AsNoTracking();
         if (active is not null) query = query.Where(x => x.Active == active);
+        if (attention is not null) query = store.AttentionProducts(query.Where(x => x.Active), attention);
         var term = Search(search);
         if (term is not null)
             query = query.Where(x => EF.Functions.ILike(x.Name, term, "\\") || EF.Functions.ILike(x.Code, term, "\\") ||
-                (x.Species != null && EF.Functions.ILike(x.Species, term, "\\")));
-        return PageAsync(query.OrderBy(x => x.Name).ThenBy(x => x.Id)
-            .Select(x => new ProductInfo(x.Id, x.Name, x.Code, x.PriceMinor, x.Stock, x.ValueMinor, x.Active,
-                x.Species == null ? null : new TimberPrices(x.Species, x.SuperShortMinor!.Value, x.ShortMinor!.Value, x.LongMinor!.Value))), page, ct);
+                (x.Species != null && EF.Functions.ILike(x.Species, term, "\\")) ||
+                (x.Model != null && EF.Functions.ILike(x.Model, term, "\\")));
+        return PageAsync(store.Describe(query.OrderBy(x => x.Name).ThenBy(x => x.Id)), page, ct);
     }
 
     public Task<ProductInfo?> ProductAsync(Guid id, CancellationToken ct) =>
-        db.Set<Product>().AsNoTracking().Where(x => x.Id == id)
-            .Select(x => new ProductInfo(x.Id, x.Name, x.Code, x.PriceMinor, x.Stock, x.ValueMinor, x.Active,
-                x.Species == null ? null : new TimberPrices(x.Species, x.SuperShortMinor!.Value, x.ShortMinor!.Value, x.LongMinor!.Value)))
-            .SingleOrDefaultAsync(ct);
+        store.Describe(db.Set<Product>().AsNoTracking().Where(x => x.Id == id)).SingleOrDefaultAsync(ct);
 
     public Task<CommercePage<TimberStockInfo>> TimberStockAsync(Guid productId, long? length, long? thickness, long? width,
         string? widths, int? page, CancellationToken ct)
@@ -79,18 +77,23 @@ internal sealed class CommerceReads(KhypuPymeDbContext db, TimeProvider clock)
         if (entry is null) return null;
 
         var linked = await Entries.AnyAsync(next => next.SourceId == id && (next.Kind == "sale" || next.Kind == "void-expense"), ct);
-        var returned = entry.Kind == "sale"
-            ? await Entries.Where(x => x.Kind == "return" && x.SourceId == id).SelectMany(x => x.Lines)
-                .GroupBy(x => x.OriginalLineId ?? x.ProductId).ToDictionaryAsync(group => group.Key, group => group.Sum(x => x.Quantity), ct)
+        var returned = entry.Kind is "sale" or "exchange"
+            ? await Entries.Where(x => (x.Kind == "return" || x.Kind == "exchange") && x.SourceId == id)
+                .SelectMany(x => x.Lines.Where(line => x.Kind == "return" || line.OriginalLineId != null))
+                .GroupBy(x => x.OriginalLineId ?? x.ProductId)
+                .ToDictionaryAsync(group => group.Key, group => group.Sum(x => x.BaseQuantity ?? x.Quantity), ct)
             : [];
         var lines = entry.Lines.OrderBy(x => x.Name).ThenBy(x => x.ProductId).ThenBy(x => x.LengthMicros).ThenBy(x => x.ThicknessMicros)
             .ThenBy(x => x.WidthMicros).Select(x => new DocumentLine(
             x.ProductId, x.Name, x.Code, x.Quantity, x.UnitMinor, x.SubtotalMinor, x.CostMinor,
-            x.Restocked, returned.GetValueOrDefault(x.LineId), x.LineId, x.Species, x.Timber)).ToArray();
+            x.Restocked, x.BaseQuantity is null ? (int)returned.GetValueOrDefault(x.LineId) : 0, x.LineId, x.Species, x.Timber,
+            LineDetails.Parse(x.DetailsJson), returned.GetValueOrDefault(x.LineId))).ToArray();
 
+        var balance = entry.Kind == "sale" && entry.Method == "credit"
+            ? await db.Set<Receivable>().Where(x => x.SaleId == id).Select(x => x.BalanceMinor).SingleOrDefaultAsync(ct) : 0;
         return new EntryDocument(entry.Id, entry.Number, entry.Kind, entry.Date, entry.ExpiresOn, entry.BusinessName,
             entry.CustomerId, entry.CustomerName, entry.Method, entry.Note, entry.TotalMinor, entry.DiscountMinor, entry.CashDeltaMinor,
-            entry.DebtDeltaMinor, entry.SourceId, linked, lines, entry.TimberUnits, entry.Practice);
+            entry.DebtDeltaMinor, entry.SourceId, linked, lines, entry.TimberUnits, entry.Practice, balance);
     }
 
     public async Task<CashStatus> CashAsync(CancellationToken ct) =>
@@ -128,18 +131,19 @@ internal sealed class CommerceReads(KhypuPymeDbContext db, TimeProvider clock)
             .Select(start.AddDays).Select(day => grouped.GetValueOrDefault(day) ?? new ResultDay(day, 0, 0, 0, 0, 0)).ToArray();
         var totals = new ResultDay(end, days.Sum(x => x.SalesMinor), days.Sum(x => x.CostMinor),
             days.Sum(x => x.PurchasesMinor), days.Sum(x => x.ExpensesMinor), days.Sum(x => x.LossesMinor));
-        var stock = await db.Set<Product>().SumAsync(x => x.ValueMinor, ct);
+        var stock = await db.Set<Product>().SumAsync(x => x.ValueMinor, ct) +
+            await db.Set<EquipmentUnit>().Where(x => x.State == "inspection").SumAsync(x => x.CostMinor, ct);
         var debts = await db.Set<Receivable>().SumAsync(x => x.BalanceMinor, ct);
         return new CommerceReport(start, end, totals, days, stock, debts);
     }
 
-    private static string? Search(string? input)
+    internal static string? Search(string? input)
     {
         var value = Text(input, 80, "la búsqueda");
         return value.Length == 0 ? null : "%" + value.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%";
     }
 
-    private static async Task<CommercePage<T>> PageAsync<T>(IQueryable<T> query, int? page, CancellationToken ct, int size = PageSize)
+    internal static async Task<CommercePage<T>> PageAsync<T>(IQueryable<T> query, int? page, CancellationToken ct, int size = PageSize)
     {
         var number = page ?? 1;
         if (number is < 1 or > 10000) throw new CommerceFailure("Selecciona una página válida.");

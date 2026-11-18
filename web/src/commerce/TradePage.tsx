@@ -12,9 +12,13 @@ import { TimberFields } from "../timber/TimberFields";
 import { timberRate, unitsOf } from "../timber/measures";
 import type { Capture, Rates, TimberUnits } from "../timber/measures";
 import { prepareTimber, stockKey, useTimberAvailability } from "../timber/trade";
+import { BarcodeField, MeasuredFields, SerialPicker, VariantMatrix, equivalence } from "../retail/TradeFields";
+import { fromBase, measurePreview, productAvailability, quantityLabel, seriesFromText, unitLabels } from "../retail/measures";
+import type { Measure } from "../retail/measures";
 
 export type TradeKind = "sale" | "purchase" | "quote";
-type Line = { id: string; key?: string; name: string; quantity: string; priceMinor: number; cost: string; timber?: Capture; rates?: Rates };
+type Line = { id: string; key?: string; name: string; quantity: string; priceMinor: number; cost: string; timber?: Capture; rates?: Rates;
+  measure?: Omit<Measure, "quantity">; series?: string };
 type TradeDraft = {
   lines: Line[]; customer?: { id: string; name: string }; discount: string; note: string; method: string; quote?: string;
 };
@@ -22,14 +26,15 @@ const emptyDraft: TradeDraft = { lines: [], discount: "0", method: "cash", note:
 const titles: Record<TradeKind, string> = { sale: "Venta nueva", purchase: "Compra nueva", quote: "Cotización nueva" };
 const label: Record<TradeKind, string> = { sale: "venta", purchase: "compra", quote: "cotización" };
 
-export function TradePage({ kind, proposal, dismissProposal, onHistory, units = "imperial" }: {
-  kind: TradeKind; proposal?: EntryDocument; dismissProposal: () => void; onHistory: () => void; units?: TimberUnits;
+export function TradePage({ kind, proposal, dismissProposal, onHistory, units = "imperial", industry }: {
+  kind: TradeKind; proposal?: EntryDocument; dismissProposal: () => void; onHistory: () => void; units?: TimberUnits; industry?: string;
 }) {
   const workspace = useCommerce();
   const draftKey = workspace.scope + ":" + kind;
   const { value, update, ready, error, flush, reload } = useDraft(draftKey, emptyDraft);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [selectedModel, setSelectedModel] = useState("");
   const [acknowledged, setAcknowledged] = useState("");
   const cart = useRef<HTMLHeadingElement>(null);
   const products = useCommerceData<Page<Product>>("/products?" + new URLSearchParams({ active: "true", search, page: String(page) }));
@@ -52,21 +57,34 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
     line.quantity > (availability.stock?.[stockKey(line.productId, line.timber)] ?? 0));
   const lines = value.lines.filter((line) => !line.timber).map((line) => {
     const product = current.data?.[line.id];
-    const quantity = Number(line.quantity);
-    const validQuantity = /^\d+$/.test(line.quantity) && quantity >= 1 && quantity <= 1_000_000;
+    const serials = line.series === undefined ? undefined : seriesFromText(line.series);
+    const quantity = serials?.length ?? Number(line.quantity);
+    const measure = line.measure && { ...line.measure, quantity: line.quantity.trim(), lot: line.measure.lot?.trim() || undefined };
+    const validQuantity = (serials ? quantity <= 100 && new Set(serials.map((serial) => serial.toUpperCase())).size === quantity &&
+      serials.every((serial) => serial.length <= 80) && (!value.quote || quantity === Number(line.quantity)) : /^\d+$/.test(line.quantity)) &&
+      quantity >= 1 && quantity <= 1_000_000;
     const unitMinor = isPurchase ? parseMoney(line.cost) : line.priceMinor;
-    const subtotal = validQuantity && unitMinor !== null && quantity * unitMinor <= moneyLimit ? quantity * unitMinor : null;
+    const measured = measure && product?.retail ? measurePreview(measure.quantity, measure.unit, product.retail, isPurchase, unitMinor) : undefined;
+    const subtotal = measure ? isPurchase && product?.retail?.trackLots && !measure.lot ? null : measured?.subtotal ?? null :
+      validQuantity && unitMinor !== null && quantity * unitMinor <= moneyLimit ? quantity * unitMinor : null;
+    const available = product?.retail ? product.sellableStock ?? 0 : product?.stock;
+    const requested = measure ? measured?.base : validQuantity ? quantity : undefined;
     return {
-      line, product, quantity, unitMinor, subtotal,
-      shortage: product !== undefined && validQuantity && quantity > product.stock,
+      line, product, quantity, unitMinor, subtotal, measure, serials, requested, available,
+      shortage: available !== undefined && requested !== undefined && requested > available,
       changed: !isPurchase && product !== undefined && product.priceMinor !== line.priceMinor,
     };
   });
+  const scopedSeries = lines.flatMap((row) => row.serials?.map((serial) => serial.toUpperCase()) ?? []);
+  const invalidSeries = scopedSeries.length > 100 || new Set(scopedSeries).size !== scopedSeries.length;
+  const lotKeys = lines.flatMap((row) => row.measure?.lot ? [row.line.id + ":" + row.measure.lot.toUpperCase()] : []);
+  const duplicateLots = isPurchase && new Set(lotKeys).size !== lotKeys.length;
   const gross = lines.reduce((sum, item) => sum + (item.subtotal ?? 0), timber.gross);
   const distinctGroups = new Set(timber.commands.map((row) => [row.productId, row.timber.lengthMicros, row.timber.thicknessMicros].join(":")));
-  const limitReached = distinctGroups.size + lines.length > 20 || timber.commands.length + lines.length > 100;
+  const commercialGroups = new Set(lines.map((row) => row.line.id)).size + distinctGroups.size;
+  const limitReached = commercialGroups > 20 || timber.commands.length + lines.length > 100;
   const total = value.lines.length > 0 && lines.every((item) => item.subtotal !== null) && timber.groups.every((group) => group.total !== null) &&
-    !limitReached && !timber.problem &&
+    !limitReached && !timber.problem && !invalidSeries && !duplicateLots &&
     gross <= moneyLimit && discount !== null && discount <= gross ? gross - discount : null;
   const unavailable = !current.data || lines.some(({ product, changed, shortage }) =>
     !product?.active || changed || (kind === "sale" && shortage)) ||
@@ -77,7 +95,7 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
   const canSend = total !== null && !unavailable && !requiresCustomer && !error && acknowledged === reviewKey;
   const totalText = total === null ? "Pendiente" : bob(total);
 
-  function add(product: Product) {
+  function add(product: Product, newLot = false) {
     update((currentDraft) => {
       if (product.timber) {
         if (currentDraft.lines.length >= 100) return currentDraft;
@@ -86,13 +104,19 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
           timber: { units, length: "", thickness: "", widths: "" } }] };
       }
       const existing = currentDraft.lines.find((line) => line.id === product.id);
-      if (existing) return {
-        ...currentDraft, lines: currentDraft.lines.map((line) => line.id === product.id
-          ? { ...line, quantity: String(Math.min(1_000_000, (Number(line.quantity) || 0) + 1)) } : line),
-      };
-      if (currentDraft.lines.filter((line) => !line.timber).length >= 20) return currentDraft;
+      if (existing && !newLot) {
+        if (product.equipment && !quote) return currentDraft;
+        const quantity = Number(existing.quantity.replace(",", "."));
+        return { ...currentDraft, lines: currentDraft.lines.map((line) => line === existing
+          ? { ...line, quantity: String(Math.min(1_000_000, Math.round(((quantity || 0) + 1) * 1000) / 1000)) } : line) };
+      }
+      if (currentDraft.lines.length >= 100 ||
+        !existing && new Set(currentDraft.lines.filter((line) => !line.timber).map((line) => line.id)).size >= 20) return currentDraft;
       return { ...currentDraft, lines: [...currentDraft.lines, { id: product.id, name: product.name,
-        quantity: "1", priceMinor: product.priceMinor, cost: "" }] };
+        key: newLot ? crypto.randomUUID() : undefined,
+        quantity: "1", priceMinor: product.priceMinor, cost: "",
+        measure: product.retail ? { unit: isPurchase && product.retail.unit === "piece" && product.retail.boxSize > 1 ? "box" : product.retail.unit } : undefined,
+        series: product.equipment && !quote ? "" : undefined }] };
     });
   }
 
@@ -119,8 +143,10 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
         <Button onClick={() => {
           update(() => ({ ...emptyDraft, quote: proposal.id, note: proposal.note, discount: editableMoney(proposal.discountMinor),
             customer: proposal.customerId && proposal.customerName ? { id: proposal.customerId, name: proposal.customerName } : undefined,
-            lines: proposal.lines.map((line) => ({ id: line.productId, name: line.name, quantity: String(line.quantity),
+            lines: proposal.lines.map((line) => ({ id: line.productId, name: line.name, quantity: line.details?.measure?.quantity ?? String(line.quantity),
               priceMinor: line.unitMinor, cost: "", key: line.timber ? line.lineId : undefined,
+              measure: line.details?.measure ? { unit: line.details.measure.unit } : undefined,
+              series: line.details?.direction === "choose-series" ? "" : undefined,
               rates: line.timber ? { species: line.species ?? "", superShortMinor: line.unitMinor, shortMinor: line.unitMinor, longMinor: line.unitMinor } : undefined,
               timber: line.timber ? { units: unitsOf(proposal.timberUnits), length: "", thickness: "", widths: "",
                 selection: { timber: line.timber, quantity: String(line.quantity) } } : undefined })) }));
@@ -131,19 +157,27 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
     <div className="trade-split">
       <Card>
         <h2>Productos</h2>
-        <SearchForm label="Buscar por nombre, especie o código" onSearch={(query) => { setSearch(query); setPage(1); }} />
+        {industry === "convenience" && <BarcodeField add={add} disabled={frozen} />}
+        <SearchForm label={industry === "clothing" ? "Buscar por modelo o código" : "Buscar por nombre, especie o código"}
+          onSearch={(query) => { setSearch(query); setPage(1); setSelectedModel(""); }} />
         {!products.data ? <LoadFeedback {...products} /> : products.data.items.length === 0 ? <NoRecords>Consulta el catálogo para dar de alta artículos.</NoRecords> :
           <ul className="trade-products">
-            {products.data.items.map((product) => <li key={product.id}>
+            {products.data.items.filter((product, index, all) => !product.apparel ||
+              all.findIndex((item) => item.apparel?.model.toUpperCase() === product.apparel?.model.toUpperCase()) === index)
+              .map((product) => <li key={product.id}>
               <button type="button" className="trade-product" disabled={frozen || (product.timber ? value.lines.length >= 100 :
-                lines.length >= 20 && !lines.some((item) => item.line.id === product.id))}
-                onClick={() => add(product)}>
-                <strong>{product.name}</strong><span>{product.timber?.species && product.timber.species + " · "}{product.code}</span>
-                <span>{product.stock} disp.{product.timber ? " por medidas" : " · " + bob(product.priceMinor)}</span>
+                !product.apparel && commercialGroups >= 20 && !lines.some((item) => item.line.id === product.id))}
+                onClick={() => product.apparel ? setSelectedModel(product.apparel.model) : add(product)}>
+                <strong>{product.apparel?.model ?? product.name}</strong>
+                {product.apparel ? <span>Elegir talla y color</span> : <>
+                  <span>{product.timber?.species && product.timber.species + " · "}{product.code}</span>
+                  <span>{productAvailability(product)} disp.{product.timber ? " por medidas" : " · " + bob(product.priceMinor)}</span>
+                </>}
               </button>
             </li>)}
           </ul>}
         <Pages index={page} hasMore={products.data?.hasMore} onChange={setPage} />
+        {selectedModel && <VariantMatrix model={selectedModel} choose={add} disabled={frozen} />}
       </Card>
       <Card>
         <div className="page-heading">
@@ -155,10 +189,11 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
           <Button variant="plain" disabled={frozen} onClick={() => update((draft) => ({ ...draft, quote: undefined }))}>Quitar vínculo</Button>
         </div>}
         {value.lines.length === 0 && <NoRecords>Elige un producto para iniciar el borrador.</NoRecords>}
-        {lines.length > 0 &&
+        {lines.some((row) => !row.line.measure && row.line.series === undefined && !row.product?.equipment) &&
           <DataTable caption="Líneas del borrador" columns={["Producto", "Piezas", isPurchase ? "Costo unitario" : "Precio unitario", "Subtotal", "Acción"]}
-            rows={lines.map(({ line, product, changed, shortage, unitMinor, subtotal, quantity }) => ({ id: line.id, cells: [
+            rows={lines.filter((row) => !row.line.measure && row.line.series === undefined && !row.product?.equipment).map(({ line, product, changed, shortage, unitMinor, subtotal, quantity }) => ({ id: line.id, cells: [
               <div>{product?.name ?? line.name}
+                {product?.apparel && <small className="record-secondary">Talla {product.apparel.size} · {product.apparel.color}</small>}
                 {product && kind !== "purchase" && <small className="record-secondary">Pedido {Number.isFinite(quantity) ? quantity : "—"} · Disponible {product.stock}
                   {shortage ? " · Faltan " + (quantity - product.stock) : ""}</small>}
                 {product && !product.active && <small className="trade-issue">Producto archivado</small>}
@@ -174,6 +209,38 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
               <Button variant="plain" aria-label={"Quitar " + line.name} disabled={frozen}
                 onClick={() => remove(line.id)}>Quitar</Button>,
             ] }))} />}
+        {lines.filter((row) => row.line.measure || row.line.series !== undefined || row.product?.equipment).map(({ line, product, changed, shortage,
+          requested, available, subtotal, measure, serials }) => {
+          const key = line.key ?? line.id;
+          const unit = product?.retail?.unit;
+          return <Card className="store-line" key={key}>
+            <div className="page-heading"><h3>{line.name}</h3>
+              <Button variant="plain" onClick={() => remove(key)} disabled={frozen}>Quitar</Button></div>
+            {measure && product?.retail && <MeasuredFields profile={product.retail} quantity={line.quantity} measure={measure}
+              buying={isPurchase} disabled={frozen} onQuantity={(quantity) => edit(key, { quantity })}
+              onMeasure={(entry) => edit(key, { measure: entry })} />}
+            {serials && isPurchase && <label className="timber-widths"><span>Series recibidas</span>
+              <textarea rows={4} value={line.series} disabled={frozen} onChange={(event) => edit(key, { series: event.target.value })}
+                placeholder="Una serie por línea" /><small>{serials.length} equipos</small></label>}
+            {serials && kind === "sale" && <SerialPicker productId={line.id} selected={serials} disabled={frozen}
+              choose={(selected) => edit(key, { series: selected.join("\n") })} />}
+            {quote && product?.equipment && <TextField type="number" min={1} max={100} label="Equipos a cotizar" value={line.quantity}
+              disabled={frozen} onChange={(event) => edit(key, { quantity: event.target.value })} />}
+            {value.quote && serials && serials.length !== Number(line.quantity) && <p>Selecciona {line.quantity} series para convertir la cotización.</p>}
+            {measure && requested !== undefined && unit && <p>Equivale a {equivalence(requested, unit)}</p>}
+            {!isPurchase && requested !== undefined && available !== undefined && <p className={shortage ? "trade-issue" : undefined}>
+              Pedido {measure ? quantityLabel(fromBase(requested, unit!)) : requested} · Disponible {product ? productAvailability(product) : "—"}
+              {shortage && " · Faltan " + quantityLabel(unit ? fromBase(requested - available, unit) : requested - available)}
+            </p>}
+            {isPurchase ? <TextField label={"Costo por " + (measure ? unitLabels[measure.unit] : "equipo") + " (Bs)"} value={line.cost}
+              inputMode="decimal" disabled={frozen} onChange={(event) => edit(key, { cost: event.target.value })} /> :
+              <p>{bob(line.priceMinor)} por {unit ? unitLabels[unit] : "equipo"}</p>}
+            {changed && product && <Button variant="secondary" onClick={() => edit(key, { priceMinor: product.priceMinor })}
+              disabled={frozen}>Usar precio actualizado</Button>}
+            {isPurchase && product?.retail?.trackLots && <Button variant="secondary" disabled={frozen || value.lines.length >= 100} onClick={() => add(product, true)}>Añadir otro lote</Button>}
+            <strong className="trade-total">Subtotal · {subtotal === null ? "Pendiente" : bob(subtotal)}</strong>
+          </Card>;
+        })}
         {timberLines.map((line, index) => {
           const group = timber.groups[index];
           const key = line.key ?? line.id;
@@ -192,7 +259,9 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
               })} notices={group.notices} error={group.error} total={group.total} />
           </div>;
         })}
-        {value.lines.length > 0 && <p>Borrador local · {lines.length + distinctGroups.size} de 20 grupos · {lines.length + timber.commands.length} de 100 líneas</p>}
+        {value.lines.length > 0 && <p>Borrador local · {commercialGroups} de 20 grupos · {lines.length + timber.commands.length} de 100 líneas</p>}
+        {invalidSeries && <Alert tone="error">Cada serie debe ser distinta. Se admiten hasta 100 por operación.</Alert>}
+        {duplicateLots && <Alert tone="error">Agrupa la compra de un mismo lote en una línea.</Alert>}
         {limitReached && <Alert tone="error">Divide la operación en hasta 20 grupos y 100 líneas.</Alert>}
         {timber.problem && <Alert tone="error">{timber.problem}</Alert>}
         {availability.loading && <p role="status">Consultando existencias por medida…</p>}
@@ -210,7 +279,8 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
           kind, method: quote ? undefined : value.method,
           customerId: isPurchase ? undefined : value.customer?.id,
           discountMinor: discount ?? undefined, sourceId: value.quote, note: value.note,
-          lines: [...lines.map(({ line, quantity, unitMinor }): CommandLine => ({ productId: line.id, quantity, unitMinor })), ...timber.commands],
+          lines: [...lines.map(({ line, quantity, unitMinor, measure, serials }): CommandLine =>
+            ({ productId: line.id, quantity: measure ? 1 : quantity, unitMinor, measure, serials })), ...timber.commands],
         }), (result) => workspace.showDocument(result.entityId), flush);
       }}>
         {!isPurchase && <TextField label="Descuento total (Bs)" inputMode="decimal" value={value.discount} disabled={frozen}

@@ -2,6 +2,7 @@ import { Icon } from "../ui/Icon";
 import type { IconName } from "../ui/Icon";
 import { Alert, Button, Card, DataTable, EmptyState } from "../ui/Primitives";
 import type { BusinessProfile } from "./models";
+import type { ReactNode } from "react";
 
 type Day = { date: string; salesMinor: number; expensesMinor: number };
 type CashSummary = { state: "open" | "closed"; label: string; detail?: string };
@@ -57,7 +58,7 @@ function ConfirmedChart({ days }: { days: readonly Day[] }) {
   </>;
 }
 
-export function BusinessHome({ business, industry, icon, cash, days, cashError, reportError, openCash, openSale, openPurchase, openReports }: {
+export function BusinessHome({ business, industry, icon, cash, days, cashError, reportError, openCash, openSale, openPurchase, openReports, industryPanel }: {
   business: BusinessProfile;
   industry: string;
   icon: IconName;
@@ -69,6 +70,7 @@ export function BusinessHome({ business, industry, icon, cash, days, cashError, 
   openSale: () => void;
   openPurchase: () => void;
   openReports: () => void;
+  industryPanel?: ReactNode;
 }) {
   return <>
     <div className="business-hero">
@@ -95,9 +97,11 @@ export function BusinessHome({ business, industry, icon, cash, days, cashError, 
           <Button variant={cash?.state === "open" ? "secondary" : "primary"} icon="cash" onClick={openCash}>
             {cash?.state === "open" ? "Ver caja" : "Abrir caja"}
           </Button>
-          <Button variant="secondary" icon="shops" onClick={openSale}>Vender</Button>
-          <Button variant="secondary" icon="parcel" onClick={openPurchase}>Registrar compra</Button>
+          <Button variant="secondary" icon="shops" onClick={openSale}>{business.industry === "convenience" ? "Venta rápida con lector" :
+            business.industry === "appliances" ? "Vender equipos" : "Vender"}</Button>
+          <Button variant="secondary" icon="parcel" onClick={openPurchase}>{business.industry === "appliances" ? "Recibir equipos por serie" : "Registrar compra"}</Button>
         </Card>
+        {industryPanel}
       </aside>
       <SalesChart days={days} error={reportError} action={openReports} />
     </div>

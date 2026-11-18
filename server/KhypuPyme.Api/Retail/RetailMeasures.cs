@@ -1,0 +1,69 @@
+using System.Globalization;
+using System.Numerics;
+using System.Text.RegularExpressions;
+using KhypuPyme.Api.Commerce;
+using static KhypuPyme.Api.Commerce.CommerceRules;
+
+namespace KhypuPyme.Api.Retail;
+
+internal static partial class RetailMeasures
+{
+    public const decimal MaxBase = 1_000_000_000m;
+    [GeneratedRegex(@"^\d{1,7}(?:[.,]\d{1,3})?$", RegexOptions.CultureInvariant)]
+    private static partial Regex QuantityPattern();
+
+    public static decimal Quantity(string? raw)
+    {
+        if (raw is null || !QuantityPattern().IsMatch(raw) ||
+            !decimal.TryParse(raw.Replace(',', '.'), NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var amount)
+            || amount is <= 0 or > QuantityLimit)
+            throw new CommerceFailure("Indica una cantidad positiva con hasta tres decimales.");
+        return amount;
+    }
+
+    public static decimal Factor(string unit, RetailProfile profile, bool buying) => unit switch
+    {
+        "piece" when profile.Unit == "piece" => 1m,
+        "box" when buying && profile.Unit == "piece" && profile.BoxSize > 1 => profile.BoxSize,
+        "g" when profile.Unit is "g" or "kg" or "lb" => 1m,
+        "kg" when profile.Unit is "g" or "kg" or "lb" => 1000m,
+        "lb" when profile.Unit is "g" or "kg" or "lb" => 453.59237m,
+        "ml" when profile.Unit is "ml" or "l" => 1m,
+        "l" when profile.Unit is "ml" or "l" => 1000m,
+        _ => throw new CommerceFailure("La unidad elegida no corresponde a este producto."),
+    };
+
+    public static (decimal Captured, decimal Base) Convert(RetailInput input, RetailProfile profile, bool buying)
+    {
+        var captured = Quantity(input.Quantity);
+        var factor = Factor(input.Unit, profile, buying);
+        if (profile.Unit == "piece" && captured != decimal.Truncate(captured))
+            throw new CommerceFailure("Las cajas y unidades se registran en cantidades enteras.");
+        var stored = captured * factor;
+        if (stored > MaxBase || profile.Unit == "piece" && stored > QuantityLimit)
+            throw new CommerceFailure("La cantidad convertida supera el límite de existencias.");
+        return (captured, stored);
+    }
+
+    public static long Proportion(long amount, decimal from, decimal to, decimal whole)
+    {
+        if (whole == 0) return 0;
+        var denominator = Scaled(whole);
+        return (long)(Round(amount * Scaled(to), denominator) - Round(amount * Scaled(from), denominator));
+    }
+
+    public static long Subtotal(long unitMinor, decimal quantity, decimal priceFactor)
+    {
+        var total = Round(unitMinor * Scaled(quantity), Scaled(priceFactor));
+        if (total > Limit) throw new CommerceFailure("El subtotal supera el límite.");
+        return (long)total;
+    }
+
+    // Las capturas admiten tres decimales y la libra aporta otros cinco.
+    private static BigInteger Scaled(decimal value) => new(value * 100_000_000m);
+    private static BigInteger Round(BigInteger numerator, BigInteger denominator) =>
+        (numerator * 2 + denominator) / (denominator * 2);
+
+    public static string SeriesKey(string? raw) =>
+        Text(Text(raw, 80, "el número de serie", true).ToUpperInvariant(), 80, "el número de serie", true);
+}

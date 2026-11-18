@@ -45,13 +45,13 @@ internal static class CommerceRules
         return At(end) - At(start);
     }
 
-    public static CommandLine[] Lines(CommandLine[]? lines, bool returning = false)
+    public static CommandLine[] Lines(CommandLine[]? lines, bool returning = false, bool buying = false)
     {
         if (lines is not { Length: >= 1 and <= 100 } ||
             lines.Any(line => line is null || line.ProductId == Guid.Empty || line.Quantity is < 1 or > QuantityLimit) ||
             (returning
                 ? lines.Select(line => (line.ProductId, line.OriginalLineId)).Distinct().Count()
-                : lines.Select(line => (line.ProductId, line.Timber)).Distinct().Count()) != lines.Length ||
+                : lines.Select(line => (line.ProductId, line.Timber, Lot: buying ? line.Measure?.Lot?.Trim().ToUpperInvariant() : null)).Distinct().Count()) != lines.Length ||
             (!returning && lines.Select(line => (line.ProductId, line.Timber?.LengthMicros, line.Timber?.ThicknessMicros)).Distinct().Count() > 20))
             throw new CommerceFailure("Incluye hasta 20 grupos y 100 medidas distintas con cantidades enteras positivas.");
         return lines;

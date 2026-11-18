@@ -1,7 +1,7 @@
 # KhypuPyme 2.0
 
-Bloque 1. Base local con ASP.NET Core sobre .NET 10, React con TypeScript y PostgreSQL 18.
-La página **Estado local** comprueba la API y PostgreSQL por separado.
+Base local con ASP.NET Core sobre .NET 10, React con TypeScript y PostgreSQL 18.
+Incluye el ingreso y el selector **Mis negocios**. **Estado local** comprueba la API y PostgreSQL por separado.
 La aplicación de referencia está en el commit `5147dfd` de la rama `chore/entrega-docente`.
 
 ## Preparación en Windows
@@ -37,9 +37,35 @@ Abre dos terminales en la raíz:
 pnpm --dir web dev
 ```
 
-Abre [Estado local](http://127.0.0.1:5282/). La API de desarrollo usa
+Abre [KhypuPyme 2.0](http://127.0.0.1:5282/). La API de desarrollo usa
 `127.0.0.1:5182`. Para arrancar con la base de pruebas y el puerto 5183,
 ejecuta `.\scripts\Start-Api.ps1 -Database Test`.
+
+## Ingreso y negocios
+
+Para registrar una cuenta o recuperar la contraseña, solicita el código desde el portal.
+En desarrollo, el mensaje se guarda en `%LOCALAPPDATA%\KhypuPyme2.0\mailbox`.
+Abre el JSON más reciente para tu correo y copia los cinco dígitos al formulario.
+El código tiene diez minutos de vigencia y la contraseña requiere al menos doce caracteres.
+
+Después de ingresar, **Mis negocios** permite buscar, paginar y crear un negocio en tres pasos.
+El último negocio seleccionado se abre al volver a ingresar. El rubro queda fijo desde el alta.
+
+### Google y clientes instalados
+
+**Continuar con Google** se habilita cuando el servidor recibe `Google__ClientId` y
+`Google__ClientSecret`. Para probar desde la web local, registra
+`http://127.0.0.1:5282/signin-google` como URL de retorno en el cliente OAuth de Google.
+Una cuenta existente con el mismo correo debe ingresar y usar **Vincular Google**.
+
+La actualización local de la base registra `khypupyme-windows` y `khypupyme-android`.
+El navegador autoriza en `/connect/authorize`. El cliente intercambia el código en
+`/connect/token` mediante PKCE S256, conserva el token en el almacenamiento protegido
+de su plataforma y puede revocarlo en `/connect/revoke`. Windows usa
+`http://127.0.0.1:43823/callback`. El retorno Android de desarrollo es
+`bo.khypupyme.app:/oauth/callback`, configurable con `NativeAuth__AndroidRedirectUri`.
+Los tokens de este flujo local usan claves efímeras y requieren un nuevo ingreso tras reiniciar la API.
+El piloto alojado requerirá claves persistentes y verificar el retorno y el almacenamiento en cada instalador.
 
 ## Comprobar
 
@@ -56,6 +82,14 @@ pnpm --dir web generate:api
 pnpm --dir web lint
 pnpm --dir web typecheck
 pnpm --dir web build
+```
+
+El recorrido de cuentas y negocios usa PostgreSQL real en la base de pruebas y un buzón temporal.
+El puerto 5183 debe estar libre.
+
+```powershell
+.\scripts\Update-Database.ps1 -Database Test
+.\scripts\Test-Block2.ps1
 ```
 
 Alcance y referencia en [PLAN.md](PLAN.md). Resultados en [PROGRESO.md](PROGRESO.md).

@@ -23,8 +23,21 @@ try {
         $owner = "${target}_owner"
         $app = "${target}_app"
         Invoke-LocalPsql -User $owner -Database $target -Password (Get-DatabasePassword $credentials $owner) -Arguments @(
-            '-c', "GRANT USAGE ON SCHEMA khypupyme TO $app"
+            '-v', "app_name=$app", '-f', (Join-Path $PSScriptRoot 'grant-application.sql')
         )
+        $env:ConnectionStrings__KhypuPyme = Get-LocalConnectionString $target 'app'
+        $previousEnvironment = $env:ASPNETCORE_ENVIRONMENT
+        $previousDotnetEnvironment = $env:DOTNET_ENVIRONMENT
+        try {
+            $env:ASPNETCORE_ENVIRONMENT = 'Development'
+            $env:DOTNET_ENVIRONMENT = 'Development'
+            dotnet run --project $project --no-launch-profile --no-build -- --register-native-clients
+            if ($LASTEXITCODE -ne 0) { throw "Falló el registro de clientes locales en $target." }
+        }
+        finally {
+            $env:ASPNETCORE_ENVIRONMENT = $previousEnvironment
+            $env:DOTNET_ENVIRONMENT = $previousDotnetEnvironment
+        }
     }
 }
 finally {

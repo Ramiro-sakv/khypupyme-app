@@ -8,7 +8,7 @@ import { clockTime, detailLabels, todayInBolivia, workNavigation } from "./work"
 import type { Work, WorkDetails } from "./work";
 
 const fieldsByIndustry: Record<string, readonly (keyof WorkDetails)[]> = {
-  cleaning: ["tasks", "plannedMaterials", "usedMaterials"],
+  cleaning: ["tasks", "plannedMaterials", "usedMaterials", "billableMaterials", "internalMaterials"],
   professional: ["deliverables"],
   repair: ["equipment", "accessories", "fault", "diagnosis"],
   crafts: ["specifications"],

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { InventoryDrawer } from "./InventoryDrawer";
 import { OperationHeading } from "./OperationHeading";
-import { primaryCommerce } from "./stock";
 import { Warehouse, StockMovements, WarehouseSerials } from "./Warehouse";
 import { VariantBatch } from "../retail/VariantBatch";
 import { Button, Card, DataTable, SelectField, TextField } from "../ui/Primitives";
@@ -25,7 +24,7 @@ export function CatalogPage({ units, industry, focus, onStockIn }: {
   units?: TimberUnits; industry?: string; focus?: string; onStockIn?: () => void;
 }) {
   const { showDocument, readOnly, practice } = useCommerce();
-  const hasWarehouse = primaryCommerce(industry) && !practice;
+  const hasWarehouse = !practice;
   const [catalog, setCatalog] = useState(false);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -83,6 +82,7 @@ export function CatalogPage({ units, industry, focus, onStockIn }: {
     {stock && !loss && !correction && (stock.apparel || stock.retail?.trackLots) && <Card>
       <div className="page-heading"><h2>{stock.apparel?.model ?? stock.name}</h2><Button variant="secondary" onClick={() => setStock(undefined)}>Cerrar existencias</Button></div>
       {stock.apparel && <VariantMatrix key={stock.apparel.model} model={stock.apparel.model} />}
+      {stock.cosmetic?.afterOpeningMonths && <p>Duración tras apertura · {stock.cosmetic.afterOpeningMonths} meses</p>}
       {stock.retail?.trackLots && <LotsTable key={stock.id} product={stock}
         choose={!readOnly && stock.active && industry !== "cosmetics" && industry !== "convenience" ? (lot) => setLoss({ product: stock, lot }) : undefined}
         actions={!readOnly && stock.active && (industry === "cosmetics" || industry === "convenience") ? (lot) => <Button variant="secondary" onClick={() => setCorrection({ product: stock, lot })}>Gestionar lote</Button> : undefined} />}
@@ -92,7 +92,8 @@ export function CatalogPage({ units, industry, focus, onStockIn }: {
       <StockMovements key={stock.id} product={stock} units={units ?? "imperial"} />
     </>}
     </InventoryDrawer>}
-    {hasWarehouse && !catalog ? <Warehouse industry={industry} focus={focus} open={setStock} /> :
+    {hasWarehouse && !catalog ? <Warehouse industry={industry} focus={focus} open={setStock}
+      openBags={!readOnly && industry === "cement" ? setOpening : undefined} /> :
     <Card className="inventory-table">
       <div className="inventory-toolbar"><h2>Productos y existencias</h2></div>
       <div className="inventory-controls">
@@ -116,6 +117,7 @@ export function CatalogPage({ units, industry, focus, onStockIn }: {
               {product.code}{!product.active && " · Archivado"}</small>
               {product.apparel && <small className="record-secondary">{product.apparel.model} · {product.apparel.size} · {product.apparel.color}</small>}
               {product.cosmetic && <small className="record-secondary">{[product.cosmetic.brand, product.cosmetic.presentation, product.cosmetic.tone].filter(Boolean).join(" · ")}</small>}
+              {product.cosmetic?.afterOpeningMonths && <small className="record-secondary">{product.cosmetic.afterOpeningMonths} meses tras apertura</small>}
               <SpecialtySummary product={product} />
               {industry === "spareParts" && !product.specialty?.parts && <small>Compatibilidad por confirmar</small>}</div>,
             <strong className="inventory-quantity">{productAvailability(product)}</strong>, product.timber ? <div className="timber-rates">
@@ -145,6 +147,7 @@ export function CatalogPage({ units, industry, focus, onStockIn }: {
 
 function ProductEditor({ product, timberIndustry, industry, onClose }: { product?: Product; timberIndustry: boolean; industry?: string; onClose: () => void }) {
   const [name, setName] = useState(product?.name ?? "");
+  const autoCode = ["timber", "convenience", "clothing", "appliances"].includes(industry ?? "");
   const [code, setCode] = useState(product?.code ?? "");
   const [price, setPrice] = useState(product ? editableMoney(product.priceMinor) : "");
   const [active, setActive] = useState(product?.active ?? true);
@@ -188,8 +191,8 @@ function ProductEditor({ product, timberIndustry, industry, onClose }: { product
     <TextField label={isService ? "Nombre del servicio" : "Nombre del producto"} required maxLength={100} value={name}
       onChange={(event) => setName(event.target.value)} />
     {timber && <TextField label="Especie" required maxLength={80} value={species} onChange={(event) => setSpecies(event.target.value)} />}
-    <TextField label="Código" required={!!product || !primaryCommerce(industry)} maxLength={40} value={code}
-      hint={!product && primaryCommerce(industry) ? "Escanea el código del proveedor o deja el campo vacío para generarlo." : undefined} onChange={(event) => setCode(event.target.value)} />
+    <TextField label="Código" required={!!product || !autoCode} maxLength={40} value={code}
+      hint={!product && autoCode ? "Escanea el código del proveedor o deja el campo vacío para generarlo." : undefined} onChange={(event) => setCode(event.target.value)} />
     {retailIndustry(industry) && <ProductFields industry={industry} edits={!!product} fields={setup} setFields={setSetup} />}
     <SpecialtyFields industry={industry} printing={setup.kind === "stationery"} edits={!!product} fields={specialty} update={setSpecialty} />
     <MaterialFields industry={industry} kind={setup.kind} fields={materials} update={setMaterials} product={product} />

@@ -5,7 +5,7 @@ import type { components } from "../api/schema";
 import type { BusinessProfile } from "../businesses/models";
 import { useCommerce, useCommerceData } from "../commerce/CommerceContext";
 import { LoadFeedback, Pages } from "../commerce/CommerceUi";
-import { ExportRecords } from "../commerce/Documents";
+import { ExportRecords } from "../commerce/ExportRecords";
 import { documentName, timestamp } from "../commerce/models";
 import type { CommandResult, Page } from "../commerce/models";
 import { clearPracticeScope, freezeRemoval, releaseRemoval, removalIsFrozen } from "../commerce/storage";

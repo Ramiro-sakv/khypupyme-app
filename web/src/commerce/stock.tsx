@@ -7,13 +7,11 @@ type Schema = components["schemas"];
 export type StockLine = Schema["StockLine"];
 type StockCheck = Schema["StockCheck"];
 
-export const primaryCommerce = (industry?: string) => ["timber", "convenience", "clothing", "appliances"].includes(industry ?? "");
-
-export function useStockCheck(lines: StockLine[], receiving: boolean, version: number) {
+export function useStockCheck(lines: StockLine[], receiving: boolean, quote: boolean, version: number) {
   const { path, revision } = useCommerce();
   const [attempt, setAttempt] = useState(0);
   const [result, setResult] = useState<{ key: string; checks?: StockCheck[]; error?: string }>();
-  const payload = lines.length ? JSON.stringify({ lines, receiving }) : "";
+  const payload = lines.length ? JSON.stringify({ lines, receiving, quote }) : "";
   const key = JSON.stringify([path, revision, attempt, version, payload]);
   useEffect(() => {
     if (!payload) return;
@@ -31,13 +29,14 @@ export function useStockCheck(lines: StockLine[], receiving: boolean, version: n
     loading: !!payload && result?.key !== key, retry: () => setAttempt((value) => value + 1) };
 }
 
-export function StockFeedback({ row, unit }: { row?: StockCheck; unit?: string }) {
+export function StockFeedback({ row, unit, countUnit }: { row?: StockCheck; unit?: string; countUnit?: string }) {
   if (!row) return <>Disponibilidad por comprobar</>;
   const missing = Math.max(0, row.requested - row.available);
   const amount = (value: number) => quantityLabel(unit ? fromBase(value, unit) : value);
-  const unitLabel = unit === "piece" ? " unidades" : unit ? " " + unitLabels[unit] : "";
+  const unitLabel = countUnit ?? (unit === "piece" ? "unidades" : unit ? unitLabels[unit] : "");
   return <span className={missing ? "trade-issue" : undefined}>
-    {row.available === 0 && "Sin stock · "}Pedido {amount(row.requested)} · Disponible {amount(row.available)}{unitLabel}
+    {row.available === 0 && "Sin stock · "}{row.lot && "Lote " + row.lot + " · "}
+    Pedido {amount(row.requested)} · Disponible {amount(row.available)}{unitLabel && " " + unitLabel}
     {missing > 0 && " · Faltan " + amount(missing)}{row.reason && " · " + row.reason}
   </span>;
 }

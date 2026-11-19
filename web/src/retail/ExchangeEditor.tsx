@@ -26,14 +26,14 @@ export function ExchangeEditor({ document, close }: { document: EntryDocument; c
   const count = Number(quantity);
   const valid = !!original && Number.isInteger(count) && count > 0 && count <= remainingQuantity(original);
   const byPair = original?.details?.specialty?.countUnit === "pair";
-  const stock = useStockCheck(!byPair && valid && replacement ? [{ productId: replacement.id, quantity: count }] : [], false, version);
+  const stock = useStockCheck(valid && replacement ? [{ productId: replacement.id, quantity: count }] : [], false, false, version);
   const replacementStock = stock.checks?.[0];
   if (!original?.details?.apparel) return null;
   const refund = valid ? portion(original.subtotalMinor, original.returnedQuantity, count, original.quantity) : null;
   const total = valid && replacement && replacement.priceMinor * count <= moneyLimit ? replacement.priceMinor * count : null;
   const debt = Math.min(refund ?? 0, document.debtBalanceMinor);
   const difference = total === null || refund === null ? null : total - (refund - debt);
-  const sufficient = !!replacement && (byPair ? replacement.stock >= count : !!replacementStock && replacementStock.available >= count);
+  const sufficient = !!replacementStock && !replacementStock.reason && replacementStock.available >= count;
   const key = JSON.stringify([lineId, count, replacement?.id, replacement?.priceMinor, difference, method]);
   const totalText = difference === null ? "Pendiente" : difference === 0 ? "Sin diferencia" :
     (difference > 0 ? "A cobrar " : "A devolver ") + bob(Math.abs(difference));
@@ -48,11 +48,9 @@ export function ExchangeEditor({ document, close }: { document: EntryDocument; c
     <h3>Elige la talla y el color de reemplazo</h3>
     <VariantMatrix key={original.lineId} model={original.details.apparel.model} excluded={original.productId}
       disabled={form.blocked} requireStock choose={(product) => { setReplacement(product); reviseStock(); }} />
-    {replacement?.apparel && <p>Talla {replacement.apparel.size} · {replacement.apparel.color} · {byPair
-      ? replacement.stock + " disponibles" : <StockFeedback row={replacementStock} />}</p>}
+    {replacement?.apparel && <p>Talla {replacement.apparel.size} · {replacement.apparel.color} ·
+      {" "}<StockFeedback row={replacementStock} countUnit={byPair ? "pares" : undefined} /></p>}
     {stock.error && <Alert tone="error">{stock.error} <Button variant="secondary" onClick={stock.retry}>Reintentar disponibilidad</Button></Alert>}
-    {byPair && replacement && !sufficient && <Alert tone="error">Pediste {count}, hay {replacement.stock} y faltan {count - replacement.stock}
-       pares de esta variante.</Alert>}
     <ReviewDock total={totalText} cartFocus={title} operation="cambio">
       <form className="account-form" onSubmit={(event) => {
         event.preventDefault();

@@ -65,10 +65,7 @@ export function ReviewDock({ total, cartFocus, children, description, operation,
   function restoreFocus() {
     if (!visible) return;
     const target = cartFocus.current;
-    const box = target?.getBoundingClientRect();
-    const dockTop = dock.current?.getBoundingClientRect().top ?? window.innerHeight;
-    if (target?.isConnected && box && box.height > 0 && box.top >= 0 && box.bottom <= dockTop)
-      target.focus({ preventScroll: true });
+    if (target?.isConnected) target.focus({ preventScroll: true });
     else (trigger.current ?? toggle.current)?.focus({ preventScroll: true });
   }
 

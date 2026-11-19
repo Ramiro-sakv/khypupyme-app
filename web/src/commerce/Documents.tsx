@@ -1,6 +1,4 @@
-import { useState } from "react";
-import { get } from "../api/client";
-import { downloadFile } from "../native/platform";
+import { lazy, useState } from "react";
 import { Alert, Button, Card, DataTable, SelectField, TextField } from "../ui/Primitives";
 import { useCommerce, useCommerceData } from "./CommerceContext";
 import { CommerceHeading, LoadFeedback, NoRecords, OperationForm, Pages, PaymentField, useCommercialForm } from "./CommerceUi";
@@ -9,7 +7,9 @@ import type { EntryDocument, EntryInfo, Page } from "./models";
 import { documentTimber, documentUnit } from "../timber/measures";
 import { describeLine, lineQuantity, lineRate, remainingQuantity, returnUnit, unitLabels } from "../retail/measures";
 import { ExchangeEditor } from "../retail/ExchangeEditor";
-import { DeliveryPanel } from "../retail/FurnitureDeliveries";
+import { ExportRecords } from "./ExportRecords";
+
+const DeliveryPanel = lazy(() => import("../retail/FurnitureDeliveries").then((page) => ({ default: page.DeliveryPanel })));
 
 const historyKinds = ["sale", "purchase", "quote", "return", "expense", "void-expense", "cash-adjust", "stock-in", "manual-debt", "void-debt",
   "stock-loss", "open-cash", "close-cash", "collect", "exchange", "inspection",
@@ -50,24 +50,6 @@ export function HistoryPage({ initialKind, allowExport, documents = false, fixed
     <EntryList key={JSON.stringify([effectiveKind, filters])} kind={effectiveKind} filters={filters}
       caption={documents ? "Comprobantes disponibles" : "Operaciones confirmadas"} />
   </div>;
-}
-
-export function ExportRecords() {
-  const { path } = useCommerce();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  async function save() {
-    setBusy(true);
-    setError("");
-    try {
-      const data = await get<{ business: { id: string } }>(path + "/export");
-      await downloadFile(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }), "khypupyme-" + data.business.id + ".json");
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "No se pudieron exportar los registros.");
-    } finally { setBusy(false); }
-  }
-  return <div><Button variant="secondary" icon="document" disabled={busy} onClick={() => void save()}>
-    {busy ? "Preparando exportación…" : "Descargar mis datos"}</Button>{error && <Alert tone="error">{error}</Alert>}</div>;
 }
 
 export function EntryList({ kind, cashSession, caption, filters }: {

@@ -1,6 +1,6 @@
 .workspace-nav { max-height: calc(100dvh - 2rem); overflow: auto; }
 .workspace-nav-business { border-bottom: 1px solid var(--line); }
-.workspace-nav .workspace-nav-group { padding: .85rem .6rem .2rem; color: var(--muted); font-size: .71rem; font-weight: 700; }
+.workspace-nav .workspace-nav-group { padding: .85rem .6rem .2rem; color: var(--muted); font-size: .71rem; font-weight: var(--weight-label); }
 .workspace-masthead { display: flex; gap: .8rem; flex-wrap: wrap; align-items: center; margin-bottom: .9rem; }
 .workspace-masthead--compact { margin-bottom: .65rem; }
 .workspace-masthead--compact .workspace-business-icon { width: 1.9rem; height: 1.9rem; }
@@ -37,7 +37,7 @@
 .home-totals, .report-selection dl { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); gap: .65rem; }
 .home-totals > div, .report-selection dl > div { padding: .7rem .85rem; border-radius: .62rem; background: var(--accent-soft); }
 .home-totals dt, .report-selection dt { color: var(--muted); font-size: .83rem; }
-.home-totals dd, .report-selection dd { margin: .15rem 0 0; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.home-totals dd, .report-selection dd { margin: .15rem 0 0; font-weight: var(--weight-emphasis); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .report-chart { min-width: 0; }
 .report-chart-options { display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; margin: .7rem 0; }
@@ -65,7 +65,7 @@
 .report-bar { position: absolute; inset-inline: 0; border-radius: .16rem; background: var(--bar-color); }
 .report-selection, .chart-details { margin-top: .8rem; }
 .report-selection h3 { margin-bottom: .5rem; }
-.chart-details summary { min-height: 44px; padding-block: .65rem; color: var(--accent); font-weight: 650; }
+.chart-details summary { min-height: 44px; padding-block: .65rem; color: var(--accent); font-weight: var(--weight-label); }
 
 .picker-heading { padding: clamp(1rem, 3vw, 1.8rem); border-top: .24rem solid var(--accent); border-radius: var(--radius);
   background: linear-gradient(112deg, var(--accent-soft), var(--surface)); }
@@ -82,12 +82,12 @@
 .wizard-heading p { margin: .2rem 0 0; }
 .wizard-choice { display: grid; grid-template-columns: minmax(0, 1fr) minmax(12rem, .34fr); gap: .8rem; }
 .wizard-families { min-width: 0; margin: 0; padding: 0; border: 0; }
-.wizard-families legend { font-weight: 700; }
+.wizard-families legend { font-weight: var(--weight-emphasis); }
 .wizard-family h2 { margin: .8rem 0 .35rem; font-size: .9rem; }
 .wizard-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr)); gap: .45rem; }
 .wizard-option { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: .4rem; align-items: center; min-height: 3.4rem;
   padding: .45rem; border: 1px solid color-mix(in srgb, var(--accent) 23%, var(--line)); border-radius: .55rem;
-  background: color-mix(in srgb, var(--accent-soft) 66%, var(--surface)); cursor: pointer; font-size: .82rem; font-weight: 650; }
+  background: color-mix(in srgb, var(--accent-soft) 66%, var(--surface)); cursor: pointer; font-size: .82rem; font-weight: var(--weight-label); }
 .wizard-option:has(input:checked) { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .wizard-option .workspace-business-icon { width: 1.7rem; height: 1.7rem; border-radius: .4rem; }
 .wizard-option svg { width: 1rem; height: 1rem; }
@@ -103,8 +103,8 @@
 .help-guide .ui-button { text-align: start; }
 .guide-example, .trade-help, .trade-draft-note { padding: .65rem .85rem; border-radius: .6rem; background: var(--accent-soft); }
 .guide-example p { margin: .3rem 0 0; }
-.trade-help summary { min-height: 2rem; padding-block: .25rem; color: var(--accent); font-weight: 650; }
-.trade-draft-note { display: flex; align-items: center; gap: .4rem; margin: 0; font-weight: 650; background: #e8eef6; color: #285077; }
+.trade-help summary { min-height: 44px; padding-block: .25rem; color: var(--accent); font-weight: var(--weight-label); }
+.trade-draft-note { display: flex; align-items: center; gap: .4rem; margin: 0; font-weight: var(--weight-label); background: #e8eef6; color: #285077; }
 .trade-catalog-heading { margin-top: .9rem; }
 .timber-price-and-stock { display: grid; gap: .55rem; }
 .timber-price-and-stock > .ui-button { justify-self: start; }
@@ -114,7 +114,7 @@
 .industry-calculator svg { width: min(100%, 23rem); color: var(--accent); }
 .history-toolbar { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.5rem), 1fr)); align-items: end; gap: .7rem; }
 .variant-entry { min-width: 0; margin: 0; padding: .7rem; border: 1px solid var(--line); border-radius: .6rem; }
-.variant-entry legend { padding-inline: .3rem; font-weight: 650; }
+.variant-entry legend { padding-inline: .3rem; font-weight: var(--weight-label); }
 
 @media (max-width: 68.7rem) { .workspace-nav .workspace-nav-group { display: none; } }
 @media (max-width: 45rem) {

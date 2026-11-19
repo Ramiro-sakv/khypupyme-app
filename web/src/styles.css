@@ -1,5 +1,9 @@
 :root {
-  font-family: system-ui, sans-serif;
+  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  font-weight: 400;
+  line-height: 1.5;
+  --weight-label: 500;
+  --weight-emphasis: 600;
   color: #182724;
   background: #f4f2eb;
   font-synthesis: none;
@@ -14,7 +18,7 @@ body { margin: 0; }
   padding: clamp(1rem, 6vw, 4rem) 1rem;
 }
 
-.brand { display: flex; align-items: center; gap: .7rem; font-weight: 700; }
+.brand { display: flex; align-items: center; gap: .7rem; font-weight: var(--weight-emphasis); }
 
 .brand-mark {
   display: grid;
@@ -36,6 +40,7 @@ body { margin: 0; }
 
 .status-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 h1, h2, p { margin: 0; }
+h1, h2, h3, strong, b { font-weight: var(--weight-emphasis); }
 h1 { font-size: clamp(1.55rem, 5vw, 2.15rem); }
 h2 { font-size: 1rem; }
 p { margin-top: .35rem; color: #475954; line-height: 1.5; }
@@ -48,14 +53,14 @@ button {
   background: #12483d;
   color: #fff;
   font: inherit;
-  font-weight: 600;
+  font-weight: var(--weight-label);
   cursor: pointer;
 }
 
 button:focus-visible { outline: 3px solid #946618; outline-offset: 3px; }
 .services { list-style: none; padding: 0; margin: 1.25rem 0 0; }
 .services li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .5rem 1rem; padding: 1rem 0; border-top: 1px solid #d8ded5; }
-.service-state { color: #6b4c16; background: #f6ebd4; border-radius: .45rem; padding: .35rem .6rem; font-size: .9rem; font-weight: 600; }
+.service-state { color: #6b4c16; background: #f6ebd4; border-radius: .45rem; padding: .35rem .6rem; font-size: .9rem; font-weight: var(--weight-label); }
 .service-state[data-state="available"] { color: #12483d; background: #e0eee5; }
 .service-state[data-state="unavailable"] { color: #842e24; background: #f7e3df; }
 .help { font-size: .95rem; }

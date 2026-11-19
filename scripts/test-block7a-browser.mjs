@@ -63,7 +63,8 @@ export async function checkBrowser(cookies, businesses, password) {
     const search = page.getByLabel("Buscar por marca, presentación o tono");
     await search.fill("Coral");
     await search.press("Enter");
-    await button("Ver lotes").click();
+    await page.getByText("12 meses tras apertura", { exact: true }).waitFor();
+    await button("Ver existencias").click();
     await page.getByRole("row", { name: /C-VISUAL/ }).getByRole("button", { name: "Gestionar lote" }).click();
     await page.getByLabel("Motivo de la corrección").fill("Revisión del sello");
     await button("Confirmar cambio de lote").click();

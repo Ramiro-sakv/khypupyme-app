@@ -1,22 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
 import { Icon } from "../ui/Icon";
 import type { components } from "../api/schema";
 import type { IconName } from "../ui/Icon";
 import { CommerceProvider, useCommerceData } from "../commerce/CommerceContext";
 import { LoadFeedback } from "../commerce/CommerceUi";
-import { CatalogPage, CustomersPage } from "../commerce/CatalogPage";
-import { CashPage, ExpensesPage, ReceivablesPage } from "../commerce/CashPages";
-import { DocumentPage, HistoryPage } from "../commerce/Documents";
-import { ReportsPage } from "../commerce/ReportsPage";
-import { TradePage } from "../commerce/TradePage";
 import type { TradeKind } from "../commerce/TradePage";
 import { bob, timestamp } from "../commerce/models";
 import type { AccessSnapshot } from "../billing/PlanGate";
 import type { CashStatus, EntryDocument, Product, Report } from "../commerce/models";
 import { BusinessHome } from "./BusinessHome";
-import { BusinessSettings } from "./BusinessSettings";
-import { BusinessHelp } from "./BusinessHelp";
 import { INDUSTRY_GUIDES } from "./industryGuides";
 import { industryTheme, usesDeliveries } from "./industryThemes";
 import type { IndustryId } from "./industryThemes";
@@ -25,14 +18,30 @@ import { PracticeGuide } from "../timber/TimberPractice";
 import type { PracticeControls } from "../timber/TimberPractice";
 import { unitsOf } from "../timber/measures";
 import { Alert, Button, Card } from "../ui/Primitives";
-import { SerialHistory } from "../retail/SerialHistory";
 import type { StoreAttention } from "../retail/measures";
-import { ContainersPage } from "../retail/Containers";
-import { DeliveriesPage } from "../retail/FurnitureDeliveries";
 import { WorkDetail, WorkList, WorkPanel } from "../services/WorkPages";
 import { canBillWork, workNavigation } from "../services/work";
 import type { Work } from "../services/work";
 import { equipmentIndustry, measuredIndustry, variantIndustry } from "../retail/ProductFields";
+
+const tradeViews = new Set(["ventas", "compras", "cotizaciones", "entradas"]);
+const loadTradePage = () => import("../commerce/TradePage").then((page) => ({ default: page.TradePage }));
+const TradePage = lazy(loadTradePage);
+if (tradeViews.has(new URLSearchParams(window.location.search).get("vista") ?? ""))
+  void loadTradePage().catch(() => undefined);
+const CatalogPage = lazy(() => import("../commerce/CatalogPage").then((page) => ({ default: page.CatalogPage })));
+const CustomersPage = lazy(() => import("../commerce/CatalogPage").then((page) => ({ default: page.CustomersPage })));
+const CashPage = lazy(() => import("../commerce/CashPages").then((page) => ({ default: page.CashPage })));
+const ExpensesPage = lazy(() => import("../commerce/CashPages").then((page) => ({ default: page.ExpensesPage })));
+const ReceivablesPage = lazy(() => import("../commerce/CashPages").then((page) => ({ default: page.ReceivablesPage })));
+const DocumentPage = lazy(() => import("../commerce/Documents").then((page) => ({ default: page.DocumentPage })));
+const HistoryPage = lazy(() => import("../commerce/Documents").then((page) => ({ default: page.HistoryPage })));
+const ReportsPage = lazy(() => import("../commerce/ReportsPage").then((page) => ({ default: page.ReportsPage })));
+const BusinessSettings = lazy(() => import("./BusinessSettings").then((page) => ({ default: page.BusinessSettings })));
+const BusinessHelp = lazy(() => import("./BusinessHelp").then((page) => ({ default: page.BusinessHelp })));
+const SerialHistory = lazy(() => import("../retail/SerialHistory").then((page) => ({ default: page.SerialHistory })));
+const ContainersPage = lazy(() => import("../retail/Containers").then((page) => ({ default: page.ContainersPage })));
+const DeliveriesPage = lazy(() => import("../retail/FurnitureDeliveries").then((page) => ({ default: page.DeliveriesPage })));
 
 const workspaceViews = [
   "inicio", "ayuda", "ventas", "compras", "cotizaciones", "catalogo", "entradas", "clientes", "caja", "fiados", "gastos", "historial", "documentos", "informes", "configuracion", "series", "envases", "entregas", "trabajos", "plan",
@@ -74,7 +83,6 @@ type WorkspaceProps = {
 
 export function BusinessWorkspace({ accountId, business, industry, view, workId, navigate, onSave, practice, practiceEntry, access, accountControls, onRemoved }: WorkspaceProps) {
   const theme = industryTheme(business.industry);
-  const content = useRef<HTMLDivElement>(null);
   const more = useRef<HTMLDetailsElement>(null);
   const [document, setDocument] = useState<{ id: string; origin: WorkspaceView; work: string }>();
   const [quote, setQuote] = useState<EntryDocument>();
@@ -97,7 +105,6 @@ export function BusinessWorkspace({ accountId, business, industry, view, workId,
   const operational = !documentId && ["ventas", "compras", "catalogo", "caja"].includes(view);
 
   useEffect(() => {
-    (content.current?.querySelector<HTMLElement>("[data-entry-focus]") ?? content.current?.querySelector("h1"))?.focus({ preventScroll: true });
     if (more.current) more.current.open = false;
   }, [view, business.id, documentId, workId, focus]);
 
@@ -112,6 +119,7 @@ export function BusinessWorkspace({ accountId, business, industry, view, workId,
   }, []);
 
   function go(next: BusinessView, target = "", work = "") {
+    if (tradeViews.has(next)) void loadTradePage().catch(() => undefined);
     setDocument(undefined);
     setTradeArchive(undefined);
     setFocus(target);
@@ -147,7 +155,7 @@ export function BusinessWorkspace({ accountId, business, industry, view, workId,
       openWork={works ? (id) => go("trabajos", "", id) : undefined}
       openSerial={equipmentIndustry(business.industry) ? (serial) => go("series", "serial:" + serial) : undefined}
       convert={(source) => { setQuote(source); go("ventas"); }} />;
-    if (access.readOnly && ["ventas", "compras", "cotizaciones", "entradas"].includes(view))
+    if (access.readOnly && tradeViews.has(view))
       return <Card><Alert>Activa un plan para registrar esta operación. Los borradores se conservan.</Alert>
         <Button variant="secondary" onClick={() => go("historial")}>Ver historial</Button></Card>;
     switch (view) {
@@ -173,7 +181,8 @@ export function BusinessWorkspace({ accountId, business, industry, view, workId,
       case "envases": return business.industry === "beverages" ? <ContainersPage /> : <Alert>Esta vista pertenece al rubro de Bebidas.</Alert>;
       case "entregas": return delivery && !practice ? <DeliveriesPage /> : <Alert>Esta vista corresponde a rubros con entregas.</Alert>;
       case "trabajos": return !works ? <Alert>Esta vista corresponde a negocios con agenda u órdenes.</Alert> : workId ?
-        <WorkDetail id={workId} back={() => go("trabajos")} charge={(id) => { setQuote(undefined); go("ventas", "", id); }} /> :
+        <WorkDetail id={workId} back={() => go("trabajos")} openInventory={() => go("catalogo")}
+          charge={(id) => { setQuote(undefined); go("ventas", "", id); }} /> :
         <WorkList key={focus} industry={business.industry} focus={focus} open={(id) => go("trabajos", "", id)} />;
       case "informes": return <ReportsPage business={business.name} practice={!!practice} />;
       case "configuracion": return practice ? <Alert>Para cambiar la configuración, pausa la práctica y vuelve al negocio.</Alert> :
@@ -211,7 +220,7 @@ export function BusinessWorkspace({ accountId, business, industry, view, workId,
         </details></li>
       </ul>
     </nav>
-    <div className="workspace-content" ref={content} id="business-main" tabIndex={-1}>
+    <div className="workspace-content" id="business-main" tabIndex={-1}>
       <div className={"workspace-masthead" + (operational ? " workspace-masthead--compact" : "")}>
         {(view !== "inicio" || documentId) && <div className="card-title">
           <span className="workspace-business-icon"><Icon name={theme.icon} /></span>
@@ -233,11 +242,23 @@ export function BusinessWorkspace({ accountId, business, industry, view, workId,
       {practiceEntry}
       <CommerceProvider accountId={accountId} businessId={business.id} businessName={business.name} practice={!!practice} readOnly={access.readOnly}
         onConfirmed={practice?.refresh} showDocument={openDocument}>
-        {renderView()}
+        <Suspense fallback={<p role="status">Cargando pantalla…</p>}>
+          <WorkspaceScreen focusKey={JSON.stringify([view, business.id, documentId, workId, focus])}>
+            {renderView()}
+          </WorkspaceScreen>
+        </Suspense>
       </CommerceProvider>
     </div>
     {practice && <PracticeGuide controls={practice} view={view} navigate={go} />}
   </div>;
+}
+
+function WorkspaceScreen({ focusKey, children }: { focusKey: string; children: ReactNode }) {
+  const content = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    (content.current?.querySelector<HTMLElement>("[data-entry-focus]") ?? content.current?.querySelector("h1"))?.focus({ preventScroll: true });
+  }, [focusKey]);
+  return <div ref={content}>{children}</div>;
 }
 
 function WorkSale({ id, industry, back }: { id: string; industry: string; back: () => void }) {

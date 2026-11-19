@@ -30,7 +30,7 @@
 .ui-button:disabled { opacity: .65; cursor: wait; }
 
 .ui-field { min-width: 0; display: grid; gap: .4rem; }
-.ui-field label { font-weight: 650; }
+.ui-field label { font-weight: var(--weight-label); }
 .ui-field input, .ui-field select {
   width: 100%;
   min-height: 44px;
@@ -56,10 +56,11 @@
 
 .ui-table-scroll { overflow-x: auto; }
 .ui-table { width: 100%; border-collapse: collapse; text-align: start; font-variant-numeric: tabular-nums; }
-.ui-table caption { text-align: start; font-weight: 700; font-size: 1.12rem; margin-bottom: .7rem; }
+.ui-table caption { text-align: start; font-weight: var(--weight-emphasis); font-size: 1.12rem; margin-bottom: .7rem; }
 .ui-table th, .ui-table td { text-align: start; padding: .65rem .55rem; border-bottom: 1px solid var(--line); }
+.ui-table th { font-weight: var(--weight-label); }
 .ui-table thead { background: var(--accent-soft); }
-.ui-table tbody th { font-weight: 600; }
+.ui-table tbody th { font-weight: var(--weight-label); }
 
 
 :root { scroll-padding-bottom: calc(var(--review-space, 0px) + .9rem); }

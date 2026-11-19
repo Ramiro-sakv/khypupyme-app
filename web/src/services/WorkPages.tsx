@@ -63,16 +63,18 @@ function schedule(row: Work) {
     " · " + clockTime(row.startMinute) + " – " + clockTime(row.startMinute + (row.duration ?? 0)));
 }
 
-export function WorkDetail({ id, back, charge }: { id: string; back: () => void; charge: (id: string) => void }) {
+export function WorkDetail({ id, back, charge, openInventory }: {
+  id: string; back: () => void; charge: (id: string) => void; openInventory: () => void;
+}) {
   const result = useCommerceData<Work>("/work/" + id);
   return <div className="commerce-stack">
     <CommerceHeading title={result.data?.title ?? "Detalle de trabajo"}>
       <Button variant="secondary" icon="back" onClick={back}>Volver al listado</Button></CommerceHeading>
-    {result.data ? <WorkDetailBody key={result.data.revision} item={result.data} charge={charge} /> : <LoadFeedback {...result} />}
+    {result.data ? <WorkDetailBody key={result.data.revision} item={result.data} charge={charge} openInventory={openInventory} /> : <LoadFeedback {...result} />}
   </div>;
 }
 
-function WorkDetailBody({ item, charge }: { item: Work; charge: (id: string) => void }) {
+function WorkDetailBody({ item, charge, openInventory }: { item: Work; charge: (id: string) => void; openInventory: () => void }) {
   const { showDocument } = useCommerce();
   const form = useCommercialForm();
   const [editing, setEditing] = useState(false);
@@ -95,7 +97,11 @@ function WorkDetailBody({ item, charge }: { item: Work; charge: (id: string) => 
         {detailKeys.map((field) => item.details[field] && <div className="work-summary-row" key={field}>
           <dt>{detailLabels[field]}</dt><dd>{item.details[field]}</dd></div>)}
       </dl>
+      {item.industry === "cleaning" && (item.details.billableMaterials || item.details.internalMaterials) &&
+        <p>Los materiales cobrados figuran en la venta vinculada. Los de consumo interno se registran en Inventario con su motivo.</p>}
       <div className="inline-actions">
+        {item.industry === "cleaning" && item.details.internalMaterials &&
+          <Button variant="secondary" onClick={openInventory}>Ir a Inventario</Button>}
         {canEdit && <Button variant="secondary" disabled={editing || form.blocked} onClick={() => setEditing(true)}>
           {appointment ? "Reprogramar cita" : "Editar orden"}</Button>}
         {primary && <Button variant="secondary" disabled={editing || form.blocked || primary.blocked}

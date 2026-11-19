@@ -28,6 +28,7 @@ export function workStatus(work: Work) {
 }
 export const detailLabels: Record<keyof WorkDetails, string> = {
   tasks: "Tareas", plannedMaterials: "Materiales previstos", usedMaterials: "Materiales utilizados",
+  billableMaterials: "Materiales a cobrar", internalMaterials: "Materiales de consumo interno",
   deliverables: "Entregables", equipment: "Equipo recibido", accessories: "Accesorios recibidos", fault: "Falla declarada",
   diagnosis: "Diagnóstico", specifications: "Especificaciones del encargo",
 };

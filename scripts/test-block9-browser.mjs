@@ -21,6 +21,7 @@ export async function checkBrowser(cookies, business, product, readCode) {
     }
 
     await open(business, "catalogo");
+    await button("Catálogo").click();
     await button("Editar").click();
     await page.getByLabel("Nombre del producto").fill("Edición que se abandona");
     await button("Guardar").click();

@@ -8,7 +8,7 @@ export async function checkBrowser(cookies, available = 7) {
   const browser = await module.chromium.launch({ channel: "msedge", headless: true });
   try {
     const base = "http://127.0.0.1:5283";
-    const context = await browser.newContext({ viewport: { width: 360, height: 780 } });
+    const context = await browser.newContext({ viewport: { width: 360, height: 780 }, hasTouch: true });
     await context.addCookies([...cookies].map(([name, value]) => ({ name, value, url: base })));
     const page = await context.newPage();
     page.setDefaultTimeout(10_000);
@@ -21,6 +21,7 @@ export async function checkBrowser(cookies, available = 7) {
       });
     });
     await page.goto(base + "/?vista=ventas");
+    assert.equal(await page.locator("body").evaluate((body) => getComputedStyle(body).fontWeight), "400");
     await page.getByRole("button", { name: /Tabla seca.*Pino/ }).click();
     await page.getByRole("button", { name: "Elegir medida disponible" }).click();
     const picked = timberLabel({ lengthMicros: 3_048_000_000, thicknessMicros: 50_800_000, widthMicros: 152_400_000 }, "metric");
@@ -150,8 +151,9 @@ export async function checkBrowser(cookies, available = 7) {
       if (request.method() === "POST" && request.url().endsWith("/commands")) sent++;
     });
     const scrollBefore = await page.evaluate(() => scrollY);
-    await dialog.getByRole("button", { name: "Minimizar", exact: true }).click();
+    await dialog.getByRole("button", { name: "Minimizar", exact: true }).tap();
     await dialog.waitFor({ state: "hidden" });
+    await page.waitForFunction(() => document.activeElement?.textContent?.trim() === "Carrito");
     assert.equal(await page.evaluate(() => scrollY), scrollBefore);
     assert.equal(sent, 0);
     await review.click();

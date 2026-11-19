@@ -57,7 +57,7 @@
 .trade-product > span { overflow-wrap: anywhere; }
 .trade-product:not(:disabled):hover { background: var(--accent-soft); border-color: var(--accent); }
 .trade-stock { color: var(--muted); font-size: .79rem; }
-.trade-product .trade-price { color: var(--accent); font-weight: 700; font-size: .86rem; }
+.trade-product .trade-price { color: var(--accent); font-weight: var(--weight-emphasis); font-size: .86rem; }
 .trade-draft-note { margin: 0; }
 .inventory-controls { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem; margin-block: .6rem 1rem; }
 .inventory-controls .commerce-search { flex: 1 1 19rem; margin: 0; }
@@ -108,7 +108,7 @@
 .cash-metrics div { min-width: 0; padding: .72rem; border-radius: .55rem; border: 1px solid var(--line); }
 .cash-metrics div:first-child { background: var(--accent-soft); }
 .cash-metrics dt { font-size: .82rem; color: var(--muted); }
-.cash-metrics dd { margin: .25rem 0 0; color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.cash-metrics dd { margin: .25rem 0 0; color: var(--ink); font-weight: var(--weight-emphasis); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .cash-metrics div:first-child dd { color: var(--accent); font-size: 1.2rem; }
 .cash-actions .commerce-editor { max-width: none; }
 .cash-actions > details + details { margin-top: .65rem; }

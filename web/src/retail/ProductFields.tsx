@@ -3,7 +3,7 @@ import type { Product } from "../commerce/models";
 import { unitLabels } from "./measures";
 
 type Fields = { kind: string; unit: string; box: string; reorder: string; tracked: boolean; model: string; size: string; color: string;
-  warranty: string; brand: string; presentation: string; tone: string; roll: string };
+  warranty: string; brand: string; presentation: string; tone: string; roll: string; afterOpeningMonths: string };
 const kinds = { convenience: "Tienda por unidad, peso o volumen", grocery: "Abarrotes por presentación o medida",
   beverages: "Bebidas por caja y sueltos", cosmetics: "Cosmético con lotes", pets: "Producto envasado o fraccionado",
   clothing: "Variante por talla y color", footwear: "Par por talla y color",
@@ -29,7 +29,8 @@ export function initialProductFields(industry?: string, product?: Product): Fiel
     reorder: String(product?.retail?.reorder ?? 0), tracked: product?.retail?.trackLots ?? (industry === "cosmetics" || industry === "cement"),
     model: product?.apparel?.model ?? "", size: product?.apparel?.size ?? "", color: product?.apparel?.color ?? "",
     warranty: String(product?.equipment?.warrantyMonths ?? 12), brand: product?.cosmetic?.brand ?? "",
-    presentation: product?.cosmetic?.presentation ?? "", tone: product?.cosmetic?.tone ?? "", roll: String(product?.retail?.rollLength ?? 50) };
+    presentation: product?.cosmetic?.presentation ?? "", tone: product?.cosmetic?.tone ?? "", roll: String(product?.retail?.rollLength ?? 50),
+    afterOpeningMonths: product?.cosmetic?.afterOpeningMonths?.toString() ?? "" };
 }
 
 export function productFieldsCommand(fields: Fields) {
@@ -37,7 +38,8 @@ export function productFieldsCommand(fields: Fields) {
     retailProduct: measuredIndustry(fields.kind) ? { unit: fields.unit, boxSize: fields.unit === "piece" ? Number(fields.box) : 1,
       trackLots: fields.tracked || needsLots(fields), reorder: Number(fields.reorder),
       rollLength: fields.unit === "m" ? Number(fields.roll) : undefined } : undefined,
-    cosmeticProduct: fields.kind === "cosmetics" ? { brand: fields.brand, presentation: fields.presentation, tone: fields.tone } : undefined,
+    cosmeticProduct: fields.kind === "cosmetics" ? { brand: fields.brand, presentation: fields.presentation, tone: fields.tone,
+      afterOpeningMonths: Number(fields.afterOpeningMonths) } : undefined,
     apparelProduct: variantIndustry(fields.kind) ? { model: fields.model, size: fields.size, color: fields.color } : undefined,
     equipmentProduct: equipmentIndustry(fields.kind) ? { warrantyMonths: Number(fields.warranty) } : undefined,
   };
@@ -71,6 +73,9 @@ export function ProductFields({ industry, edits, fields, setFields }: {
       <TextField label="Marca" required maxLength={80} value={fields.brand} onChange={(event) => setFields({ ...fields, brand: event.target.value })} />
       <TextField label="Presentación" required maxLength={80} value={fields.presentation} onChange={(event) => setFields({ ...fields, presentation: event.target.value })} />
       <TextField label="Tono (opcional)" maxLength={60} value={fields.tone} onChange={(event) => setFields({ ...fields, tone: event.target.value })} />
+      <TextField label="Duración tras apertura (meses)" hint="Usa el número indicado en el envase. El vencimiento se registra por lote."
+        type="number" min={1} max={120} value={fields.afterOpeningMonths}
+        onChange={(event) => setFields({ ...fields, afterOpeningMonths: event.target.value })} />
     </div>}
     {variantIndustry(fields.kind) && <div className="store-fields">
       <TextField label="Modelo" required maxLength={80} value={fields.model} disabled={edits}

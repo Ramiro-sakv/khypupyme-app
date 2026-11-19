@@ -16,14 +16,14 @@ import { TimberFields } from "../timber/TimberFields";
 import { displayMeasure, timberRate, unitsOf } from "../timber/measures";
 import type { Capture, Rates, TimberUnits } from "../timber/measures";
 import { prepareTimber, stockKey } from "../timber/trade";
-import { primaryCommerce, StockFeedback, useStockCheck } from "./stock";
+import { StockFeedback, useStockCheck } from "./stock";
 import type { StockLine } from "./stock";
 import { BarcodeField, MeasuredFields, SerialPicker, VariantMatrix, equivalence } from "../retail/TradeFields";
-import { fromBase, measurePreview, productAvailability, quantityLabel, seriesFromText, unitLabels } from "../retail/measures";
+import { measurePreview, productAvailability, seriesFromText, unitLabels } from "../retail/measures";
 import type { Measure } from "../retail/measures";
 import { ContainerFields, prepareContainerMoves, useContainerBalances } from "../retail/Containers";
 import type { ContainerDraft } from "../retail/Containers";
-import { PetLotField, useSelectedLots } from "../retail/PetLots";
+import { PetLotField } from "../retail/PetLots";
 import { CompatibilityFilter, emptyVehicle, searchLabel, SpecialtySummary, vehicleQuery } from "../retail/SpecialtyFields";
 import { PrintingFields, previewPrinting } from "../retail/PrintingFields";
 import type { PrintDraft } from "../retail/PrintingFields";
@@ -83,8 +83,6 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
   const mixed = industry === "beverages";
   const withContainers = mixed && kind === "sale";
   const petSale = industry === "pets" && kind === "sale";
-  const selectedLots = useSelectedLots(petSale ? value.lines.flatMap((line) =>
-    line.measure?.lot ? [{ id: line.id, lot: line.measure.lot }] : []) : []);
   const containerBalances = useContainerBalances(withContainers, value.customer?.id);
   const containers = prepareContainerMoves(value.containers ?? {}, containerBalances.data, value.customer?.id);
 
@@ -117,31 +115,26 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
     const subtotal = line.printing ? !isPurchase && printing && unitMinor !== null && printing.faces * unitMinor <= moneyLimit ? printing.faces * unitMinor : null :
       measure ? tileIncomplete || (isPurchase && product?.retail?.trackLots && !measure.lot) ? null : measured?.subtotal ?? null :
       validQuantity && unitMinor !== null && quantity * unitMinor <= moneyLimit ? quantity * unitMinor : null;
-    const available = petSale && measure?.lot ? selectedLots.stock?.[line.id] :
-      product?.retail ? product.sellableStock ?? 0 : product?.stock;
     const requested = line.printing || product?.isService ? undefined : measure ? measured?.base : validQuantity ? quantity : undefined;
     return {
-      line, product, quantity, unitMinor, subtotal, measure, serials, requested, available, printing, tile, tileRequest,
-      shortage: available !== undefined && requested !== undefined && requested > available,
+      line, product, quantity, unitMinor, subtotal, measure, serials, requested, printing, tile, tileRequest, tileIncomplete,
       changed: !isPurchase && product !== undefined && product.priceMinor !== line.priceMinor,
     };
   });
-  const primary = primaryCommerce(industry);
-  const stockLines: StockLine[] = primary ? [
+  const stockLines: StockLine[] = [
     ...(!isPurchase ? timber.commands.map(({ productId, quantity, timber }) => ({ productId, quantity, timber })) : []),
-    ...lines.flatMap(({ line, product, serials, measure, quantity, requested }): StockLine[] =>
-      product && (isPurchase ? !!serials?.length : requested !== undefined) &&
+    ...lines.flatMap(({ line, product, serials, measure, quantity, requested, tileRequest, tileIncomplete }): StockLine[] =>
+      product?.active && (isPurchase ? !!serials?.length : requested !== undefined && !tileIncomplete) &&
         (!serials || serials.every((serial) => serial.length <= 80))
-        ? [{ productId: line.id, quantity: measure ? 1 : quantity, measure, serials }] : []),
-  ] : [];
-  const stockCheck = useStockCheck(stockLines, isPurchase, stockVersion);
+        ? [{ productId: line.id, quantity: measure ? 1 : quantity, measure, serials, tile: tileRequest }] : []),
+  ];
+  const stockCheck = useStockCheck(stockLines, isPurchase, quote, stockVersion);
   const failedChecks = stockCheck.checks?.filter((row) => row.requested > row.available || !!row.reason) ?? [];
-  const stockUnconfirmed = primary && stockLines.length > 0 && !stockCheck.checks;
-  const stockBlocked = primary && (stockUnconfirmed || failedChecks.length > 0);
+  const stockBlocked = (stockLines.length > 0 && !stockCheck.checks) || failedChecks.length > 0;
   const stockByMeasure = new Map(stockCheck.checks?.flatMap((row) => row.timber
     ? [[stockKey(row.productId, row.timber), row.available] as const] : []));
   const stockByProduct = new Map(stockCheck.checks?.flatMap((row) => !row.timber && !row.serial
-    ? [[row.productId, row] as const] : []));
+    ? [[row.productId + (row.lot ? ":" + row.lot : ""), row] as const] : []));
   const scopedSeries = lines.flatMap((row) => row.serials?.map((serial) => serial.toUpperCase()) ?? []);
   const invalidSeries = scopedSeries.length > 100 || new Set(scopedSeries).size !== scopedSeries.length;
   const lotKeys = lines.flatMap((row) => row.measure?.lot ? [row.line.id + ":" + row.measure.lot.toUpperCase()] : []);
@@ -153,8 +146,7 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
   const total = value.lines.length > 0 && lines.every((item) => item.subtotal !== null) && timber.groups.every((group) => group.total !== null) &&
     !limitReached && !timber.problem && !invalidSeries && !duplicateLots &&
     gross <= moneyLimit && discount !== null && discount <= gross ? gross - discount : null;
-  const unavailable = !current.data || lines.some(({ product, changed, shortage, measure, available }) =>
-    !product?.active || changed || (kind === "sale" && (shortage || petSale && !!measure?.lot && available === undefined))) ||
+  const unavailable = !current.data || lines.some(({ product, changed }) => !product?.active || changed) ||
     timberLines.some((line) => !current.data?.[line.id]?.active || !current.data[line.id].timber) ||
     ((kind === "sale" || isPurchase) && stockBlocked);
   const customerId = work?.customerId ?? value.customer?.id;
@@ -266,7 +258,7 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
                 <div className="trade-product-name"><strong>{product.apparel?.model ?? product.name}</strong><Icon name="plus" /></div>
                 {product.apparel ? <span>Elegir talla y color</span> : <>
                   <span>{product.timber?.species && product.timber.species + " · "}{product.code}</span>
-                  <span className="trade-stock">{primary && !product.isService && (product.retail ? !product.sellableStock : !product.stock) ? "Sin stock" : productAvailability(product) + (product.specialty?.printing || product.isService ? "" : " disponibles")}{product.timber ? " por medidas" : ""}</span>
+                  <span className="trade-stock">{!product.isService && (product.retail ? !product.sellableStock : !product.stock) ? "Sin stock" : productAvailability(product) + (product.specialty?.printing || product.isService ? "" : " disponibles")}{product.timber ? " por medidas" : ""}</span>
                   {(product.timber
                     ? <span className="trade-price timber-rates">
                       <span>1–2 pies · {bob(product.timber.superShortMinor)}</span>
@@ -297,16 +289,15 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
         </EmptyState>}
         {lines.some((row) => !row.line.measure && !row.line.printing && row.line.series === undefined && !row.product?.equipment) &&
           <DataTable caption="Líneas del borrador" columns={["Producto", industry === "footwear" ? "Pares" : "Cantidad", isPurchase ? "Costo unitario" : "Precio unitario", "Subtotal", "Acción"]}
-            rows={lines.filter((row) => !row.line.measure && !row.line.printing && row.line.series === undefined && !row.product?.equipment).map(({ line, product, changed, shortage, unitMinor, subtotal, quantity }) => ({ id: line.id, cells: [
+            rows={lines.filter((row) => !row.line.measure && !row.line.printing && row.line.series === undefined && !row.product?.equipment).map(({ line, product, changed, unitMinor, subtotal }) => ({ id: line.id, cells: [
               <div>{product?.name ?? line.name}
                 {product && <SpecialtySummary product={product} />}
                 {industry === "spareParts" && !product?.specialty?.parts && <small>Compatibilidad por confirmar</small>}
                 {product?.apparel && <small className="record-secondary">Talla {product.apparel.size} · {product.apparel.color}</small>}
                 {product?.isService && <small className="record-secondary">Servicio</small>}
-                {product && !product.isService && !isPurchase && <small className="record-secondary">{primary
-                  ? <StockFeedback row={stockByProduct.get(line.id)} />
-                  : <>Pedido {Number.isFinite(quantity) ? quantity : "—"} · Disponible {product.stock}
-                    {shortage ? " · Faltan " + (quantity - product.stock) : ""}</>}</small>}
+                {product && !product.isService && !isPurchase && <small className="record-secondary">
+                  <StockFeedback row={stockByProduct.get(line.id)} countUnit={product.specialty?.countUnit === "pair" ? "pares" : undefined} />
+                </small>}
                 {product && !product.active && <small className="trade-issue">Producto archivado</small>}
               </div>,
               <TextField label={(product?.isService ? "Cantidad de " : product?.specialty?.countUnit === "pair" ? "Pares de " : "Piezas de ") + line.name}
@@ -321,8 +312,8 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
               line.id !== work?.serviceId && <Button variant="plain" aria-label={"Quitar " + line.name} disabled={frozen}
                 onClick={() => remove(line.id)}>Quitar</Button>,
             ] }))} />}
-        {lines.filter((row) => row.line.measure || row.line.printing || row.line.series !== undefined || row.product?.equipment).map(({ line, product, changed, shortage,
-          requested, available, subtotal, measure, serials, tile, tileRequest }) => {
+        {lines.filter((row) => row.line.measure || row.line.printing || row.line.series !== undefined || row.product?.equipment).map(({ line, product, changed,
+          requested, subtotal, measure, serials, tile, tileRequest }) => {
           const key = line.key ?? line.id;
           const unit = product?.retail?.unit;
           const bag = !!product?.specialty?.material?.cement && !product.specialty.material.cement.isBulk;
@@ -349,17 +340,13 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
               disabled={frozen} onChange={(event) => edit(key, { quantity: event.target.value })} />}
             {value.quote && serials && serials.length !== Number(line.quantity) && <p>Selecciona {line.quantity} series para convertir la cotización.</p>}
             {measure && requested !== undefined && unit && <p>Equivale a {equivalence(requested, unit)}</p>}
-            {!isPurchase && primary && !serials && requested !== undefined && <p><StockFeedback row={stockByProduct.get(line.id)} unit={unit} /></p>}
-            {serials && primary && (stockCheck.checks ?? []).filter((check) => check.productId === line.id && check.serial &&
+            {!isPurchase && !serials && requested !== undefined && <p><StockFeedback
+              row={stockByProduct.get(line.id + (measure?.lot ? ":" + measure.lot.toUpperCase() : ""))}
+              unit={unit} countUnit={bag ? "bolsas" : undefined} /></p>}
+            {serials && (stockCheck.checks ?? []).filter((check) => check.productId === line.id && check.serial &&
               (!isPurchase || check.reason)).map((check) => <p key={check.serial}>
                 {check.serial} · {isPurchase ? <span className="trade-issue">{check.reason}</span> : <StockFeedback row={check} />}
               </p>)}
-            {!isPurchase && !primary && requested !== undefined && available !== undefined && <p className={shortage ? "trade-issue" : undefined}>
-              Pedido {measure ? quantityLabel(fromBase(requested, unit!)) : requested} · Disponible {
-                petSale && unit && measure?.lot ? quantityLabel(fromBase(available, unit)) + " " + unitLabels[unit] :
-                  product ? productAvailability(product) : "—"}
-              {shortage && " · Faltan " + quantityLabel(unit ? fromBase(requested - available, unit) : requested - available)}
-            </p>}
             {isPurchase ? <TextField label={"Costo por " + (bag ? "bolsa" : measure ? unitLabels[measure.unit] : "equipo") + " (Bs)"} value={line.cost}
               inputMode="decimal" disabled={frozen} onChange={(event) => edit(key, { cost: event.target.value })} /> :
               <p>{bob(line.priceMinor)} por {line.printing ? "cara impresa" : bag ? "bolsa" : unit ? unitLabels[unit] : "equipo"}</p>}
@@ -405,7 +392,6 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
         {timber.problem && <Alert tone="error">{timber.problem}</Alert>}
         {stockCheck.loading && <p role="status">Consultando existencias del carrito…</p>}
         {stockCheck.error && <Alert tone="error">{stockCheck.error} <Button variant="secondary" onClick={stockCheck.retry}>Reintentar disponibilidad</Button></Alert>}
-        {selectedLots.error && <Alert tone="error">{selectedLots.error} <Button variant="secondary" onClick={selectedLots.reload}>Reintentar lote</Button></Alert>}
         {current.error && <Alert tone="error">{current.error} <Button variant="secondary" onClick={current.reload}>Reintentar disponibilidad</Button></Alert>}
       </Card>
     </div>
@@ -443,7 +429,7 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
         {missingService && <Alert>Añade el servicio del trabajo antes de confirmar.</Alert>}
         {containers.error && <Alert tone="error">{containers.error}</Alert>}
         {form.error && <Alert tone="error">{form.error}</Alert>}
-        {primary && stockLines.length > 0 && (form.error || stockCheck.error) &&
+        {stockLines.length > 0 && (form.error || stockCheck.error) &&
           <Button variant="secondary" onClick={stockCheck.retry}>Volver a consultar existencias</Button>}
         <label className="trade-check">
           <input type="checkbox" checked={acknowledged === reviewKey} disabled={frozen || total === null}
@@ -506,13 +492,13 @@ function Buyer({ selected, disabled, onChange }: {
 function useCurrentProducts(ids: string) {
   const { path, revision } = useCommerce();
   const [refresh, setRefresh] = useState(0);
-  const key = [ids, revision, refresh].join("@");
+  const key = [path, ids, revision, refresh].join("@");
   const [state, setState] = useState<{ key: string; data?: Record<string, Product>; error?: string }>();
   useEffect(() => {
     if (!ids) return;
     const abort = new AbortController();
-    void Promise.all(ids.split(",").map(async (id) => [id, await get<Product>(path + "/products/" + id, abort.signal)] as const))
-      .then((rows) => { if (!abort.signal.aborted) setState({ key, data: Object.fromEntries(rows) }); })
+    void get<Product[]>(path + "/products/batch?" + new URLSearchParams({ ids }), abort.signal)
+      .then((rows) => { if (!abort.signal.aborted) setState({ key, data: Object.fromEntries(rows.map((row) => [row.id, row])) }); })
       .catch((error: unknown) => { if (!abort.signal.aborted) setState({ key, error: error instanceof Error ? error.message : "No se pudo verificar existencias." }); });
     return () => abort.abort();
   }, [ids, key, path]);

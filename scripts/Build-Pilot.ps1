@@ -44,7 +44,9 @@ try {
         try {
             $tauriConfig = Get-Content (Join-Path $web 'src-tauri/tauri.conf.json') -Raw | ConvertFrom-Json
             $csp = $tauriConfig.app.security.csp.Replace('https://khypupyme2-piloto.onrender.com', $origin)
-            @{ app = @{ security = @{ csp = $csp } } } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $overlay -Encoding utf8
+            $settings = @{ app = @{ security = @{ csp = $csp } } }
+            if ($ApiOrigin.IsLoopback) { $settings.identifier = $tauriConfig.identifier + '.qa' }
+            $settings | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $overlay -Encoding utf8
             & pnpm --dir $web exec tauri build --bundles nsis --config $overlay
             if ($LASTEXITCODE) { throw 'Falló la generación del instalador Windows.' }
         } finally { if (Test-Path -LiteralPath $overlay) { Remove-Item -LiteralPath $overlay } }

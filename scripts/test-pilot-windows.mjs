@@ -49,6 +49,7 @@ export async function checkWindows({ email, password, business }) {
     const windows = browser.contexts()[0];
     const app = windows.pages()[0] ?? await windows.waitForEvent("page");
     app.setDefaultTimeout(12_000);
+    app.setDefaultNavigationTimeout(12_000);
     await app.waitForURL("https://tauri.localhost/");
     return app;
   }
@@ -59,11 +60,26 @@ export async function checkWindows({ email, password, business }) {
     await stopped;
   }
   async function login(app) {
-    await app.getByRole("button", { name: "Ingresar con el navegador" }).click();
-    const local = await app.evaluate(async () => {
+    const requests = [];
+    const failed = (request) => requests.push(new URL(request.url()).pathname + " " + request.failure()?.errorText);
+    const completed = (response) => {
+      const path = new URL(response.url()).pathname;
+      if (path === "/connect/token" || path === "/api/v1/auth/native-session") requests.push(path + " " + response.status());
+    };
+    app.on("requestfailed", failed);
+    app.on("response", completed);
+    const priorState = await app.evaluate(async () => {
       const raw = await window.__TAURI_INTERNALS__.invoke("native_load", { name: "handshake" });
-      return JSON.parse(raw);
+      return raw ? JSON.parse(raw).state : null;
     });
+    await app.getByRole("button", { name: "Ingresar con el navegador" }).click();
+    const handle = await app.waitForFunction(async (previous) => {
+      const raw = await window.__TAURI_INTERNALS__.invoke("native_load", { name: "handshake" });
+      const current = raw ? JSON.parse(raw) : null;
+      return current && current.state !== previous ? current : null;
+    }, priorState);
+    const local = await handle.jsonValue();
+    await handle.dispose();
     const challenge = createHash("sha256").update(local.verifier).digest("base64url");
     const params = new URLSearchParams({ client_id: "khypupyme2-windows", response_type: "code",
       redirect_uri: "http://127.0.0.1:43823/callback", scope: "offline_access khypupyme_api",
@@ -76,16 +92,28 @@ export async function checkWindows({ email, password, business }) {
       await web.getByRole("button", { name: "Ingresar", exact: true }).click();
       await web.waitForURL("http://127.0.0.1:43823/callback?**");
       await web.getByText("Ya puedes volver a KhypuPyme.").waitFor();
-      await app.getByText(email, { exact: true }).waitFor();
-    } finally { await web.close(); }
+      await app.getByRole("heading", { name: "Mis negocios", exact: true })
+        .or(app.getByRole("navigation", { name: "Navegación del negocio" }))
+        .or(app.getByRole("button", { name: "Volver a mis negocios", exact: true })).waitFor();
+    } catch (failure) {
+      const alerts = await app.getByRole("alert").allTextContents();
+      console.error("Windows: estado del retorno", { requests, alerts });
+      throw failure;
+    } finally {
+      app.off("requestfailed", failed);
+      app.off("response", completed);
+      await web.close();
+    }
   }
   try {
     let app = await boot();
     await login(app);
-    await app.goto("https://tauri.localhost/?vista=negocios");
+    const businesses = app.getByRole("link", { name: "Mis negocios", exact: true })
+      .or(app.getByRole("button", { name: "Volver a mis negocios", exact: true }));
+    if (await businesses.isVisible()) await businesses.click();
     await app.getByRole("button", { name: /Primer negocio de prueba/ }).click();
     await app.getByText("Plan vigente", { exact: true }).waitFor();
-    await app.goto("https://tauri.localhost/?vista=ventas");
+    await app.getByRole("link", { name: "Ventas", exact: true }).click();
     await app.getByRole("button", { name: /Termo de prueba/ }).click();
     await app.getByRole("button", { name: "Revisar venta", exact: true }).click();
     const review = app.getByRole("dialog");
@@ -96,11 +124,11 @@ export async function checkWindows({ email, password, business }) {
     await review.getByRole("button", { name: "Confirmar venta" }).click();
     assert.equal((await write).status(), 200);
     await app.getByRole("heading", { name: "Venta confirmada" }).waitFor();
-    await app.getByRole("button", { name: "Guardar PDF" }).waitFor();
+    const save = app.getByRole("button", { name: "Guardar PDF" });
     const target = process.env.KHYPU_TEST_SAVE_WINDOWS_PDF;
     if (target) {
-      await app.getByRole("button", { name: "Guardar PDF" }).click();
       console.log("Guarda el PDF con el diálogo de Windows en " + target);
+      await save.click({ noWaitAfter: true });
       let saved;
       for (let attempt = 0; attempt < 600 && !saved; attempt++) {
         try { saved = await readFile(target); } catch (failure) { if (failure.code !== "ENOENT") throw failure; }
@@ -108,9 +136,28 @@ export async function checkWindows({ email, password, business }) {
       }
       assert.equal(saved?.subarray(0, 5).toString(), "%PDF-");
       console.log("Windows/WebView2 local: PDF guardado mediante el diálogo nativo.");
+    } else {
+      await app.evaluate(() => {
+        const ipc = window.__TAURI_INTERNALS__;
+        const invoke = ipc.invoke;
+        window.verifiedPdf = null;
+        ipc.invoke = (command, args, ...options) => {
+          if (command !== "native_save_file") return invoke.call(ipc, command, args, ...options);
+          window.verifiedPdf = { name: args.name, header: atob(args.content).slice(0, 5) };
+          return Promise.resolve();
+        };
+      });
+      await save.click();
+      const pdf = await app.waitForFunction(() => window.verifiedPdf);
+      const file = await pdf.jsonValue();
+      await pdf.dispose();
+      assert.match(file.name, /\.pdf$/i);
+      assert.equal(file.header, "%PDF-");
+      console.log("Windows/WebView2 local: PDF verificado en la llamada al guardado nativo.");
     }
     await stop();
     app = await boot();
+    await app.getByRole("link", { name: "Configuración", exact: true }).click();
     await app.getByText(email, { exact: true }).waitFor();
     await app.getByRole("button", { name: "Cerrar sesión", exact: true }).click();
     await login(app);

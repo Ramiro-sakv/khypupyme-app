@@ -66,6 +66,9 @@ try {
   const first = (await post(product)).entityId;
   await post({ ...product, code: "tab-qa" }, 409);
   await request(secondary + "/products/" + first, 404);
+  assert.equal((await request(scope + "/products/batch?ids=" + first + "," + first, 200)).length, 1);
+  await request(secondary + "/products/batch?ids=" + first, 404);
+  await request(scope + "/products/batch?ids=invalido", 400);
   const firstLine = { productId: first, quantity: 10, unitMinor: 5_000 };
   await post({ kind: "purchase", method: "cash", lines: [firstLine] }, 404, secondary);
   await post({ kind: "purchase", method: "cash", lines: [{ ...firstLine, quantity: 21 }] }, 409);

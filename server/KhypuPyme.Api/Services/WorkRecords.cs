@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using KhypuPyme.Api.Commerce;
 
 namespace KhypuPyme.Api.Services;
@@ -8,7 +9,9 @@ public sealed record WorkInput(string Title, DateOnly Day, Guid? ServiceId = nul
 
 public sealed record WorkDetails(string? Tasks = null, string? PlannedMaterials = null, string? UsedMaterials = null,
     string? Deliverables = null, string? Equipment = null, string? Accessories = null, string? Fault = null,
-    string? Diagnosis = null, string? Specifications = null)
+    string? Diagnosis = null, string? Specifications = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? BillableMaterials = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? InternalMaterials = null)
 {
     internal static WorkDetails Read(string json) => JsonSerializer.Deserialize<WorkDetails>(json)!;
 }

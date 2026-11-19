@@ -49,6 +49,20 @@ internal static partial class RetailMeasures
         return (captured, stored);
     }
 
+    public static (decimal Quantity, TileCoverage? Coverage) ForTrade(Product product, RetailProfile profile,
+        RetailInput input, string industry, bool buying, bool quote, TileRequest? selection)
+    {
+        var tile = buying ? null : MaterialProfiles.Read(product)?.Tile;
+        if (selection is not null && tile is null)
+            throw new CommerceFailure("La cobertura corresponde a una ficha de cerámicas en venta o cotización.");
+        if (!buying && (input.ExpiresOn is not null ||
+            input.Lot is not null && (!profile.TrackLots || industry != "pets" || quote)))
+            throw new CommerceFailure("Los lotes vendibles se asignan al confirmar la venta.");
+        var quantity = Convert(input, profile, buying, mixed: industry == "beverages", boxSale: tile is not null).Base;
+        var coverage = tile is null ? null : MaterialProfiles.CalculateTile(tile, selection, input.Unit, (int)quantity, profile.BoxSize);
+        return (quantity, coverage);
+    }
+
     public static long Proportion(long amount, decimal from, decimal to, decimal whole)
     {
         if (whole == 0) return 0;

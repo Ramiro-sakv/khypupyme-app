@@ -139,6 +139,8 @@ try {
   await post(electronics, { kind: "return", sourceId: mixed.entityId, method: "qr", note: "Inspección",
     lines: [{ productId: tablet, originalLineId: unit.lineId, quantity: 1 }] });
   await sell(electronics, [line(tablet, 1, 80_000, ["EL-001"])], 409);
+  const [inspection] = await request(electronics + "/availability", 200, "POST", { lines: [line(tablet, 1, 0, ["el-001"])] });
+  assert.deepEqual([inspection.serial, inspection.available, inspection.reason], ["EL-001", 0, "En inspección"]);
   await post(electronics, { kind: "inspection", serial: "EL-001", release: true, note: "Equipo revisado" });
   const history = await request(electronics + "/serial?serial=EL-001", 200);
   assert.deepEqual(history.movements.map((row) => row.kind), ["released", "return", "sale", "purchase"]);
@@ -155,7 +157,7 @@ try {
   assert.equal((await document(hardware, wireSale)).totalMinor, 6250);
   assert.equal((await product(hardware, wire)).sellableStock, 87.5);
   for (const search of ["CF-4", "4 mm²", "A-03"])
-    assert.equal((await request(hardware + "/products?search=" + encodeURIComponent(search), 200)).items[0].id, wire);
+    assert.equal((await request(hardware + "/warehouse?search=" + encodeURIComponent(search), 200)).items[0].product.id, wire);
   await buy(hardware, [measured(wire, "0.5", "roll", 10_000)], 400);
   const before = await product(hardware, wire);
   await sell(hardware, [measured(wire, "88", "m", 500)], 409);
@@ -182,6 +184,8 @@ try {
   assert.equal((await fit("toyota", "hilux", 2010)).items[0].id, filter);
   assert.equal((await fit("Toyota", "Hilux", 2015)).items[0].id, filter);
   assert.equal((await fit("Toyota", "Hilux", 2016)).items.length, 0);
+  assert.equal((await request(parts + "/warehouse?vehicleBrand=Toyota&vehicleModel=Hilux&year=2015&search=EQ-100", 200)).items[0].product.id, filter);
+  assert.equal((await request(parts + "/warehouse?vehicleBrand=Toyota&vehicleModel=Hilux&year=2016&search=EQ-100", 200)).items.length, 0);
   assert.equal((await fit("Toyota", "Frontier", 2019)).items.length, 0);
   assert.equal((await fit("Nissan", "Frontier", 2019)).items[0].specialty.parts.compatibility[1].confirmed, false);
   await request(parts + "/products?year=1899", 400);

@@ -162,7 +162,9 @@ internal sealed class WorkOperations(CommerceTransaction work)
         {
             "cleaning" => new(Tasks: Text(details.Tasks, 600, "las tareas del trabajo", true),
                 PlannedMaterials: Text(details.PlannedMaterials, 600, "los materiales previstos"),
-                UsedMaterials: Text(details.UsedMaterials, 600, "los materiales utilizados")),
+                UsedMaterials: Text(details.UsedMaterials, 600, "los materiales utilizados"),
+                BillableMaterials: Text(details.BillableMaterials ?? saved.BillableMaterials, 600, "los materiales a cobrar"),
+                InternalMaterials: Text(details.InternalMaterials ?? saved.InternalMaterials, 600, "los materiales de consumo interno")),
             "professional" => new(Deliverables: Text(details.Deliverables, 600, "los entregables", true)),
             "repair" => new(Equipment: row.ReceiptId is null ? Text(details.Equipment, 160, "el equipo recibido", true) : saved.Equipment,
                 Accessories: row.ReceiptId is null ? Text(details.Accessories, 240, "los accesorios recibidos") : saved.Accessories,

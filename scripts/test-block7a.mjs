@@ -79,6 +79,9 @@ try {
     measured(salt, "10", "piece", 100, "VENCIDO", date(-1))]);
   const grocerySale = await sell(grocery, [measured(salt, "5", "piece", 150)]);
   assert.equal((await product(grocery, salt)).sellableStock, 43);
+  const [groceryCheck] = await request(grocery + "/availability", 200, "POST",
+    { lines: [measured(salt, "45", "piece", 150)] });
+  assert.deepEqual([groceryCheck.requested, groceryCheck.available], [45, 43]);
   const groceryDoc = await document(grocery, grocerySale);
   assert.equal(groceryDoc.totalMinor, 750);
   assert.deepEqual(groceryDoc.lines[0].details.lots.map((row) => row.lot), ["PRONTO"]);
@@ -94,6 +97,8 @@ try {
   const receiving = await buy(beverages, [combined("2", 3, 2400)]);
   assert.equal((await document(beverages, receiving)).totalMinor, 5100);
   assert.equal((await product(beverages, soda)).sellableStock, 51);
+  const [beverageCheck] = await request(beverages + "/availability", 200, "POST", { lines: [combined("1", 2, 200)] });
+  assert.deepEqual([beverageCheck.requested, beverageCheck.available], [26, 51]);
   const stock = await post(beverages, { kind: "container-stock", name: "Botella retornable", stockQuantity: 10 });
   const containerId = (await request(beverages + "/containers", 200))[0].typeId;
   assert.equal((await document(beverages, stock)).containers[0].added, 10);
@@ -125,11 +130,13 @@ try {
 
   const makeup = (await save(cosmetics, "Labial", "COS-CO", 4000, {
     retailProduct: { unit: "piece", boxSize: 1, trackLots: true, reorder: 1 },
-    cosmeticProduct: { brand: "Nativa", presentation: "Barra 4 g", tone: "Coral" },
+    cosmeticProduct: { brand: "Nativa", presentation: "Barra 4 g", tone: "Coral", afterOpeningMonths: 12 },
   })).entityId;
   for (const text of ["nativa", "barra 4 g", "coral"])
     assert.equal((await request(cosmetics + "/products?search=" + encodeURIComponent(text), 200)).items[0].id, makeup);
   await buy(cosmetics, [measured(makeup, "3", "piece", 2000, "C-17", date(20))]);
+  assert.equal((await request(cosmetics + "/warehouse?search=coral", 200)).items[0].product.cosmetic.afterOpeningMonths, 12);
+  assert.equal((await request(cosmetics + "/lots/" + makeup, 200)).items[0].expiresOn, date(20));
   const correct = (kind, note, status = 200) => post(cosmetics, { kind, entityId: makeup, code: "C-17", note }, status);
   await correct("hold-lot", "", 400);
   const hold = await correct("hold-lot", "Revisar empaque");
@@ -137,6 +144,7 @@ try {
   assert.deepEqual([held.measuredStock, held.sellableStock, held.valueMinor], [3, 0, 6000]);
   assert.equal((await document(cosmetics, hold)).note, "Revisar empaque");
   assert.equal((await request(cosmetics + "/lots/" + makeup, 200)).items[0].held, true);
+  assert.equal((await request(cosmetics + "/warehouse?status=unavailable&attention=held", 200)).items[0].product.id, makeup);
   await sell(cosmetics, [measured(makeup, "1", "piece", 4000)], 409);
   await correct("release-lot", "Empaque revisado");
   assert.equal((await product(cosmetics, makeup)).sellableStock, 3);
@@ -158,6 +166,9 @@ try {
   assert.equal(petsDoc.totalMinor, 1000);
   assert.deepEqual(petsDoc.lines[0].details.lots, [{ lot: "BOLSA-B", expiresOn: date(30), quantity: 500, costMinor: 500 }]);
   assert.deepEqual((await request(pets + "/lots/" + food + "?lot=BOLSA-B&sellable=true", 200)).items.map((x) => x.quantity), [500]);
+  const [petCheck] = await request(pets + "/availability", 200, "POST",
+    { lines: [measured(food, "0.3", "kg", 2000, "bolsa-b"), measured(food, "0.3", "kg", 2000, "BOLSA-B")] });
+  assert.deepEqual([petCheck.lot, petCheck.requested, petCheck.available], ["BOLSA-B", 600, 500]);
   await sell(pets, [measured(food, "0.6", "kg", 2000, "BOLSA-B")], 409);
   assert.equal((await product(pets, food)).sellableStock, 2500);
   console.log("Mascotas: fraccionamiento con lote elegido, vencimiento y costo de la bolsa de origen, rechazo del faltante de ese lote.");

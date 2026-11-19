@@ -541,6 +541,9 @@ namespace KhypuPyme.Api.Persistence.Migrations
                     b.Property<bool>("Active")
                         .HasColumnType("boolean");
 
+                    b.Property<int?>("AfterOpeningMonths")
+                        .HasColumnType("integer");
+
                     b.Property<int>("BoxSize")
                         .HasColumnType("integer");
 
@@ -682,6 +685,8 @@ namespace KhypuPyme.Api.Persistence.Migrations
 
                     b.ToTable("products", "khypupyme", t =>
                         {
+                            t.HasCheckConstraint("products_after_opening_months", " \"AfterOpeningMonths\" IS NULL OR (\"Brand\" IS NOT NULL AND \"AfterOpeningMonths\" BETWEEN 1 AND 120) ");
+
                             t.HasCheckConstraint("products_balance", "\"Stock\" BETWEEN 0 AND 1000000 AND \"ValueMinor\" BETWEEN 0 AND 1000000000000\nAND \"PriceMinor\" BETWEEN 0 AND 1000000000000 AND (\"Stock\" > 0 OR \"MeasureStock\" > 0 OR \"ValueMinor\" = 0)\nAND \"MeasureStock\" BETWEEN 0 AND 1000000000\nAND (\"RetailUnit\" IS NOT NULL OR \"MeasureStock\" = 0)");
                         });
                 });

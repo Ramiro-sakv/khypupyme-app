@@ -29,6 +29,8 @@ internal static class CommerceModel
         products.HasOne<Product>().WithMany().HasForeignKey(x => new { x.BusinessId, Id = x.CementSourceId }).OnDelete(DeleteBehavior.NoAction);
         products.HasIndex(x => new { x.BusinessId, x.VariantKey }).IsUnique();
         products.HasIndex(x => new { x.BusinessId, x.ModelKey });
+        products.ToTable(table => table.HasCheckConstraint("products_after_opening_months",
+            """ "AfterOpeningMonths" IS NULL OR ("Brand" IS NOT NULL AND "AfterOpeningMonths" BETWEEN 1 AND 120) """));
         products.ToTable(table => table.HasCheckConstraint("products_balance",
             """
             "Stock" BETWEEN 0 AND 1000000 AND "ValueMinor" BETWEEN 0 AND 1000000000000

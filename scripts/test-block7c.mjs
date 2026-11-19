@@ -119,6 +119,9 @@ try {
   await buy(ceramics, [measured(tile, "15", "box", 6000)]);
   const selection = { area: "12", waste: "10", tone: "Arena", caliber: "C1" };
   const covering = { ...measured(tile, "10", "box", 2000), tile: selection };
+  const [tileCheck] = await request(ceramics + "/availability", 200, "POST", { quote: true, lines: [covering] });
+  assert.deepEqual([tileCheck.requested, tileCheck.available], [60, 90]);
+  await request(ceramics + "/availability", 400, "POST", { lines: [{ ...covering, tile: { ...selection, tone: "Otro" } }] });
   await sell(ceramics, [{ ...covering, tile: { ...selection, tone: null } }], 400);
   await sell(ceramics, [{ ...covering, tile: { ...selection, caliber: "C2" } }], 400);
   await sell(ceramics, [{ ...measured(tile, "9", "box", 2000), tile: selection }], 400);
@@ -170,6 +173,8 @@ try {
   assert.equal(bulkEntry.details.measure.lot, "LOTE A");
   assert.equal(bulkEntry.details.measure.quantity, "100");
   assert.equal(bulkEntry.subtotalMinor, 10000);
+  assert.ok((await request(cement + "/warehouse/" + bulk + "/movements", 200)).items
+    .some((row) => row.entryId === transfer.entityId && row.details.direction === "bulk-entry"));
   await sell(cement, [measured(bulk, "10", "kg", 250)]);
   await sell(cement, [measured(bag, "1", "piece", 8000)]);
   assert.equal((await product(cement, bulk)).measuredStock, 90000);

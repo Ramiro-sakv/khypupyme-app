@@ -14,7 +14,7 @@ internal sealed class StoreReads(KhypuPymeDbContext db, TimeProvider clock)
     public IQueryable<ProductInfo> Describe(IQueryable<Product> products)
     {
         var today = Today;
-        var lots = db.Set<RetailLot>().AsNoTracking().Where(lot => !lot.Held && (lot.ExpiresOn == null || lot.ExpiresOn >= today));
+        var lots = RetailInventory.SellableLots(db.Set<RetailLot>().AsNoTracking(), today);
         return products.Select(x => new ProductInfo(x.Id, x.Name, x.Code, x.PriceMinor, x.Stock, x.ValueMinor, x.Active,
             x.Species == null ? null : new TimberPrices(x.Species, x.SuperShortMinor!.Value, x.ShortMinor!.Value, x.LongMinor!.Value),
             x.RetailUnit == null ? null : new RetailProfile(x.RetailUnit, x.BoxSize, x.TrackLots,
@@ -23,7 +23,8 @@ internal sealed class StoreReads(KhypuPymeDbContext db, TimeProvider clock)
             x.WarrantyMonths == null ? null : new EquipmentProfile(x.WarrantyMonths.Value), x.RetailUnit == null ? null : x.MeasureStock,
             x.RetailUnit == null ? null : !x.TrackLots ? x.MeasureStock :
                 lots.Where(lot => lot.ProductId == x.Id && lot.BusinessId == x.BusinessId).Sum(lot => lot.Quantity),
-            x.Brand == null ? null : new CosmeticProfile(x.Brand, x.Presentation!, x.Tone), SpecialtyProfiles.Read(x), x.IsService));
+            x.Brand == null ? null : new CosmeticProfile(x.Brand, x.Presentation!, x.Tone, x.AfterOpeningMonths),
+            SpecialtyProfiles.Read(x), x.IsService));
     }
 
     public Task<ProductInfo?> CodeAsync(string? code, CancellationToken ct)
@@ -37,6 +38,25 @@ internal sealed class StoreReads(KhypuPymeDbContext db, TimeProvider clock)
         var key = Text(model, 80, "el modelo", true).ToUpperInvariant();
         return Describe(db.Set<Product>().AsNoTracking().Where(x => x.Active && x.ModelKey == key)
             .OrderBy(x => x.Size).ThenBy(x => x.Color)).ToArrayAsync(ct);
+    }
+
+    public IQueryable<Product> SearchProducts(IQueryable<Product> query, string? search)
+    {
+        var term = CommerceReads.Search(search);
+        if (term is not null)
+            query = query.Where(x => EF.Functions.ILike(x.Name, term, "\\") || EF.Functions.ILike(x.Code, term, "\\") ||
+                (x.Species != null && EF.Functions.ILike(x.Species, term, "\\")) ||
+                (x.Model != null && EF.Functions.ILike(x.Model, term, "\\")) ||
+                (x.Brand != null && EF.Functions.ILike(x.Brand, term, "\\")) ||
+                (x.Presentation != null && EF.Functions.ILike(x.Presentation, term, "\\")) ||
+                (x.Tone != null && EF.Functions.ILike(x.Tone, term, "\\")) ||
+                (x.Reference != null && EF.Functions.ILike(x.Reference, term, "\\")) ||
+                (x.MeasureLabel != null && EF.Functions.ILike(x.MeasureLabel, term, "\\")) ||
+                (x.Shelf != null && EF.Functions.ILike(x.Shelf, term, "\\")) ||
+                (x.DetailBrand != null && EF.Functions.ILike(x.DetailBrand, term, "\\")) ||
+                (x.DetailModel != null && EF.Functions.ILike(x.DetailModel, term, "\\")) ||
+                db.Set<PartReference>().Any(r => r.BusinessId == x.BusinessId && r.ProductId == x.Id && EF.Functions.ILike(r.Reference, term, "\\")));
+        return query;
     }
 
     public IQueryable<Product> FilterCompatibility(IQueryable<Product> query, string? brand, string? model, int? year)
@@ -60,7 +80,7 @@ internal sealed class StoreReads(KhypuPymeDbContext db, TimeProvider clock)
             var key = Text(lot, 60, "el lote", true).ToUpperInvariant();
             query = query.Where(x => x.Lot == key);
         }
-        if (sellable == true) query = query.Where(x => !x.Held && (x.ExpiresOn == null || x.ExpiresOn >= today));
+        if (sellable == true) query = RetailInventory.SellableLots(query, today);
         return CommerceReads.PageAsync(query
             .OrderBy(x => x.ExpiresOn == null).ThenBy(x => x.ExpiresOn).ThenBy(x => x.Lot)
             .Select(x => new LotInfo(x.Lot, x.ExpiresOn, x.Quantity, !x.Held && (x.ExpiresOn == null || x.ExpiresOn >= today), x.Held, x.ValueMinor)), page, ct);

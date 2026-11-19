@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using KhypuPyme.Api.Commerce;
 
 namespace KhypuPyme.Api.Retail;
@@ -7,7 +8,8 @@ public sealed record RetailProfile(string Unit, int BoxSize, bool TrackLots, dec
 public sealed record ApparelProfile(string Model, string Size, string Color);
 public sealed record EquipmentProfile(int WarrantyMonths);
 public sealed record RetailInput(string Quantity, string Unit, string? Lot = null, DateOnly? ExpiresOn = null, int? Loose = null);
-public sealed record CosmeticProfile(string Brand, string Presentation, string? Tone = null);
+public sealed record CosmeticProfile(string Brand, string Presentation, string? Tone = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? AfterOpeningMonths = null);
 public sealed record LotAllocation(string Lot, DateOnly? ExpiresOn, decimal Quantity, long CostMinor);
 public sealed record LineDetails(RetailInput? Measure = null, decimal? BaseQuantity = null,
     LotAllocation[]? Lots = null, ApparelProfile? Apparel = null, string? Serial = null, DateOnly? WarrantyUntil = null,

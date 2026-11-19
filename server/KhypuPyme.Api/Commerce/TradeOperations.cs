@@ -316,8 +316,7 @@ internal sealed class TradeOperations(CommerceTransaction work)
             if (product.IsService && !useCatalogPrice) throw new CommerceFailure("Los servicios se cobran desde Ventas.");
             if (!useCatalogPrice && product.CementSourceId is not null)
                 throw new CommerceFailure("Genera granel abriendo bolsas desde su lote.");
-            var tile = useCatalogPrice ? MaterialProfiles.Read(product)?.Tile : null;
-            if (line.Tile is not null && tile is null)
+            if (line.Tile is not null && product.RetailUnit is null)
                 throw new CommerceFailure("La cobertura corresponde a una ficha de cerámicas en venta o cotización.");
             var dimension = TimberInventory.Check(product, line.Timber);
             var unit = Money(line.UnitMinor, useCatalogPrice ? "el precio unitario" : "el costo unitario");
@@ -337,13 +336,10 @@ internal sealed class TradeOperations(CommerceTransaction work)
             else if (StoreProfiles.Retail(product) is { } profile)
             {
                 var measure = line.Measure ?? throw new CommerceFailure("Indica la cantidad y la unidad del producto.");
-                if (useCatalogPrice && (measure.ExpiresOn is not null ||
-                    measure.Lot is not null && !(work.Business.Industry == "pets" && work.Command.Kind == "sale")))
-                    throw new CommerceFailure("Los lotes vendibles se asignan al confirmar la venta.");
-                var (_, stored) = RetailMeasures.Convert(measure, profile, !useCatalogPrice, work.Business.Industry == "beverages", boxSale: tile is not null);
+                var (stored, coverage) = RetailMeasures.ForTrade(product, profile, measure, work.Business.Industry,
+                    buying: !useCatalogPrice, quote: work.Command.Kind == "quote", line.Tile);
                 var factor = RetailMeasures.Factor(useCatalogPrice ? profile.Unit : measure.Unit, profile, !useCatalogPrice || measure.Unit == "box");
                 var subtotal = RetailMeasures.Subtotal(unit, stored, factor);
-                var coverage = tile is null ? null : MaterialProfiles.CalculateTile(tile, line.Tile, measure.Unit, (int)stored, profile.BoxSize);
                 rows.Add(new TradeRow(product, profile.Unit == "piece" ? (int)stored : 1, unit, subtotal, null, measure, stored, Tile: coverage));
             }
             else

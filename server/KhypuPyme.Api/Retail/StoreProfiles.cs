@@ -49,6 +49,12 @@ internal static class StoreProfiles
             product.Brand = Text(cosmetic.Brand, 80, "la marca", true);
             product.Presentation = Text(cosmetic.Presentation, 80, "la presentación", true);
             product.Tone = Text(cosmetic.Tone, 60, "el tono");
+            if (cosmetic.AfterOpeningMonths is int months)
+            {
+                if (months is < 0 or > 120)
+                    throw new CommerceFailure("Indica una duración tras apertura entre 1 y 120 meses.");
+                product.AfterOpeningMonths = months == 0 ? null : months;
+            }
         }
         else if (command.CosmeticProduct is not null || product.Brand is not null || work.Business.Industry == "cosmetics" && product.RetailUnit is not null)
             throw new CommerceFailure("Indica la marca y presentación de la ficha de cosméticos.");

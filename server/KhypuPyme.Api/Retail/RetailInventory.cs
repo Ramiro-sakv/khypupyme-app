@@ -10,6 +10,9 @@ internal sealed class RetailInventory(CommerceTransaction work)
     private readonly HashSet<(Guid, string)> touched = [];
     private DbSet<RetailLot> Lots => work.Db.Set<RetailLot>();
 
+    public static IQueryable<RetailLot> SellableLots(IQueryable<RetailLot> lots, DateOnly day) =>
+        lots.Where(x => !x.Held && (x.ExpiresOn == null || x.ExpiresOn >= day));
+
     public async Task<LotAllocation[]> BuyAsync(Product product, RetailInput input, decimal quantity, long cost)
     {
         if (!product.TrackLots)
@@ -40,7 +43,7 @@ internal sealed class RetailInventory(CommerceTransaction work)
         }
 
         var query = Lots.Where(x => x.ProductId == product.Id && x.Quantity > 0);
-        if (!loss) query = query.Where(x => !x.Held && (x.ExpiresOn == null || x.ExpiresOn >= work.Today));
+        if (!loss) query = SellableLots(query, work.Today);
         if (loss || input.Lot is not null)
         {
             var code = LotCode(input.Lot);

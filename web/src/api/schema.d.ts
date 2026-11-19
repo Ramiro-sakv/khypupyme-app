@@ -938,6 +938,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/businesses/{businessId}/commerce/products/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query: {
+                    ids: string;
+                };
+                header?: never;
+                path: {
+                    businessId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductInfo"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/businesses/{businessId}/commerce/availability": {
         parameters: {
             query?: never;
@@ -951,7 +990,9 @@ export interface paths {
             parameters: {
                 query?: never;
                 header?: never;
-                path?: never;
+                path: {
+                    businessId: string;
+                };
                 cookie?: never;
             };
             requestBody: {
@@ -990,6 +1031,9 @@ export interface paths {
                     search?: string;
                     status?: string;
                     attention?: string;
+                    vehicleBrand?: string;
+                    vehicleModel?: string;
+                    year?: number;
                     page?: number;
                 };
                 header?: never;
@@ -1749,7 +1793,9 @@ export interface paths {
             parameters: {
                 query?: never;
                 header?: never;
-                path?: never;
+                path: {
+                    businessId: string;
+                };
                 cookie?: never;
             };
             requestBody?: never;
@@ -1825,7 +1871,9 @@ export interface paths {
                     to?: string;
                 };
                 header?: never;
-                path?: never;
+                path: {
+                    businessId: string;
+                };
                 cookie?: never;
             };
             requestBody?: never;
@@ -2154,6 +2202,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/businesses/{businessId}/practice-commerce/products/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query: {
+                    ids: string;
+                };
+                header?: never;
+                path: {
+                    businessId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProductInfo"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/businesses/{businessId}/practice-commerce/availability": {
         parameters: {
             query?: never;
@@ -2167,7 +2254,9 @@ export interface paths {
             parameters: {
                 query?: never;
                 header?: never;
-                path?: never;
+                path: {
+                    businessId: string;
+                };
                 cookie?: never;
             };
             requestBody: {
@@ -2206,6 +2295,9 @@ export interface paths {
                     search?: string;
                     status?: string;
                     attention?: string;
+                    vehicleBrand?: string;
+                    vehicleModel?: string;
+                    year?: number;
                     page?: number;
                 };
                 header?: never;
@@ -2965,7 +3057,9 @@ export interface paths {
             parameters: {
                 query?: never;
                 header?: never;
-                path?: never;
+                path: {
+                    businessId: string;
+                };
                 cookie?: never;
             };
             requestBody?: never;
@@ -3041,7 +3135,9 @@ export interface paths {
                     to?: string;
                 };
                 header?: never;
-                path?: never;
+                path: {
+                    businessId: string;
+                };
                 cookie?: never;
             };
             requestBody?: never;
@@ -3884,6 +3980,8 @@ export interface components {
             brand: string;
             presentation: string;
             tone?: null | string;
+            /** Format: int32 */
+            afterOpeningMonths?: null | number;
         };
         CsrfToken: {
             token: string;
@@ -4342,6 +4440,7 @@ export interface components {
             /** Format: double */
             available: number;
             reason: null | string;
+            lot?: null | string;
         };
         StockLine: {
             /** Format: uuid */
@@ -4351,6 +4450,7 @@ export interface components {
             timber?: null | components["schemas"]["TimberDimensions"];
             measure?: null | components["schemas"]["RetailInput"];
             serials?: null | string[];
+            tile?: null | components["schemas"]["TileRequest"];
         };
         StockMovement: {
             /** Format: uuid */
@@ -4370,6 +4470,8 @@ export interface components {
             lines: components["schemas"]["StockLine"][];
             /** @default false */
             receiving: boolean;
+            /** @default false */
+            quote: boolean;
         };
         StoreAttention: {
             /** Format: int32 */
@@ -4471,6 +4573,8 @@ export interface components {
             fault?: null | string;
             diagnosis?: null | string;
             specifications?: null | string;
+            billableMaterials?: null | string;
+            internalMaterials?: null | string;
         };
         WorkInfo: {
             /** Format: uuid */

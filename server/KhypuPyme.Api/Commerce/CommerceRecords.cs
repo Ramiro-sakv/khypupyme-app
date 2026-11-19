@@ -26,6 +26,7 @@ internal sealed class Product : IBusinessRecord
     public string? Brand { get; set; }
     public string? Presentation { get; set; }
     public string? Tone { get; set; }
+    public int? AfterOpeningMonths { get; set; }
     public decimal? RollLength { get; set; }
     public string? DetailJson { get; set; }
     public string? PartsJson { get; set; }

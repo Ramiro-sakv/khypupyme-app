@@ -147,7 +147,8 @@ try {
   await read(professional, job, 404);
   await post(professional, { kind: "advance-work", workState: "working", workLink: { id: job, revision: 1 } }, 404);
   const started = await advance(cleaning, job, "working");
-  await edit(cleaning, started, { details: { ...started.details, usedMaterials: "Una botella" } });
+  await edit(cleaning, started, { details: { ...started.details, usedMaterials: "Una botella",
+    billableMaterials: "Una botella", internalMaterials: "Un paño" } });
   assert.equal((await product(cleaning, detergent)).stock, 5);
   const ready = await advance(cleaning, job, "ready");
   const concurrent = await Promise.all([0, 1].map(() => post(cleaning,
@@ -158,6 +159,8 @@ try {
   assert.equal(delivered.saleId, jobBill.entityId);
   assert.equal(delivered.deliveredOn, today);
   assert.equal(delivered.details.usedMaterials, "Una botella");
+  assert.equal(delivered.details.billableMaterials, "Una botella");
+  assert.equal(delivered.details.internalMaterials, "Un paño");
   assert.equal((await product(cleaning, detergent)).stock, 4);
   assert.equal((await document(cleaning, jobBill)).work.id, job);
   await post(cleaning, charge(delivered, [line(labor, 1, 12000)]), 409);

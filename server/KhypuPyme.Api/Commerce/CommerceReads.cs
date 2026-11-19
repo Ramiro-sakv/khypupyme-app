@@ -12,10 +12,12 @@ internal sealed class CommerceReads(KhypuPymeDbContext db, TimeProvider clock, S
     private const int PageSize = 20;
     private IQueryable<Entry> Entries => db.Set<Entry>().AsNoTracking();
 
-    public async Task<SetupStatus> SetupAsync(CancellationToken ct) => new(
-        await db.Set<CashSession>().AnyAsync(ct),
-        await db.Set<Product>().AnyAsync(x => x.Active, ct),
-        await Entries.AnyAsync(x => x.Kind == "sale", ct));
+    public Task<SetupStatus> SetupAsync(Guid businessId, CancellationToken ct) => db.Businesses.Where(b => b.Id == businessId)
+        .Select(b => new SetupStatus(
+            db.Set<CashSession>().Any(x => x.BusinessId == b.Id),
+            db.Set<Product>().Any(x => x.BusinessId == b.Id && x.Active),
+            Entries.Any(x => x.BusinessId == b.Id && x.Kind == "sale")))
+        .SingleAsync(ct);
 
     public Task<CommercePage<ProductInfo>> ProductsAsync(string? search, bool? active, string? attention,
         string? vehicleBrand, string? vehicleModel, int? year, bool? service, int? page, CancellationToken ct)
@@ -25,25 +27,28 @@ internal sealed class CommerceReads(KhypuPymeDbContext db, TimeProvider clock, S
         if (service is not null) query = query.Where(x => x.IsService == service);
         if (attention is not null) query = store.AttentionProducts(query.Where(x => x.Active), attention);
         query = store.FilterCompatibility(query, vehicleBrand, vehicleModel, year);
-        var term = Search(search);
-        if (term is not null)
-            query = query.Where(x => EF.Functions.ILike(x.Name, term, "\\") || EF.Functions.ILike(x.Code, term, "\\") ||
-                (x.Species != null && EF.Functions.ILike(x.Species, term, "\\")) ||
-                (x.Model != null && EF.Functions.ILike(x.Model, term, "\\")) ||
-                (x.Brand != null && EF.Functions.ILike(x.Brand, term, "\\")) ||
-                (x.Presentation != null && EF.Functions.ILike(x.Presentation, term, "\\")) ||
-                (x.Tone != null && EF.Functions.ILike(x.Tone, term, "\\")) ||
-                (x.Reference != null && EF.Functions.ILike(x.Reference, term, "\\")) ||
-                (x.MeasureLabel != null && EF.Functions.ILike(x.MeasureLabel, term, "\\")) ||
-                (x.Shelf != null && EF.Functions.ILike(x.Shelf, term, "\\")) ||
-                (x.DetailBrand != null && EF.Functions.ILike(x.DetailBrand, term, "\\")) ||
-                (x.DetailModel != null && EF.Functions.ILike(x.DetailModel, term, "\\")) ||
-                db.Set<PartReference>().Any(r => r.BusinessId == x.BusinessId && r.ProductId == x.Id && EF.Functions.ILike(r.Reference, term, "\\")));
+        query = store.SearchProducts(query, search);
         return PageAsync(store.Describe(query.OrderBy(x => x.Name).ThenBy(x => x.Id)), page, ct);
     }
 
     public Task<ProductInfo?> ProductAsync(Guid id, CancellationToken ct) =>
         store.Describe(db.Set<Product>().AsNoTracking().Where(x => x.Id == id)).SingleOrDefaultAsync(ct);
+
+    public async Task<ProductInfo[]> ProductBatchAsync(Guid businessId, string ids, CancellationToken ct)
+    {
+        if (ids.Length > 3699) throw new CommerceFailure("Consulta hasta 100 productos.");
+        var keys = new HashSet<Guid>();
+        foreach (var value in ids.Split(','))
+        {
+            if (!Guid.TryParseExact(value, "D", out var id) || id == Guid.Empty)
+                throw new CommerceFailure("Indica identificadores de producto válidos.");
+            keys.Add(id);
+        }
+        var products = await store.Describe(db.Set<Product>().AsNoTracking().Where(x => x.BusinessId == businessId && keys.Contains(x.Id)))
+            .ToArrayAsync(ct);
+        if (products.Length != keys.Count) throw new CommerceFailure("Un producto no está disponible en este negocio.", 404);
+        return products;
+    }
 
     public Task<CommercePage<TimberStockInfo>> TimberStockAsync(Guid productId, long? length, long? thickness, long? width,
         string? widths, string? category, int? page, CancellationToken ct)
@@ -159,7 +164,7 @@ internal sealed class CommerceReads(KhypuPymeDbContext db, TimeProvider clock, S
         return PageAsync(query, page, ct);
     }
 
-    public async Task<CommerceReport> ReportAsync(DateOnly? from, DateOnly? to, CancellationToken ct)
+    public async Task<CommerceReport> ReportAsync(Guid businessId, DateOnly? from, DateOnly? to, CancellationToken ct)
     {
         var today = LocalDate(clock.GetUtcNow());
         var end = to ?? today;
@@ -167,7 +172,7 @@ internal sealed class CommerceReads(KhypuPymeDbContext db, TimeProvider clock, S
         if (start > end || end > today || end.DayNumber - start.DayNumber > 365)
             throw new CommerceFailure("El periodo debe tener hasta 366 días y terminar como máximo hoy.");
 
-        var grouped = await Entries.Where(x => x.Date >= start && x.Date <= end &&
+        var grouped = await Entries.Where(x => x.BusinessId == businessId && x.Date >= start && x.Date <= end &&
                 (x.Kind == "sale" || x.Kind == "return" || x.Kind == "purchase" ||
                     x.Kind == "expense" || x.Kind == "void-expense" || x.Kind == "stock-loss" ||
                     x.Kind == "discard-lot" || x.Kind == "exchange" || x.Kind == "inspection"))
@@ -179,10 +184,13 @@ internal sealed class CommerceReads(KhypuPymeDbContext db, TimeProvider clock, S
             .Select(start.AddDays).Select(day => grouped.GetValueOrDefault(day) ?? new ResultDay(day, 0, 0, 0, 0, 0)).ToArray();
         var totals = new ResultDay(end, days.Sum(x => x.SalesMinor), days.Sum(x => x.CostMinor),
             days.Sum(x => x.PurchasesMinor), days.Sum(x => x.ExpensesMinor), days.Sum(x => x.LossesMinor));
-        var stock = await db.Set<Product>().SumAsync(x => x.ValueMinor, ct) +
-            await db.Set<EquipmentUnit>().Where(x => x.State == "inspection").SumAsync(x => x.CostMinor, ct);
-        var debts = await db.Set<Receivable>().SumAsync(x => x.BalanceMinor, ct);
-        return new CommerceReport(start, end, totals, days, stock, debts);
+        var balances = await db.Businesses.Where(b => b.Id == businessId).Select(b => new
+        {
+            Stock = db.Set<Product>().Where(x => x.BusinessId == b.Id).Sum(x => x.ValueMinor) +
+                db.Set<EquipmentUnit>().Where(x => x.BusinessId == b.Id && x.State == "inspection").Sum(x => x.CostMinor),
+            Debts = db.Set<Receivable>().Where(x => x.BusinessId == b.Id).Sum(x => x.BalanceMinor),
+        }).SingleAsync(ct);
+        return new CommerceReport(start, end, totals, days, balances.Stock, balances.Debts);
     }
 
     internal static string? Search(string? input)

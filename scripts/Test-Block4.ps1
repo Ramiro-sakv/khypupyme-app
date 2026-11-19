@@ -1,5 +1,5 @@
 ﻿param(
-    [ValidateSet('4', '5', '6', '7a', '7b', '7c', '7d', '8', '9')][string]$Block = '4',
+    [ValidateSet('4', '5', '6', '7a', '7b', '7c', '7d', '8', '9', 'perf')][string]$Block = '4',
     [string]$PublishedWebDirectory
 )
 
@@ -35,6 +35,10 @@ $testEnvironment = @{
     KHYPU_TEST_PSQL = Get-PostgresTool 'psql'
 }
 if ($PublishedWebDirectory) { $testEnvironment.KHYPU_TEST_WEB_ORIGIN = 'https://localhost:7243' }
+if ($Block -eq 'perf') {
+    $testEnvironment.KHYPU_PERF_API_LOG = Join-Path $directory 'api.log'
+    $testEnvironment['Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command'] = 'Information'
+}
 try {
     foreach ($name in $testEnvironment.Keys) {
         $previous[$name] = [Environment]::GetEnvironmentVariable($name)

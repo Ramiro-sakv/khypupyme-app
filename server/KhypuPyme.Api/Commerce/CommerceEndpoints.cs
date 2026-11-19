@@ -28,10 +28,13 @@ internal static class CommerceEndpoints
             query.ProductsAsync(search, active, attention, vehicleBrand, vehicleModel, year, service, page, ct)).Produces<CommercePage<ProductInfo>>();
         reads.MapGet("/products/{id:guid}", async (Guid id, CommerceReads service, CancellationToken ct) =>
             Found(await service.ProductAsync(id, ct))).Produces<ProductInfo>();
-        reads.MapPost("/availability", (StockRequest input, StockReads stock, CancellationToken ct) => stock.CheckAsync(input, ct))
+        reads.MapGet("/products/batch", (Guid businessId, string ids, CommerceReads service, CancellationToken ct) =>
+            service.ProductBatchAsync(businessId, ids, ct)).Produces<ProductInfo[]>();
+        reads.MapPost("/availability", (Guid businessId, StockRequest input, StockReads stock, CancellationToken ct) => stock.CheckAsync(businessId, input, ct))
             .AddEndpointFilter<CsrfFilter>().Produces<StockCheck[]>();
-        reads.MapGet("/warehouse", (string? search, string? status, string? attention, int? page, StockReads stock, CancellationToken ct) =>
-            stock.WarehouseAsync(search, status, attention, page, ct)).Produces<CommercePage<WarehouseItem>>();
+        reads.MapGet("/warehouse", (string? search, string? status, string? attention, string? vehicleBrand,
+            string? vehicleModel, int? year, int? page, StockReads stock, CancellationToken ct) =>
+            stock.WarehouseAsync(search, status, attention, vehicleBrand, vehicleModel, year, page, ct)).Produces<CommercePage<WarehouseItem>>();
         reads.MapGet("/warehouse/{id:guid}/movements", (Guid id, int? page, StockReads stock, CancellationToken ct) =>
             stock.MovementsAsync(id, page, ct)).Produces<CommercePage<StockMovement>>();
         reads.MapGet("/products/code", async (string? code, StoreReads store, CancellationToken ct) =>
@@ -77,11 +80,12 @@ internal static class CommerceEndpoints
         reads.MapGet("/cash", (CommerceReads service, CancellationToken ct) => service.CashAsync(ct)).Produces<CashStatus>();
         reads.MapGet("/cash/sessions", (int? page, CommerceReads service, CancellationToken ct) =>
             service.CashSessionsAsync(page, ct)).Produces<CommercePage<CashInfo>>();
-        reads.MapGet("/setup", (CommerceReads service, CancellationToken ct) => service.SetupAsync(ct)).Produces<SetupStatus>();
+        reads.MapGet("/setup", (Guid businessId, CommerceReads service, CancellationToken ct) =>
+            service.SetupAsync(businessId, ct)).Produces<SetupStatus>();
         reads.MapGet("/debts", (bool? paid, int? page, CommerceReads service, CancellationToken ct) =>
             service.DebtsAsync(paid, page, ct)).Produces<CommercePage<ReceivableInfo>>();
-        reads.MapGet("/report", (DateOnly? from, DateOnly? to, CommerceReads service, CancellationToken ct) =>
-            service.ReportAsync(from, to, ct)).Produces<CommerceReport>();
+        reads.MapGet("/report", (Guid businessId, DateOnly? from, DateOnly? to, CommerceReads service, CancellationToken ct) =>
+            service.ReportAsync(businessId, from, to, ct)).Produces<CommerceReport>();
         reads.MapGet("/commands/{id:guid}", StatusAsync).Produces<CommandResult>();
         reads.MapGet("/unconfirmed", (Guid businessId, KhypuPymeDbContext db, CancellationToken ct) =>
             db.Set<CommerceReceipt>().Where(x => x.BusinessId == businessId && x.AcknowledgedAt == null)

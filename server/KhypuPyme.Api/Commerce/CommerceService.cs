@@ -4,6 +4,7 @@ using KhypuPyme.Api.Businesses;
 using KhypuPyme.Api.Persistence;
 using KhypuPyme.Api.Timber;
 using KhypuPyme.Api.Retail;
+using KhypuPyme.Api.Services;
 using Microsoft.EntityFrameworkCore;
 using static KhypuPyme.Api.Commerce.CommerceRules;
 
@@ -17,6 +18,10 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
             throw new CommerceFailure("La solicitud comercial no es válida.");
         if (command.Containers is not null && command.Kind is not ("sale" or "containers"))
             throw new CommerceFailure("Registra los envases en una venta o en su movimiento independiente.");
+        if ((command.WorkLink is not null && command.Kind is not ("save-work" or "advance-work" or "repair-receipt" or "sale")) ||
+            (command.Work is not null && command.Kind != "save-work") || (command.WorkState is not null && command.Kind != "advance-work") ||
+            (command.ServiceProduct is not null && command.Kind != "product"))
+            throw new CommerceFailure("Los datos de la cita o servicio no corresponden a la operación.");
 
         await using var transaction = await access.OpenAsync(accountId, businessId, ct);
         var business = await db.Businesses.AsNoTracking().SingleOrDefaultAsync(x => x.Id == businessId &&
@@ -55,6 +60,9 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
             "container-stock" => await new ContainerService(work).ReceiveStockAsync(),
             "open-cement" => await new CementOperations(work).OpenAsync(),
             "schedule-delivery" or "complete-delivery" => await new FurnitureDeliveries(work).ExecuteAsync(),
+            "save-work" => await new WorkOperations(work).SaveAsync(),
+            "advance-work" => await new WorkOperations(work).TransitionAsync(),
+            "repair-receipt" => await new WorkOperations(work).ReceiveAsync(),
             "hold-lot" or "release-lot" or "discard-lot" => await new RetailInventory(work).CorrectLotAsync(),
             "stock-loss" => await new TradeOperations(work).LossAsync(),
             "open-cash" or "close-cash" or "expense" or "void-expense" or "collect"
@@ -90,7 +98,18 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
         var material = command.FurnitureProduct is not null || command.TileProduct is not null || command.CementProduct is not null ||
             command.Delivery is not null || command.Lines?.Any(x => x?.Tile is not null) == true ||
             command.ExchangeLines?.Any(x => x?.Tile is not null) == true;
-        object serialized = material ? command : current
+        var service = command.ServiceProduct is not null || command.Work is not null || command.WorkLink is not null || command.WorkState is not null;
+        object serialized = service ? command : material
+            ? new
+            {
+                command.OperationId, command.Kind, command.EntityId, command.CustomerId, command.SourceId, command.Name,
+                command.Code, command.Phone, command.Method, command.Note, command.AmountMinor, command.DiscountMinor, command.Active,
+                command.Lines, command.TimberProduct, command.RetailProduct, command.ApparelProduct, command.EquipmentProduct,
+                command.ExchangeLines, command.Serial, command.Release, command.CosmeticProduct, command.Containers, command.StockQuantity,
+                command.DetailProduct, command.PartsProduct, command.PrintingProduct,
+                command.FurnitureProduct, command.TileProduct, command.CementProduct, command.Delivery,
+            }
+            : current
             ? new
             {
                 command.OperationId, command.Kind, command.EntityId, command.CustomerId, command.SourceId, command.Name,
@@ -169,7 +188,8 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
         }
         else
         {
-            product = new Product { BusinessId = work.Business.Id, Id = input.OperationId, Name = name, Code = code };
+            product = new Product { BusinessId = work.Business.Id, Id = input.OperationId, Name = name, Code = code,
+                IsService = input.ServiceProduct == true };
             products.Add(product);
         }
         product.NormalizedCode = normalizedCode;
@@ -177,6 +197,11 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
         await StoreProfiles.SaveAsync(work, product);
         await SpecialtyProfiles.SaveAsync(work, product);
         await MaterialProfiles.SaveAsync(work, product);
+        if (input.ServiceProduct is bool service && service != product.IsService)
+            throw new CommerceFailure("Crea otra ficha para cambiar entre producto y servicio.");
+        if (product.IsService && (!WorkOperations.Supports(work.Business.Industry) || product.RetailUnit is not null ||
+            product.Species is not null || product.Model is not null || product.WarrantyMonths is not null || product.PrintingSize is not null))
+            throw new CommerceFailure("El servicio requiere una ficha sin control de inventario en un rubro de servicios.");
         product.PriceMinor = price;
         return product.Id;
     }

@@ -46,6 +46,7 @@ export function measurePreview(quantity: string, unit: string, profile: RetailPr
 }
 
 export function productAvailability(product: Product) {
+  if (product.isService) return "Servicio";
   if (product.specialty?.printing) return "Servicio por cara impresa";
   if (!product.retail) return product.stock + (product.specialty?.countUnit === "pair" ? " pares" : product.equipment ? " equipos" : " piezas");
   const count = fromBase(product.sellableStock ?? 0, product.retail.unit);
@@ -72,6 +73,7 @@ export function describeLine(line: EntryDocument["lines"][number]) {
     variant && [variant.model, "Talla " + variant.size, variant.color].join(" · "),
     details.serial && "Serie " + details.serial,
     details.warrantyUntil && "Garantía declarada hasta " + dateLabel(details.warrantyUntil),
+    details.isService && "Servicio",
     printing && [line.restocked === false && line.quantity !== printing.faces ? "Trabajo original" : "",
       printing.profile.paperSize, printing.profile.color === "color" ? "Color" : "Blanco y negro",
       printing.job.copies + " copias × " + printing.job.facesPerCopy + " caras", printing.job.duplex ? "Doble cara" : "Una cara",

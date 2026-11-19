@@ -175,3 +175,25 @@ La verificación usa `scripts/Test-Block7b.ps1`. El recorrido de Edge utiliza la
 | Compatibilidad | Aprobados lint, TypeScript, compilación web y .NET y regresiones PostgreSQL de los bloques 4, 5, 6, 7A y 7B. Migración aplicada a las bases locales de prueba y desarrollo. Vite mantiene el aviso de tamaño de los módulos de PDF cargados bajo demanda. |
 
 El bloque se comprueba con `scripts/Test-Block7c.ps1`. El recorrido de Edge usa la configuración opcional del bloque 5.
+
+## Bloque 7D · Peluquería, Limpieza, Profesionales, Taller y Artesanía
+
+- Peluquería tiene agenda por día en hora de Bolivia. Una cita indica cliente, servicio, hora y duración. Reprogramar vuelve a verificar el horario. Registrar inasistencia libera el turno. Atender sin cita abre la venta habitual.
+- Limpieza organiza cada trabajo por cliente, dirección, fecha y tareas. Tiene campos separados para materiales previstos y usados. Anotarlos en la orden conserva el registro operativo. Las existencias se descuentan cuando los productos se agregan al comprobante.
+- Profesionales reúne fecha comprometida, entregables y presupuesto. Se puede aprobar, iniciar, marcar listo, entregar y cobrar desde la orden. El presupuesto se muestra al revisar la venta y el total se calcula con las líneas elegidas.
+- Taller registra equipo, accesorios y falla. La constancia de recepción se puede descargar en PDF desde su registro original. La orden pasa por diagnóstico, aprobación, reparación y entrega. Mano de obra y repuestos pueden compartir el comprobante.
+- Artesanía separa la venta directa de piezas listas de los encargos con especificaciones, presupuesto y fecha prometida.
+- La revisión del cobro conserva un borrador por cuenta, negocio y trabajo. El servidor confirma el vínculo con una sola venta en la misma transacción que el stock, la caja o el fiado. Entregar una orden actualiza su estado y conserva su vínculo. Los servicios tienen tarifa y carecen de existencias.
+
+### Verificación de los 21 rubros
+
+| Bloque | Rubros revisados y recorridos |
+|---|---|
+| 5 | **Maderas y barraca**. Compra y venta por medidas, comprobante con varias especies, devolución parcial y práctica aislada. |
+| 6 | **Tienda 24/7, Ropa y accesorios y Electrodomésticos**. Lector y lotes vendibles, matriz y cambio de talla, venta por serie y garantía. |
+| 7A | **Abarrotes, Bebidas, Cosméticos y Mascotas**. Presentación de compra, devolución de envases, lote apartado y venta fraccionada con origen. |
+| 7B | **Calzado, Electrónica, Ferretería, Repuestos y Librería**. Cambio en pares, venta mixta, rollos a metros, compatibilidad e impresión por caras. |
+| 7C | **Muebles, Cerámicas y Cemento**. Entrega sin nueva salida, diez cajas para 12 m² con merma y traslado de 100 kg conservando valor. |
+| 7D | **Peluquería, Limpieza, Profesionales, Taller y Artesanía**. Se rechazaron cruces de citas y cobros duplicados, incluidos intentos simultáneos. La entrega posterior al cobro conservó el comprobante y el saldo de inventario. Se verificaron también presupuesto, constancia PDF y separación entre venta directa y encargo. |
+
+El bloque 7D se comprueba con `scripts/Test-Block7d.ps1`. El recorrido en Edge a 360 px usa la configuración opcional del bloque 5 y comprueba los cinco rubros, el borrador de venta vinculada tras recargar y la descarga de la constancia. La API también verificó los 21 identificadores únicos del selector. Pasaron lint, TypeScript y las compilaciones de React y .NET. La migración se aplicó a PostgreSQL local de pruebas y desarrollo. Vite conserva el aviso de tamaño de los módulos de PDF cargados bajo demanda.

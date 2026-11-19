@@ -3,6 +3,7 @@ import type { MouseEvent, ReactNode } from "react";
 import { Icon } from "../ui/Icon";
 import type { IconName } from "../ui/Icon";
 import { CommerceProvider, useCommerceData } from "../commerce/CommerceContext";
+import { LoadFeedback } from "../commerce/CommerceUi";
 import { CatalogPage, CustomersPage } from "../commerce/CatalogPage";
 import { CashPage, ExpensesPage, ReceivablesPage } from "../commerce/CashPages";
 import { DocumentPage, HistoryPage } from "../commerce/Documents";
@@ -10,7 +11,7 @@ import { ReportsPage } from "../commerce/ReportsPage";
 import { TradePage } from "../commerce/TradePage";
 import type { TradeKind } from "../commerce/TradePage";
 import { bob } from "../commerce/models";
-import type { CashStatus, EntryDocument, Report } from "../commerce/models";
+import type { CashStatus, EntryDocument, Product, Report } from "../commerce/models";
 import { BusinessHome } from "./BusinessHome";
 import { BusinessSettings } from "./BusinessSettings";
 import { industryTheme } from "./industryThemes";
@@ -23,10 +24,13 @@ import { SerialHistory } from "../retail/SerialHistory";
 import type { StoreAttention } from "../retail/measures";
 import { ContainersPage } from "../retail/Containers";
 import { DeliveriesPage } from "../retail/FurnitureDeliveries";
+import { WorkDetail, WorkList, WorkPanel } from "../services/WorkPages";
+import { canBillWork, workNavigation } from "../services/work";
+import type { Work } from "../services/work";
 import { equipmentIndustry, measuredIndustry, variantIndustry } from "../retail/ProductFields";
 
 const workspaceViews = [
-  "inicio", "ventas", "compras", "cotizaciones", "catalogo", "clientes", "caja", "fiados", "gastos", "historial", "informes", "configuracion", "series", "envases", "entregas",
+  "inicio", "ventas", "compras", "cotizaciones", "catalogo", "clientes", "caja", "fiados", "gastos", "historial", "informes", "configuracion", "series", "envases", "entregas", "trabajos",
 ] as const;
 export type WorkspaceView = typeof workspaceViews[number];
 export type BusinessView = WorkspaceView | "negocios" | "crear";
@@ -52,22 +56,24 @@ const navigation: Navigation[] = [
 ];
 
 type WorkspaceProps = {
-  accountId: string; business: BusinessProfile; industry: string; view: WorkspaceView;
-  navigate: (view: BusinessView) => void; onSave: (profile: BusinessProfile) => void;
+  accountId: string; business: BusinessProfile; industry: string; view: WorkspaceView; workId: string;
+  navigate: (view: BusinessView, replace?: boolean, workId?: string) => void; onSave: (profile: BusinessProfile) => void;
   practice?: PracticeControls; practiceEntry?: ReactNode;
 };
 
-export function BusinessWorkspace({ accountId, business, industry, view, navigate, onSave, practice, practiceEntry }: WorkspaceProps) {
+export function BusinessWorkspace({ accountId, business, industry, view, workId, navigate, onSave, practice, practiceEntry }: WorkspaceProps) {
   const theme = industryTheme(business.industry);
   const content = useRef<HTMLDivElement>(null);
   const more = useRef<HTMLDetailsElement>(null);
-  const [document, setDocument] = useState<{ id: string; origin: WorkspaceView }>();
+  const [document, setDocument] = useState<{ id: string; origin: WorkspaceView; work: string }>();
   const [quote, setQuote] = useState<EntryDocument>();
   const [historyKind, setHistoryKind] = useState("");
   const [focus, setFocus] = useState("");
-  const documentId = document?.origin === view ? document.id : undefined;
+  const documentId = document?.origin === view && document.work === workId ? document.id : undefined;
   const units = business.industry === "timber" ? unitsOf(business.timberUnits) : undefined;
-  const extra: Navigation | undefined = equipmentIndustry(business.industry) ? { id: "series", name: "Series y garantías", icon: "appliance" } :
+  const works = workNavigation[business.industry];
+  const extra: Navigation | undefined = works ? { id: "trabajos", name: works.title, icon: "calendar" } :
+    equipmentIndustry(business.industry) ? { id: "series", name: "Series y garantías", icon: "appliance" } :
     business.industry === "beverages" ? { id: "envases", name: "Envases", icon: "parcel" } :
     business.industry === "furniture" ? { id: "entregas", name: "Entregas", icon: "parcel" } : undefined;
   const menu = practice ? navigation.filter((item) => item.id !== "negocios" && item.id !== "configuracion") :
@@ -76,16 +82,16 @@ export function BusinessWorkspace({ accountId, business, industry, view, navigat
   useEffect(() => {
     (content.current?.querySelector<HTMLElement>("[data-entry-focus]") ?? content.current?.querySelector("h1"))?.focus({ preventScroll: true });
     if (more.current) more.current.open = false;
-  }, [view, business.id, documentId]);
+  }, [view, business.id, documentId, workId]);
 
-  function go(next: BusinessView, target = "") {
+  function go(next: BusinessView, target = "", work = "") {
     setDocument(undefined);
     setFocus(target);
     if (next !== "historial") setHistoryKind("");
-    navigate(next);
+    navigate(next, false, work);
   }
   function openDocument(id: string) {
-    setDocument({ id, origin: view });
+    setDocument({ id, origin: view, work: workId });
     window.scrollTo(0, 0);
   }
   function link(item: Navigation) {
@@ -106,6 +112,7 @@ export function BusinessWorkspace({ accountId, business, industry, view, navigat
   function renderView() {
     if (documentId) return <DocumentPage key={documentId} id={documentId} back={() => setDocument(undefined)}
       furniture={business.industry === "furniture"}
+      openWork={works ? (id) => go("trabajos", "", id) : undefined}
       openSerial={equipmentIndustry(business.industry) ? (serial) => go("series", "serial:" + serial) : undefined}
       convert={(source) => { setQuote(source); go("ventas"); }} />;
     switch (view) {
@@ -113,7 +120,8 @@ export function BusinessWorkspace({ accountId, business, industry, view, navigat
         openSalesHistory={() => { setHistoryKind("sale"); go("historial"); }} />;
       case "catalogo": return <CatalogPage key={focus} units={units} industry={business.industry} focus={focus} />;
       case "clientes": return <CustomersPage />;
-      case "ventas": return trade("sale");
+      case "ventas": return works && workId ? <WorkSale key={workId} id={workId} industry={business.industry}
+        back={() => go("trabajos", "", workId)} /> : trade("sale");
       case "compras": return trade("purchase");
       case "cotizaciones": return trade("quote");
       case "caja": return <CashPage />;
@@ -124,6 +132,9 @@ export function BusinessWorkspace({ accountId, business, industry, view, navigat
         filter={focus === "inspection" ? focus : undefined} /> : <Alert>Esta vista pertenece al rubro de Electrodomésticos.</Alert>;
       case "envases": return business.industry === "beverages" ? <ContainersPage /> : <Alert>Esta vista pertenece al rubro de Bebidas.</Alert>;
       case "entregas": return business.industry === "furniture" ? <DeliveriesPage /> : <Alert>Esta vista pertenece al rubro de Muebles.</Alert>;
+      case "trabajos": return !works ? <Alert>Esta vista corresponde a negocios con agenda u órdenes.</Alert> : workId ?
+        <WorkDetail id={workId} back={() => go("trabajos")} charge={(id) => { setQuote(undefined); go("ventas", "", id); }} /> :
+        <WorkList key={focus} industry={business.industry} focus={focus} open={(id) => go("trabajos", "", id)} />;
       case "informes": return <ReportsPage />;
       case "configuracion": return practice ? <Alert>Para cambiar la configuración, pausa la práctica y vuelve al negocio.</Alert> :
         <BusinessSettings profile={business} industry={industry} onSave={onSave} />;
@@ -160,6 +171,19 @@ export function BusinessWorkspace({ accountId, business, industry, view, navigat
   </div>;
 }
 
+function WorkSale({ id, industry, back }: { id: string; industry: string; back: () => void }) {
+  const source = useCommerceData<Work>("/work/" + id);
+  const serviceId = source.data?.serviceId;
+  const service = useCommerceData<Product>(serviceId ? "/products/" + serviceId : null);
+  if (!source.data || (serviceId && !service.data && !source.data.saleId))
+    return <Card><LoadFeedback {...(!source.data ? source : service)} /><Button variant="secondary" onClick={back}>Volver al trabajo</Button></Card>;
+  if (!canBillWork(source.data)) return <Card><Alert>{source.data.saleId ? "Este trabajo ya tiene una venta vinculada." :
+    "Marca la cita como atendida o la orden como lista antes de cobrar."}</Alert>
+    <Button variant="secondary" onClick={back}>Volver al trabajo</Button></Card>;
+  return <TradePage kind="sale" industry={industry} dismissProposal={back} onHistory={back} work={source.data}
+    workService={service.data} onWorkBack={back} />;
+}
+
 function CommercialHome({ business, industry, icon, navigate, openSalesHistory }: {
   business: BusinessProfile; industry: string; icon: IconName; navigate: (view: BusinessView, focus?: string) => void;
   openSalesHistory: () => void;
@@ -175,7 +199,8 @@ function CommercialHome({ business, industry, icon, navigate, openSalesHistory }
   return <BusinessHome business={business} industry={industry} icon={icon} cash={summary} days={report.data?.days ?? []}
     cashError={cash.error} reportError={report.error} openCash={() => navigate("caja")}
     openSale={() => navigate("ventas")} openPurchase={() => navigate("compras")} openReports={() => navigate("informes")}
-    industryPanel={variantIndustry(business.industry) ? <Card className="industry-home-card">
+    industryPanel={workNavigation[business.industry] ? <WorkPanel industry={business.industry} open={(focus) => navigate("trabajos", focus)} /> :
+      variantIndustry(business.industry) ? <Card className="industry-home-card">
       <h2>Tallas, colores y cambios</h2><Button variant="secondary" onClick={() => navigate("catalogo")}>Consultar variantes</Button>
       <Button variant="secondary" onClick={openSalesHistory}>Buscar venta para un cambio</Button>
     </Card> : business.industry === "spareParts" ? <Card className="industry-home-card">

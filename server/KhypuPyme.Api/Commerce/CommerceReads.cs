@@ -2,6 +2,7 @@ using KhypuPyme.Api.Persistence;
 using Microsoft.EntityFrameworkCore;
 using KhypuPyme.Api.Timber;
 using KhypuPyme.Api.Retail;
+using KhypuPyme.Api.Services;
 using static KhypuPyme.Api.Commerce.CommerceRules;
 
 namespace KhypuPyme.Api.Commerce;
@@ -12,10 +13,11 @@ internal sealed class CommerceReads(KhypuPymeDbContext db, TimeProvider clock, S
     private IQueryable<Entry> Entries => db.Set<Entry>().AsNoTracking();
 
     public Task<CommercePage<ProductInfo>> ProductsAsync(string? search, bool? active, string? attention,
-        string? vehicleBrand, string? vehicleModel, int? year, int? page, CancellationToken ct)
+        string? vehicleBrand, string? vehicleModel, int? year, bool? service, int? page, CancellationToken ct)
     {
         var query = db.Set<Product>().AsNoTracking();
         if (active is not null) query = query.Where(x => x.Active == active);
+        if (service is not null) query = query.Where(x => x.IsService == service);
         if (attention is not null) query = store.AttentionProducts(query.Where(x => x.Active), attention);
         query = store.FilterCompatibility(query, vehicleBrand, vehicleModel, year);
         var term = Search(search);
@@ -105,9 +107,10 @@ internal sealed class CommerceReads(KhypuPymeDbContext db, TimeProvider clock, S
         var containers = await db.Set<ContainerMovement>().AsNoTracking().Where(x => x.EntryId == id).OrderBy(x => x.Name)
             .Select(x => new ContainerMovementInfo(x.Name, x.Delivered, x.Returned, x.CustomerBalance, x.Available, x.Added)).ToArrayAsync(ct);
         var delivery = entry.Kind == "sale" ? await FurnitureDeliveries.Query(db, id).SingleOrDefaultAsync(ct) : null;
+        var work = entry.Kind == "sale" ? await WorkQueries.ChargeAsync(db, id, ct) : null;
         return new EntryDocument(entry.Id, entry.Number, entry.Kind, entry.Date, entry.ExpiresOn, entry.BusinessName,
             entry.CustomerId, entry.CustomerName, entry.Method, entry.Note, entry.TotalMinor, entry.DiscountMinor, entry.CashDeltaMinor,
-            entry.DebtDeltaMinor, entry.SourceId, linked, lines, entry.TimberUnits, entry.Practice, balance, containers, delivery);
+            entry.DebtDeltaMinor, entry.SourceId, linked, lines, entry.TimberUnits, entry.Practice, balance, containers, delivery, work);
     }
 
     public async Task<CashStatus> CashAsync(CancellationToken ct) =>

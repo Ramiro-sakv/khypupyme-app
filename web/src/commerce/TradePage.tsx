@@ -23,6 +23,7 @@ import { PrintingFields, previewPrinting } from "../retail/PrintingFields";
 import type { PrintDraft } from "../retail/PrintingFields";
 import { TileFields, tilePreview } from "../retail/MaterialFields";
 import type { TileRequest } from "../retail/MaterialFields";
+import type { Work } from "../services/work";
 
 export type TradeKind = "sale" | "purchase" | "quote";
 type Line = { id: string; key?: string; name: string; quantity: string; priceMinor: number; cost: string; timber?: Capture; rates?: Rates;
@@ -36,25 +37,28 @@ const emptyTile: TileRequest = { area: null, waste: null, tone: null, caliber: n
 const titles: Record<TradeKind, string> = { sale: "Venta nueva", purchase: "Compra nueva", quote: "Cotización nueva" };
 const label: Record<TradeKind, string> = { sale: "venta", purchase: "compra", quote: "cotización" };
 
-export function TradePage({ kind, proposal, dismissProposal, onHistory, units = "imperial", industry }: {
+export function TradePage({ kind, proposal, dismissProposal, onHistory, units = "imperial", industry, work, workService, onWorkBack }: {
   kind: TradeKind; proposal?: EntryDocument; dismissProposal: () => void; onHistory: () => void; units?: TimberUnits; industry?: string;
+  work?: Work; workService?: Product; onWorkBack?: () => void;
 }) {
   const workspace = useCommerce();
-  const draftKey = workspace.scope + ":" + kind;
-  const { value, update, ready, error, flush, reload } = useDraft(draftKey, emptyDraft);
+  const draftKey = workspace.scope + ":" + kind + (work ? ":work:" + work.id : "");
+  const { value, update, ready, error, flush, reload } = useDraft(draftKey, work ? { ...emptyDraft, note: work.title,
+    lines: workService ? [{ id: workService.id, name: workService.name, quantity: "1", priceMinor: workService.priceMinor, cost: "" }] : [] } : emptyDraft);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
   const [vehicle, setVehicle] = useState(emptyVehicle);
   const [acknowledged, setAcknowledged] = useState("");
   const cart = useRef<HTMLHeadingElement>(null);
+  const isPurchase = kind === "purchase";
   const products = useCommerceData<Page<Product>>("/products?" + new URLSearchParams({ active: "true", search, page: String(page),
+    ...(isPurchase ? { service: "false" } : {}),
     ...(industry === "spareParts" ? vehicleQuery(vehicle) : {}) }));
   const current = useCurrentProducts([...new Set(value.lines.map((line) => line.id))].join(","));
   const form = useCommercialForm();
   const confirmation = workspace.confirmation;
   const frozen = form.processing || workspace.pending?.draft?.key === draftKey;
-  const isPurchase = kind === "purchase";
   const quote = kind === "quote";
   const mixed = industry === "beverages";
   const withContainers = mixed && kind === "sale";
@@ -98,7 +102,7 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
       validQuantity && unitMinor !== null && quantity * unitMinor <= moneyLimit ? quantity * unitMinor : null;
     const available = petSale && measure?.lot ? selectedLots.stock?.[line.id] :
       product?.retail ? product.sellableStock ?? 0 : product?.stock;
-    const requested = line.printing ? undefined : measure ? measured?.base : validQuantity ? quantity : undefined;
+    const requested = line.printing || product?.isService ? undefined : measure ? measured?.base : validQuantity ? quantity : undefined;
     return {
       line, product, quantity, unitMinor, subtotal, measure, serials, requested, available, printing, tile, tileRequest,
       shortage: available !== undefined && requested !== undefined && requested > available,
@@ -120,13 +124,15 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
     !product?.active || changed || (kind === "sale" && (shortage || petSale && !!measure?.lot && available === undefined))) ||
     timberLines.some((line) => !current.data?.[line.id]?.active || !current.data[line.id].timber) ||
     (kind === "sale" && timberLines.length > 0 && (!availability.stock || shortageByMeasure));
-  const requiresCustomer = kind === "sale" && value.method === "credit" && (!value.customer || total === 0);
-  const reviewKey = JSON.stringify([value.lines, value.discount, value.method, value.customer?.id, value.quote, total, timber.commands, value.containers]);
-  const canSend = total !== null && !unavailable && !requiresCustomer && !error && !containers.error && acknowledged === reviewKey;
+  const customerId = work?.customerId ?? value.customer?.id;
+  const requiresCustomer = kind === "sale" && value.method === "credit" && (!customerId || total === 0);
+  const missingService = !!work?.serviceId && !value.lines.some((line) => line.id === work.serviceId && line.quantity === "1");
+  const reviewKey = JSON.stringify([value.lines, value.discount, value.method, customerId, value.quote, total, timber.commands, value.containers, work?.revision]);
+  const canSend = total !== null && !unavailable && !requiresCustomer && !missingService && !error && !containers.error && acknowledged === reviewKey;
   const totalText = total === null ? "Pendiente" : bob(total);
 
   function add(product: Product, newLot = false) {
-    if (isPurchase && product.specialty?.material?.cement?.isBulk) return;
+    if (isPurchase && (product.isService || product.specialty?.material?.cement?.isBulk)) return;
     update((currentDraft) => {
       if (product.timber) {
         if (currentDraft.lines.length >= 100) return currentDraft;
@@ -136,7 +142,7 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
       }
       const existing = currentDraft.lines.find((line) => line.id === product.id);
       if (existing && !newLot) {
-        if (product.equipment && !quote || product.specialty?.printing) return currentDraft;
+        if (product.id === work?.serviceId || product.equipment && !quote || product.specialty?.printing) return currentDraft;
         const quantity = Number(existing.quantity.replace(",", "."));
         return { ...currentDraft, lines: currentDraft.lines.map((line) => line === existing
           ? { ...line, quantity: String(Math.min(1_000_000, Math.round(((quantity || 0) + 1) * 1000) / 1000)) } : line) };
@@ -163,9 +169,15 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
   if (!ready) return <><CommerceHeading title={titles[kind]} /><LoadFeedback error={error || undefined} reload={() => void reload()} /></>;
 
   return <div className="commerce-stack">
-    <CommerceHeading title={titles[kind]}>
-      <Button variant="secondary" icon="document" onClick={onHistory}>Ver operaciones</Button>
+    <CommerceHeading title={work ? "Venta vinculada" : titles[kind]}>
+      {work ? <Button variant="secondary" icon="back" onClick={onWorkBack}>Volver al trabajo</Button> :
+        <Button variant="secondary" icon="document" onClick={onHistory}>Ver operaciones</Button>}
     </CommerceHeading>
+    {work && <Alert>{work.title} · {work.customerName}{work.budgetMinor == null ? "" : " · Presupuesto " + bob(work.budgetMinor)}</Alert>}
+    {workService && !workService.active && <Alert tone="error">El servicio del trabajo está archivado. Actívalo en Catálogo para cobrar.</Alert>}
+    {missingService && workService && <Card><Alert>Falta el servicio del trabajo. Añade una unidad para continuar.</Alert>
+      <Button disabled={frozen} variant="secondary" onClick={() => value.lines.some((line) => line.id === workService.id)
+        ? edit(workService.id, { quantity: "1" }) : add(workService)}>Usar una unidad de {workService.name}</Button></Card>}
     {quote && <Alert>La cotización tiene siete días de vigencia. Al convertirla, la venta verifica precio y existencias.</Alert>}
     {error && <Alert tone="error">{error}<br /><Button variant="secondary" onClick={() => void reload()}>Cargar borrador guardado</Button></Alert>}
     {proposal && !frozen && <Card>
@@ -209,7 +221,7 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
                 <strong>{product.apparel?.model ?? product.name}</strong>
                 {product.apparel ? <span>Elegir talla y color</span> : <>
                   <span>{product.timber?.species && product.timber.species + " · "}{product.code}</span>
-                  <span>{productAvailability(product)}{product.specialty?.printing ? "" : " disp."}{product.timber ? " por medidas" : " · " + bob(product.priceMinor)}</span>
+                  <span>{productAvailability(product)}{product.specialty?.printing || product.isService ? "" : " disp."}{product.timber ? " por medidas" : " · " + bob(product.priceMinor)}</span>
                 </>}
               </button>
             </li>)}
@@ -229,25 +241,27 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
         </div>}
         {value.lines.length === 0 && <NoRecords>Elige un producto para iniciar el borrador.</NoRecords>}
         {lines.some((row) => !row.line.measure && !row.line.printing && row.line.series === undefined && !row.product?.equipment) &&
-          <DataTable caption="Líneas del borrador" columns={["Producto", industry === "footwear" ? "Pares" : "Piezas", isPurchase ? "Costo unitario" : "Precio unitario", "Subtotal", "Acción"]}
+          <DataTable caption="Líneas del borrador" columns={["Producto", industry === "footwear" ? "Pares" : "Cantidad", isPurchase ? "Costo unitario" : "Precio unitario", "Subtotal", "Acción"]}
             rows={lines.filter((row) => !row.line.measure && !row.line.printing && row.line.series === undefined && !row.product?.equipment).map(({ line, product, changed, shortage, unitMinor, subtotal, quantity }) => ({ id: line.id, cells: [
               <div>{product?.name ?? line.name}
                 {product && <SpecialtySummary product={product} />}
                 {industry === "spareParts" && !product?.specialty?.parts && <small>Compatibilidad por confirmar</small>}
                 {product?.apparel && <small className="record-secondary">Talla {product.apparel.size} · {product.apparel.color}</small>}
-                {product && kind !== "purchase" && <small className="record-secondary">Pedido {Number.isFinite(quantity) ? quantity : "—"} · Disponible {product.stock}
+                {product?.isService && <small className="record-secondary">Servicio</small>}
+                {product && !product.isService && kind !== "purchase" && <small className="record-secondary">Pedido {Number.isFinite(quantity) ? quantity : "—"} · Disponible {product.stock}
                   {shortage ? " · Faltan " + (quantity - product.stock) : ""}</small>}
                 {product && !product.active && <small className="trade-issue">Producto archivado</small>}
               </div>,
-              <TextField label={(product?.specialty?.countUnit === "pair" ? "Pares de " : "Piezas de ") + line.name} type="number" min={1} max={1_000_000} step={1} value={line.quantity}
-                disabled={frozen} onChange={(event) => edit(line.id, { quantity: event.target.value })} />,
+              <TextField label={(product?.isService ? "Cantidad de " : product?.specialty?.countUnit === "pair" ? "Pares de " : "Piezas de ") + line.name}
+                type="number" min={1} max={1_000_000} step={1} value={line.quantity}
+                disabled={frozen || line.id === work?.serviceId} onChange={(event) => edit(line.id, { quantity: event.target.value })} />,
               isPurchase ? <TextField label={"Costo de " + line.name} inputMode="decimal" value={line.cost} disabled={frozen}
                 onChange={(event) => edit(line.id, { cost: event.target.value })} /> :
                 <div>{unitMinor !== null && bob(unitMinor)}
                   {changed && product && <Button variant="plain" disabled={frozen}
                     onClick={() => edit(line.id, { priceMinor: product.priceMinor })}>Usar precio actualizado</Button>}</div>,
               subtotal === null ? "Pendiente" : bob(subtotal),
-              <Button variant="plain" aria-label={"Quitar " + line.name} disabled={frozen}
+              line.id !== work?.serviceId && <Button variant="plain" aria-label={"Quitar " + line.name} disabled={frozen}
                 onClick={() => remove(line.id)}>Quitar</Button>,
             ] }))} />}
         {lines.filter((row) => row.line.measure || row.line.printing || row.line.series !== undefined || row.product?.equipment).map(({ line, product, changed, shortage,
@@ -323,14 +337,14 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
       </Card>
     </div>
     {value.lines.length > 0 && <ReviewDock cartFocus={cart} total={totalText}>
-      {!isPurchase && <Buyer selected={value.customer} disabled={frozen}
+      {work ? <p>Cliente del trabajo · <strong>{work.customerName}</strong></p> : !isPurchase && <Buyer selected={value.customer} disabled={frozen}
         onChange={(customer) => update((draft) => ({ ...draft, customer }))} />}
       <form className="account-form" onSubmit={(event) => {
         event.preventDefault();
         if (!canSend) return;
         void form.submit(() => ({
           kind, method: quote ? undefined : value.method,
-          customerId: isPurchase ? undefined : value.customer?.id,
+          customerId: isPurchase ? undefined : customerId, workLink: work ? { id: work.id, revision: work.revision } : undefined,
           discountMinor: discount ?? undefined, sourceId: value.quote, note: value.note,
           containers: containers.moves.length ? containers.moves : undefined,
           lines: [...lines.map(({ line, quantity, unitMinor, measure, serials, printing, tileRequest }): CommandLine =>
@@ -351,6 +365,7 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
         {unavailable && <Alert>Verifica disponibilidad y precios de las líneas en el carrito.</Alert>}
         {quote && shortageByMeasure && <Alert>Hay medidas con faltantes. Se volverán a verificar al convertir la cotización en venta.</Alert>}
         {requiresCustomer && <Alert>El fiado requiere un cliente registrado y un importe positivo.</Alert>}
+        {missingService && <Alert>Añade el servicio del trabajo antes de confirmar.</Alert>}
         {containers.error && <Alert tone="error">{containers.error}</Alert>}
         {form.error && <Alert tone="error">{form.error}</Alert>}
         <label className="trade-check">

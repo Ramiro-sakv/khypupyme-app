@@ -23,7 +23,7 @@ internal sealed class StoreReads(KhypuPymeDbContext db, TimeProvider clock)
             x.WarrantyMonths == null ? null : new EquipmentProfile(x.WarrantyMonths.Value), x.RetailUnit == null ? null : x.MeasureStock,
             x.RetailUnit == null ? null : !x.TrackLots ? x.MeasureStock :
                 lots.Where(lot => lot.ProductId == x.Id && lot.BusinessId == x.BusinessId).Sum(lot => lot.Quantity),
-            x.Brand == null ? null : new CosmeticProfile(x.Brand, x.Presentation!, x.Tone), SpecialtyProfiles.Read(x)));
+            x.Brand == null ? null : new CosmeticProfile(x.Brand, x.Presentation!, x.Tone), SpecialtyProfiles.Read(x), x.IsService));
     }
 
     public Task<ProductInfo?> CodeAsync(string? code, CancellationToken ct)

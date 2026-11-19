@@ -2,6 +2,7 @@ using System.Numerics;
 using Microsoft.EntityFrameworkCore;
 using KhypuPyme.Api.Timber;
 using KhypuPyme.Api.Retail;
+using KhypuPyme.Api.Services;
 using static KhypuPyme.Api.Commerce.CommerceRules;
 
 namespace KhypuPyme.Api.Commerce;
@@ -65,6 +66,7 @@ internal sealed class TradeOperations(CommerceTransaction work)
         {
             entry.Method = Payment(work.Command.Method, allowCredit: true);
             if (work.Command.SourceId is not null) await LinkQuoteAsync(entry, rows);
+            if (work.Command.WorkLink is not null) await new WorkOperations(work).LinkSaleAsync(entry, work.Command.Lines!);
             if (entry.Method == "credit")
             {
                 if (entry.CustomerId is not Guid registered || entry.TotalMinor == 0)
@@ -99,6 +101,10 @@ internal sealed class TradeOperations(CommerceTransaction work)
         if (row.Printing is { } printing)
         {
             entry.Lines.Add(Snapshot(entry, row, net, 0, new(Printing: printing, RateUnit: "face")));
+        }
+        else if (row.Product.IsService)
+        {
+            entry.Lines.Add(Snapshot(entry, row, net, 0, new(IsService: true)));
         }
         else if (!quote && row.Serials is { Length: > 0 } serials)
         {
@@ -192,6 +198,8 @@ internal sealed class TradeOperations(CommerceTransaction work)
             var restock = input.Restock ?? true;
             if (details?.Printing is not null && restock)
                 throw new CommerceFailure("La impresión se devuelve por caras cobradas. Elige devolución sin reintegro.");
+            if (details?.IsService == true && restock)
+                throw new CommerceFailure("El servicio se devuelve sin reintegro de inventario.");
             long cost;
             if (measured)
             {
@@ -257,6 +265,7 @@ internal sealed class TradeOperations(CommerceTransaction work)
         {
             var product = await work.ProductAsync(line.ProductId);
             if (line.Tile is not null) throw new CommerceFailure("La cobertura se calcula en ventas y cotizaciones.");
+            if (product.IsService) throw new CommerceFailure("El servicio no tiene existencias que dar de baja.");
             if (product.WarrantyMonths is not null)
                 throw new CommerceFailure("La baja de un equipo se resuelve por su serie desde Inspección.");
             if (product.PrintingSize is not null || line.Printing is not null)
@@ -290,6 +299,7 @@ internal sealed class TradeOperations(CommerceTransaction work)
         {
             var product = await work.ProductAsync(line.ProductId);
             if (!product.Active) throw new CommerceFailure($"{product.Name} está archivado.", 409);
+            if (product.IsService && !useCatalogPrice) throw new CommerceFailure("Los servicios se cobran desde Ventas.");
             if (!useCatalogPrice && product.CementSourceId is not null)
                 throw new CommerceFailure("Genera granel abriendo bolsas desde su lote.");
             var tile = useCatalogPrice ? MaterialProfiles.Read(product)?.Tile : null;

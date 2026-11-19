@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using KhypuPyme.Api.Timber;
 using KhypuPyme.Api.Retail;
+using KhypuPyme.Api.Services;
 
 namespace KhypuPyme.Api.Commerce;
 
@@ -14,7 +15,8 @@ public sealed record CommerceCommand(
     CommandLine[]? ExchangeLines = null, string? Serial = null, bool? Release = null,
     CosmeticProfile? CosmeticProduct = null, ContainerInput[]? Containers = null, int? StockQuantity = null,
     ProductDetail? DetailProduct = null, PartsProfile? PartsProduct = null, PrintingProfile? PrintingProduct = null,
-    FurnitureDimensions? FurnitureProduct = null, TileProfile? TileProduct = null, CementSetup? CementProduct = null, DeliveryInput? Delivery = null);
+    FurnitureDimensions? FurnitureProduct = null, TileProfile? TileProduct = null, CementSetup? CementProduct = null, DeliveryInput? Delivery = null,
+    bool? ServiceProduct = null, WorkInput? Work = null, WorkRevision? WorkLink = null, string? WorkState = null);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record CommandLine(Guid ProductId, int Quantity, long? UnitMinor = null, bool? Restock = null,
@@ -25,7 +27,7 @@ public sealed record CommandResult(Guid OperationId, string Kind, Guid EntityId)
 public sealed record CommercePage<T>(T[] Items, bool HasMore);
 public sealed record ProductInfo(Guid Id, string Name, string Code, long PriceMinor, int Stock, long ValueMinor, bool Active, TimberPrices? Timber,
     RetailProfile? Retail, ApparelProfile? Apparel, EquipmentProfile? Equipment, decimal? MeasuredStock, decimal? SellableStock,
-    CosmeticProfile? Cosmetic, ProductSpecialty? Specialty);
+    CosmeticProfile? Cosmetic, ProductSpecialty? Specialty, bool IsService);
 public sealed record CustomerInfo(Guid Id, string Name, string Phone);
 public sealed record CashInfo(Guid Id, DateTimeOffset OpenedAt, DateTimeOffset? ClosedAt,
     long OpeningMinor, long ExpectedMinor, long? CountedMinor);
@@ -38,7 +40,7 @@ public sealed record EntryDocument(Guid Id, string Number, string Kind, DateOnly
     string BusinessName, Guid? CustomerId, string? CustomerName, string? Method, string Note,
     long TotalMinor, long DiscountMinor, long CashDeltaMinor, long DebtDeltaMinor, Guid? SourceId,
     bool Linked, DocumentLine[] Lines, string? TimberUnits, bool Practice, long DebtBalanceMinor, ContainerMovementInfo[] Containers,
-    DeliveryInfo? Delivery);
+    DeliveryInfo? Delivery, WorkCharge? Work);
 public sealed record DocumentLine(Guid ProductId, string Name, string Code, int Quantity, long UnitMinor,
     long SubtotalMinor, long CostMinor, bool? Restocked, int ReturnedQuantity,
     Guid LineId, string? Species, TimberDimensions? Timber, LineDetails? Details, decimal ReturnedBaseQuantity);

@@ -90,3 +90,5 @@
   }
   .mobile-nav-more ul a { flex-direction: row; gap: .35rem; justify-content: flex-start; min-height: 44px; padding: .3rem .5rem; font-size: .82rem; }
 }
+.work-summary-row { display: contents; }
+.work-summary-row dd, .document-note { white-space: pre-line; overflow-wrap: anywhere; }

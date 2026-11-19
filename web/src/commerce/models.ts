@@ -34,6 +34,7 @@ export type Method = keyof typeof methods;
 export const methodLabel = (method: string | null) => method ? methods[method as Method] ?? method : "—";
 
 const documentNames: Record<string, string> = {
+  "save-work": "Registro de agenda u orden", "advance-work": "Actualización de estado", "repair-receipt": "Constancia de recepción",
   "open-cement": "Apertura de bolsas",
   sale: "Venta", purchase: "Compra", quote: "Cotización", return: "Devolución", expense: "Gasto",
   "void-expense": "Anulación de gasto", collect: "Cobro de fiado", "stock-loss": "Pérdida de inventario",

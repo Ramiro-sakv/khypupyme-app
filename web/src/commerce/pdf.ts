@@ -40,7 +40,7 @@ function buildDocument(record: EntryDocument): TDocumentDefinitions {
     layout: "lightHorizontalLines", margin: [0, 6, 0, 10] });
   if (record.discountMinor) content.push({ text: "Descuento · " + bob(record.discountMinor), alignment: "right" });
   const amount = documentAmount(record);
-  content.push({ text: amount.label + " · " + bob(amount.minor), style: "total" });
+  if (record.kind !== "repair-receipt") content.push({ text: amount.label + " · " + bob(amount.minor), style: "total" });
   if (record.cashDeltaMinor) content.push({ text: "Movimiento de caja · " + bob(record.cashDeltaMinor), alignment: "right" });
   if (record.debtDeltaMinor) content.push({ text: "Movimiento del fiado · " + bob(record.debtDeltaMinor), alignment: "right" });
 

@@ -13,6 +13,7 @@ internal sealed class Product : IBusinessRecord
     public int Stock { get; set; }
     public long ValueMinor { get; set; }
     public bool Active { get; set; } = true;
+    public bool IsService { get; init; }
     public string? Species { get; set; }
     public long? SuperShortMinor { get; set; }
     public long? ShortMinor { get; set; }

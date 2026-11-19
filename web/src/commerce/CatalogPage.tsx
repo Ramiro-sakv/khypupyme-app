@@ -13,6 +13,7 @@ import type { Lot } from "../retail/measures";
 import { LotCorrection } from "../retail/LotCorrection";
 import { CementOpening } from "../retail/CementOpening";
 import { initialMaterials, MaterialFields, materialCommand } from "../retail/MaterialFields";
+import { workNavigation } from "../services/work";
 import { CompatibilityFilter, emptyVehicle, initialSpecialty, searchLabel, SpecialtyFields, specialtyCommand, SpecialtySummary, vehicleQuery } from "../retail/SpecialtyFields";
 
 export function CatalogPage({ units, industry, focus }: { units?: TimberUnits; industry?: string; focus?: string }) {
@@ -102,6 +103,7 @@ function ProductEditor({ product, timberIndustry, industry, onClose }: { product
   const [code, setCode] = useState(product?.code ?? "");
   const [price, setPrice] = useState(product ? editableMoney(product.priceMinor) : "");
   const [active, setActive] = useState(product?.active ?? true);
+  const [isService, setIsService] = useState(product?.isService ?? false);
   const [timber, setTimber] = useState(product ? !!product.timber : timberIndustry);
   const [species, setSpecies] = useState(product?.timber?.species ?? "");
   const [setup, setSetup] = useState(() => initialProductFields(industry, product));
@@ -125,7 +127,7 @@ function ProductEditor({ product, timberIndustry, industry, onClose }: { product
         }
         const amountMinor = parseMoney(price);
         if (amountMinor === null) throw new Error("Escribe un precio con hasta dos decimales.");
-        return { kind: "product", entityId: product?.id, name, code, active, amountMinor, ...productFieldsCommand(setup),
+        return { kind: "product", entityId: product?.id, name, code, active, amountMinor, serviceProduct: isService || undefined, ...productFieldsCommand(setup),
           ...specialtyCommand(industry, setup.kind === "stationery", specialty), ...materialCommand(industry, setup.kind, materials) };
       }, onClose);
     }}>
@@ -133,7 +135,12 @@ function ProductEditor({ product, timberIndustry, industry, onClose }: { product
       onChange={(event) => setTimber(event.target.value === "timber")}>
       <option value="timber">Madera por medidas</option><option value="piece">Producto por pieza</option>
     </SelectField>}
-    <TextField label="Nombre del producto" required maxLength={100} value={name} onChange={(event) => setName(event.target.value)} />
+    {industry && workNavigation[industry] && <SelectField label="Tipo de ficha" value={isService ? "service" : "item"} disabled={!!product}
+      onChange={(event) => setIsService(event.target.value === "service")}>
+      <option value="item">Producto con existencias</option><option value="service">Servicio sin existencias</option>
+    </SelectField>}
+    <TextField label={isService ? "Nombre del servicio" : "Nombre del producto"} required maxLength={100} value={name}
+      onChange={(event) => setName(event.target.value)} />
     {timber && <TextField label="Especie" required maxLength={80} value={species} onChange={(event) => setSpecies(event.target.value)} />}
     <TextField label="Código" required maxLength={40} value={code} onChange={(event) => setCode(event.target.value)} />
     {retailIndustry(industry) && <ProductFields industry={industry} edits={!!product} fields={setup} setFields={setSetup} />}
@@ -143,7 +150,7 @@ function ProductEditor({ product, timberIndustry, industry, onClose }: { product
       <TextField key={category} label={category + " (Bs por pie tablar)"} inputMode="decimal" required value={rates[index]}
         onChange={(event) => setRates(rates.map((rate, position) => position === index ? event.target.value : rate))} />) :
       <TextField label={setup.kind === "stationery" ? "Precio por cara impresa (Bs)" : setup.kind === "footwear" ? "Precio por par (Bs)" :
-        setup.kind === "cement" ? "Precio por bolsa (Bs)" : setup.kind === "ceramics" ? "Precio por pieza (Bs)" :
+        setup.kind === "cement" ? "Precio por bolsa (Bs)" : setup.kind === "ceramics" ? "Precio por pieza (Bs)" : isService ? "Tarifa del servicio (Bs)" :
         measuredIndustry(setup.kind) ? "Precio por " + unitLabels[setup.unit] + " (Bs)" : "Precio unitario (Bs)"}
         inputMode="decimal" required value={price} onChange={(event) => setPrice(event.target.value)} />}
     {product && <SelectField label="Estado" value={active ? "active" : "archived"} onChange={(event) => setActive(event.target.value === "active")}>

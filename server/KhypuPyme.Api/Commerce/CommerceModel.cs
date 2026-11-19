@@ -1,6 +1,7 @@
 using KhypuPyme.Api.Businesses;
 using KhypuPyme.Api.Timber;
 using KhypuPyme.Api.Retail;
+using KhypuPyme.Api.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -128,6 +129,23 @@ internal static class CommerceModel
         deliveries.HasOne<Entry>().WithMany().HasForeignKey(x => new { x.BusinessId, Id = x.SaleId }).OnDelete(DeleteBehavior.NoAction);
         deliveries.ToTable(table => table.HasCheckConstraint("furniture_delivery_mode",
             """ "Mode" IN ('pickup','delivery') AND ("Mode" = 'pickup' OR "Address" IS NOT NULL) """));
+
+        var work = BusinessTable<WorkItem>(model, "work_items");
+        work.HasKey(x => new { x.BusinessId, x.Id });
+        work.HasIndex(x => new { x.BusinessId, x.Day, x.StartMinute, x.Id });
+        work.HasIndex(x => new { x.BusinessId, x.SaleId }).IsUnique();
+        work.HasIndex(x => new { x.BusinessId, x.ReceiptId }).IsUnique();
+        work.Property(x => x.DetailsJson).HasColumnType("jsonb");
+        work.HasOne<Customer>().WithMany().HasForeignKey(x => new { x.BusinessId, Id = x.CustomerId }).OnDelete(DeleteBehavior.NoAction);
+        work.HasOne<Product>().WithMany().HasForeignKey(x => new { x.BusinessId, Id = x.ServiceId }).OnDelete(DeleteBehavior.NoAction);
+        work.HasOne<Entry>().WithMany().HasForeignKey(x => new { x.BusinessId, Id = x.SaleId }).OnDelete(DeleteBehavior.NoAction);
+        work.HasOne<Entry>().WithMany().HasForeignKey(x => new { x.BusinessId, Id = x.ReceiptId }).OnDelete(DeleteBehavior.NoAction);
+        work.ToTable(table => table.HasCheckConstraint("work_item_schedule", """
+            "Revision" > 0 AND
+            (("Industry" = 'beauty' AND "ServiceId" IS NOT NULL AND "StartMinute" IS NOT NULL AND "Duration" IS NOT NULL
+                AND "StartMinute" BETWEEN 0 AND 1439 AND "Duration" BETWEEN 5 AND 720 AND "StartMinute" + "Duration" <= 1440)
+             OR ("Industry" IN ('cleaning','professional','repair','crafts') AND "StartMinute" IS NULL AND "Duration" IS NULL))
+            """));
 
         var containers = BusinessTable<ContainerType>(model, "container_types");
         containers.HasKey(x => new { x.BusinessId, x.Id });

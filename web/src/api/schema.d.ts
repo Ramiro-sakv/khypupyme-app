@@ -683,6 +683,7 @@ export interface paths {
                     vehicleBrand?: string;
                     vehicleModel?: string;
                     year?: number;
+                    service?: boolean;
                     page?: number;
                 };
                 header?: never;
@@ -999,6 +1000,117 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["CommercePageOfDeliveryInfo"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/commerce/work": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    day?: string;
+                    filter?: string;
+                    page?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CommercePageOfWorkInfo"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/commerce/work/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkInfo"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/commerce/work-attention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkAttention"];
                     };
                 };
             };
@@ -1448,6 +1560,7 @@ export interface paths {
                     vehicleBrand?: string;
                     vehicleModel?: string;
                     year?: number;
+                    service?: boolean;
                     page?: number;
                 };
                 header?: never;
@@ -1764,6 +1877,117 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["CommercePageOfDeliveryInfo"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/practice-commerce/work": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    day?: string;
+                    filter?: string;
+                    page?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CommercePageOfWorkInfo"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/practice-commerce/work/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkInfo"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/practice-commerce/work-attention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WorkAttention"];
                     };
                 };
             };
@@ -2387,6 +2611,10 @@ export interface components {
             tileProduct?: null | components["schemas"]["TileProfile"];
             cementProduct?: null | components["schemas"]["CementSetup"];
             delivery?: null | components["schemas"]["DeliveryInput"];
+            serviceProduct?: null | boolean;
+            work?: null | components["schemas"]["WorkInput"];
+            workLink?: null | components["schemas"]["WorkRevision"];
+            workState?: null | string;
         };
         CommercePageOfCustomerInfo: {
             items: components["schemas"]["CustomerInfo"][];
@@ -2418,6 +2646,10 @@ export interface components {
         };
         CommercePageOfTimberStockInfo: {
             items: components["schemas"]["TimberStockInfo"][];
+            hasMore: boolean;
+        };
+        CommercePageOfWorkInfo: {
+            items: components["schemas"]["WorkInfo"][];
             hasMore: boolean;
         };
         CommerceReport: {
@@ -2556,6 +2788,7 @@ export interface components {
             debtBalanceMinor: number;
             containers: components["schemas"]["ContainerMovementInfo"][];
             delivery: null | components["schemas"]["DeliveryInfo"];
+            work: null | components["schemas"]["WorkCharge"];
         };
         EntryInfo: {
             /** Format: uuid */
@@ -2608,6 +2841,8 @@ export interface components {
             specialty?: null | components["schemas"]["ProductSpecialty"];
             printing?: null | components["schemas"]["PrintingDetail"];
             tile?: null | components["schemas"]["TileCoverage"];
+            /** @default false */
+            isService: boolean;
         };
         LotAllocation: {
             lot: string;
@@ -2719,6 +2954,7 @@ export interface components {
             sellableStock: null | number;
             cosmetic: null | components["schemas"]["CosmeticProfile"];
             specialty: null | components["schemas"]["ProductSpecialty"];
+            isService: boolean;
         };
         ProductSpecialty: {
             detail: null | components["schemas"]["ProductDetail"];
@@ -2874,6 +3110,81 @@ export interface components {
             /** Format: int32 */
             toYear: number;
             confirmed: boolean;
+        };
+        WorkAttention: {
+            /** Format: int32 */
+            today: number;
+            /** Format: int32 */
+            overdue: number;
+            /** Format: int32 */
+            readyToCharge: number;
+        };
+        WorkCharge: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+        };
+        WorkDetails: {
+            tasks?: null | string;
+            plannedMaterials?: null | string;
+            usedMaterials?: null | string;
+            deliverables?: null | string;
+            equipment?: null | string;
+            accessories?: null | string;
+            fault?: null | string;
+            diagnosis?: null | string;
+            specifications?: null | string;
+        };
+        WorkInfo: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            industry: string;
+            /** Format: uuid */
+            customerId: string;
+            customerName: string;
+            /** Format: uuid */
+            serviceId: null | string;
+            /** Format: date */
+            day: string;
+            /** Format: int32 */
+            startMinute: null | number;
+            /** Format: int32 */
+            duration: null | number;
+            /** Format: int64 */
+            budgetMinor: null | number;
+            address: null | string;
+            details: components["schemas"]["WorkDetails"];
+            state: string;
+            /** Format: int32 */
+            revision: number;
+            /** Format: uuid */
+            saleId: null | string;
+            /** Format: uuid */
+            receiptId: null | string;
+            /** Format: date */
+            deliveredOn: null | string;
+        };
+        WorkInput: {
+            title: string;
+            /** Format: date */
+            day: string;
+            /** Format: uuid */
+            serviceId?: null | string;
+            /** Format: int32 */
+            startMinute?: null | number;
+            /** Format: int32 */
+            duration?: null | number;
+            /** Format: int64 */
+            budgetMinor?: null | number;
+            address?: null | string;
+            details?: null | components["schemas"]["WorkDetails"];
+        };
+        WorkRevision: {
+            /** Format: uuid */
+            id: string;
+            /** Format: int32 */
+            revision: number;
         };
     };
     responses: never;

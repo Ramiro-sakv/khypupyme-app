@@ -4,7 +4,9 @@ using KhypuPyme.Api.Businesses;
 using KhypuPyme.Api.Persistence;
 using KhypuPyme.Api.Timber;
 using KhypuPyme.Api.Retail;
+using KhypuPyme.Api.Services;
 using Microsoft.EntityFrameworkCore;
+using static KhypuPyme.Api.Commerce.CommerceRules;
 
 namespace KhypuPyme.Api.Commerce;
 
@@ -21,8 +23,8 @@ internal static class CommerceEndpoints
         group.WithTags("Comercio").RequireAuthorization("Account");
         var reads = group.MapGroup("").AddEndpointFilter<ReadCommerceScope>();
         reads.MapGet("/products", (string? search, bool? active, string? attention, string? vehicleBrand, string? vehicleModel, int? year,
-            int? page, CommerceReads service, CancellationToken ct) =>
-            service.ProductsAsync(search, active, attention, vehicleBrand, vehicleModel, year, page, ct)).Produces<CommercePage<ProductInfo>>();
+            bool? service, int? page, CommerceReads query, CancellationToken ct) =>
+            query.ProductsAsync(search, active, attention, vehicleBrand, vehicleModel, year, service, page, ct)).Produces<CommercePage<ProductInfo>>();
         reads.MapGet("/products/{id:guid}", async (Guid id, CommerceReads service, CancellationToken ct) =>
             Found(await service.ProductAsync(id, ct))).Produces<ProductInfo>();
         reads.MapGet("/products/code", async (string? code, StoreReads store, CancellationToken ct) =>
@@ -40,6 +42,12 @@ internal static class CommerceEndpoints
         reads.MapGet("/deliveries", (int? page, KhypuPymeDbContext db, CancellationToken ct) =>
             CommerceReads.PageAsync(FurnitureDeliveries.Query(db), page, ct))
             .Produces<CommercePage<DeliveryInfo>>();
+        reads.MapGet("/work", (DateOnly? day, string? filter, int? page, KhypuPymeDbContext db, TimeProvider clock, CancellationToken ct) =>
+            WorkQueries.ListAsync(db, day, filter, LocalDate(clock.GetUtcNow()), page, ct)).Produces<CommercePage<WorkInfo>>();
+        reads.MapGet("/work/{id:guid}", async (Guid id, KhypuPymeDbContext db, CancellationToken ct) =>
+            Found(await WorkQueries.FindAsync(db, id, ct))).Produces<WorkInfo>();
+        reads.MapGet("/work-attention", (KhypuPymeDbContext db, TimeProvider clock, CancellationToken ct) =>
+            WorkQueries.AttentionAsync(db, LocalDate(clock.GetUtcNow()), ct)).Produces<WorkAttention>();
         reads.MapGet("/containers", async (Guid? customer, KhypuPymeDbContext db, CancellationToken ct) =>
         {
             if (customer is Guid id && !await db.Set<Customer>().AnyAsync(x => x.Id == id, ct))

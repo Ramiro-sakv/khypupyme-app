@@ -99,7 +99,8 @@ export function BusinessHome({ business, industry, icon, cash, days, cashError, 
           </Button>
           <Button variant="secondary" icon="shops" onClick={openSale}>{business.industry === "convenience" ? "Venta rápida con lector" :
             business.industry === "appliances" ? "Vender equipos" : business.industry === "electronics" ? "Vender accesorios y equipos" :
-            business.industry === "footwear" ? "Vender por talla" : business.industry === "stationery" ? "Vender artículos e impresión" : "Vender"}</Button>
+            business.industry === "footwear" ? "Vender por talla" : business.industry === "stationery" ? "Vender artículos e impresión" :
+            business.industry === "beauty" ? "Atender sin cita" : business.industry === "crafts" ? "Vender piezas listas" : "Vender"}</Button>
           <Button variant="secondary" icon="parcel" onClick={openPurchase}>{business.industry === "appliances" || business.industry === "electronics" ?
             "Recibir equipos por serie" : business.industry === "hardware" ? "Recibir piezas y rollos" : "Registrar compra"}</Button>
         </Card>

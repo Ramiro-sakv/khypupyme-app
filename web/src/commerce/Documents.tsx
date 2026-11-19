@@ -11,7 +11,7 @@ import { DeliveryPanel } from "../retail/FurnitureDeliveries";
 
 const historyKinds = ["sale", "purchase", "quote", "return", "expense", "void-expense",
   "stock-loss", "open-cash", "close-cash", "collect", "exchange", "inspection",
-  "containers", "container-stock", "hold-lot", "release-lot", "discard-lot", "open-cement"];
+  "containers", "container-stock", "hold-lot", "release-lot", "discard-lot", "open-cement", "repair-receipt"];
 
 export function HistoryPage({ initialKind }: { initialKind: string }) {
   const [kind, setKind] = useState(initialKind);
@@ -48,8 +48,9 @@ export function EntryList({ kind, cashSession, caption }: { kind?: string; cashS
   </Card>;
 }
 
-export function DocumentPage({ id, back, convert, openSerial, furniture }: {
+export function DocumentPage({ id, back, convert, openSerial, furniture, openWork }: {
   id: string; back: () => void; convert: (quote: EntryDocument) => void; openSerial?: (serial: string) => void; furniture?: boolean;
+  openWork?: (id: string) => void;
 }) {
   const data = useCommerceData<EntryDocument>("/documents/" + id);
   const document = data.data;
@@ -81,17 +82,19 @@ export function DocumentPage({ id, back, convert, openSerial, furniture }: {
         {document.customerName && <p>{document.customerName}</p>}
         {document.method && <p>Forma de pago · {methodLabel(document.method)}</p>}
         {document.expiresOn && <p>Vigencia hasta {dateLabel(document.expiresOn)}</p>}
-        {document.note && <p>{document.note}</p>}
+        {document.note && <p className="document-note">{document.note}</p>}
         {document.kind === "expense" && document.linked && <Alert>Gasto anulado</Alert>}
         {document.kind === "quote" && document.linked && <Alert>Cotización convertida en venta</Alert>}
         {error && <Alert tone="error">{error}</Alert>}
         <dl className="business-summary document-summary">
           {!!document.discountMinor && <><dt>Descuento</dt><dd>{bob(document.discountMinor)}</dd></>}
-          {amount && <><dt>{amount.label}</dt><dd className="trade-total">{bob(amount.minor)}</dd></>}
+          {amount && document.kind !== "repair-receipt" && <><dt>{amount.label}</dt><dd className="trade-total">{bob(amount.minor)}</dd></>}
           {!!document.cashDeltaMinor && <><dt>Movimiento de caja</dt><dd>{bob(document.cashDeltaMinor)}</dd></>}
           {!!document.debtDeltaMinor && <><dt>Movimiento del fiado</dt><dd>{bob(document.debtDeltaMinor)}</dd></>}
         </dl>
         {document.sourceId && <Button variant="plain" onClick={() => showDocument(document.sourceId!)}>Ver operación de origen</Button>}
+        {document.work && openWork && <Button variant="plain" onClick={() => openWork(document.work!.id)}>
+          Ver cita u orden · {document.work.title}</Button>}
       </Card>
       {document.lines.length > 0 && <Card><DataTable caption="Productos confirmados"
         columns={document.kind === "open-cement" ? ["Producto", "Cantidad", "Valor"] : ["Producto", "Cantidad", "Importe unitario", "Subtotal"]}
@@ -126,7 +129,7 @@ export function DocumentPage({ id, back, convert, openSerial, furniture }: {
 
 function documentTitle(kind: string) {
   const name = documentName(kind);
-  if (kind === "hold-lot" || kind === "release-lot") return name;
+  if (kind === "hold-lot" || kind === "release-lot" || kind === "repair-receipt") return name;
   return name + (["exchange", "containers", "expense", "collect", "close-cash"].includes(kind) ? " confirmado" : " confirmada");
 }
 
@@ -153,17 +156,19 @@ function ReturnEditor({ document, close }: { document: EntryDocument; close: () 
       }, (result) => showDocument(result.entityId));
     }}>
     {document.lines.filter((line) => remainingQuantity(line) > 0).map((line) => {
-      const current = chosen[line.lineId] ?? { quantity: "0", restock: !line.details?.printing };
+      const withoutStock = line.details?.printing || line.details?.isService;
+      const current = chosen[line.lineId] ?? { quantity: "0", restock: !withoutStock };
       const remaining = remainingQuantity(line);
       const measured = line.details?.measure;
       return <div className="return-line" key={line.lineId}>
         <TextField label={(line.details?.printing ? "Caras a devolver de " : line.details?.specialty?.countUnit === "pair" ? "Pares a devolver de " :
-          measured ? "Cantidad a devolver (" + unitLabels[returnUnit(measured)] + ") de " : "Piezas a devolver de ") +
+          measured ? "Cantidad a devolver (" + unitLabels[returnUnit(measured)] + ") de " :
+          line.details?.isService ? "Cantidad a reembolsar de " : "Piezas a devolver de ") +
           line.name + (line.timber ? " · " + documentTimber(document, line) : line.details ? " · " + describeLine(line) : "")}
           hint={remaining + " disponibles de la venta original"}
           type="number" min={0} max={remaining} step={measured && returnUnit(measured) !== "piece" ? 0.001 : 1} value={current.quantity}
           onChange={(event) => setChosen({ ...chosen, [line.lineId]: { ...current, quantity: event.target.value } })} />
-        {!line.details?.printing && <label className="trade-check"><input type="checkbox" checked={current.restock}
+        {!withoutStock && <label className="trade-check"><input type="checkbox" checked={current.restock}
           onChange={(event) => setChosen({ ...chosen, [line.lineId]: { ...current, restock: event.target.checked } })} />
           {line.details?.serial ? "Enviar a inspección" : "Reintegrar a existencias"}</label>}
       </div>;

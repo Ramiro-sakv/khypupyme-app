@@ -442,6 +442,9 @@ namespace KhypuPyme.Api.Persistence.Migrations
                     b.Property<string>("DetailModel")
                         .HasColumnType("text");
 
+                    b.Property<bool>("IsService")
+                        .HasColumnType("boolean");
+
                     b.Property<long?>("LongMinor")
                         .HasColumnType("bigint");
 
@@ -871,6 +874,83 @@ namespace KhypuPyme.Api.Persistence.Migrations
                     b.ToTable("retail_lots", "khypupyme", t =>
                         {
                             t.HasCheckConstraint("retail_lot_balance", " \"Quantity\" BETWEEN 0 AND 1000000000 AND \"ValueMinor\" BETWEEN 0 AND 1000000000000 AND (\"Quantity\" > 0 OR \"ValueMinor\" = 0) ");
+                        });
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Services.WorkItem", b =>
+                {
+                    b.Property<Guid>("BusinessId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Address")
+                        .HasColumnType("text");
+
+                    b.Property<long?>("BudgetMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("DeliveredOn")
+                        .HasColumnType("date");
+
+                    b.Property<string>("DetailsJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<int?>("Duration")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Industry")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("ReceiptId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("SaleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ServiceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("StartMinute")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("BusinessId", "Id");
+
+                    b.HasIndex("BusinessId", "CustomerId");
+
+                    b.HasIndex("BusinessId", "ReceiptId")
+                        .IsUnique();
+
+                    b.HasIndex("BusinessId", "SaleId")
+                        .IsUnique();
+
+                    b.HasIndex("BusinessId", "ServiceId");
+
+                    b.HasIndex("BusinessId", "Day", "StartMinute", "Id");
+
+                    b.ToTable("work_items", "khypupyme", t =>
+                        {
+                            t.HasCheckConstraint("work_item_schedule", "\"Revision\" > 0 AND\r\n((\"Industry\" = 'beauty' AND \"ServiceId\" IS NOT NULL AND \"StartMinute\" IS NOT NULL AND \"Duration\" IS NOT NULL\r\n    AND \"StartMinute\" BETWEEN 0 AND 1439 AND \"Duration\" BETWEEN 5 AND 720 AND \"StartMinute\" + \"Duration\" <= 1440)\r\n OR (\"Industry\" IN ('cleaning','professional','repair','crafts') AND \"StartMinute\" IS NULL AND \"Duration\" IS NULL))");
                         });
                 });
 
@@ -1568,6 +1648,36 @@ namespace KhypuPyme.Api.Persistence.Migrations
                         .HasForeignKey("BusinessId", "ProductId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Services.WorkItem", b =>
+                {
+                    b.HasOne("KhypuPyme.Api.Businesses.Business", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("KhypuPyme.Api.Commerce.Customer", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId", "CustomerId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("KhypuPyme.Api.Commerce.Entry", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId", "ReceiptId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("KhypuPyme.Api.Commerce.Entry", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId", "SaleId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("KhypuPyme.Api.Commerce.Product", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId", "ServiceId")
+                        .OnDelete(DeleteBehavior.NoAction);
                 });
 
             modelBuilder.Entity("KhypuPyme.Api.Timber.TimberPractice", b =>

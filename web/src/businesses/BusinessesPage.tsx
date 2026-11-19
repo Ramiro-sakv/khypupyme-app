@@ -11,13 +11,17 @@ import type { BusinessProfile, BusinessSelection, IndustryOption } from "./model
 import { TimberPractice } from "../timber/TimberPractice";
 import type { PracticeControls } from "../timber/TimberPractice";
 
-function readView(): BusinessView {
-  const view = new URLSearchParams(location.search).get("vista");
-  return view === "negocios" || view === "crear" || isWorkspaceView(view) ? view : "inicio";
+function readRoute(): { view: BusinessView; workId: string } {
+  const params = new URLSearchParams(location.search);
+  const view = params.get("vista");
+  const work = params.get("trabajo") ?? "";
+  return { view: view === "negocios" || view === "crear" || isWorkspaceView(view) ? view : "inicio",
+    workId: (view === "ventas" || view === "trabajos") &&
+      /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(work) ? work : "" };
 }
 
 export function BusinessesPage({ accountId }: { accountId: string }) {
-  const [view, setView] = useState(readView);
+  const [{ view, workId }, setRoute] = useState(readRoute);
   const [industries, setIndustries] = useState<IndustryOption[]>([]);
   const [business, setBusiness] = useState<BusinessProfile | null>(null);
   const [opening, setOpening] = useState(true);
@@ -25,7 +29,7 @@ export function BusinessesPage({ accountId }: { accountId: string }) {
   const [initialRequest, setInitialRequest] = useState(0);
 
   useEffect(() => {
-    function restoreView() { setView(readView()); }
+    function restoreView() { setRoute(readRoute()); }
     addEventListener("popstate", restoreView);
     return () => removeEventListener("popstate", restoreView);
   }, []);
@@ -51,13 +55,15 @@ export function BusinessesPage({ accountId }: { accountId: string }) {
     return () => controller.abort();
   }, [initialRequest]);
 
-  function navigate(next: BusinessView, replace = false) {
-    if (view === next) return;
+  function navigate(next: BusinessView, replace = false, targetWork = "") {
+    if (view === next && workId === targetWork) return;
     const url = new URL(location.href);
     url.searchParams.set("vista", next);
+    if (targetWork) url.searchParams.set("trabajo", targetWork);
+    else url.searchParams.delete("trabajo");
     if (replace) history.replaceState(null, "", url);
     else history.pushState(null, "", url);
-    setView(next);
+    setRoute({ view: next, workId: targetWork });
     window.scrollTo(0, 0);
   }
 
@@ -82,7 +88,7 @@ export function BusinessesPage({ accountId }: { accountId: string }) {
   const renderWorkspace = (active: BusinessProfile, practice?: PracticeControls, practiceEntry?: ReactNode) =>
     <BusinessWorkspace key={active.id} accountId={accountId} business={active} practice={practice} practiceEntry={practiceEntry}
     industry={industries.find((option) => option.id === business.industry)?.name ?? business.industry}
-    view={view} navigate={navigate} onSave={(updated) => {
+    view={view} workId={workId} navigate={navigate} onSave={(updated) => {
       setBusiness((current) => current?.id === updated.id ? updated : current);
     }} />;
   return business.industry === "timber" ? <TimberPractice key={business.id} business={business} accountId={accountId}

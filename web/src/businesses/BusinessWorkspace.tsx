@@ -212,12 +212,12 @@ export function BusinessWorkspace({ accountId, business, industry, view, workId,
     event.preventDefault();
     go(next);
   }}>
-    <a className="workspace-skip" href="#business-main">Saltar a la pantalla de trabajo</a>
     <nav className="workspace-nav" aria-label="Navegación del negocio">
       <div className="workspace-nav-business">
         <span className="workspace-business-icon"><Icon name={theme.icon} /></span>
         <div><strong>{business.name}</strong><span>{industry}</span></div>
       </div>
+      <a className="workspace-skip" href="#business-main">Ir al contenido</a>
       <ul>{menu.flatMap((item) => [
         item.group && <li key={item.group} className="workspace-nav-group">{item.group}</li>,
         <li key={item.id} className={item.mobile ? undefined : "desktop-nav-item"}>{link(item)}</li>,

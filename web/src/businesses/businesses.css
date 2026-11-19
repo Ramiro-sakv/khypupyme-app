@@ -7,9 +7,11 @@
 .workspace-masthead--compact .card-title { gap: .45rem; }
 .workspace-masthead--compact .card-title > div { display: flex; align-items: baseline; flex-wrap: wrap; gap: .25rem .6rem; }
 .workspace-masthead--compact .card-title p { margin: 0; }
-.workspace-skip { position: absolute; z-index: 6; inset-inline-start: 1rem; transform: translateY(-200%); padding: .6rem;
-  background: var(--surface); color: var(--accent); }
-.workspace-skip:focus { transform: none; }
+.workspace-nav .workspace-skip:not(:focus-visible) { position: absolute; inline-size: 1px; block-size: 1px; min-block-size: 0;
+  padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.workspace-nav .workspace-skip:focus-visible {
+  background: var(--accent-soft); color: var(--accent); outline: 2px solid var(--focus); outline-offset: -2px;
+}
 .workspace-connection { display: inline-flex; gap: .4rem; align-items: center; margin-inline-start: auto; font-size: .8rem; color: var(--muted); }
 .workspace-connection::before { content: ""; width: .46rem; aspect-ratio: 1; border-radius: 50%; background: #9a4735; }
 .workspace-connection[data-online="true"]::before { background: #257557; }

@@ -12,17 +12,19 @@ public sealed record CommerceCommand(
     TimberPrices? TimberProduct = null,
     RetailProfile? RetailProduct = null, ApparelProfile? ApparelProduct = null, EquipmentProfile? EquipmentProduct = null,
     CommandLine[]? ExchangeLines = null, string? Serial = null, bool? Release = null,
-    CosmeticProfile? CosmeticProduct = null, ContainerInput[]? Containers = null, int? StockQuantity = null);
+    CosmeticProfile? CosmeticProduct = null, ContainerInput[]? Containers = null, int? StockQuantity = null,
+    ProductDetail? DetailProduct = null, PartsProfile? PartsProduct = null, PrintingProfile? PrintingProduct = null);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record CommandLine(Guid ProductId, int Quantity, long? UnitMinor = null, bool? Restock = null,
-    TimberDimensions? Timber = null, Guid? OriginalLineId = null, RetailInput? Measure = null, string[]? Serials = null);
+    TimberDimensions? Timber = null, Guid? OriginalLineId = null, RetailInput? Measure = null, string[]? Serials = null,
+    PrintingInput? Printing = null);
 public sealed record CommandResult(Guid OperationId, string Kind, Guid EntityId);
 
 public sealed record CommercePage<T>(T[] Items, bool HasMore);
 public sealed record ProductInfo(Guid Id, string Name, string Code, long PriceMinor, int Stock, long ValueMinor, bool Active, TimberPrices? Timber,
     RetailProfile? Retail, ApparelProfile? Apparel, EquipmentProfile? Equipment, decimal? MeasuredStock, decimal? SellableStock,
-    CosmeticProfile? Cosmetic);
+    CosmeticProfile? Cosmetic, ProductSpecialty? Specialty);
 public sealed record CustomerInfo(Guid Id, string Name, string Phone);
 public sealed record CashInfo(Guid Id, DateTimeOffset OpenedAt, DateTimeOffset? ClosedAt,
     long OpeningMinor, long ExpectedMinor, long? CountedMinor);

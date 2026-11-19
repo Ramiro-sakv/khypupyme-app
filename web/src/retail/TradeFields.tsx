@@ -55,9 +55,10 @@ export function VariantMatrix({ model, choose, disabled, excluded, requireStock 
       const product = matrix.get(size.toUpperCase() + "\u001f" + color.toUpperCase());
       if (!product) return <span aria-label="No registrado">—</span>;
       if (!choose) return product.stock + " disp.";
-      return <Button variant="secondary" aria-label={"Talla " + size + ", " + color + ", " + product.stock + " disponibles"}
+      return <Button variant="secondary" aria-label={"Talla " + size + ", " + color + ", " + product.stock +
+        (product.specialty?.countUnit === "pair" ? " pares disponibles" : " disponibles")}
         disabled={disabled || product.id === excluded || requireStock && product.stock === 0}
-        onClick={() => choose(product)}>{product.stock} disp. · {bob(product.priceMinor)}</Button>;
+        onClick={() => choose(product)}>{product.stock}{product.specialty?.countUnit === "pair" ? " pares" : " disp."} · {bob(product.priceMinor)}</Button>;
     })] }))} />;
 }
 

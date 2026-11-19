@@ -11,6 +11,7 @@ import { LotsTable, VariantMatrix } from "../retail/TradeFields";
 import { fromBase, productAvailability, unitLabels } from "../retail/measures";
 import type { Lot } from "../retail/measures";
 import { LotCorrection } from "../retail/LotCorrection";
+import { CompatibilityFilter, emptyVehicle, initialSpecialty, searchLabel, SpecialtyFields, specialtyCommand, SpecialtySummary, vehicleQuery } from "../retail/SpecialtyFields";
 
 export function CatalogPage({ units, industry, focus }: { units?: TimberUnits; industry?: string; focus?: string }) {
   const { showDocument } = useCommerce();
@@ -21,7 +22,9 @@ export function CatalogPage({ units, industry, focus }: { units?: TimberUnits; i
   const [stock, setStock] = useState<Product>();
   const [correction, setCorrection] = useState<{ product: Product; lot: Lot }>();
   const [filter, setFilter] = useState(focus ?? "");
-  const data = useCommerceData<Page<Product>>("/products?" + new URLSearchParams({ page: String(page), search, ...(filter ? { attention: filter } : {}) }));
+  const [vehicle, setVehicle] = useState(emptyVehicle);
+  const data = useCommerceData<Page<Product>>("/products?" + new URLSearchParams({ page: String(page), search,
+    ...(filter ? { attention: filter } : {}), ...(industry === "spareParts" ? vehicleQuery(vehicle) : {}) }));
 
   return <div className="commerce-stack">
     <CommerceHeading title="Catálogo">
@@ -53,22 +56,25 @@ export function CatalogPage({ units, industry, focus }: { units?: TimberUnits; i
         <option value="">Todo el catálogo</option><option value="reorder">Reposición</option><option value="expiring">Lotes que vencen en 30 días</option>
         {industry === "cosmetics" && <option value="held">Lotes apartados</option>}
       </SelectField>}
-      <SearchForm label={units ? "Buscar por producto, especie o código" : industry === "clothing" ? "Buscar por modelo o código" :
-        industry === "cosmetics" ? "Buscar por marca, presentación o tono" : "Buscar por producto o código"}
+      <SearchForm label={industry === "cosmetics" ? "Buscar por marca, presentación o tono" : searchLabel(industry)}
         onSearch={(value) => { setSearch(value); setPage(1); }} />
+      {industry === "spareParts" && <CompatibilityFilter onChange={(filter) => { setVehicle(filter); setPage(1); }} />}
       {!data.data ? <LoadFeedback {...data} /> : data.data.items.length === 0 ? <NoRecords>Crea un producto para registrar sus compras y ventas.</NoRecords> :
         <DataTable caption="Existencias por producto" columns={["Producto", "Disponible", "Precio", "Valor de stock", "Acciones"]}
           rows={data.data.items.map((product) => ({ id: product.id, cells: [
-            <span>{product.name}<small className="record-secondary">{product.timber?.species && product.timber.species + " · "}
+            <div>{product.name}<small className="record-secondary">{product.timber?.species && product.timber.species + " · "}
               {product.code} · {product.active ? "Activo" : "Archivado"}</small>
               {product.apparel && <small className="record-secondary">{product.apparel.model} · {product.apparel.size} · {product.apparel.color}</small>}
-              {product.cosmetic && <small className="record-secondary">{[product.cosmetic.brand, product.cosmetic.presentation, product.cosmetic.tone].filter(Boolean).join(" · ")}</small>}</span>,
+              {product.cosmetic && <small className="record-secondary">{[product.cosmetic.brand, product.cosmetic.presentation, product.cosmetic.tone].filter(Boolean).join(" · ")}</small>}
+              <SpecialtySummary product={product} />
+              {industry === "spareParts" && !product.specialty?.parts && <small>Compatibilidad por confirmar</small>}</div>,
             productAvailability(product), product.timber ? <div className="timber-rates">
               <span>1–2 pies · {bob(product.timber.superShortMinor)}</span>
               <span>3–6 pies · {bob(product.timber.shortMinor)}</span>
               <span>7–20 pies · {bob(product.timber.longMinor)}</span>
               <small>Por pie tablar</small>
-            </div> : bob(product.priceMinor) + (product.retail ? " / " + unitLabels[product.retail.unit] : ""), bob(product.valueMinor),
+            </div> : bob(product.priceMinor) + (product.retail ? " / " + unitLabels[product.retail.unit] :
+              product.specialty?.printing ? " / cara impresa" : product.specialty?.countUnit === "pair" ? " / par" : ""), bob(product.valueMinor),
             <div className="inline-actions">
               <Button variant="secondary" onClick={() => { setLoss(undefined); setStock(undefined); setEditing(product); }}>Editar</Button>
               {product.timber && units && <Button variant="secondary" onClick={() => { setEditing(null); setLoss(undefined); setStock(product); }}>Ver medidas</Button>}
@@ -92,6 +98,7 @@ function ProductEditor({ product, timberIndustry, industry, onClose }: { product
   const [timber, setTimber] = useState(product ? !!product.timber : timberIndustry);
   const [species, setSpecies] = useState(product?.timber?.species ?? "");
   const [setup, setSetup] = useState(() => initialProductFields(industry, product));
+  const [specialty, setSpecialty] = useState(() => initialSpecialty(product));
   const [rates, setRates] = useState((["superShortMinor", "shortMinor", "longMinor"] as const).map((key) => {
     const saved = product?.timber?.[key];
     return saved === undefined ? "" : editableMoney(saved);
@@ -110,7 +117,8 @@ function ProductEditor({ product, timberIndustry, industry, onClose }: { product
         }
         const amountMinor = parseMoney(price);
         if (amountMinor === null) throw new Error("Escribe un precio con hasta dos decimales.");
-        return { kind: "product", entityId: product?.id, name, code, active, amountMinor, ...productFieldsCommand(setup) };
+        return { kind: "product", entityId: product?.id, name, code, active, amountMinor, ...productFieldsCommand(setup),
+          ...specialtyCommand(industry, setup.kind === "stationery", specialty) };
       }, onClose);
     }}>
     {timberIndustry && !product && <SelectField label="Tipo de producto" value={timber ? "timber" : "piece"}
@@ -121,10 +129,12 @@ function ProductEditor({ product, timberIndustry, industry, onClose }: { product
     {timber && <TextField label="Especie" required maxLength={80} value={species} onChange={(event) => setSpecies(event.target.value)} />}
     <TextField label="Código" required maxLength={40} value={code} onChange={(event) => setCode(event.target.value)} />
     {retailIndustry(industry) && <ProductFields industry={industry} edits={!!product} fields={setup} setFields={setSetup} />}
+    <SpecialtyFields industry={industry} printing={setup.kind === "stationery"} edits={!!product} fields={specialty} update={setSpecialty} />
     {timber ? ["Supercorta · 1–2 pies", "Corta · 3–6 pies", "Larga · 7–20 pies"].map((category, index) =>
       <TextField key={category} label={category + " (Bs por pie tablar)"} inputMode="decimal" required value={rates[index]}
         onChange={(event) => setRates(rates.map((rate, position) => position === index ? event.target.value : rate))} />) :
-      <TextField label={measuredIndustry(setup.kind) ? "Precio por " + unitLabels[setup.unit] + " (Bs)" : "Precio unitario (Bs)"}
+      <TextField label={setup.kind === "stationery" ? "Precio por cara impresa (Bs)" : setup.kind === "footwear" ? "Precio por par (Bs)" :
+        measuredIndustry(setup.kind) ? "Precio por " + unitLabels[setup.unit] + " (Bs)" : "Precio unitario (Bs)"}
         inputMode="decimal" required value={price} onChange={(event) => setPrice(event.target.value)} />}
     {product && <SelectField label="Estado" value={active ? "active" : "archived"} onChange={(event) => setActive(event.target.value === "active")}>
       <option value="active">Activo</option><option value="archived">Archivado</option>

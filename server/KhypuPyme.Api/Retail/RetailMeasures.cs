@@ -30,6 +30,8 @@ internal static partial class RetailMeasures
         "lb" when profile.Unit is "g" or "kg" or "lb" => 453.59237m,
         "ml" when profile.Unit is "ml" or "l" => 1m,
         "l" when profile.Unit is "ml" or "l" => 1000m,
+        "m" when profile.Unit == "m" => 1m,
+        "roll" when buying && profile.Unit == "m" && profile.RollLength is > 0 => profile.RollLength.Value,
         _ => throw new CommerceFailure("La unidad elegida no corresponde a este producto."),
     };
 
@@ -39,8 +41,8 @@ internal static partial class RetailMeasures
             throw new CommerceFailure("Indica unidades sueltas enteras solamente junto a cajas de bebidas.");
         var captured = Quantity(input.Quantity, allowZero: input.Loose is > 0);
         var factor = Factor(input.Unit, profile, buying || mixed);
-        if (profile.Unit == "piece" && captured != decimal.Truncate(captured))
-            throw new CommerceFailure("Las cajas y unidades se registran en cantidades enteras.");
+        if ((profile.Unit == "piece" || input.Unit == "roll") && captured != decimal.Truncate(captured))
+            throw new CommerceFailure("Las cajas, unidades y rollos se registran en cantidades enteras.");
         var stored = captured * factor + (input.Loose ?? 0);
         if (stored > MaxBase || profile.Unit == "piece" && stored > QuantityLimit)
             throw new CommerceFailure("La cantidad convertida supera el límite de existencias.");

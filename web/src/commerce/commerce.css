@@ -47,6 +47,10 @@
 .industry-home-card { display: grid; gap: .55rem; background: var(--accent-soft); }
 .container-row { display: grid; gap: .35rem; padding: .65rem; border: 1px solid var(--line); border-radius: .5rem; }
 .container-row p { margin: 0; }
+.fitment-row { display: grid; gap: .4rem; border: 1px solid var(--line); border-radius: .5rem; padding: .65rem; }
+.compatibility-filter { display: grid; gap: .55rem; padding-block: .65rem; border-block: 1px solid var(--line); }
+.compatibility-details { margin-top: .4rem; font-weight: 400; }
+.compatibility-details summary { cursor: pointer; min-height: 44px; align-content: center; }
 @media (max-width: 440px) { .barcode-field { grid-template-columns: minmax(0, 1fr); } }
 .timber-group { display: grid; gap: .75rem; background: var(--surface); }
 .timber-group :is(h3, p), .practice-guide p { margin-block: .2rem; }

@@ -18,12 +18,12 @@ internal sealed class StoreReads(KhypuPymeDbContext db, TimeProvider clock)
         return products.Select(x => new ProductInfo(x.Id, x.Name, x.Code, x.PriceMinor, x.Stock, x.ValueMinor, x.Active,
             x.Species == null ? null : new TimberPrices(x.Species, x.SuperShortMinor!.Value, x.ShortMinor!.Value, x.LongMinor!.Value),
             x.RetailUnit == null ? null : new RetailProfile(x.RetailUnit, x.BoxSize, x.TrackLots,
-                x.Reorder / (x.RetailUnit == "kg" || x.RetailUnit == "l" ? 1000m : x.RetailUnit == "lb" ? 453.59237m : 1m)),
+                x.Reorder / (x.RetailUnit == "kg" || x.RetailUnit == "l" ? 1000m : x.RetailUnit == "lb" ? 453.59237m : 1m), x.RollLength),
             x.Model == null ? null : new ApparelProfile(x.Model, x.Size!, x.Color!),
             x.WarrantyMonths == null ? null : new EquipmentProfile(x.WarrantyMonths.Value), x.RetailUnit == null ? null : x.MeasureStock,
             x.RetailUnit == null ? null : !x.TrackLots ? x.MeasureStock :
                 lots.Where(lot => lot.ProductId == x.Id && lot.BusinessId == x.BusinessId).Sum(lot => lot.Quantity),
-            x.Brand == null ? null : new CosmeticProfile(x.Brand, x.Presentation!, x.Tone)));
+            x.Brand == null ? null : new CosmeticProfile(x.Brand, x.Presentation!, x.Tone), SpecialtyProfiles.Read(x)));
     }
 
     public Task<ProductInfo?> CodeAsync(string? code, CancellationToken ct)
@@ -37,6 +37,18 @@ internal sealed class StoreReads(KhypuPymeDbContext db, TimeProvider clock)
         var key = Text(model, 80, "el modelo", true).ToUpperInvariant();
         return Describe(db.Set<Product>().AsNoTracking().Where(x => x.Active && x.ModelKey == key)
             .OrderBy(x => x.Size).ThenBy(x => x.Color)).ToArrayAsync(ct);
+    }
+
+    public IQueryable<Product> FilterCompatibility(IQueryable<Product> query, string? brand, string? model, int? year)
+    {
+        if (brand is null && model is null && year is null) return query;
+        var brandKey = brand is null ? null : Text(brand, 80, "la marca del vehículo", true).ToUpperInvariant();
+        var modelKey = model is null ? null : Text(model, 80, "el modelo del vehículo", true).ToUpperInvariant();
+        if (year is < 1900 or > 2200) throw new CommerceFailure("El año debe estar entre 1900 y 2200.");
+        var fitments = db.Set<ProductFitment>();
+        return query.Where(p => fitments.Any(f => f.BusinessId == p.BusinessId && f.ProductId == p.Id &&
+            (brandKey == null || f.BrandKey == brandKey) && (modelKey == null || f.ModelKey == modelKey) &&
+            (year == null || f.FromYear <= year && f.ToYear >= year)));
     }
 
     public Task<CommercePage<LotInfo>> LotsAsync(Guid product, string? lot, bool? sellable, int? page, CancellationToken ct)

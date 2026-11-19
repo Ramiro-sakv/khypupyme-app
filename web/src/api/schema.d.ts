@@ -680,6 +680,9 @@ export interface paths {
                     search?: string;
                     active?: boolean;
                     attention?: string;
+                    vehicleBrand?: string;
+                    vehicleModel?: string;
+                    year?: number;
                     page?: number;
                 };
                 header?: never;
@@ -1405,6 +1408,9 @@ export interface paths {
                     search?: string;
                     active?: boolean;
                     attention?: string;
+                    vehicleBrand?: string;
+                    vehicleModel?: string;
+                    year?: number;
                     page?: number;
                 };
                 header?: never;
@@ -2242,6 +2248,7 @@ export interface components {
             originalLineId?: null | string;
             measure?: null | components["schemas"]["RetailInput"];
             serials?: null | string[];
+            printing?: null | components["schemas"]["PrintingInput"];
         };
         CommandResult: {
             /** Format: uuid */
@@ -2282,6 +2289,9 @@ export interface components {
             containers?: null | components["schemas"]["ContainerInput"][];
             /** Format: int32 */
             stockQuantity?: null | number;
+            detailProduct?: null | components["schemas"]["ProductDetail"];
+            partsProduct?: null | components["schemas"]["PartsProfile"];
+            printingProduct?: null | components["schemas"]["PrintingProfile"];
         };
         CommercePageOfCustomerInfo: {
             items: components["schemas"]["CustomerInfo"][];
@@ -2469,6 +2479,8 @@ export interface components {
             warrantyUntil?: null | string;
             direction?: null | string;
             rateUnit?: null | string;
+            specialty?: null | components["schemas"]["ProductSpecialty"];
+            printing?: null | components["schemas"]["PrintingDetail"];
         };
         LotAllocation: {
             lot: string;
@@ -2497,6 +2509,10 @@ export interface components {
             phone: null | string;
             timberUnits: null | string;
         };
+        PartsProfile: {
+            equivalents: string[];
+            compatibility: components["schemas"]["VehicleFitment"][];
+        };
         PasswordInput: {
             email: null | string;
             password: null | string;
@@ -2519,6 +2535,34 @@ export interface components {
         PracticeStatus: {
             session: null | components["schemas"]["PracticeInfo"];
         };
+        PrintingDetail: {
+            profile: components["schemas"]["PrintingProfile"];
+            job: components["schemas"]["PrintingInput"];
+            /** Format: int32 */
+            faces: number;
+            /** Format: int32 */
+            sheets: number;
+        };
+        PrintingInput: {
+            /** Format: int32 */
+            copies: number;
+            /** Format: int32 */
+            facesPerCopy: number;
+            duplex: boolean;
+        };
+        PrintingProfile: {
+            paperSize: string;
+            color: string;
+        };
+        ProductDetail: {
+            reference: string;
+            measure: string;
+            shelf: string;
+            /** @default  */
+            brand: string;
+            /** @default  */
+            model: string;
+        };
         ProductInfo: {
             /** Format: uuid */
             id: string;
@@ -2540,6 +2584,13 @@ export interface components {
             /** Format: double */
             sellableStock: null | number;
             cosmetic: null | components["schemas"]["CosmeticProfile"];
+            specialty: null | components["schemas"]["ProductSpecialty"];
+        };
+        ProductSpecialty: {
+            detail: null | components["schemas"]["ProductDetail"];
+            parts: null | components["schemas"]["PartsProfile"];
+            printing: null | components["schemas"]["PrintingProfile"];
+            countUnit: null | string;
         };
         ReceivableInfo: {
             /** Format: uuid */
@@ -2585,6 +2636,8 @@ export interface components {
             trackLots: boolean;
             /** Format: double */
             reorder: number;
+            /** Format: double */
+            rollLength?: null | number;
         };
         SelectedBusiness: {
             business: null | components["schemas"]["BusinessCard"];
@@ -2658,6 +2711,15 @@ export interface components {
         UnitHistory: {
             unit: components["schemas"]["SerialInfo"];
             movements: components["schemas"]["SerialMovement"][];
+        };
+        VehicleFitment: {
+            brand: string;
+            model: string;
+            /** Format: int32 */
+            fromYear: number;
+            /** Format: int32 */
+            toYear: number;
+            confirmed: boolean;
         };
     };
     responses: never;

@@ -148,18 +148,19 @@ function ReturnEditor({ document, close }: { document: EntryDocument; close: () 
       }, (result) => showDocument(result.entityId));
     }}>
     {document.lines.filter((line) => remainingQuantity(line) > 0).map((line) => {
-      const current = chosen[line.lineId] ?? { quantity: "0", restock: true };
+      const current = chosen[line.lineId] ?? { quantity: "0", restock: !line.details?.printing };
       const remaining = remainingQuantity(line);
       const measured = line.details?.measure;
       return <div className="return-line" key={line.lineId}>
-        <TextField label={(measured ? "Cantidad a devolver (" + unitLabels[returnUnit(measured)] + ") de " : "Piezas a devolver de ") +
+        <TextField label={(line.details?.printing ? "Caras a devolver de " : line.details?.specialty?.countUnit === "pair" ? "Pares a devolver de " :
+          measured ? "Cantidad a devolver (" + unitLabels[returnUnit(measured)] + ") de " : "Piezas a devolver de ") +
           line.name + (line.timber ? " · " + documentTimber(document, line) : line.details ? " · " + describeLine(line) : "")}
           hint={remaining + " disponibles de la venta original"}
           type="number" min={0} max={remaining} step={measured && returnUnit(measured) !== "piece" ? 0.001 : 1} value={current.quantity}
           onChange={(event) => setChosen({ ...chosen, [line.lineId]: { ...current, quantity: event.target.value } })} />
-        <label className="trade-check"><input type="checkbox" checked={current.restock}
+        {!line.details?.printing && <label className="trade-check"><input type="checkbox" checked={current.restock}
           onChange={(event) => setChosen({ ...chosen, [line.lineId]: { ...current, restock: event.target.checked } })} />
-          {line.details?.serial ? "Enviar a inspección" : "Reintegrar a existencias"}</label>
+          {line.details?.serial ? "Enviar a inspección" : "Reintegrar a existencias"}</label>}
       </div>;
     })}
     {document.method === "credit" && <p>La devolución reduce primero el saldo fiado. Si corresponde, el excedente se reembolsa por el método elegido.</p>}

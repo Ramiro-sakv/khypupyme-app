@@ -1,6 +1,7 @@
 import type { components } from "../api/schema";
 import type { EntryDocument, Product } from "../commerce/models";
 import { dateLabel } from "../commerce/models";
+import { specialtyText } from "./specialty";
 
 type Schema = components["schemas"];
 export type RetailProfile = Schema["RetailProfile"];
@@ -10,18 +11,20 @@ export type Lot = Schema["LotInfo"];
 export type StoreAttention = Schema["StoreAttention"];
 
 export const unitLabels: Readonly<Record<string, string>> = {
-  piece: "unidad", box: "caja", g: "g", kg: "kg", lb: "lb", ml: "mL", l: "L",
+  piece: "unidad", box: "caja", g: "g", kg: "kg", lb: "lb", ml: "mL", l: "L", m: "m", roll: "rollo", face: "cara impresa",
 };
 const factors: Readonly<Record<string, bigint>> = {
-  piece: 100_000n, g: 100_000n, kg: 100_000_000n, lb: 45_359_237n, ml: 100_000n, l: 100_000_000n,
+  piece: 100_000n, g: 100_000n, kg: 100_000_000n, lb: 45_359_237n, ml: 100_000n, l: 100_000_000n, m: 100_000n,
 };
 const quantityFormat = new Intl.NumberFormat("es-BO", { maximumFractionDigits: 8 });
 export const quantityLabel = (quantity: number) => quantityFormat.format(quantity);
-export const baseUnit = (unit: string) => unit === "piece" ? "unidad" : ["ml", "l"].includes(unit) ? "mL" : "g";
+export const baseUnit = (unit: string) => unit === "m" || unit === "roll" ? "m" :
+  unit === "piece" || unit === "box" ? "unidad" : ["ml", "l"].includes(unit) ? "mL" : "g";
 export const fromBase = (quantity: number, unit: string) => quantity / (Number(factors[unit]) / 100_000);
 
 export function retailUnits(profile: RetailProfile, buying: boolean, mixed?: boolean) {
   if (profile.unit === "piece") return (buying || mixed) && profile.boxSize > 1 ? ["box", "piece"] : ["piece"];
+  if (profile.unit === "m") return buying ? ["roll", "m"] : ["m"];
   return baseUnit(profile.unit) === "g" ? ["g", "kg", "lb"] : ["ml", "l"];
 }
 
@@ -31,8 +34,10 @@ export function measurePreview(quantity: string, unit: string, profile: RetailPr
   if (!match || !retailUnits(profile, buying, mixed).includes(unit) ||
     loose != null && (!mixed || unit !== "box" || !Number.isInteger(loose) || loose < 0 || loose > 1_000_000)) return null;
   const milli = BigInt(match[1]) * 1000n + BigInt((match[2] ?? "").padEnd(3, "0"));
-  if (milli === 0n && !loose || milli > 1_000_000_000n || profile.unit === "piece" && milli % 1000n !== 0n) return null;
-  const factor = unit === "box" ? BigInt(profile.boxSize) * factors.piece : factors[unit];
+  if (milli === 0n && !loose || milli > 1_000_000_000n || (profile.unit === "piece" || unit === "roll") && milli % 1000n !== 0n) return null;
+  const factor = unit === "box" ? BigInt(profile.boxSize) * factors.piece :
+    unit === "roll" ? BigInt(Math.round((profile.rollLength ?? 0) * 1000)) * 100n : factors[unit];
+  if (!factor) return null;
   const scaled = milli * factor + BigInt(loose ?? 0) * 100_000_000n;
   if (scaled > (profile.unit === "piece" ? 100_000_000_000_000n : 100_000_000_000_000_000n)) return null;
   const denominator = 1000n * (buying ? factor : factors[profile.unit]);
@@ -41,7 +46,8 @@ export function measurePreview(quantity: string, unit: string, profile: RetailPr
 }
 
 export function productAvailability(product: Product) {
-  if (!product.retail) return product.stock + (product.equipment ? " equipos" : " piezas");
+  if (product.specialty?.printing) return "Servicio por cara impresa";
+  if (!product.retail) return product.stock + (product.specialty?.countUnit === "pair" ? " pares" : product.equipment ? " equipos" : " piezas");
   const count = fromBase(product.sellableStock ?? 0, product.retail.unit);
   return quantityLabel(count) + " " + (product.retail.unit === "piece" && count !== 1 ? "unidades" : unitLabels[product.retail.unit]);
 }
@@ -52,6 +58,7 @@ export function describeLine(line: EntryDocument["lines"][number]) {
   const details = line.details;
   if (!details) return "";
   const variant = details.apparel;
+  const printing = details.printing;
   const conversion = details.measure && details.baseQuantity != null && unitLabels[details.measure.unit] !== baseUnit(details.measure.unit) ?
     "Equivale a " + quantityLabel(details.baseQuantity) + " " + baseUnit(details.measure.unit) : "";
   const lot = details.lots?.map((item) => item.lot + (details.lots!.length > 1 && details.measure ?
@@ -61,12 +68,17 @@ export function describeLine(line: EntryDocument["lines"][number]) {
     variant && [variant.model, "Talla " + variant.size, variant.color].join(" · "),
     details.serial && "Serie " + details.serial,
     details.warrantyUntil && "Garantía declarada hasta " + dateLabel(details.warrantyUntil),
-    conversion, lot && "Lote " + lot].filter(Boolean).join(" · ");
+    printing && [line.restocked === false && line.quantity !== printing.faces ? "Trabajo original" : "",
+      printing.profile.paperSize, printing.profile.color === "color" ? "Color" : "Blanco y negro",
+      printing.job.copies + " copias × " + printing.job.facesPerCopy + " caras", printing.job.duplex ? "Doble cara" : "Una cara",
+      printing.faces + " caras impresas", printing.sheets + " hojas"].filter(Boolean).join(" · "),
+    specialtyText(details.specialty), conversion, lot && "Lote " + lot].filter(Boolean).join(" · ");
 }
 
 export function lineQuantity(line: EntryDocument["lines"][number]) {
   const measure = line.details?.measure;
-  if (!measure) return String(line.quantity);
+  if (!measure) return line.details?.printing ? line.quantity + " caras" : line.details?.specialty?.countUnit === "pair" ?
+    line.quantity + (line.quantity === 1 ? " par" : " pares") : String(line.quantity);
   if (measure.unit === "box") return measure.quantity + (measure.quantity === "1" ? " caja" : " cajas") +
     (measure.loose ? " + " + measure.loose + (measure.loose === 1 ? " suelta" : " sueltas") : "");
   return measure.quantity + " " + unitLabels[measure.unit];
@@ -84,4 +96,4 @@ export function remainingQuantity(line: EntryDocument["lines"][number]) {
   return line.quantity - line.returnedQuantity;
 }
 
-export const returnUnit = (measure: Measure) => measure.unit === "box" ? "piece" : measure.unit;
+export const returnUnit = (measure: Measure) => measure.unit === "box" ? "piece" : measure.unit === "roll" ? "m" : measure.unit;

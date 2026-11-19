@@ -63,7 +63,7 @@ internal sealed class EquipmentInventory(CommerceTransaction work)
 
     public async Task<Guid> InspectAsync()
     {
-        if (work.Business.Industry != "appliances" || work.Command.Release is not bool release)
+        if (!SpecialtyProfiles.HasEquipment(work.Business.Industry) || work.Command.Release is not bool release)
             throw new CommerceFailure("Selecciona un resultado válido para la inspección.");
         var unit = await FindAsync(work.Command.Serial);
         if (unit.State != "inspection")

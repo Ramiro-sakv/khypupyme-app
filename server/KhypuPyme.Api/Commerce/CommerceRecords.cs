@@ -25,6 +25,17 @@ internal sealed class Product : IBusinessRecord
     public string? Brand { get; set; }
     public string? Presentation { get; set; }
     public string? Tone { get; set; }
+    public decimal? RollLength { get; set; }
+    public string? DetailJson { get; set; }
+    public string? PartsJson { get; set; }
+    public string? Reference { get; set; }
+    public string? MeasureLabel { get; set; }
+    public string? Shelf { get; set; }
+    public string? DetailBrand { get; set; }
+    public string? DetailModel { get; set; }
+    public string? PrintingSize { get; set; }
+    public string? PrintingColor { get; set; }
+    public string? CountUnit { get; set; }
     public string? Model { get; set; }
     public string? ModelKey { get; set; }
     public string? Size { get; set; }

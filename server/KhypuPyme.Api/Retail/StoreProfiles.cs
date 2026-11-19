@@ -6,9 +6,9 @@ namespace KhypuPyme.Api.Retail;
 
 internal static class StoreProfiles
 {
-    public static bool IsRetail(string industry) => industry is "convenience" or "grocery" or "beverages" or "cosmetics" or "pets";
+    public static bool IsRetail(string industry) => industry is "convenience" or "grocery" or "beverages" or "cosmetics" or "pets" or "hardware";
     public static RetailProfile? Retail(Product product) => product.RetailUnit is null ? null :
-        new(product.RetailUnit, product.BoxSize, product.TrackLots, product.Reorder);
+        new(product.RetailUnit, product.BoxSize, product.TrackLots, product.Reorder, product.RollLength);
     public static ApparelProfile? Apparel(Product product) => product.Model is null ? null : new(product.Model, product.Size!, product.Color!);
 
     public static async Task SaveAsync(CommerceTransaction work, Product product)
@@ -17,6 +17,11 @@ internal static class StoreProfiles
         if (command.RetailProduct is { } retail && IsRetail(work.Business.Industry))
         {
             var factor = RetailMeasures.Factor(retail.Unit, retail, false);
+            if (retail.Unit == "m" && (work.Business.Industry != "hardware" || retail.RollLength is not > 0 or > 100_000 ||
+                decimal.Round(retail.RollLength.Value, 3) != retail.RollLength.Value) ||
+                retail.Unit != "m" && retail.RollLength is not null ||
+                work.Business.Industry == "hardware" && retail.Unit is not ("piece" or "m"))
+                throw new CommerceFailure("Habilita metros con un largo de rollo positivo de hasta 100.000 m, con hasta tres decimales.");
             if (!retail.TrackLots && (work.Business.Industry == "cosmetics" ||
                 work.Business.Industry == "pets" && retail.Unit is "g" or "kg" or "lb"))
                 throw new CommerceFailure("Habilita lotes para conservar el origen de este producto.");
@@ -25,12 +30,14 @@ internal static class StoreProfiles
                 decimal.Round(retail.Reorder, 3) != retail.Reorder ||
                 retail.Unit == "piece" && decimal.Truncate(retail.Reorder) != retail.Reorder)
                 throw new CommerceFailure("Revisa la presentación y el mínimo de reposición.");
-            if (command.EntityId is not null && (product.RetailUnit != retail.Unit || product.TrackLots != retail.TrackLots || product.BoxSize != retail.BoxSize))
+            if (command.EntityId is not null && (product.RetailUnit != retail.Unit || product.TrackLots != retail.TrackLots ||
+                product.BoxSize != retail.BoxSize || product.RollLength != retail.RollLength))
                 throw new CommerceFailure("La unidad de precio, la equivalencia de caja y el control de lotes se fijan al crear la ficha.");
             product.RetailUnit = retail.Unit;
             product.BoxSize = retail.BoxSize;
             product.TrackLots = retail.TrackLots;
             product.Reorder = retail.Reorder * factor;
+            product.RollLength = retail.RollLength;
         }
         else if (command.RetailProduct is not null || product.RetailUnit is not null)
             throw new CommerceFailure("Esta ficha de tienda requiere su configuración de existencias.");
@@ -44,7 +51,7 @@ internal static class StoreProfiles
         else if (command.CosmeticProduct is not null || product.Brand is not null || work.Business.Industry == "cosmetics" && product.RetailUnit is not null)
             throw new CommerceFailure("Indica la marca y presentación de la ficha de cosméticos.");
 
-        if (command.ApparelProduct is { } apparel && work.Business.Industry == "clothing")
+        if (command.ApparelProduct is { } apparel && SpecialtyProfiles.HasVariants(work.Business.Industry))
         {
             var model = Text(apparel.Model, 80, "el modelo", true);
             var size = Text(apparel.Size, 24, "la talla", true);
@@ -67,7 +74,7 @@ internal static class StoreProfiles
         else if (command.ApparelProduct is not null || product.Model is not null)
             throw new CommerceFailure("Esta ficha requiere la variante de ropa.");
 
-        if (command.EquipmentProduct is { } equipment && work.Business.Industry == "appliances")
+        if (command.EquipmentProduct is { } equipment && SpecialtyProfiles.HasEquipment(work.Business.Industry))
         {
             if (equipment.WarrantyMonths is < 0 or > 120)
                 throw new CommerceFailure("La garantía admite de 0 a 120 meses.");

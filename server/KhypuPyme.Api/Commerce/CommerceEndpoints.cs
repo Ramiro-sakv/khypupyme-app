@@ -20,8 +20,9 @@ internal static class CommerceEndpoints
     {
         group.WithTags("Comercio").RequireAuthorization("Account");
         var reads = group.MapGroup("").AddEndpointFilter<ReadCommerceScope>();
-        reads.MapGet("/products", (string? search, bool? active, string? attention, int? page, CommerceReads service, CancellationToken ct) =>
-            service.ProductsAsync(search, active, attention, page, ct)).Produces<CommercePage<ProductInfo>>();
+        reads.MapGet("/products", (string? search, bool? active, string? attention, string? vehicleBrand, string? vehicleModel, int? year,
+            int? page, CommerceReads service, CancellationToken ct) =>
+            service.ProductsAsync(search, active, attention, vehicleBrand, vehicleModel, year, page, ct)).Produces<CommercePage<ProductInfo>>();
         reads.MapGet("/products/{id:guid}", async (Guid id, CommerceReads service, CancellationToken ct) =>
             Found(await service.ProductAsync(id, ct))).Produces<ProductInfo>();
         reads.MapGet("/products/code", async (string? code, StoreReads store, CancellationToken ct) =>

@@ -96,7 +96,11 @@ internal sealed class TradeOperations(CommerceTransaction work)
 
     private async Task AddSaleLinesAsync(Entry entry, TradeRow row, long net, bool quote, string? direction = null)
     {
-        if (!quote && row.Serials is { Length: > 0 } serials)
+        if (row.Printing is { } printing)
+        {
+            entry.Lines.Add(Snapshot(entry, row, net, 0, new(Printing: printing, RateUnit: "face")));
+        }
+        else if (!quote && row.Serials is { Length: > 0 } serials)
         {
             for (var i = 0; i < serials.Length; i++)
             {
@@ -134,7 +138,8 @@ internal sealed class TradeOperations(CommerceTransaction work)
             rows.Length != source.Lines.Count || rows.Any(row => !source.Lines.Any(line =>
                 line.ProductId == row.Product.Id && line.Quantity == row.Quantity && line.UnitMinor == row.UnitMinor &&
                 line.Timber == row.Timber && line.BaseQuantity == row.BaseQuantity &&
-                (row.Measure is null || LineDetails.Parse(line.DetailsJson)?.Measure?.Unit == row.Measure.Unit))))
+                (row.Measure is null || LineDetails.Parse(line.DetailsJson)?.Measure?.Unit == row.Measure.Unit) &&
+                (row.Printing is null || LineDetails.Parse(line.DetailsJson)?.Printing?.Job == row.Printing.Job))))
             throw new CommerceFailure("La cotización cambió. Emite otra antes de convertirla.", 409);
         entry.SourceId = source.Id;
     }
@@ -142,10 +147,10 @@ internal sealed class TradeOperations(CommerceTransaction work)
     public async Task<Guid> ReturnAsync()
     {
         var exchange = work.Command.Kind == "exchange";
-        if (exchange && work.Business.Industry != "clothing")
-            throw new CommerceFailure("Los cambios por talla y color corresponden al rubro de ropa.");
+        if (exchange && !SpecialtyProfiles.HasVariants(work.Business.Industry))
+            throw new CommerceFailure("Los cambios por talla y color corresponden a ropa y calzado.");
         var requested = Lines(work.Command.Lines, returning: true);
-        var sale = await work.SourceAsync("sale", includeLines: true, allowExchange: work.Business.Industry == "clothing");
+        var sale = await work.SourceAsync("sale", includeLines: true, allowExchange: SpecialtyProfiles.HasVariants(work.Business.Industry));
         var returned = await work.Db.Set<Entry>()
             .Where(x => (x.Kind == "return" || x.Kind == "exchange") && x.SourceId == sale.Id)
             .SelectMany(x => x.Lines.Where(line => x.Kind == "return" || line.OriginalLineId != null))
@@ -173,10 +178,10 @@ internal sealed class TradeOperations(CommerceTransaction work)
                 throw new CommerceFailure("Selecciona una variante de la venta original para el cambio.");
             var measure = input.Measure;
             var measured = details?.Measure is { } originalMeasure &&
-                measure is not null && measure.Unit == (originalMeasure.Unit == "box" ? "piece" : originalMeasure.Unit) &&
+                measure is not null && measure.Unit == (originalMeasure.Unit == "box" ? "piece" : originalMeasure.Unit == "roll" ? "m" : originalMeasure.Unit) &&
                 measure.Lot is null && measure.ExpiresOn is null && measure.Loose is null;
             if ((details?.Measure is not null || measure is not null) && !measured ||
-                input.Serials is not null || input.Timber is not null)
+                input.Serials is not null || input.Timber is not null || input.Printing is not null)
                 throw new CommerceFailure("Usa la unidad y la identificación de la línea original.");
             var count = measured ? RetailMeasures.Convert(measure!, StoreProfiles.Retail(product)!, false).Base : input.Quantity;
             var whole = original.BaseQuantity ?? original.Quantity;
@@ -184,6 +189,8 @@ internal sealed class TradeOperations(CommerceTransaction work)
                 throw new CommerceFailure($"La cantidad de {original.Name} supera lo pendiente de la venta original.", 409);
             var refund = RetailMeasures.Proportion(original.SubtotalMinor, before, before + count, whole);
             var restock = input.Restock ?? true;
+            if (details?.Printing is not null && restock)
+                throw new CommerceFailure("La impresión se devuelve por caras cobradas. Elige devolución sin reintegro.");
             long cost;
             if (measured)
             {
@@ -221,7 +228,7 @@ internal sealed class TradeOperations(CommerceTransaction work)
         {
             var replacement = await PrepareAsync(useCatalogPrice: true, work.Command.ExchangeLines ?? []);
             if (replacement.Any(row => row.Product.Model is null || entry.Lines.Any(line => line.ProductId == row.Product.Id)))
-                throw new CommerceFailure("Selecciona una variante de ropa distinta como reemplazo.");
+                throw new CommerceFailure("Selecciona una variante de talla y color distinta como reemplazo.");
             var newTotal = Total(replacement.Select(row => row.Subtotal));
             foreach (var row in replacement) await AddSaleLinesAsync(entry, row, row.Subtotal, false, "replacement");
             entry.SalesMinor += newTotal;
@@ -248,6 +255,8 @@ internal sealed class TradeOperations(CommerceTransaction work)
             var product = await work.ProductAsync(line.ProductId);
             if (product.WarrantyMonths is not null)
                 throw new CommerceFailure("La baja de un equipo se resuelve por su serie desde Inspección.");
+            if (product.PrintingSize is not null || line.Printing is not null)
+                throw new CommerceFailure("La impresión se registra como servicio desde la venta.");
             if (StoreProfiles.Retail(product) is { } profile)
             {
                 var measure = line.Measure ?? throw new CommerceFailure("Indica la cantidad y la unidad de la salida.");
@@ -284,7 +293,14 @@ internal sealed class TradeOperations(CommerceTransaction work)
             var serials = equipment.Validate(product, line, required: work.Command.Kind != "quote");
             if (work.Command.Kind == "quote" && serials.Length > 0)
                 throw new CommerceFailure("Selecciona la serie al confirmar la venta.");
-            if (StoreProfiles.Retail(product) is { } profile)
+            if (product.PrintingSize is not null || line.Printing is not null)
+            {
+                var printing = SpecialtyProfiles.Printing(product, line.Printing, useCatalogPrice);
+                if (line.Measure is not null || line.Serials is not null || dimension is not null)
+                    throw new CommerceFailure("La impresión usa copias y caras por copia.");
+                rows.Add(new TradeRow(product, printing.Faces, unit, Money(unit * printing.Faces, "un subtotal"), null, Printing: printing));
+            }
+            else if (StoreProfiles.Retail(product) is { } profile)
             {
                 var measure = line.Measure ?? throw new CommerceFailure("Indica la cantidad y la unidad del producto.");
                 if (useCatalogPrice && (measure.ExpiresOn is not null ||
@@ -329,9 +345,15 @@ internal sealed class TradeOperations(CommerceTransaction work)
         UnitMinor = row.UnitMinor, SubtotalMinor = subtotal, CostMinor = cost,
         Species = row.Product.Species, LengthMicros = row.Timber?.LengthMicros, ThicknessMicros = row.Timber?.ThicknessMicros,
         WidthMicros = row.Timber?.WidthMicros,
-        BaseQuantity = row.BaseQuantity, DetailsJson = LineDetails.Save(details),
+        BaseQuantity = row.BaseQuantity, DetailsJson = LineDetails.Save(AddDescription(row.Product, details)),
     };
 
+    private static LineDetails? AddDescription(Product product, LineDetails? details)
+    {
+        var specialty = SpecialtyProfiles.Read(product);
+        return specialty is null ? details : (details ?? new()) with { Specialty = specialty };
+    }
+
     private sealed record TradeRow(Product Product, int Quantity, long UnitMinor, long Subtotal, TimberDimensions? Timber,
-        RetailInput? Measure = null, decimal? BaseQuantity = null, string[]? Serials = null);
+        RetailInput? Measure = null, decimal? BaseQuantity = null, string[]? Serials = null, PrintingDetail? Printing = null);
 }

@@ -133,3 +133,27 @@ El bloque se verifica con `scripts/Test-Block6.ps1`. El recorrido de Edge usa la
 | Compatibilidad | Lint, TypeScript, compilaciones y regresiones de los bloques 4 a 6 aprobados. Migración aplicada en las bases de prueba y desarrollo. |
 
 La comprobación de PostgreSQL usa `scripts/Test-Block7a.ps1`. El recorrido de Edge usa la configuración opcional del bloque 5.
+
+## Bloque 7B · Calzado, Electrónica, Ferretería, Repuestos y Librería
+
+- Calzado registra variantes por modelo, talla y color y presenta las existencias en pares. Desde una venta se elige otra talla o color del mismo modelo. El cambio conserva las líneas originales y confirma la devolución, la salida del reemplazo y la diferencia de cobro en una transacción.
+- Electrónica combina accesorios por cantidad y equipos por serie en un comprobante. La ficha técnica agrega marca, modelo y referencia. Las unidades vendidas conservan su garantía declarada y una devolución pasa por inspección.
+- Ferretería busca por código, referencia, medida o estante. La ficha se configura por piezas/cajas o por metros con longitud declarada de rollo. La compra guarda la conversión aplicada y su costo. La venta y la devolución operan sobre los metros reales disponibles.
+- Repuestos guarda referencias originales y equivalentes y una lista de compatibilidades declaradas. Los filtros de marca, modelo y año se aplican a una misma fila de compatibilidad en el servidor, antes de paginar. Las filas pendientes se muestran por confirmar. Los comprobantes conservan la ficha que se utilizó al vender.
+- Librería incluye artículos y tarifas de impresión por tamaño y color en una venta. El servidor calcula caras como copias por caras de cada copia y hojas por copia según una cara o doble cara. El servicio se cobra por cara y los artículos vendidos se descuentan como líneas independientes.
+- Las ampliaciones conservan las huellas de las solicitudes anteriores. Las referencias y compatibilidades tienen claves foráneas por negocio y políticas de aislamiento de PostgreSQL.
+
+### Recorridos verificados
+
+| Rubro | Recorrido y resultado |
+|---|---|
+| Calzado | Crear tallas 40, 41 y 42, comprar pares, vender talla 40 e iniciar cambio desde la venta. La talla 41 sin stock se rechazó sin reintegrar el par anterior. El reemplazo por talla 42 confirmó Bs 10 de diferencia. |
+| Electrónica | Comprar accesorios y dos equipos con serie, vender ambos tipos en un comprobante por Bs 850 y devolver el equipo a inspección. Se verificaron rechazo de serie duplicada, garantía histórica y liberación de la unidad. |
+| Ferretería | Comprar dos rollos de 50 m incorporó 100 m. Vender 12,5 m y devolver 2,5 m dejó 90 m. Una salida de más del saldo se rechazó y la búsqueda encontró referencia, medida y estante. |
+| Repuestos | Buscar una referencia equivalente y filtrar por marca, modelo y año encontró la compatibilidad declarada. Se comprobaron extremos inclusivos del rango y rechazo de combinar la marca de una fila con el modelo de otra. Editar la ficha conservó el comprobante previo. |
+| Librería | Vender dos lápices y tres copias de cinco caras a doble cara produjo 15 caras, nueve hojas y un total de Bs 10,50. Cambiar a una cara conservó el importe de impresión y mostró 15 hojas. |
+| Edge a 360 px | Completados matriz de pares y cambio, venta mixta por serie, compra por rollo, aviso de faltante, filtro de vehículo, impresión a doble cara y descarga del PDF. |
+| Contratos anteriores | Las huellas almacenadas de los contratos de los bloques 6 y 7A coincidieron con las calculadas desde sus formatos originales. |
+| Verificación final | Lint, TypeScript y compilaciones web/C# aprobados. Pasaron las regresiones PostgreSQL de los bloques 4, 5, 6 y 7A. La migración se aplicó a pruebas y desarrollo. Vite conserva el aviso de tamaño del PDF y las fuentes cargados bajo demanda. |
+
+La verificación usa `scripts/Test-Block7b.ps1`. El recorrido de Edge utiliza la configuración opcional del bloque 5.

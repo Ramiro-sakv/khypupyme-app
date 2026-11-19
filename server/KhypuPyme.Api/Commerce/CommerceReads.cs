@@ -11,11 +11,13 @@ internal sealed class CommerceReads(KhypuPymeDbContext db, TimeProvider clock, S
     private const int PageSize = 20;
     private IQueryable<Entry> Entries => db.Set<Entry>().AsNoTracking();
 
-    public Task<CommercePage<ProductInfo>> ProductsAsync(string? search, bool? active, string? attention, int? page, CancellationToken ct)
+    public Task<CommercePage<ProductInfo>> ProductsAsync(string? search, bool? active, string? attention,
+        string? vehicleBrand, string? vehicleModel, int? year, int? page, CancellationToken ct)
     {
         var query = db.Set<Product>().AsNoTracking();
         if (active is not null) query = query.Where(x => x.Active == active);
         if (attention is not null) query = store.AttentionProducts(query.Where(x => x.Active), attention);
+        query = store.FilterCompatibility(query, vehicleBrand, vehicleModel, year);
         var term = Search(search);
         if (term is not null)
             query = query.Where(x => EF.Functions.ILike(x.Name, term, "\\") || EF.Functions.ILike(x.Code, term, "\\") ||
@@ -23,7 +25,13 @@ internal sealed class CommerceReads(KhypuPymeDbContext db, TimeProvider clock, S
                 (x.Model != null && EF.Functions.ILike(x.Model, term, "\\")) ||
                 (x.Brand != null && EF.Functions.ILike(x.Brand, term, "\\")) ||
                 (x.Presentation != null && EF.Functions.ILike(x.Presentation, term, "\\")) ||
-                (x.Tone != null && EF.Functions.ILike(x.Tone, term, "\\")));
+                (x.Tone != null && EF.Functions.ILike(x.Tone, term, "\\")) ||
+                (x.Reference != null && EF.Functions.ILike(x.Reference, term, "\\")) ||
+                (x.MeasureLabel != null && EF.Functions.ILike(x.MeasureLabel, term, "\\")) ||
+                (x.Shelf != null && EF.Functions.ILike(x.Shelf, term, "\\")) ||
+                (x.DetailBrand != null && EF.Functions.ILike(x.DetailBrand, term, "\\")) ||
+                (x.DetailModel != null && EF.Functions.ILike(x.DetailModel, term, "\\")) ||
+                db.Set<PartReference>().Any(r => r.BusinessId == x.BusinessId && r.ProductId == x.Id && EF.Functions.ILike(r.Reference, term, "\\")));
         return PageAsync(store.Describe(query.OrderBy(x => x.Name).ThenBy(x => x.Id)), page, ct);
     }
 

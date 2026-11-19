@@ -20,6 +20,9 @@ internal static class CommerceModel
         products.Property(x => x.Species).HasMaxLength(100);
         products.Property(x => x.MeasureStock).HasPrecision(20, 8);
         products.Property(x => x.Reorder).HasPrecision(20, 8);
+        products.Property(x => x.RollLength).HasPrecision(12, 3);
+        products.Property(x => x.DetailJson).HasColumnType("jsonb");
+        products.Property(x => x.PartsJson).HasColumnType("jsonb");
         products.HasIndex(x => new { x.BusinessId, x.VariantKey }).IsUnique();
         products.HasIndex(x => new { x.BusinessId, x.ModelKey });
         products.ToTable(table => table.HasCheckConstraint("products_balance",
@@ -103,6 +106,18 @@ internal static class CommerceModel
         equipment.HasKey(x => new { x.BusinessId, x.SerialKey, x.EntryId });
         equipment.HasOne<EquipmentUnit>().WithMany().HasForeignKey(x => new { x.BusinessId, Key = x.SerialKey }).OnDelete(DeleteBehavior.NoAction);
         equipment.HasOne<Entry>().WithMany().HasForeignKey(x => new { x.BusinessId, x.EntryId }).OnDelete(DeleteBehavior.NoAction);
+
+        var references = BusinessTable<PartReference>(model, "part_references");
+        references.HasKey(x => new { x.BusinessId, x.ProductId, x.Key });
+        references.HasIndex(x => new { x.BusinessId, x.Key });
+        references.HasOne<Product>().WithMany().HasForeignKey(x => new { x.BusinessId, x.ProductId }).OnDelete(DeleteBehavior.NoAction);
+
+        var fitments = BusinessTable<ProductFitment>(model, "product_fitments");
+        fitments.HasKey(x => new { x.BusinessId, x.ProductId, x.Position });
+        fitments.HasIndex(x => new { x.BusinessId, x.BrandKey, x.ModelKey, x.FromYear, x.ToYear });
+        fitments.HasOne<Product>().WithMany().HasForeignKey(x => new { x.BusinessId, x.ProductId }).OnDelete(DeleteBehavior.NoAction);
+        fitments.ToTable(table => table.HasCheckConstraint("fitment_years",
+            """ "FromYear" BETWEEN 1900 AND 2200 AND "ToYear" BETWEEN "FromYear" AND 2200 """));
 
         var containers = BusinessTable<ContainerType>(model, "container_types");
         containers.HasKey(x => new { x.BusinessId, x.Id });

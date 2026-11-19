@@ -80,12 +80,26 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
         var timber = command.TimberProduct is not null || command.Lines?.Any(x => x?.Timber is not null || x?.OriginalLineId is not null) == true;
         bool extended = command.CosmeticProduct is not null || command.Containers is not null || command.StockQuantity is not null ||
             command.Lines?.Any(x => x?.Measure?.Loose is not null) == true;
-        object serialized = extended ? command : specialized
+        var current = command.DetailProduct is not null || command.PartsProduct is not null || command.PrintingProduct is not null ||
+            command.RetailProduct?.RollLength is not null ||
+            command.Lines?.Any(x => x?.Printing is not null) == true ||
+            command.ExchangeLines?.Any(x => x?.Printing is not null) == true;
+        object? oldRetail = command.RetailProduct is { } retail ? new { retail.Unit, retail.BoxSize, retail.TrackLots, retail.Reorder } : null;
+        object serialized = current ? command : extended
             ? new
             {
                 command.OperationId, command.Kind, command.EntityId, command.CustomerId, command.SourceId, command.Name,
                 command.Code, command.Phone, command.Method, command.Note, command.AmountMinor, command.DiscountMinor, command.Active,
-                Lines = command.Lines?.Select(PreviousLine), command.TimberProduct, command.RetailProduct, command.ApparelProduct,
+                Lines = command.Lines?.Select(ExtendedLine), command.TimberProduct, RetailProduct = oldRetail, command.ApparelProduct,
+                command.EquipmentProduct, ExchangeLines = command.ExchangeLines?.Select(ExtendedLine), command.Serial, command.Release,
+                command.CosmeticProduct, command.Containers, command.StockQuantity,
+            }
+            : specialized
+            ? new
+            {
+                command.OperationId, command.Kind, command.EntityId, command.CustomerId, command.SourceId, command.Name,
+                command.Code, command.Phone, command.Method, command.Note, command.AmountMinor, command.DiscountMinor, command.Active,
+                Lines = command.Lines?.Select(PreviousLine), command.TimberProduct, RetailProduct = oldRetail, command.ApparelProduct,
                 command.EquipmentProduct, ExchangeLines = command.ExchangeLines?.Select(PreviousLine), command.Serial, command.Release,
             }
             : timber
@@ -109,6 +123,10 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
             line.ProductId, line.Quantity, line.UnitMinor, line.Restock, line.Timber, line.OriginalLineId,
             Measure = line.Measure is { } m ? new { m.Quantity, m.Unit, m.Lot, m.ExpiresOn } : null,
             line.Serials,
+        };
+        static object? ExtendedLine(CommandLine? line) => line is null ? null : new
+        {
+            line.ProductId, line.Quantity, line.UnitMinor, line.Restock, line.Timber, line.OriginalLineId, line.Measure, line.Serials,
         };
     }
 
@@ -139,6 +157,7 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
         product.NormalizedCode = normalizedCode;
         TimberInventory.SetProfile(product, input.TimberProduct, work.Business.Industry == "timber", input.EntityId is null);
         await StoreProfiles.SaveAsync(work, product);
+        await SpecialtyProfiles.SaveAsync(work, product);
         product.PriceMinor = price;
         return product.Id;
     }

@@ -38,13 +38,14 @@ export function ExchangeEditor({ document, close }: { document: EntryDocument; c
     <SelectField label="Variante devuelta" value={lineId} onChange={(event) => { setLineId(event.target.value); setReplacement(undefined); setQuantity("1"); }}>
       {eligible.map((line) => <option key={line.lineId} value={line.lineId}>{describeLine(line)}</option>)}
     </SelectField>
-    <TextField label="Piezas para cambiar" type="number" min={1} max={remainingQuantity(original)} value={quantity} step={1}
+    <TextField label={original.details.specialty?.countUnit === "pair" ? "Pares para cambiar" : "Piezas para cambiar"} type="number" min={1} max={remainingQuantity(original)} value={quantity} step={1}
       onChange={(event) => setQuantity(event.target.value)} />
     <h3>Elige la talla y el color de reemplazo</h3>
     <VariantMatrix key={original.lineId} model={original.details.apparel.model} excluded={original.productId}
       disabled={form.blocked} requireStock choose={setReplacement} />
     {replacement?.apparel && <p>Talla {replacement.apparel.size} · {replacement.apparel.color} · {replacement.stock} disponibles</p>}
-    {replacement && !sufficient && <Alert tone="error">Pediste {count}, hay {replacement.stock} y faltan {count - replacement.stock} piezas de esta variante.</Alert>}
+    {replacement && !sufficient && <Alert tone="error">Pediste {count}, hay {replacement.stock} y faltan {count - replacement.stock}
+      {original.details.specialty?.countUnit === "pair" ? " pares" : " piezas"} de esta variante.</Alert>}
     <ReviewDock total={totalText} cartFocus={title}>
       <form className="account-form" onSubmit={(event) => {
         event.preventDefault();
@@ -54,7 +55,7 @@ export function ExchangeEditor({ document, close }: { document: EntryDocument; c
           exchangeLines: [{ productId: replacement.id, quantity: count, unitMinor: replacement.priceMinor }],
         }), (result) => showDocument(result.entityId));
       }}>
-        {refund !== null && <p>Crédito de la prenda devuelta · {bob(refund)}</p>}
+        {refund !== null && <p>Crédito del producto devuelto · {bob(refund)}</p>}
         {debt > 0 && <p>Aplicado al fiado · {bob(debt)}</p>}
         {total !== null && <p>Reemplazo · {bob(total)}</p>}
         <TextField label="Motivo del cambio" required maxLength={240} value={note} onChange={(event) => setNote(event.target.value)} />

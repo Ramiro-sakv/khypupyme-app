@@ -18,10 +18,13 @@ import type { Measure } from "../retail/measures";
 import { ContainerFields, prepareContainerMoves, useContainerBalances } from "../retail/Containers";
 import type { ContainerDraft } from "../retail/Containers";
 import { PetLotField, useSelectedLots } from "../retail/PetLots";
+import { CompatibilityFilter, emptyVehicle, searchLabel, SpecialtySummary, vehicleQuery } from "../retail/SpecialtyFields";
+import { PrintingFields, previewPrinting } from "../retail/PrintingFields";
+import type { PrintDraft } from "../retail/PrintingFields";
 
 export type TradeKind = "sale" | "purchase" | "quote";
 type Line = { id: string; key?: string; name: string; quantity: string; priceMinor: number; cost: string; timber?: Capture; rates?: Rates;
-  measure?: Omit<Measure, "quantity">; series?: string };
+  measure?: Omit<Measure, "quantity">; series?: string; printing?: PrintDraft };
 type TradeDraft = {
   lines: Line[]; customer?: { id: string; name: string }; discount: string; note: string; method: string; quote?: string;
   containers?: ContainerDraft;
@@ -39,9 +42,11 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
+  const [vehicle, setVehicle] = useState(emptyVehicle);
   const [acknowledged, setAcknowledged] = useState("");
   const cart = useRef<HTMLHeadingElement>(null);
-  const products = useCommerceData<Page<Product>>("/products?" + new URLSearchParams({ active: "true", search, page: String(page) }));
+  const products = useCommerceData<Page<Product>>("/products?" + new URLSearchParams({ active: "true", search, page: String(page),
+    ...(industry === "spareParts" ? vehicleQuery(vehicle) : {}) }));
   const current = useCurrentProducts([...new Set(value.lines.map((line) => line.id))].join(","));
   const form = useCommercialForm();
   const confirmation = workspace.confirmation;
@@ -69,20 +74,22 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
   const lines = value.lines.filter((line) => !line.timber).map((line) => {
     const product = current.data?.[line.id];
     const serials = line.series === undefined ? undefined : seriesFromText(line.series);
-    const quantity = serials?.length ?? Number(line.quantity);
+    const printing = previewPrinting(line.printing);
+    const quantity = printing?.faces ?? serials?.length ?? Number(line.quantity);
     const measure = line.measure && { ...line.measure, quantity: line.quantity.trim(), lot: line.measure.lot?.trim() || undefined };
     const validQuantity = (serials ? quantity <= 100 && new Set(serials.map((serial) => serial.toUpperCase())).size === quantity &&
       serials.every((serial) => serial.length <= 80) && (!value.quote || quantity === Number(line.quantity)) : /^\d+$/.test(line.quantity)) &&
       quantity >= 1 && quantity <= 1_000_000;
     const unitMinor = isPurchase ? parseMoney(line.cost) : line.priceMinor;
     const measured = measure && product?.retail ? measurePreview(measure.quantity, measure.unit, product.retail, isPurchase, unitMinor, measure.loose, mixed) : undefined;
-    const subtotal = measure ? isPurchase && product?.retail?.trackLots && !measure.lot ? null : measured?.subtotal ?? null :
+    const subtotal = line.printing ? !isPurchase && printing && unitMinor !== null && printing.faces * unitMinor <= moneyLimit ? printing.faces * unitMinor : null :
+      measure ? isPurchase && product?.retail?.trackLots && !measure.lot ? null : measured?.subtotal ?? null :
       validQuantity && unitMinor !== null && quantity * unitMinor <= moneyLimit ? quantity * unitMinor : null;
     const available = petSale && measure?.lot ? selectedLots.stock?.[line.id] :
       product?.retail ? product.sellableStock ?? 0 : product?.stock;
-    const requested = measure ? measured?.base : validQuantity ? quantity : undefined;
+    const requested = line.printing ? undefined : measure ? measured?.base : validQuantity ? quantity : undefined;
     return {
-      line, product, quantity, unitMinor, subtotal, measure, serials, requested, available,
+      line, product, quantity, unitMinor, subtotal, measure, serials, requested, available, printing,
       shortage: available !== undefined && requested !== undefined && requested > available,
       changed: !isPurchase && product !== undefined && product.priceMinor !== line.priceMinor,
     };
@@ -117,7 +124,7 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
       }
       const existing = currentDraft.lines.find((line) => line.id === product.id);
       if (existing && !newLot) {
-        if (product.equipment && !quote) return currentDraft;
+        if (product.equipment && !quote || product.specialty?.printing) return currentDraft;
         const quantity = Number(existing.quantity.replace(",", "."));
         return { ...currentDraft, lines: currentDraft.lines.map((line) => line === existing
           ? { ...line, quantity: String(Math.min(1_000_000, Math.round(((quantity || 0) + 1) * 1000) / 1000)) } : line) };
@@ -127,7 +134,9 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
       return { ...currentDraft, lines: [...currentDraft.lines, { id: product.id, name: product.name,
         key: newLot ? crypto.randomUUID() : undefined,
         quantity: "1", priceMinor: product.priceMinor, cost: "",
-        measure: product.retail ? { unit: isPurchase && product.retail.unit === "piece" && product.retail.boxSize > 1 ? "box" : product.retail.unit } : undefined,
+        measure: product.retail ? { unit: isPurchase && product.retail.unit === "piece" && product.retail.boxSize > 1 ? "box" :
+          isPurchase && product.retail.unit === "m" ? "roll" : product.retail.unit } : undefined,
+        printing: product.specialty?.printing ? { copies: "1", facesPerCopy: "1", duplex: false } : undefined,
         series: product.equipment && !quote ? "" : undefined }] };
     });
   }
@@ -158,6 +167,8 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
             lines: proposal.lines.map((line) => ({ id: line.productId, name: line.name, quantity: line.details?.measure?.quantity ?? String(line.quantity),
               priceMinor: line.unitMinor, cost: "", key: line.timber ? line.lineId : undefined,
               measure: line.details?.measure ? { unit: line.details.measure.unit, loose: line.details.measure.loose } : undefined,
+              printing: line.details?.printing ? { copies: String(line.details.printing.job.copies),
+                facesPerCopy: String(line.details.printing.job.facesPerCopy), duplex: line.details.printing.job.duplex } : undefined,
               series: line.details?.direction === "choose-series" ? "" : undefined,
               rates: line.timber ? { species: line.species ?? "", superShortMinor: line.unitMinor, shortMinor: line.unitMinor, longMinor: line.unitMinor } : undefined,
               timber: line.timber ? { units: unitsOf(proposal.timberUnits), length: "", thickness: "", widths: "",
@@ -169,14 +180,15 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
     <div className="trade-split">
       <Card>
         <h2>Productos</h2>
-        {["convenience", "grocery", "beverages"].includes(industry ?? "") && <BarcodeField add={add} disabled={frozen} />}
-        <SearchForm label={industry === "clothing" ? "Buscar por modelo o código" : industry === "cosmetics" ?
-          "Buscar por producto, marca, presentación o tono" : "Buscar por nombre, especie o código"}
+        {["convenience", "grocery", "beverages", "hardware", "spareParts", "stationery"].includes(industry ?? "") &&
+          <BarcodeField add={add} disabled={frozen} />}
+        <SearchForm label={searchLabel(industry)}
           onSearch={(query) => { setSearch(query); setPage(1); setSelectedModel(""); }} />
+        {industry === "spareParts" && <CompatibilityFilter onChange={(filter) => { setVehicle(filter); setPage(1); }} />}
         {!products.data ? <LoadFeedback {...products} /> : products.data.items.length === 0 ? <NoRecords>Consulta el catálogo para dar de alta artículos.</NoRecords> :
           <ul className="trade-products">
-            {products.data.items.filter((product, index, all) => !product.apparel ||
-              all.findIndex((item) => item.apparel?.model.toUpperCase() === product.apparel?.model.toUpperCase()) === index)
+            {products.data.items.filter((product, index, all) => (!isPurchase || !product.specialty?.printing) && (!product.apparel ||
+              all.findIndex((item) => item.apparel?.model.toUpperCase() === product.apparel?.model.toUpperCase()) === index))
               .map((product) => <li key={product.id}>
               <button type="button" className="trade-product" disabled={frozen || (product.timber ? value.lines.length >= 100 :
                 !product.apparel && commercialGroups >= 20 && !lines.some((item) => item.line.id === product.id))}
@@ -184,12 +196,13 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
                 <strong>{product.apparel?.model ?? product.name}</strong>
                 {product.apparel ? <span>Elegir talla y color</span> : <>
                   <span>{product.timber?.species && product.timber.species + " · "}{product.code}</span>
-                  <span>{productAvailability(product)} disp.{product.timber ? " por medidas" : " · " + bob(product.priceMinor)}</span>
+                  <span>{productAvailability(product)}{product.specialty?.printing ? "" : " disp."}{product.timber ? " por medidas" : " · " + bob(product.priceMinor)}</span>
                 </>}
               </button>
             </li>)}
           </ul>}
         <Pages index={page} hasMore={products.data?.hasMore} onChange={setPage} />
+        {isPurchase && products.data?.items.some((product) => product.specialty?.printing) && <p>Los servicios de impresión se cobran desde Ventas.</p>}
         {selectedModel && <VariantMatrix model={selectedModel} choose={add} disabled={frozen} />}
       </Card>
       <Card>
@@ -202,16 +215,18 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
           <Button variant="plain" disabled={frozen} onClick={() => update((draft) => ({ ...draft, quote: undefined }))}>Quitar vínculo</Button>
         </div>}
         {value.lines.length === 0 && <NoRecords>Elige un producto para iniciar el borrador.</NoRecords>}
-        {lines.some((row) => !row.line.measure && row.line.series === undefined && !row.product?.equipment) &&
-          <DataTable caption="Líneas del borrador" columns={["Producto", "Piezas", isPurchase ? "Costo unitario" : "Precio unitario", "Subtotal", "Acción"]}
-            rows={lines.filter((row) => !row.line.measure && row.line.series === undefined && !row.product?.equipment).map(({ line, product, changed, shortage, unitMinor, subtotal, quantity }) => ({ id: line.id, cells: [
+        {lines.some((row) => !row.line.measure && !row.line.printing && row.line.series === undefined && !row.product?.equipment) &&
+          <DataTable caption="Líneas del borrador" columns={["Producto", industry === "footwear" ? "Pares" : "Piezas", isPurchase ? "Costo unitario" : "Precio unitario", "Subtotal", "Acción"]}
+            rows={lines.filter((row) => !row.line.measure && !row.line.printing && row.line.series === undefined && !row.product?.equipment).map(({ line, product, changed, shortage, unitMinor, subtotal, quantity }) => ({ id: line.id, cells: [
               <div>{product?.name ?? line.name}
+                {product && <SpecialtySummary product={product} />}
+                {industry === "spareParts" && !product?.specialty?.parts && <small>Compatibilidad por confirmar</small>}
                 {product?.apparel && <small className="record-secondary">Talla {product.apparel.size} · {product.apparel.color}</small>}
                 {product && kind !== "purchase" && <small className="record-secondary">Pedido {Number.isFinite(quantity) ? quantity : "—"} · Disponible {product.stock}
                   {shortage ? " · Faltan " + (quantity - product.stock) : ""}</small>}
                 {product && !product.active && <small className="trade-issue">Producto archivado</small>}
               </div>,
-              <TextField label={"Piezas de " + line.name} type="number" min={1} max={1_000_000} step={1} value={line.quantity}
+              <TextField label={(product?.specialty?.countUnit === "pair" ? "Pares de " : "Piezas de ") + line.name} type="number" min={1} max={1_000_000} step={1} value={line.quantity}
                 disabled={frozen} onChange={(event) => edit(line.id, { quantity: event.target.value })} />,
               isPurchase ? <TextField label={"Costo de " + line.name} inputMode="decimal" value={line.cost} disabled={frozen}
                 onChange={(event) => edit(line.id, { cost: event.target.value })} /> :
@@ -222,13 +237,16 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
               <Button variant="plain" aria-label={"Quitar " + line.name} disabled={frozen}
                 onClick={() => remove(line.id)}>Quitar</Button>,
             ] }))} />}
-        {lines.filter((row) => row.line.measure || row.line.series !== undefined || row.product?.equipment).map(({ line, product, changed, shortage,
+        {lines.filter((row) => row.line.measure || row.line.printing || row.line.series !== undefined || row.product?.equipment).map(({ line, product, changed, shortage,
           requested, available, subtotal, measure, serials }) => {
           const key = line.key ?? line.id;
           const unit = product?.retail?.unit;
           return <Card className="store-line" key={key}>
             <div className="page-heading"><h3>{line.name}</h3>
               <Button variant="plain" onClick={() => remove(key)} disabled={frozen}>Quitar</Button></div>
+            {product && <SpecialtySummary product={product} />}
+            {line.printing && <PrintingFields value={line.printing} disabled={frozen}
+              update={(printing) => edit(key, { printing })} />}
             {measure && product?.retail && <MeasuredFields profile={product.retail} quantity={line.quantity} measure={measure}
               buying={isPurchase} mixed={mixed} disabled={frozen} onQuantity={(quantity) => edit(key, { quantity })}
               onMeasure={(entry) => edit(key, { measure: entry })} />}
@@ -251,7 +269,7 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
             </p>}
             {isPurchase ? <TextField label={"Costo por " + (measure ? unitLabels[measure.unit] : "equipo") + " (Bs)"} value={line.cost}
               inputMode="decimal" disabled={frozen} onChange={(event) => edit(key, { cost: event.target.value })} /> :
-              <p>{bob(line.priceMinor)} por {unit ? unitLabels[unit] : "equipo"}</p>}
+              <p>{bob(line.priceMinor)} por {line.printing ? "cara impresa" : unit ? unitLabels[unit] : "equipo"}</p>}
             {changed && product && <Button variant="secondary" onClick={() => edit(key, { priceMinor: product.priceMinor })}
               disabled={frozen}>Usar precio actualizado</Button>}
             {isPurchase && product?.retail?.trackLots && <Button variant="secondary" disabled={frozen || value.lines.length >= 100} onClick={() => add(product, true)}>Añadir otro lote</Button>}
@@ -298,8 +316,8 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
           customerId: isPurchase ? undefined : value.customer?.id,
           discountMinor: discount ?? undefined, sourceId: value.quote, note: value.note,
           containers: containers.moves.length ? containers.moves : undefined,
-          lines: [...lines.map(({ line, quantity, unitMinor, measure, serials }): CommandLine =>
-            ({ productId: line.id, quantity: measure ? 1 : quantity, unitMinor, measure, serials })), ...timber.commands],
+          lines: [...lines.map(({ line, quantity, unitMinor, measure, serials, printing }): CommandLine =>
+            ({ productId: line.id, quantity: measure || printing ? 1 : quantity, unitMinor, measure, serials, printing: printing?.job })), ...timber.commands],
         }), (result) => workspace.showDocument(result.entityId), flush);
       }}>
         {withContainers && <details className="buyer"><summary>Envases entregados y devueltos</summary>

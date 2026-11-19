@@ -22,7 +22,7 @@ import { Alert, Button, Card } from "../ui/Primitives";
 import { SerialHistory } from "../retail/SerialHistory";
 import type { StoreAttention } from "../retail/measures";
 import { ContainersPage } from "../retail/Containers";
-import { measuredIndustry } from "../retail/ProductFields";
+import { equipmentIndustry, measuredIndustry, variantIndustry } from "../retail/ProductFields";
 
 const workspaceViews = [
   "inicio", "ventas", "compras", "cotizaciones", "catalogo", "clientes", "caja", "fiados", "gastos", "historial", "informes", "configuracion", "series", "envases",
@@ -66,7 +66,7 @@ export function BusinessWorkspace({ accountId, business, industry, view, navigat
   const [focus, setFocus] = useState("");
   const documentId = document?.origin === view ? document.id : undefined;
   const units = business.industry === "timber" ? unitsOf(business.timberUnits) : undefined;
-  const extra: Navigation | undefined = business.industry === "appliances" ? { id: "series", name: "Series y garantías", icon: "appliance" } :
+  const extra: Navigation | undefined = equipmentIndustry(business.industry) ? { id: "series", name: "Series y garantías", icon: "appliance" } :
     business.industry === "beverages" ? { id: "envases", name: "Envases", icon: "parcel" } : undefined;
   const menu = practice ? navigation.filter((item) => item.id !== "negocios" && item.id !== "configuracion") :
     extra ? [...navigation.slice(0, -2), extra, ...navigation.slice(-2)] : navigation;
@@ -103,7 +103,7 @@ export function BusinessWorkspace({ accountId, business, industry, view, navigat
   }
   function renderView() {
     if (documentId) return <DocumentPage key={documentId} id={documentId} back={() => setDocument(undefined)}
-      openSerial={business.industry === "appliances" ? (serial) => go("series", "serial:" + serial) : undefined}
+      openSerial={equipmentIndustry(business.industry) ? (serial) => go("series", "serial:" + serial) : undefined}
       convert={(source) => { setQuote(source); go("ventas"); }} />;
     switch (view) {
       case "inicio": return <CommercialHome business={business} industry={industry} icon={theme.icon} navigate={go}
@@ -117,7 +117,7 @@ export function BusinessWorkspace({ accountId, business, industry, view, navigat
       case "gastos": return <ExpensesPage />;
       case "fiados": return <ReceivablesPage />;
       case "historial": return <HistoryPage key={historyKind} initialKind={historyKind} />;
-      case "series": return business.industry === "appliances" ? <SerialHistory key={focus} initial={focus.startsWith("serial:") ? focus.slice(7) : undefined}
+      case "series": return equipmentIndustry(business.industry) ? <SerialHistory key={focus} initial={focus.startsWith("serial:") ? focus.slice(7) : undefined}
         filter={focus === "inspection" ? focus : undefined} /> : <Alert>Esta vista pertenece al rubro de Electrodomésticos.</Alert>;
       case "envases": return business.industry === "beverages" ? <ContainersPage /> : <Alert>Esta vista pertenece al rubro de Bebidas.</Alert>;
       case "informes": return <ReportsPage />;
@@ -171,10 +171,16 @@ function CommercialHome({ business, industry, icon, navigate, openSalesHistory }
   return <BusinessHome business={business} industry={industry} icon={icon} cash={summary} days={report.data?.days ?? []}
     cashError={cash.error} reportError={report.error} openCash={() => navigate("caja")}
     openSale={() => navigate("ventas")} openPurchase={() => navigate("compras")} openReports={() => navigate("informes")}
-    industryPanel={business.industry === "clothing" ? <Card className="industry-home-card">
+    industryPanel={variantIndustry(business.industry) ? <Card className="industry-home-card">
       <h2>Tallas, colores y cambios</h2><Button variant="secondary" onClick={() => navigate("catalogo")}>Consultar variantes</Button>
       <Button variant="secondary" onClick={openSalesHistory}>Buscar venta para un cambio</Button>
-    </Card> : (measuredIndustry(business.industry) || business.industry === "appliances") &&
+    </Card> : business.industry === "spareParts" ? <Card className="industry-home-card">
+      <h2>Referencias y compatibilidad</h2><Button variant="secondary" onClick={() => navigate("catalogo")}>Buscar repuesto por vehículo</Button>
+      <Button variant="secondary" onClick={() => navigate("ventas")}>Vender repuestos</Button>
+    </Card> : business.industry === "stationery" ? <Card className="industry-home-card">
+      <h2>Artículos e impresión</h2><Button variant="secondary" onClick={() => navigate("ventas")}>Cobrar artículos e impresiones</Button>
+      <Button variant="secondary" onClick={() => navigate("catalogo")}>Configurar tarifas por cara</Button>
+    </Card> : (measuredIndustry(business.industry) || equipmentIndustry(business.industry)) &&
       <IndustryAttention industry={business.industry} navigate={navigate} />} />;
 }
 
@@ -183,7 +189,7 @@ function IndustryAttention({ industry, navigate }: { industry: string; navigate:
   const store = measuredIndustry(industry);
   function count(value?: number) { return value == null ? "" : " · " + value; }
   return <Card className="industry-home-card">
-    <h2>{industry === "beverages" ? "Reposición y envases" : industry === "pets" ? "Alimento y lotes de origen" :
+    <h2>{industry === "hardware" ? "Estantes y reposición" : industry === "beverages" ? "Reposición y envases" : industry === "pets" ? "Alimento y lotes de origen" :
       industry === "cosmetics" ? "Lotes de cosméticos" : store ? "Reposición y vencimientos" : "Garantías e inspecciones"}</h2>
     {store ? <>
       <Button variant="secondary" onClick={() => navigate("catalogo", "reorder")}>Reponer productos{count(attention.data?.reorder)}</Button>

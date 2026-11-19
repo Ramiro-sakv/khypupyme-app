@@ -3,7 +3,7 @@ using KhypuPyme.Api.Commerce;
 
 namespace KhypuPyme.Api.Retail;
 
-public sealed record RetailProfile(string Unit, int BoxSize, bool TrackLots, decimal Reorder);
+public sealed record RetailProfile(string Unit, int BoxSize, bool TrackLots, decimal Reorder, decimal? RollLength = null);
 public sealed record ApparelProfile(string Model, string Size, string Color);
 public sealed record EquipmentProfile(int WarrantyMonths);
 public sealed record RetailInput(string Quantity, string Unit, string? Lot = null, DateOnly? ExpiresOn = null, int? Loose = null);
@@ -11,7 +11,7 @@ public sealed record CosmeticProfile(string Brand, string Presentation, string? 
 public sealed record LotAllocation(string Lot, DateOnly? ExpiresOn, decimal Quantity, long CostMinor);
 public sealed record LineDetails(RetailInput? Measure = null, decimal? BaseQuantity = null,
     LotAllocation[]? Lots = null, ApparelProfile? Apparel = null, string? Serial = null, DateOnly? WarrantyUntil = null,
-    string? Direction = null, string? RateUnit = null)
+    string? Direction = null, string? RateUnit = null, ProductSpecialty? Specialty = null, PrintingDetail? Printing = null)
 {
     internal static LineDetails? Parse(string? json) => json is null ? null : JsonSerializer.Deserialize<LineDetails>(json);
     internal static string? Save(LineDetails? value) => value is null ? null : JsonSerializer.Serialize(value);

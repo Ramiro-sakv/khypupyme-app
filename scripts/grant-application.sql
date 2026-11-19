@@ -21,3 +21,4 @@ GRANT SELECT, INSERT ON khypupyme.equipment_movements TO :"app_name";
 GRANT SELECT, INSERT, UPDATE ON khypupyme.container_types, khypupyme.container_balances TO :"app_name";
 GRANT SELECT, INSERT ON khypupyme.container_movements TO :"app_name";
 GRANT SELECT, INSERT, DELETE ON khypupyme.part_references, khypupyme.product_fitments TO :"app_name";
+GRANT SELECT, INSERT, UPDATE ON khypupyme.furniture_deliveries TO :"app_name";

@@ -8,13 +8,14 @@ const kinds = { convenience: "Tienda por unidad, peso o volumen", grocery: "Abar
   beverages: "Bebidas por caja y sueltos", cosmetics: "Cosmético con lotes", pets: "Producto envasado o fraccionado",
   clothing: "Variante por talla y color", footwear: "Par por talla y color",
   appliances: "Equipo por número de serie", electronics: "Equipo por número de serie", hardware: "Piezas, cajas o metros",
-  stationery: "Servicio de impresión" };
+  stationery: "Servicio de impresión", ceramics: "Cerámica por cajas y piezas", cement: "Cemento por bolsas y lote" };
 
 export const variantIndustry = (industry?: string) => industry === "clothing" || industry === "footwear";
 export const equipmentIndustry = (industry?: string) => industry === "appliances" || industry === "electronics";
 
 export function measuredIndustry(industry?: string) {
-  return industry === "convenience" || industry === "grocery" || industry === "beverages" || industry === "cosmetics" || industry === "pets" || industry === "hardware";
+  return industry === "convenience" || industry === "grocery" || industry === "beverages" || industry === "cosmetics" ||
+    industry === "pets" || industry === "hardware" || industry === "ceramics" || industry === "cement";
 }
 
 export function retailIndustry(industry?: string): industry is keyof typeof kinds {
@@ -24,8 +25,8 @@ export function retailIndustry(industry?: string): industry is keyof typeof kind
 export function initialProductFields(industry?: string, product?: Product): Fields {
   const kind = product ? product.retail ? industry ?? "convenience" : product.apparel ? industry ?? "clothing" :
     product.equipment ? industry ?? "appliances" : product.specialty?.printing ? "stationery" : "simple" : industry ?? "simple";
-  return { kind, unit: product?.retail?.unit ?? "piece", box: String(product?.retail?.boxSize ?? 1),
-    reorder: String(product?.retail?.reorder ?? 0), tracked: product?.retail?.trackLots ?? (industry === "cosmetics"),
+  return { kind, unit: product?.retail?.unit ?? "piece", box: String(product?.retail?.boxSize ?? (industry === "ceramics" ? 6 : 1)),
+    reorder: String(product?.retail?.reorder ?? 0), tracked: product?.retail?.trackLots ?? (industry === "cosmetics" || industry === "cement"),
     model: product?.apparel?.model ?? "", size: product?.apparel?.size ?? "", color: product?.apparel?.color ?? "",
     warranty: String(product?.equipment?.warrantyMonths ?? 12), brand: product?.cosmetic?.brand ?? "",
     presentation: product?.cosmetic?.presentation ?? "", tone: product?.cosmetic?.tone ?? "", roll: String(product?.retail?.rollLength ?? 50) };
@@ -52,12 +53,13 @@ export function ProductFields({ industry, edits, fields, setFields }: {
     {measuredIndustry(fields.kind) && <>
       <SelectField label="Unidad de la tarifa de venta" value={fields.unit} disabled={edits}
         onChange={(event) => setFields({ ...fields, unit: event.target.value })}>
-        {(fields.kind === "hardware" ? ["piece", "m"] : ["piece", "g", "kg", "lb", "ml", "l"])
-          .map((unit) => <option key={unit} value={unit}>{unitLabels[unit]}</option>)}
+        {(fields.kind === "hardware" ? ["piece", "m"] : fields.kind === "ceramics" || fields.kind === "cement" ? ["piece"] : ["piece", "g", "kg", "lb", "ml", "l"])
+          .map((unit) => <option key={unit} value={unit}>{fields.kind === "cement" ? "bolsa" : unitLabels[unit]}</option>)}
       </SelectField>
       {fields.unit === "m" && <TextField label="Metros por rollo" type="number" required min={0.001} max={100_000} step={0.001}
         disabled={edits} value={fields.roll} onChange={(event) => setFields({ ...fields, roll: event.target.value })} />}
-      {fields.unit === "piece" && <TextField label="Unidades por caja" type="number" required min={1} max={100_000} value={fields.box} disabled={edits}
+      {fields.unit === "piece" && fields.kind !== "cement" && <TextField label={fields.kind === "ceramics" ? "Piezas por caja" : "Unidades por caja"}
+        type="number" required min={fields.kind === "ceramics" ? 2 : 1} max={100_000} value={fields.box} disabled={edits}
         onChange={(event) => setFields({ ...fields, box: event.target.value })} />}
       <TextField label={"Mínimo de reposición (" + unitLabels[fields.unit] + ")"} type="number" min={0} step={fields.unit === "piece" ? 1 : 0.001}
         required value={fields.reorder} onChange={(event) => setFields({ ...fields, reorder: event.target.value })} />
@@ -85,5 +87,5 @@ export function ProductFields({ industry, edits, fields, setFields }: {
 }
 
 function needsLots(fields: Fields) {
-  return fields.kind === "cosmetics" || fields.kind === "pets" && ["g", "kg", "lb"].includes(fields.unit);
+  return fields.kind === "cosmetics" || fields.kind === "cement" || fields.kind === "pets" && ["g", "kg", "lb"].includes(fields.unit);
 }

@@ -13,12 +13,13 @@ public sealed record CommerceCommand(
     RetailProfile? RetailProduct = null, ApparelProfile? ApparelProduct = null, EquipmentProfile? EquipmentProduct = null,
     CommandLine[]? ExchangeLines = null, string? Serial = null, bool? Release = null,
     CosmeticProfile? CosmeticProduct = null, ContainerInput[]? Containers = null, int? StockQuantity = null,
-    ProductDetail? DetailProduct = null, PartsProfile? PartsProduct = null, PrintingProfile? PrintingProduct = null);
+    ProductDetail? DetailProduct = null, PartsProfile? PartsProduct = null, PrintingProfile? PrintingProduct = null,
+    FurnitureDimensions? FurnitureProduct = null, TileProfile? TileProduct = null, CementSetup? CementProduct = null, DeliveryInput? Delivery = null);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record CommandLine(Guid ProductId, int Quantity, long? UnitMinor = null, bool? Restock = null,
     TimberDimensions? Timber = null, Guid? OriginalLineId = null, RetailInput? Measure = null, string[]? Serials = null,
-    PrintingInput? Printing = null);
+    PrintingInput? Printing = null, TileRequest? Tile = null);
 public sealed record CommandResult(Guid OperationId, string Kind, Guid EntityId);
 
 public sealed record CommercePage<T>(T[] Items, bool HasMore);
@@ -36,7 +37,8 @@ public sealed record EntryInfo(Guid Id, string Number, string Kind, DateOnly Dat
 public sealed record EntryDocument(Guid Id, string Number, string Kind, DateOnly Date, DateOnly? ExpiresOn,
     string BusinessName, Guid? CustomerId, string? CustomerName, string? Method, string Note,
     long TotalMinor, long DiscountMinor, long CashDeltaMinor, long DebtDeltaMinor, Guid? SourceId,
-    bool Linked, DocumentLine[] Lines, string? TimberUnits, bool Practice, long DebtBalanceMinor, ContainerMovementInfo[] Containers);
+    bool Linked, DocumentLine[] Lines, string? TimberUnits, bool Practice, long DebtBalanceMinor, ContainerMovementInfo[] Containers,
+    DeliveryInfo? Delivery);
 public sealed record DocumentLine(Guid ProductId, string Name, string Code, int Quantity, long UnitMinor,
     long SubtotalMinor, long CostMinor, bool? Restocked, int ReturnedQuantity,
     Guid LineId, string? Species, TimberDimensions? Timber, LineDetails? Details, decimal ReturnedBaseQuantity);

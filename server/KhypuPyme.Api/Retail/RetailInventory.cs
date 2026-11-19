@@ -26,9 +26,10 @@ internal sealed class RetailInventory(CommerceTransaction work)
         return [allocation];
     }
 
-    public async Task<(long Cost, LotAllocation[] Lots)> RemoveAsync(Product product, RetailInput input, decimal quantity, bool loss = false)
+    public async Task<(long Cost, LotAllocation[] Lots)> RemoveAsync(Product product, RetailInput input, decimal quantity,
+        bool loss = false, bool preferredLot = false)
     {
-        if (input.ExpiresOn is not null || input.Lot is not null && (!product.TrackLots || !loss && work.Business.Industry != "pets"))
+        if (input.ExpiresOn is not null || input.Lot is not null && (!product.TrackLots || !loss && !preferredLot && work.Business.Industry != "pets"))
             throw new CommerceFailure("La venta asigna automáticamente primero el lote vendible más próximo a vencer.");
         if (!product.TrackLots)
         {
@@ -166,7 +167,7 @@ internal sealed class RetailInventory(CommerceTransaction work)
             throw new CommerceFailure("Divide la operación. Puede afectar hasta 100 lotes.");
     }
 
-    private static string LotCode(string? raw) =>
+    internal static string LotCode(string? raw) =>
         Text(Text(raw, 60, "el lote", true).ToUpperInvariant(), 60, "el lote", true);
 
     private static CommerceFailure Shortage(Product product, decimal requested, decimal available)

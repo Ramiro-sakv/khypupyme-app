@@ -11,7 +11,7 @@ public sealed record PartsProfile(string[] Equivalents, VehicleFitment[] Compati
 public sealed record PrintingProfile(string PaperSize, string Color);
 public sealed record PrintingInput(int Copies, int FacesPerCopy, bool Duplex);
 public sealed record PrintingDetail(PrintingProfile Profile, PrintingInput Job, int Faces, int Sheets);
-public sealed record ProductSpecialty(ProductDetail? Detail, PartsProfile? Parts, PrintingProfile? Printing, string? CountUnit);
+public sealed record ProductSpecialty(ProductDetail? Detail, PartsProfile? Parts, PrintingProfile? Printing, string? CountUnit, MaterialProfile? Material = null);
 
 internal sealed class PartReference : IBusinessRecord
 {
@@ -41,9 +41,9 @@ internal static class SpecialtyProfiles
     public static bool HasEquipment(string industry) => industry is "appliances" or "electronics";
 
     public static ProductSpecialty? Read(Product product) =>
-        product.DetailJson is null && product.PartsJson is null && product.PrintingSize is null && product.CountUnit is null ? null :
+        product.DetailJson is null && product.PartsJson is null && product.PrintingSize is null && product.CountUnit is null && product.MaterialJson is null ? null :
         new(Parse<ProductDetail>(product.DetailJson), Parse<PartsProfile>(product.PartsJson),
-            product.PrintingSize is null ? null : new(product.PrintingSize, product.PrintingColor!), product.CountUnit);
+            product.PrintingSize is null ? null : new(product.PrintingSize, product.PrintingColor!), product.CountUnit, MaterialProfiles.Read(product));
 
     private static T? Parse<T>(string? json) where T : class =>
         json is null ? null : JsonSerializer.Deserialize<T>(json);

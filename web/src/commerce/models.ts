@@ -34,6 +34,7 @@ export type Method = keyof typeof methods;
 export const methodLabel = (method: string | null) => method ? methods[method as Method] ?? method : "—";
 
 const documentNames: Record<string, string> = {
+  "open-cement": "Apertura de bolsas",
   sale: "Venta", purchase: "Compra", quote: "Cotización", return: "Devolución", expense: "Gasto",
   "void-expense": "Anulación de gasto", collect: "Cobro de fiado", "stock-loss": "Pérdida de inventario",
   "open-cash": "Apertura de caja", "close-cash": "Cierre de caja",
@@ -42,6 +43,10 @@ const documentNames: Record<string, string> = {
   "hold-lot": "Lote apartado", "release-lot": "Lote liberado", "discard-lot": "Baja de lote",
 };
 export const documentName = (kind: string) => documentNames[kind] ?? kind;
+export function documentAmount(document: EntryDocument) {
+  if (document.kind === "open-cement") return { label: "Valor transferido", minor: document.lines[0]?.subtotalMinor ?? 0 };
+  return { label: document.kind === "exchange" ? "Diferencia cobrada (+) o devuelta (−)" : "Total confirmado", minor: document.totalMinor };
+}
 export const dateLabel = (day: string) => new Intl.DateTimeFormat("es-BO", {
   day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
 }).format(new Date(day + "T00:00:00Z"));

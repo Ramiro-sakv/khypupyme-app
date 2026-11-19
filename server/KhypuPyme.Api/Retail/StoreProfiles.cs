@@ -6,7 +6,7 @@ namespace KhypuPyme.Api.Retail;
 
 internal static class StoreProfiles
 {
-    public static bool IsRetail(string industry) => industry is "convenience" or "grocery" or "beverages" or "cosmetics" or "pets" or "hardware";
+    public static bool IsRetail(string industry) => industry is "convenience" or "grocery" or "beverages" or "cosmetics" or "pets" or "hardware" or "ceramics" or "cement";
     public static RetailProfile? Retail(Product product) => product.RetailUnit is null ? null :
         new(product.RetailUnit, product.BoxSize, product.TrackLots, product.Reorder, product.RollLength);
     public static ApparelProfile? Apparel(Product product) => product.Model is null ? null : new(product.Model, product.Size!, product.Color!);
@@ -17,6 +17,8 @@ internal static class StoreProfiles
         if (command.RetailProduct is { } retail && IsRetail(work.Business.Industry))
         {
             var factor = RetailMeasures.Factor(retail.Unit, retail, false);
+            if ((work.Business.Industry is "ceramics" or "cement") && retail.Unit != "piece")
+                throw new CommerceFailure("Configura el inventario por piezas o bolsas en este rubro.");
             if (retail.Unit == "m" && (work.Business.Industry != "hardware" || retail.RollLength is not > 0 or > 100_000 ||
                 decimal.Round(retail.RollLength.Value, 3) != retail.RollLength.Value) ||
                 retail.Unit != "m" && retail.RollLength is not null ||

@@ -21,15 +21,18 @@ import { PetLotField, useSelectedLots } from "../retail/PetLots";
 import { CompatibilityFilter, emptyVehicle, searchLabel, SpecialtySummary, vehicleQuery } from "../retail/SpecialtyFields";
 import { PrintingFields, previewPrinting } from "../retail/PrintingFields";
 import type { PrintDraft } from "../retail/PrintingFields";
+import { TileFields, tilePreview } from "../retail/MaterialFields";
+import type { TileRequest } from "../retail/MaterialFields";
 
 export type TradeKind = "sale" | "purchase" | "quote";
 type Line = { id: string; key?: string; name: string; quantity: string; priceMinor: number; cost: string; timber?: Capture; rates?: Rates;
-  measure?: Omit<Measure, "quantity">; series?: string; printing?: PrintDraft };
+  measure?: Omit<Measure, "quantity">; series?: string; printing?: PrintDraft; tile?: TileRequest };
 type TradeDraft = {
   lines: Line[]; customer?: { id: string; name: string }; discount: string; note: string; method: string; quote?: string;
   containers?: ContainerDraft;
 };
 const emptyDraft: TradeDraft = { lines: [], discount: "0", method: "cash", note: "" };
+const emptyTile: TileRequest = { area: null, waste: null, tone: null, caliber: null };
 const titles: Record<TradeKind, string> = { sale: "Venta nueva", purchase: "Compra nueva", quote: "Cotización nueva" };
 const label: Record<TradeKind, string> = { sale: "venta", purchase: "compra", quote: "cotización" };
 
@@ -76,20 +79,28 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
     const serials = line.series === undefined ? undefined : seriesFromText(line.series);
     const printing = previewPrinting(line.printing);
     const quantity = printing?.faces ?? serials?.length ?? Number(line.quantity);
-    const measure = line.measure && { ...line.measure, quantity: line.quantity.trim(), lot: line.measure.lot?.trim() || undefined };
+    const tile = product?.specialty?.material?.tile;
+    const tileRequest = !isPurchase && tile ? line.tile ?? emptyTile : undefined;
+    const estimate = tile && tileRequest && line.measure && product?.retail ?
+      tilePreview(tile, tileRequest, line.measure.unit, product.retail.boxSize) : null;
+    const tileIncomplete = !!tileRequest && ((!estimate && !!(tileRequest.area?.trim() || tileRequest.waste?.trim())) ||
+      (tile?.tone ?? "") !== (tileRequest.tone ?? "") || (tile?.caliber ?? "") !== (tileRequest.caliber ?? ""));
+    const measure = line.measure && { ...line.measure, quantity: estimate ? String(estimate.quantity) : line.quantity.trim(),
+      lot: line.measure.lot?.trim() || undefined };
     const validQuantity = (serials ? quantity <= 100 && new Set(serials.map((serial) => serial.toUpperCase())).size === quantity &&
       serials.every((serial) => serial.length <= 80) && (!value.quote || quantity === Number(line.quantity)) : /^\d+$/.test(line.quantity)) &&
       quantity >= 1 && quantity <= 1_000_000;
     const unitMinor = isPurchase ? parseMoney(line.cost) : line.priceMinor;
-    const measured = measure && product?.retail ? measurePreview(measure.quantity, measure.unit, product.retail, isPurchase, unitMinor, measure.loose, mixed) : undefined;
+    const measured = measure && product?.retail ?
+      measurePreview(measure.quantity, measure.unit, product.retail, isPurchase, unitMinor, measure.loose, mixed, !!tile) : undefined;
     const subtotal = line.printing ? !isPurchase && printing && unitMinor !== null && printing.faces * unitMinor <= moneyLimit ? printing.faces * unitMinor : null :
-      measure ? isPurchase && product?.retail?.trackLots && !measure.lot ? null : measured?.subtotal ?? null :
+      measure ? tileIncomplete || (isPurchase && product?.retail?.trackLots && !measure.lot) ? null : measured?.subtotal ?? null :
       validQuantity && unitMinor !== null && quantity * unitMinor <= moneyLimit ? quantity * unitMinor : null;
     const available = petSale && measure?.lot ? selectedLots.stock?.[line.id] :
       product?.retail ? product.sellableStock ?? 0 : product?.stock;
     const requested = line.printing ? undefined : measure ? measured?.base : validQuantity ? quantity : undefined;
     return {
-      line, product, quantity, unitMinor, subtotal, measure, serials, requested, available, printing,
+      line, product, quantity, unitMinor, subtotal, measure, serials, requested, available, printing, tile, tileRequest,
       shortage: available !== undefined && requested !== undefined && requested > available,
       changed: !isPurchase && product !== undefined && product.priceMinor !== line.priceMinor,
     };
@@ -115,6 +126,7 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
   const totalText = total === null ? "Pendiente" : bob(total);
 
   function add(product: Product, newLot = false) {
+    if (isPurchase && product.specialty?.material?.cement?.isBulk) return;
     update((currentDraft) => {
       if (product.timber) {
         if (currentDraft.lines.length >= 100) return currentDraft;
@@ -134,7 +146,7 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
       return { ...currentDraft, lines: [...currentDraft.lines, { id: product.id, name: product.name,
         key: newLot ? crypto.randomUUID() : undefined,
         quantity: "1", priceMinor: product.priceMinor, cost: "",
-        measure: product.retail ? { unit: isPurchase && product.retail.unit === "piece" && product.retail.boxSize > 1 ? "box" :
+        measure: product.retail ? { unit: product.specialty?.material?.tile || (isPurchase && product.retail.unit === "piece" && product.retail.boxSize > 1) ? "box" :
           isPurchase && product.retail.unit === "m" ? "roll" : product.retail.unit } : undefined,
         printing: product.specialty?.printing ? { copies: "1", facesPerCopy: "1", duplex: false } : undefined,
         series: product.equipment && !quote ? "" : undefined }] };
@@ -167,6 +179,7 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
             lines: proposal.lines.map((line) => ({ id: line.productId, name: line.name, quantity: line.details?.measure?.quantity ?? String(line.quantity),
               priceMinor: line.unitMinor, cost: "", key: line.timber ? line.lineId : undefined,
               measure: line.details?.measure ? { unit: line.details.measure.unit, loose: line.details.measure.loose } : undefined,
+              tile: line.details?.tile?.request,
               printing: line.details?.printing ? { copies: String(line.details.printing.job.copies),
                 facesPerCopy: String(line.details.printing.job.facesPerCopy), duplex: line.details.printing.job.duplex } : undefined,
               series: line.details?.direction === "choose-series" ? "" : undefined,
@@ -187,7 +200,7 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
         {industry === "spareParts" && <CompatibilityFilter onChange={(filter) => { setVehicle(filter); setPage(1); }} />}
         {!products.data ? <LoadFeedback {...products} /> : products.data.items.length === 0 ? <NoRecords>Consulta el catálogo para dar de alta artículos.</NoRecords> :
           <ul className="trade-products">
-            {products.data.items.filter((product, index, all) => (!isPurchase || !product.specialty?.printing) && (!product.apparel ||
+            {products.data.items.filter((product, index, all) => (!isPurchase || (!product.specialty?.printing && !product.specialty?.material?.cement?.isBulk)) && (!product.apparel ||
               all.findIndex((item) => item.apparel?.model.toUpperCase() === product.apparel?.model.toUpperCase()) === index))
               .map((product) => <li key={product.id}>
               <button type="button" className="trade-product" disabled={frozen || (product.timber ? value.lines.length >= 100 :
@@ -238,18 +251,22 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
                 onClick={() => remove(line.id)}>Quitar</Button>,
             ] }))} />}
         {lines.filter((row) => row.line.measure || row.line.printing || row.line.series !== undefined || row.product?.equipment).map(({ line, product, changed, shortage,
-          requested, available, subtotal, measure, serials }) => {
+          requested, available, subtotal, measure, serials, tile, tileRequest }) => {
           const key = line.key ?? line.id;
           const unit = product?.retail?.unit;
+          const bag = !!product?.specialty?.material?.cement && !product.specialty.material.cement.isBulk;
           return <Card className="store-line" key={key}>
             <div className="page-heading"><h3>{line.name}</h3>
               <Button variant="plain" onClick={() => remove(key)} disabled={frozen}>Quitar</Button></div>
             {product && <SpecialtySummary product={product} />}
             {line.printing && <PrintingFields value={line.printing} disabled={frozen}
               update={(printing) => edit(key, { printing })} />}
-            {measure && product?.retail && <MeasuredFields profile={product.retail} quantity={line.quantity} measure={measure}
-              buying={isPurchase} mixed={mixed} disabled={frozen} onQuantity={(quantity) => edit(key, { quantity })}
+            {measure && product?.retail && <MeasuredFields profile={product.retail} quantity={measure.quantity} measure={measure}
+              buying={isPurchase} mixed={mixed} boxSale={!!tile && !isPurchase} bag={bag} lockedQuantity={!!tileRequest?.area?.trim()}
+              disabled={frozen} onQuantity={(quantity) => edit(key, { quantity })}
               onMeasure={(entry) => edit(key, { measure: entry })} />}
+            {tile && tileRequest && measure && product?.retail && <TileFields profile={tile} request={tileRequest} unit={measure.unit}
+              boxSize={product.retail.boxSize} pieces={requested ?? 0} disabled={frozen} update={(entry) => edit(key, { tile: entry })} />}
             {petSale && measure && product?.retail?.trackLots && <PetLotField product={product} lot={measure.lot} disabled={frozen}
               onChange={(lot) => edit(key, { measure: { ...measure, lot } })} />}
             {serials && isPurchase && <label className="timber-widths"><span>Series recibidas</span>
@@ -267,9 +284,9 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
                   product ? productAvailability(product) : "—"}
               {shortage && " · Faltan " + quantityLabel(unit ? fromBase(requested - available, unit) : requested - available)}
             </p>}
-            {isPurchase ? <TextField label={"Costo por " + (measure ? unitLabels[measure.unit] : "equipo") + " (Bs)"} value={line.cost}
+            {isPurchase ? <TextField label={"Costo por " + (bag ? "bolsa" : measure ? unitLabels[measure.unit] : "equipo") + " (Bs)"} value={line.cost}
               inputMode="decimal" disabled={frozen} onChange={(event) => edit(key, { cost: event.target.value })} /> :
-              <p>{bob(line.priceMinor)} por {line.printing ? "cara impresa" : unit ? unitLabels[unit] : "equipo"}</p>}
+              <p>{bob(line.priceMinor)} por {line.printing ? "cara impresa" : bag ? "bolsa" : unit ? unitLabels[unit] : "equipo"}</p>}
             {changed && product && <Button variant="secondary" onClick={() => edit(key, { priceMinor: product.priceMinor })}
               disabled={frozen}>Usar precio actualizado</Button>}
             {isPurchase && product?.retail?.trackLots && <Button variant="secondary" disabled={frozen || value.lines.length >= 100} onClick={() => add(product, true)}>Añadir otro lote</Button>}
@@ -316,8 +333,8 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
           customerId: isPurchase ? undefined : value.customer?.id,
           discountMinor: discount ?? undefined, sourceId: value.quote, note: value.note,
           containers: containers.moves.length ? containers.moves : undefined,
-          lines: [...lines.map(({ line, quantity, unitMinor, measure, serials, printing }): CommandLine =>
-            ({ productId: line.id, quantity: measure || printing ? 1 : quantity, unitMinor, measure, serials, printing: printing?.job })), ...timber.commands],
+          lines: [...lines.map(({ line, quantity, unitMinor, measure, serials, printing, tileRequest }): CommandLine =>
+            ({ productId: line.id, quantity: measure || printing ? 1 : quantity, unitMinor, measure, serials, printing: printing?.job, tile: tileRequest })), ...timber.commands],
         }), (result) => workspace.showDocument(result.entityId), flush);
       }}>
         {withContainers && <details className="buyer"><summary>Envases entregados y devueltos</summary>

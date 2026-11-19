@@ -37,6 +37,9 @@ internal static class CommerceEndpoints
             Found(await store.SerialAsync(serial, ct))).Produces<UnitHistory>();
         reads.MapGet("/attention", (StoreReads store, CancellationToken ct) =>
             store.AttentionAsync(ct)).Produces<StoreAttention>();
+        reads.MapGet("/deliveries", (int? page, KhypuPymeDbContext db, CancellationToken ct) =>
+            CommerceReads.PageAsync(FurnitureDeliveries.Query(db), page, ct))
+            .Produces<CommercePage<DeliveryInfo>>();
         reads.MapGet("/containers", async (Guid? customer, KhypuPymeDbContext db, CancellationToken ct) =>
         {
             if (customer is Guid id && !await db.Set<Customer>().AnyAsync(x => x.Id == id, ct))

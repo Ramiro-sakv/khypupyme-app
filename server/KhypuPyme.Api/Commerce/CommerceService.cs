@@ -53,6 +53,8 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
             "inspection" => await new EquipmentInventory(work).InspectAsync(),
             "containers" => await new ContainerService(work).RegisterAsync(),
             "container-stock" => await new ContainerService(work).ReceiveStockAsync(),
+            "open-cement" => await new CementOperations(work).OpenAsync(),
+            "schedule-delivery" or "complete-delivery" => await new FurnitureDeliveries(work).ExecuteAsync(),
             "hold-lot" or "release-lot" or "discard-lot" => await new RetailInventory(work).CorrectLotAsync(),
             "stock-loss" => await new TradeOperations(work).LossAsync(),
             "open-cash" or "close-cash" or "expense" or "void-expense" or "collect"
@@ -85,7 +87,19 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
             command.Lines?.Any(x => x?.Printing is not null) == true ||
             command.ExchangeLines?.Any(x => x?.Printing is not null) == true;
         object? oldRetail = command.RetailProduct is { } retail ? new { retail.Unit, retail.BoxSize, retail.TrackLots, retail.Reorder } : null;
-        object serialized = current ? command : extended
+        var material = command.FurnitureProduct is not null || command.TileProduct is not null || command.CementProduct is not null ||
+            command.Delivery is not null || command.Lines?.Any(x => x?.Tile is not null) == true ||
+            command.ExchangeLines?.Any(x => x?.Tile is not null) == true;
+        object serialized = material ? command : current
+            ? new
+            {
+                command.OperationId, command.Kind, command.EntityId, command.CustomerId, command.SourceId, command.Name,
+                command.Code, command.Phone, command.Method, command.Note, command.AmountMinor, command.DiscountMinor, command.Active,
+                Lines = command.Lines?.Select(SpecialtyLine), command.TimberProduct, command.RetailProduct, command.ApparelProduct,
+                command.EquipmentProduct, ExchangeLines = command.ExchangeLines?.Select(SpecialtyLine), command.Serial, command.Release,
+                command.CosmeticProduct, command.Containers, command.StockQuantity, command.DetailProduct, command.PartsProduct, command.PrintingProduct,
+            }
+            : extended
             ? new
             {
                 command.OperationId, command.Kind, command.EntityId, command.CustomerId, command.SourceId, command.Name,
@@ -128,6 +142,10 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
         {
             line.ProductId, line.Quantity, line.UnitMinor, line.Restock, line.Timber, line.OriginalLineId, line.Measure, line.Serials,
         };
+        static object? SpecialtyLine(CommandLine? line) => line is null ? null : new
+        {
+            line.ProductId, line.Quantity, line.UnitMinor, line.Restock, line.Timber, line.OriginalLineId, line.Measure, line.Serials, line.Printing,
+        };
     }
 
     private static async Task<Guid> SaveProductAsync(CommerceTransaction work)
@@ -158,6 +176,7 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
         TimberInventory.SetProfile(product, input.TimberProduct, work.Business.Industry == "timber", input.EntityId is null);
         await StoreProfiles.SaveAsync(work, product);
         await SpecialtyProfiles.SaveAsync(work, product);
+        await MaterialProfiles.SaveAsync(work, product);
         product.PriceMinor = price;
         return product.Id;
     }

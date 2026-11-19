@@ -116,7 +116,7 @@ internal sealed class TradeOperations(CommerceTransaction work)
                 await retail.RemoveAsync(row.Product, measure, row.BaseQuantity!.Value);
             entry.CostMinor += take.Cost;
             entry.Lines.Add(Snapshot(entry, row, net, take.Cost,
-                new(measure, row.BaseQuantity, take.Lots, Direction: direction, RateUnit: row.Product.RetailUnit)));
+                new(measure, row.BaseQuantity, take.Lots, Direction: direction, RateUnit: row.Product.RetailUnit, Tile: row.Tile)));
         }
         else
         {
@@ -139,7 +139,8 @@ internal sealed class TradeOperations(CommerceTransaction work)
                 line.ProductId == row.Product.Id && line.Quantity == row.Quantity && line.UnitMinor == row.UnitMinor &&
                 line.Timber == row.Timber && line.BaseQuantity == row.BaseQuantity &&
                 (row.Measure is null || LineDetails.Parse(line.DetailsJson)?.Measure?.Unit == row.Measure.Unit) &&
-                (row.Printing is null || LineDetails.Parse(line.DetailsJson)?.Printing?.Job == row.Printing.Job))))
+                (row.Printing is null || LineDetails.Parse(line.DetailsJson)?.Printing?.Job == row.Printing.Job) &&
+                (row.Tile is null || LineDetails.Parse(line.DetailsJson)?.Tile == row.Tile))))
             throw new CommerceFailure("La cotización cambió. Emite otra antes de convertirla.", 409);
         entry.SourceId = source.Id;
     }
@@ -181,7 +182,7 @@ internal sealed class TradeOperations(CommerceTransaction work)
                 measure is not null && measure.Unit == (originalMeasure.Unit == "box" ? "piece" : originalMeasure.Unit == "roll" ? "m" : originalMeasure.Unit) &&
                 measure.Lot is null && measure.ExpiresOn is null && measure.Loose is null;
             if ((details?.Measure is not null || measure is not null) && !measured ||
-                input.Serials is not null || input.Timber is not null || input.Printing is not null)
+                input.Serials is not null || input.Timber is not null || input.Printing is not null || input.Tile is not null)
                 throw new CommerceFailure("Usa la unidad y la identificación de la línea original.");
             var count = measured ? RetailMeasures.Convert(measure!, StoreProfiles.Retail(product)!, false).Base : input.Quantity;
             var whole = original.BaseQuantity ?? original.Quantity;
@@ -197,6 +198,8 @@ internal sealed class TradeOperations(CommerceTransaction work)
                 var result = await retail.RefundAsync(product, details!, before, count, original.CostMinor, restock);
                 cost = result.Cost;
                 details = details! with { Measure = measure, BaseQuantity = count, Lots = result.Lots };
+                if (details.Tile is { } tile)
+                    details = details with { Tile = tile with { DeliveredArea = tile.DeliveredArea * count / whole, RequiredArea = null } };
             }
             else
             {
@@ -253,6 +256,7 @@ internal sealed class TradeOperations(CommerceTransaction work)
         foreach (var line in inputs)
         {
             var product = await work.ProductAsync(line.ProductId);
+            if (line.Tile is not null) throw new CommerceFailure("La cobertura se calcula en ventas y cotizaciones.");
             if (product.WarrantyMonths is not null)
                 throw new CommerceFailure("La baja de un equipo se resuelve por su serie desde Inspección.");
             if (product.PrintingSize is not null || line.Printing is not null)
@@ -286,6 +290,11 @@ internal sealed class TradeOperations(CommerceTransaction work)
         {
             var product = await work.ProductAsync(line.ProductId);
             if (!product.Active) throw new CommerceFailure($"{product.Name} está archivado.", 409);
+            if (!useCatalogPrice && product.CementSourceId is not null)
+                throw new CommerceFailure("Genera granel abriendo bolsas desde su lote.");
+            var tile = useCatalogPrice ? MaterialProfiles.Read(product)?.Tile : null;
+            if (line.Tile is not null && tile is null)
+                throw new CommerceFailure("La cobertura corresponde a una ficha de cerámicas en venta o cotización.");
             var dimension = TimberInventory.Check(product, line.Timber);
             var unit = Money(line.UnitMinor, useCatalogPrice ? "el precio unitario" : "el costo unitario");
             if (useCatalogPrice && unit != (dimension is null ? product.PriceMinor : TimberMeasures.Rate(product, dimension)))
@@ -306,10 +315,11 @@ internal sealed class TradeOperations(CommerceTransaction work)
                 if (useCatalogPrice && (measure.ExpiresOn is not null ||
                     measure.Lot is not null && !(work.Business.Industry == "pets" && work.Command.Kind == "sale")))
                     throw new CommerceFailure("Los lotes vendibles se asignan al confirmar la venta.");
-                var (_, stored) = RetailMeasures.Convert(measure, profile, !useCatalogPrice, work.Business.Industry == "beverages");
+                var (_, stored) = RetailMeasures.Convert(measure, profile, !useCatalogPrice, work.Business.Industry == "beverages", boxSale: tile is not null);
                 var factor = RetailMeasures.Factor(useCatalogPrice ? profile.Unit : measure.Unit, profile, !useCatalogPrice || measure.Unit == "box");
                 var subtotal = RetailMeasures.Subtotal(unit, stored, factor);
-                rows.Add(new TradeRow(product, profile.Unit == "piece" ? (int)stored : 1, unit, subtotal, null, measure, stored));
+                var coverage = tile is null ? null : MaterialProfiles.CalculateTile(tile, line.Tile, measure.Unit, (int)stored, profile.BoxSize);
+                rows.Add(new TradeRow(product, profile.Unit == "piece" ? (int)stored : 1, unit, subtotal, null, measure, stored, Tile: coverage));
             }
             else
             {
@@ -355,5 +365,5 @@ internal sealed class TradeOperations(CommerceTransaction work)
     }
 
     private sealed record TradeRow(Product Product, int Quantity, long UnitMinor, long Subtotal, TimberDimensions? Timber,
-        RetailInput? Measure = null, decimal? BaseQuantity = null, string[]? Serials = null, PrintingDetail? Printing = null);
+        RetailInput? Measure = null, decimal? BaseQuantity = null, string[]? Serials = null, PrintingDetail? Printing = null, TileCoverage? Tile = null);
 }

@@ -419,6 +419,9 @@ namespace KhypuPyme.Api.Persistence.Migrations
                     b.Property<string>("Brand")
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("CementSourceId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -441,6 +444,9 @@ namespace KhypuPyme.Api.Persistence.Migrations
 
                     b.Property<long?>("LongMinor")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("MaterialJson")
+                        .HasColumnType("jsonb");
 
                     b.Property<string>("MeasureLabel")
                         .HasColumnType("text");
@@ -529,6 +535,9 @@ namespace KhypuPyme.Api.Persistence.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("BusinessId", "Id");
+
+                    b.HasIndex("BusinessId", "CementSourceId")
+                        .IsUnique();
 
                     b.HasIndex("BusinessId", "ModelKey");
 
@@ -729,6 +738,37 @@ namespace KhypuPyme.Api.Persistence.Migrations
                     b.ToTable("equipment_units", "khypupyme", t =>
                         {
                             t.HasCheckConstraint("equipment_unit_state", " \"State\" IN ('available','sold','inspection','discarded') AND \"CostMinor\" BETWEEN 0 AND 1000000000000 ");
+                        });
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Retail.FurnitureDelivery", b =>
+                {
+                    b.Property<Guid>("BusinessId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SaleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Address")
+                        .HasColumnType("text");
+
+                    b.Property<DateOnly?>("CompletedOn")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("BusinessId", "SaleId");
+
+                    b.HasIndex("BusinessId", "Day");
+
+                    b.ToTable("furniture_deliveries", "khypupyme", t =>
+                        {
+                            t.HasCheckConstraint("furniture_delivery_mode", " \"Mode\" IN ('pickup','delivery') AND (\"Mode\" = 'pickup' OR \"Address\" IS NOT NULL) ");
                         });
                 });
 
@@ -1350,6 +1390,11 @@ namespace KhypuPyme.Api.Persistence.Migrations
                         .HasForeignKey("BusinessId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("KhypuPyme.Api.Commerce.Product", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId", "CementSourceId")
+                        .OnDelete(DeleteBehavior.NoAction);
                 });
 
             modelBuilder.Entity("KhypuPyme.Api.Commerce.Receivable", b =>
@@ -1463,6 +1508,21 @@ namespace KhypuPyme.Api.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("BusinessId", "SaleId")
                         .OnDelete(DeleteBehavior.NoAction);
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Retail.FurnitureDelivery", b =>
+                {
+                    b.HasOne("KhypuPyme.Api.Businesses.Business", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("KhypuPyme.Api.Commerce.Entry", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId", "SaleId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("KhypuPyme.Api.Retail.PartReference", b =>

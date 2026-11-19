@@ -22,16 +22,16 @@ export const baseUnit = (unit: string) => unit === "m" || unit === "roll" ? "m" 
   unit === "piece" || unit === "box" ? "unidad" : ["ml", "l"].includes(unit) ? "mL" : "g";
 export const fromBase = (quantity: number, unit: string) => quantity / (Number(factors[unit]) / 100_000);
 
-export function retailUnits(profile: RetailProfile, buying: boolean, mixed?: boolean) {
-  if (profile.unit === "piece") return (buying || mixed) && profile.boxSize > 1 ? ["box", "piece"] : ["piece"];
+export function retailUnits(profile: RetailProfile, buying: boolean, mixed?: boolean, boxSale?: boolean) {
+  if (profile.unit === "piece") return (buying || mixed || boxSale) && profile.boxSize > 1 ? ["box", "piece"] : ["piece"];
   if (profile.unit === "m") return buying ? ["roll", "m"] : ["m"];
   return baseUnit(profile.unit) === "g" ? ["g", "kg", "lb"] : ["ml", "l"];
 }
 
 export function measurePreview(quantity: string, unit: string, profile: RetailProfile, buying: boolean, minor: number | null,
-  loose?: number | null, mixed?: boolean) {
+  loose?: number | null, mixed?: boolean, boxSale?: boolean) {
   const match = /^(\d{1,7})(?:[.,](\d{1,3}))?$/.exec(quantity.trim());
-  if (!match || !retailUnits(profile, buying, mixed).includes(unit) ||
+  if (!match || !retailUnits(profile, buying, mixed, boxSale).includes(unit) ||
     loose != null && (!mixed || unit !== "box" || !Number.isInteger(loose) || loose < 0 || loose > 1_000_000)) return null;
   const milli = BigInt(match[1]) * 1000n + BigInt((match[2] ?? "").padEnd(3, "0"));
   if (milli === 0n && !loose || milli > 1_000_000_000n || (profile.unit === "piece" || unit === "roll") && milli % 1000n !== 0n) return null;
@@ -49,6 +49,8 @@ export function productAvailability(product: Product) {
   if (product.specialty?.printing) return "Servicio por cara impresa";
   if (!product.retail) return product.stock + (product.specialty?.countUnit === "pair" ? " pares" : product.equipment ? " equipos" : " piezas");
   const count = fromBase(product.sellableStock ?? 0, product.retail.unit);
+  if (product.specialty?.material?.cement && !product.specialty.material.cement.isBulk)
+    return quantityLabel(count) + (count === 1 ? " bolsa" : " bolsas");
   return quantityLabel(count) + " " + (product.retail.unit === "piece" && count !== 1 ? "unidades" : unitLabels[product.retail.unit]);
 }
 
@@ -59,12 +61,14 @@ export function describeLine(line: EntryDocument["lines"][number]) {
   if (!details) return "";
   const variant = details.apparel;
   const printing = details.printing;
+  const tile = details.tile;
   const conversion = details.measure && details.baseQuantity != null && unitLabels[details.measure.unit] !== baseUnit(details.measure.unit) ?
     "Equivale a " + quantityLabel(details.baseQuantity) + " " + baseUnit(details.measure.unit) : "";
   const lot = details.lots?.map((item) => item.lot + (details.lots!.length > 1 && details.measure ?
     " · " + quantityLabel(item.quantity) + " " + baseUnit(details.measure.unit) : "") +
     (item.expiresOn ? " (vence " + dateLabel(item.expiresOn) + ")" : "")).join(", ");
   return [details.direction === "returned" ? "Devuelto" : details.direction === "replacement" ? "Reemplazo" : "",
+    details.direction === "opened-bags" ? "Bolsas abiertas" : details.direction === "bulk-entry" ? "Ingreso a granel" : "",
     variant && [variant.model, "Talla " + variant.size, variant.color].join(" · "),
     details.serial && "Serie " + details.serial,
     details.warrantyUntil && "Garantía declarada hasta " + dateLabel(details.warrantyUntil),
@@ -72,7 +76,8 @@ export function describeLine(line: EntryDocument["lines"][number]) {
       printing.profile.paperSize, printing.profile.color === "color" ? "Color" : "Blanco y negro",
       printing.job.copies + " copias × " + printing.job.facesPerCopy + " caras", printing.job.duplex ? "Doble cara" : "Una cara",
       printing.faces + " caras impresas", printing.sheets + " hojas"].filter(Boolean).join(" · "),
-    specialtyText(details.specialty), conversion, lot && "Lote " + lot].filter(Boolean).join(" · ");
+    specialtyText(details.specialty), tile?.requiredArea != null && quantityLabel(tile.requiredArea) + " m² con merma",
+    tile && "Cobertura · " + quantityLabel(tile.deliveredArea) + " m²", conversion, lot && "Lote " + lot].filter(Boolean).join(" · ");
 }
 
 export function lineQuantity(line: EntryDocument["lines"][number]) {
@@ -81,9 +86,14 @@ export function lineQuantity(line: EntryDocument["lines"][number]) {
     line.quantity + (line.quantity === 1 ? " par" : " pares") : String(line.quantity);
   if (measure.unit === "box") return measure.quantity + (measure.quantity === "1" ? " caja" : " cajas") +
     (measure.loose ? " + " + measure.loose + (measure.loose === 1 ? " suelta" : " sueltas") : "");
+  if (measure.unit === "piece" && line.details?.specialty?.material?.cement)
+    return measure.quantity + (measure.quantity === "1" ? " bolsa" : " bolsas");
+  if (measure.unit === "piece" && line.details?.specialty?.material?.tile)
+    return measure.quantity + (measure.quantity === "1" ? " pieza" : " piezas");
   return measure.quantity + " " + unitLabels[measure.unit];
 }
-export const lineRate = (line: EntryDocument["lines"][number]) => line.details?.rateUnit ? " / " + unitLabels[line.details.rateUnit] : "";
+export const lineRate = (line: EntryDocument["lines"][number]) => line.details?.rateUnit ?
+  " / " + (line.details.rateUnit === "piece" && line.details.specialty?.material?.cement ? "bolsa" : unitLabels[line.details.rateUnit]) : "";
 
 export function remainingQuantity(line: EntryDocument["lines"][number]) {
   const details = line.details;

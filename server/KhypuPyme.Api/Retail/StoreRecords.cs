@@ -11,13 +11,13 @@ public sealed record CosmeticProfile(string Brand, string Presentation, string? 
 public sealed record LotAllocation(string Lot, DateOnly? ExpiresOn, decimal Quantity, long CostMinor);
 public sealed record LineDetails(RetailInput? Measure = null, decimal? BaseQuantity = null,
     LotAllocation[]? Lots = null, ApparelProfile? Apparel = null, string? Serial = null, DateOnly? WarrantyUntil = null,
-    string? Direction = null, string? RateUnit = null, ProductSpecialty? Specialty = null, PrintingDetail? Printing = null)
+    string? Direction = null, string? RateUnit = null, ProductSpecialty? Specialty = null, PrintingDetail? Printing = null, TileCoverage? Tile = null)
 {
     internal static LineDetails? Parse(string? json) => json is null ? null : JsonSerializer.Deserialize<LineDetails>(json);
     internal static string? Save(LineDetails? value) => value is null ? null : JsonSerializer.Serialize(value);
 }
 
-public sealed record LotInfo(string Lot, DateOnly? ExpiresOn, decimal Quantity, bool Sellable, bool Held);
+public sealed record LotInfo(string Lot, DateOnly? ExpiresOn, decimal Quantity, bool Sellable, bool Held, long ValueMinor);
 public sealed record SerialInfo(string Serial, Guid ProductId, string ProductName, string State, DateOnly? WarrantyUntil);
 public sealed record SerialMovement(string Kind, Guid EntryId, string Number, DateOnly Date, string Note, DateOnly? WarrantyUntil);
 public sealed record UnitHistory(SerialInfo Unit, SerialMovement[] Movements);

@@ -2,15 +2,16 @@ import { useState } from "react";
 import { Alert, Button, Card, DataTable, SelectField, TextField } from "../ui/Primitives";
 import { useCommerce, useCommerceData } from "./CommerceContext";
 import { CommerceHeading, LoadFeedback, NoRecords, OperationForm, Pages, PaymentField, useCommercialForm } from "./CommerceUi";
-import { bob, dateLabel, documentName, methodLabel } from "./models";
+import { bob, dateLabel, documentAmount, documentName, methodLabel } from "./models";
 import type { EntryDocument, EntryInfo, Page } from "./models";
 import { documentTimber, documentUnit } from "../timber/measures";
 import { describeLine, lineQuantity, lineRate, remainingQuantity, returnUnit, unitLabels } from "../retail/measures";
 import { ExchangeEditor } from "../retail/ExchangeEditor";
+import { DeliveryPanel } from "../retail/FurnitureDeliveries";
 
 const historyKinds = ["sale", "purchase", "quote", "return", "expense", "void-expense",
   "stock-loss", "open-cash", "close-cash", "collect", "exchange", "inspection",
-  "containers", "container-stock", "hold-lot", "release-lot", "discard-lot"];
+  "containers", "container-stock", "hold-lot", "release-lot", "discard-lot", "open-cement"];
 
 export function HistoryPage({ initialKind }: { initialKind: string }) {
   const [kind, setKind] = useState(initialKind);
@@ -47,11 +48,12 @@ export function EntryList({ kind, cashSession, caption }: { kind?: string; cashS
   </Card>;
 }
 
-export function DocumentPage({ id, back, convert, openSerial }: {
-  id: string; back: () => void; convert: (quote: EntryDocument) => void; openSerial?: (serial: string) => void;
+export function DocumentPage({ id, back, convert, openSerial, furniture }: {
+  id: string; back: () => void; convert: (quote: EntryDocument) => void; openSerial?: (serial: string) => void; furniture?: boolean;
 }) {
   const data = useCommerceData<EntryDocument>("/documents/" + id);
   const document = data.data;
+  const amount = document && documentAmount(document);
   const { showDocument } = useCommerce();
   const [error, setError] = useState("");
   const [loadingPdf, setLoadingPdf] = useState(false);
@@ -85,13 +87,14 @@ export function DocumentPage({ id, back, convert, openSerial }: {
         {error && <Alert tone="error">{error}</Alert>}
         <dl className="business-summary document-summary">
           {!!document.discountMinor && <><dt>Descuento</dt><dd>{bob(document.discountMinor)}</dd></>}
-          <dt>{document.kind === "exchange" ? "Diferencia cobrada (+) o devuelta (−)" : "Total confirmado"}</dt><dd className="trade-total">{bob(document.totalMinor)}</dd>
+          {amount && <><dt>{amount.label}</dt><dd className="trade-total">{bob(amount.minor)}</dd></>}
           {!!document.cashDeltaMinor && <><dt>Movimiento de caja</dt><dd>{bob(document.cashDeltaMinor)}</dd></>}
           {!!document.debtDeltaMinor && <><dt>Movimiento del fiado</dt><dd>{bob(document.debtDeltaMinor)}</dd></>}
         </dl>
         {document.sourceId && <Button variant="plain" onClick={() => showDocument(document.sourceId!)}>Ver operación de origen</Button>}
       </Card>
-      {document.lines.length > 0 && <Card><DataTable caption="Productos confirmados" columns={["Producto", "Cantidad", "Importe unitario", "Subtotal"]}
+      {document.lines.length > 0 && <Card><DataTable caption="Productos confirmados"
+        columns={document.kind === "open-cement" ? ["Producto", "Cantidad", "Valor"] : ["Producto", "Cantidad", "Importe unitario", "Subtotal"]}
         rows={document.lines.map((line) => ({ id: line.lineId, cells: [
           <div>{line.name}<small className="record-secondary">{line.code}
             {line.returnedQuantity > 0 ? " · Devueltas " + line.returnedQuantity : ""}
@@ -99,10 +102,12 @@ export function DocumentPage({ id, back, convert, openSerial }: {
             {line.details && <small className="record-secondary">{describeLine(line)}</small>}
             {line.details?.serial && openSerial && <Button variant="plain" onClick={() => openSerial(line.details!.serial!)}>Historial de la serie</Button>}
             {line.timber && <small className="record-secondary">{documentTimber(document, line)}</small>}</div>,
-          lineQuantity(line), bob(line.unitMinor) + documentUnit(document, line) + lineRate(line), bob(line.subtotalMinor),
+          lineQuantity(line), ...(document.kind === "open-cement" ? [] : [bob(line.unitMinor) + documentUnit(document, line) + lineRate(line)]),
+          bob(line.subtotalMinor),
         ] }))} /></Card>}
       {document.containers.length > 0 && <Card><DataTable caption="Envases" columns={["Tipo", "Entrada", "Entregados", "Devueltos", "Saldo del cliente"]}
         rows={document.containers.map((row) => ({ id: row.name, cells: [row.name, row.added, row.delivered, row.returned, row.customerBalance ?? "—"] }))} /></Card>}
+      {furniture && document.kind === "sale" && <DeliveryPanel document={document} />}
       <div className="inline-actions">
         {document.kind === "quote" && !document.linked && <Button onClick={() => convert(document)}>Preparar venta desde la cotización</Button>}
         {["sale", "exchange"].includes(document.kind) && document.lines.some((line) => remainingQuantity(line) > 0) &&

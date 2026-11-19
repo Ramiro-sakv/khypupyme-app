@@ -157,3 +157,21 @@ La comprobación de PostgreSQL usa `scripts/Test-Block7a.ps1`. El recorrido de E
 | Verificación final | Lint, TypeScript y compilaciones web/C# aprobados. Pasaron las regresiones PostgreSQL de los bloques 4, 5, 6 y 7A. La migración se aplicó a pruebas y desarrollo. Vite conserva el aviso de tamaño del PDF y las fuentes cargados bajo demanda. |
 
 La verificación usa `scripts/Test-Block7b.ps1`. El recorrido de Edge utiliza la configuración opcional del bloque 5.
+
+## Bloque 7C · Muebles, Cerámicas y Cemento
+
+- Muebles registra ancho, fondo y alto en centímetros y muestra las existencias de piezas terminadas. La cotización conserva las cantidades y se puede convertir en venta. Desde la venta se programa un retiro o entrega, con fecha y dirección cuando corresponda. Completarla actualiza su estado sin volver a registrar una salida.
+- Cerámicas registra cobertura por caja, piezas, tono y calibre. La venta y la cotización permiten capturar cajas o piezas y calcular la cobertura con merma. El servidor valida la cantidad y exige confirmar el tono y el calibre declarados en la ficha. El comprobante conserva la selección y la cobertura calculada.
+- Cemento registra peso por bolsa y lote. El formato a granel se habilita por ficha con su propia tarifa por kg y conserva el lote y su vencimiento. La apertura traslada las bolsas y su costo proporcional a kilogramos en una transacción. El historial y el PDF muestran el valor transferido. Una vez habilitado el granel, su tarifa se administra desde la ficha de bolsas.
+
+### Verificación
+
+| Recorrido | Resultado |
+|---|---|
+| Muebles | Se compraron cinco piezas. La cotización dejó cinco y su venta dejó tres. Programar, reprogramar y completar la entrega conservó las tres. Una referencia de otro negocio se rechazó y repetir la confirmación conservó el resultado. |
+| Cerámicas | 12 m² con 10 % de merma requirieron diez cajas de 1,44 m², con 14,4 m² entregados. La alternativa por piezas dio 55. Se rechazaron nueve cajas, el tono sin seleccionar y el calibre incorrecto. |
+| Cemento | Dos bolsas de 50 kg trasladaron 100 kg y Bs 100 del lote. Se conservaron el efectivo y el informe del periodo. Se rechazaron el lote vencido, el exceso de bolsas y un valor de traslado desactualizado. Repetir la solicitud no duplicó su efecto. |
+| Interfaz | Edge a 360 px completó cotización, venta y entrega de muebles, revisó el cálculo y la selección en cerámicas y confirmó la apertura con descarga del PDF en cemento. Se comprobó el retorno al carrito con Escape. |
+| Compatibilidad | Aprobados lint, TypeScript, compilación web y .NET y regresiones PostgreSQL de los bloques 4, 5, 6, 7A y 7B. Migración aplicada a las bases locales de prueba y desarrollo. Vite mantiene el aviso de tamaño de los módulos de PDF cargados bajo demanda. |
+
+El bloque se comprueba con `scripts/Test-Block7c.ps1`. El recorrido de Edge usa la configuración opcional del bloque 5.

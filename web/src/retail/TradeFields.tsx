@@ -62,15 +62,18 @@ export function VariantMatrix({ model, choose, disabled, excluded, requireStock 
     })] }))} />;
 }
 
-export function MeasuredFields({ profile, quantity, measure, buying, mixed, disabled, onQuantity, onMeasure }: {
+export function MeasuredFields({ profile, quantity, measure, buying, mixed, boxSale, bag, lockedQuantity, disabled, onQuantity, onMeasure }: {
   profile: NonNullable<Product["retail"]>; quantity: string; measure: Omit<Measure, "quantity">; buying: boolean; mixed?: boolean; disabled: boolean;
+  boxSale?: boolean; bag?: boolean; lockedQuantity?: boolean;
   onQuantity: (quantity: string) => void; onMeasure: (measure: Omit<Measure, "quantity">) => void;
 }) {
   return <div className="store-fields">
-    <TextField label={mixed && measure.unit === "box" ? "Cajas" : "Cantidad"} inputMode="decimal" value={quantity} disabled={disabled}
+    <TextField label={bag ? "Bolsas" : (mixed || boxSale) && measure.unit === "box" ? "Cajas" : "Cantidad"}
+      inputMode="decimal" value={quantity} disabled={disabled} readOnly={lockedQuantity}
       onChange={(event) => onQuantity(event.target.value)} />
     <SelectField label="Unidad" value={measure.unit} disabled={disabled} onChange={(event) => onMeasure({ ...measure, unit: event.target.value, loose: undefined })}>
-      {retailUnits(profile, buying, mixed).map((unit) => <option value={unit} key={unit}>{unit === "box" && mixed ? "Cajas y sueltos" : unitLabels[unit]}</option>)}
+      {retailUnits(profile, buying, mixed, boxSale).map((unit) => <option value={unit} key={unit}>
+        {unit === "box" && mixed ? "Cajas y sueltos" : unit === "piece" && bag ? "bolsa" : unit === "piece" && boxSale ? "pieza" : unitLabels[unit]}</option>)}
     </SelectField>
     {mixed && measure.unit === "box" && <TextField label="Unidades sueltas" type="number" min={0} max={1_000_000}
       step={1} value={measure.loose ?? 0} disabled={disabled} onChange={(event) => onMeasure({ ...measure, loose: Number(event.target.value) })} />}

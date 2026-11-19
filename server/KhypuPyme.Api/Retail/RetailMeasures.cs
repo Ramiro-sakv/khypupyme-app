@@ -35,12 +35,12 @@ internal static partial class RetailMeasures
         _ => throw new CommerceFailure("La unidad elegida no corresponde a este producto."),
     };
 
-    public static (decimal Captured, decimal Base) Convert(RetailInput input, RetailProfile profile, bool buying, bool mixed = false)
+    public static (decimal Captured, decimal Base) Convert(RetailInput input, RetailProfile profile, bool buying, bool mixed = false, bool boxSale = false)
     {
         if (input.Loose is int loose && (!mixed || input.Unit != "box" || loose is < 0 or > QuantityLimit))
             throw new CommerceFailure("Indica unidades sueltas enteras solamente junto a cajas de bebidas.");
         var captured = Quantity(input.Quantity, allowZero: input.Loose is > 0);
-        var factor = Factor(input.Unit, profile, buying || mixed);
+        var factor = Factor(input.Unit, profile, buying || mixed || boxSale);
         if ((profile.Unit == "piece" || input.Unit == "roll") && captured != decimal.Truncate(captured))
             throw new CommerceFailure("Las cajas, unidades y rollos se registran en cantidades enteras.");
         var stored = captured * factor + (input.Loose ?? 0);

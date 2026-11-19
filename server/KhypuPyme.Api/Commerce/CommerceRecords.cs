@@ -36,6 +36,8 @@ internal sealed class Product : IBusinessRecord
     public string? PrintingSize { get; set; }
     public string? PrintingColor { get; set; }
     public string? CountUnit { get; set; }
+    public string? MaterialJson { get; set; }
+    public Guid? CementSourceId { get; init; }
     public string? Model { get; set; }
     public string? ModelKey { get; set; }
     public string? Size { get; set; }

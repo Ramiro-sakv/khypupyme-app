@@ -1,11 +1,12 @@
 import type { Content, TableCell, TDocumentDefinitions } from "pdfmake/interfaces";
 import type { EntryDocument } from "./models";
-import { bob, dateLabel, documentName, methodLabel } from "./models";
+import { bob, dateLabel, documentAmount, documentName, methodLabel } from "./models";
 import { documentTimber, documentUnit } from "../timber/measures";
 import { describeLine, lineQuantity, lineRate } from "../retail/measures";
 
 function buildDocument(record: EntryDocument): TDocumentDefinitions {
   const heading = documentName(record.kind);
+  const transfer = record.kind === "open-cement";
   const content: Content[] = [
     { text: record.businessName, style: "brand" },
     { text: heading + " · " + record.number, style: "title" },
@@ -19,24 +20,27 @@ function buildDocument(record: EntryDocument): TDocumentDefinitions {
 
   if (record.lines.length > 0) {
     const body: TableCell[][] = [
-      ["Producto", "Cantidad", "Importe unitario", "Subtotal"].map((text) => ({ text, bold: true, fillColor: "#e7f1eb" })),
+      (transfer ? ["Producto", "Cantidad", "Valor"] : ["Producto", "Cantidad", "Importe unitario", "Subtotal"])
+        .map((text) => ({ text, bold: true, fillColor: "#e7f1eb" })),
       ...record.lines.map((line) => [
         { stack: [{ text: line.name }, { text: line.code, color: "#466058", fontSize: 9 },
           ...(line.timber ? [{ text: documentTimber(record, line), color: "#466058", fontSize: 9 }] : []),
           ...(line.details ? [{ text: describeLine(line), color: "#466058", fontSize: 9 }] : [])] },
         { text: lineQuantity(line), alignment: "right" as const },
-        { text: bob(line.unitMinor) + documentUnit(record, line) + lineRate(line), alignment: "right" as const },
+        ...(transfer ? [] : [{ text: bob(line.unitMinor) + documentUnit(record, line) + lineRate(line), alignment: "right" as const }]),
         { text: bob(line.subtotalMinor), alignment: "right" as const },
       ]),
     ];
-    content.push({ table: { headerRows: 1, widths: ["*", 40, 81, 75], body }, layout: "lightHorizontalLines", margin: [0, 14, 0, 14] });
+    content.push({ table: { headerRows: 1, widths: transfer ? ["*", 70, 75] : ["*", 40, 81, 75], body },
+      layout: "lightHorizontalLines", margin: [0, 14, 0, 14] });
   }
   if (record.containers.length > 0) content.push({ table: { headerRows: 1, widths: ["*", 55, 60, 60, 75],
     body: [["Envase", "Entrada", "Entregados", "Devueltos", "Saldo cliente"].map((title) => ({ text: title, bold: true, fillColor: "#e7f1eb" })),
       ...record.containers.map((row) => [row.name, String(row.added), String(row.delivered), String(row.returned), String(row.customerBalance ?? "—")])] },
     layout: "lightHorizontalLines", margin: [0, 6, 0, 10] });
   if (record.discountMinor) content.push({ text: "Descuento · " + bob(record.discountMinor), alignment: "right" });
-  content.push({ text: (record.kind === "exchange" ? "Diferencia cobrada (+) o devuelta (−) · " : "Total confirmado · ") + bob(record.totalMinor), style: "total" });
+  const amount = documentAmount(record);
+  content.push({ text: amount.label + " · " + bob(amount.minor), style: "total" });
   if (record.cashDeltaMinor) content.push({ text: "Movimiento de caja · " + bob(record.cashDeltaMinor), alignment: "right" });
   if (record.debtDeltaMinor) content.push({ text: "Movimiento del fiado · " + bob(record.debtDeltaMinor), alignment: "right" });
 

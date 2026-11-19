@@ -974,6 +974,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/businesses/{businessId}/commerce/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CommercePageOfDeliveryInfo"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/businesses/{businessId}/commerce/containers": {
         parameters: {
             query?: never;
@@ -1702,6 +1739,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/businesses/{businessId}/practice-commerce/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CommercePageOfDeliveryInfo"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/businesses/{businessId}/practice-commerce/containers": {
         parameters: {
             query?: never;
@@ -2230,6 +2304,22 @@ export interface components {
         CashStatus: {
             session: null | components["schemas"]["CashInfo"];
         };
+        CementProfile: {
+            /** Format: double */
+            bagKg: number;
+            /** Format: int64 */
+            bulkPriceMinor: null | number;
+            /** Format: uuid */
+            bulkProductId: null | string;
+            /** @default false */
+            isBulk: boolean;
+        };
+        CementSetup: {
+            /** Format: double */
+            bagKg: number;
+            /** Format: int64 */
+            bulkPriceMinor: null | number;
+        };
         CodePasswordInput: {
             email: null | string;
             code: null | string;
@@ -2249,6 +2339,7 @@ export interface components {
             measure?: null | components["schemas"]["RetailInput"];
             serials?: null | string[];
             printing?: null | components["schemas"]["PrintingInput"];
+            tile?: null | components["schemas"]["TileRequest"];
         };
         CommandResult: {
             /** Format: uuid */
@@ -2292,9 +2383,17 @@ export interface components {
             detailProduct?: null | components["schemas"]["ProductDetail"];
             partsProduct?: null | components["schemas"]["PartsProfile"];
             printingProduct?: null | components["schemas"]["PrintingProfile"];
+            furnitureProduct?: null | components["schemas"]["FurnitureDimensions"];
+            tileProduct?: null | components["schemas"]["TileProfile"];
+            cementProduct?: null | components["schemas"]["CementSetup"];
+            delivery?: null | components["schemas"]["DeliveryInput"];
         };
         CommercePageOfCustomerInfo: {
             items: components["schemas"]["CustomerInfo"][];
+            hasMore: boolean;
+        };
+        CommercePageOfDeliveryInfo: {
+            items: components["schemas"]["DeliveryInfo"][];
             hasMore: boolean;
         };
         CommercePageOfEntryInfo: {
@@ -2379,6 +2478,24 @@ export interface components {
             name: string;
             phone: string;
         };
+        DeliveryInfo: {
+            /** Format: uuid */
+            saleId: string;
+            number: string;
+            customerName: null | string;
+            mode: string;
+            /** Format: date */
+            day: string;
+            address: null | string;
+            /** Format: date */
+            completedOn: null | string;
+        };
+        DeliveryInput: {
+            mode: string;
+            /** Format: date */
+            day: string;
+            address?: null | string;
+        };
         DocumentLine: {
             /** Format: uuid */
             productId: string;
@@ -2438,6 +2555,7 @@ export interface components {
             /** Format: int64 */
             debtBalanceMinor: number;
             containers: components["schemas"]["ContainerMovementInfo"][];
+            delivery: null | components["schemas"]["DeliveryInfo"];
         };
         EntryInfo: {
             /** Format: uuid */
@@ -2460,6 +2578,14 @@ export interface components {
             /** Format: int32 */
             warrantyMonths: number;
         };
+        FurnitureDimensions: {
+            /** Format: double */
+            widthCm: number;
+            /** Format: double */
+            depthCm: number;
+            /** Format: double */
+            heightCm: number;
+        };
         HealthStatus: {
             status: string;
         };
@@ -2481,6 +2607,7 @@ export interface components {
             rateUnit?: null | string;
             specialty?: null | components["schemas"]["ProductSpecialty"];
             printing?: null | components["schemas"]["PrintingDetail"];
+            tile?: null | components["schemas"]["TileCoverage"];
         };
         LotAllocation: {
             lot: string;
@@ -2499,6 +2626,13 @@ export interface components {
             quantity: number;
             sellable: boolean;
             held: boolean;
+            /** Format: int64 */
+            valueMinor: number;
+        };
+        MaterialProfile: {
+            furniture?: null | components["schemas"]["FurnitureDimensions"];
+            tile?: null | components["schemas"]["TileProfile"];
+            cement?: null | components["schemas"]["CementProfile"];
         };
         NewBusiness: {
             /** Format: uuid */
@@ -2591,6 +2725,7 @@ export interface components {
             parts: null | components["schemas"]["PartsProfile"];
             printing: null | components["schemas"]["PrintingProfile"];
             countUnit: null | string;
+            material?: null | components["schemas"]["MaterialProfile"];
         };
         ReceivableInfo: {
             /** Format: uuid */
@@ -2683,6 +2818,25 @@ export interface components {
             expiring: number;
             /** Format: int32 */
             inspections: number;
+        };
+        TileCoverage: {
+            request: components["schemas"]["TileRequest"];
+            /** Format: double */
+            deliveredArea: number;
+            /** Format: double */
+            requiredArea: null | number;
+        };
+        TileProfile: {
+            /** Format: double */
+            boxArea: number;
+            tone: null | string;
+            caliber: null | string;
+        };
+        TileRequest: {
+            area: null | string;
+            waste: null | string;
+            tone: null | string;
+            caliber: null | string;
         };
         TimberDimensions: {
             /** Format: int64 */

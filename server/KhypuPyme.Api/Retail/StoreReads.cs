@@ -63,7 +63,7 @@ internal sealed class StoreReads(KhypuPymeDbContext db, TimeProvider clock)
         if (sellable == true) query = query.Where(x => !x.Held && (x.ExpiresOn == null || x.ExpiresOn >= today));
         return CommerceReads.PageAsync(query
             .OrderBy(x => x.ExpiresOn == null).ThenBy(x => x.ExpiresOn).ThenBy(x => x.Lot)
-            .Select(x => new LotInfo(x.Lot, x.ExpiresOn, x.Quantity, !x.Held && (x.ExpiresOn == null || x.ExpiresOn >= today), x.Held)), page, ct);
+            .Select(x => new LotInfo(x.Lot, x.ExpiresOn, x.Quantity, !x.Held && (x.ExpiresOn == null || x.ExpiresOn >= today), x.Held, x.ValueMinor)), page, ct);
     }
 
     public Task<CommercePage<SerialInfo>> SerialsAsync(Guid? product, string? search, string? state, int? page, CancellationToken ct)

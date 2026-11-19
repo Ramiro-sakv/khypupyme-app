@@ -23,6 +23,9 @@ internal static class CommerceModel
         products.Property(x => x.RollLength).HasPrecision(12, 3);
         products.Property(x => x.DetailJson).HasColumnType("jsonb");
         products.Property(x => x.PartsJson).HasColumnType("jsonb");
+        products.Property(x => x.MaterialJson).HasColumnType("jsonb");
+        products.HasIndex(x => new { x.BusinessId, x.CementSourceId }).IsUnique();
+        products.HasOne<Product>().WithMany().HasForeignKey(x => new { x.BusinessId, Id = x.CementSourceId }).OnDelete(DeleteBehavior.NoAction);
         products.HasIndex(x => new { x.BusinessId, x.VariantKey }).IsUnique();
         products.HasIndex(x => new { x.BusinessId, x.ModelKey });
         products.ToTable(table => table.HasCheckConstraint("products_balance",
@@ -118,6 +121,13 @@ internal static class CommerceModel
         fitments.HasOne<Product>().WithMany().HasForeignKey(x => new { x.BusinessId, x.ProductId }).OnDelete(DeleteBehavior.NoAction);
         fitments.ToTable(table => table.HasCheckConstraint("fitment_years",
             """ "FromYear" BETWEEN 1900 AND 2200 AND "ToYear" BETWEEN "FromYear" AND 2200 """));
+
+        var deliveries = BusinessTable<FurnitureDelivery>(model, "furniture_deliveries");
+        deliveries.HasKey(x => new { x.BusinessId, x.SaleId });
+        deliveries.HasIndex(x => new { x.BusinessId, x.Day });
+        deliveries.HasOne<Entry>().WithMany().HasForeignKey(x => new { x.BusinessId, Id = x.SaleId }).OnDelete(DeleteBehavior.NoAction);
+        deliveries.ToTable(table => table.HasCheckConstraint("furniture_delivery_mode",
+            """ "Mode" IN ('pickup','delivery') AND ("Mode" = 'pickup' OR "Address" IS NOT NULL) """));
 
         var containers = BusinessTable<ContainerType>(model, "container_types");
         containers.HasKey(x => new { x.BusinessId, x.Id });

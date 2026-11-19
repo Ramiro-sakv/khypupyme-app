@@ -11,6 +11,8 @@ import { LotsTable, VariantMatrix } from "../retail/TradeFields";
 import { fromBase, productAvailability, unitLabels } from "../retail/measures";
 import type { Lot } from "../retail/measures";
 import { LotCorrection } from "../retail/LotCorrection";
+import { CementOpening } from "../retail/CementOpening";
+import { initialMaterials, MaterialFields, materialCommand } from "../retail/MaterialFields";
 import { CompatibilityFilter, emptyVehicle, initialSpecialty, searchLabel, SpecialtyFields, specialtyCommand, SpecialtySummary, vehicleQuery } from "../retail/SpecialtyFields";
 
 export function CatalogPage({ units, industry, focus }: { units?: TimberUnits; industry?: string; focus?: string }) {
@@ -20,6 +22,7 @@ export function CatalogPage({ units, industry, focus }: { units?: TimberUnits; i
   const [editing, setEditing] = useState<Product | "new" | null>(null);
   const [loss, setLoss] = useState<{ product: Product; row?: StockRow; lot?: Lot }>();
   const [stock, setStock] = useState<Product>();
+  const [opening, setOpening] = useState<Product>();
   const [correction, setCorrection] = useState<{ product: Product; lot: Lot }>();
   const [filter, setFilter] = useState(focus ?? "");
   const [vehicle, setVehicle] = useState(emptyVehicle);
@@ -36,6 +39,7 @@ export function CatalogPage({ units, industry, focus }: { units?: TimberUnits; i
       onClose={() => setLoss(undefined)} onDone={showDocument} />}
     {correction && <LotCorrection key={correction.product.id + ":" + correction.lot.lot} product={correction.product} lot={correction.lot}
       close={() => setCorrection(undefined)} />}
+    {opening && <CementOpening key={opening.id} product={opening} close={() => setOpening(undefined)} />}
     {stock && units && <Card>
       <div className="page-heading"><div><h2>{stock.name}</h2><p>{stock.timber?.species} · {stock.code}</p></div>
         <Button variant="secondary" onClick={() => setStock(undefined)}>Cerrar existencias</Button></div>
@@ -76,7 +80,10 @@ export function CatalogPage({ units, industry, focus }: { units?: TimberUnits; i
             </div> : bob(product.priceMinor) + (product.retail ? " / " + unitLabels[product.retail.unit] :
               product.specialty?.printing ? " / cara impresa" : product.specialty?.countUnit === "pair" ? " / par" : ""), bob(product.valueMinor),
             <div className="inline-actions">
-              <Button variant="secondary" onClick={() => { setLoss(undefined); setStock(undefined); setEditing(product); }}>Editar</Button>
+              {!product.specialty?.material?.cement?.isBulk &&
+                <Button variant="secondary" onClick={() => { setLoss(undefined); setStock(undefined); setEditing(product); }}>Editar</Button>}
+              {product.active && product.specialty?.material?.cement?.bulkProductId &&
+                <Button variant="secondary" onClick={() => { setEditing(null); setOpening(product); }}>Abrir bolsas</Button>}
               {product.timber && units && <Button variant="secondary" onClick={() => { setEditing(null); setLoss(undefined); setStock(product); }}>Ver medidas</Button>}
               {(product.apparel || product.retail?.trackLots) && <Button variant="secondary" onClick={() => {
                 setEditing(null); setLoss(undefined); setStock(product);
@@ -99,6 +106,7 @@ function ProductEditor({ product, timberIndustry, industry, onClose }: { product
   const [species, setSpecies] = useState(product?.timber?.species ?? "");
   const [setup, setSetup] = useState(() => initialProductFields(industry, product));
   const [specialty, setSpecialty] = useState(() => initialSpecialty(product));
+  const [materials, setMaterials] = useState(() => initialMaterials(product));
   const [rates, setRates] = useState((["superShortMinor", "shortMinor", "longMinor"] as const).map((key) => {
     const saved = product?.timber?.[key];
     return saved === undefined ? "" : editableMoney(saved);
@@ -118,7 +126,7 @@ function ProductEditor({ product, timberIndustry, industry, onClose }: { product
         const amountMinor = parseMoney(price);
         if (amountMinor === null) throw new Error("Escribe un precio con hasta dos decimales.");
         return { kind: "product", entityId: product?.id, name, code, active, amountMinor, ...productFieldsCommand(setup),
-          ...specialtyCommand(industry, setup.kind === "stationery", specialty) };
+          ...specialtyCommand(industry, setup.kind === "stationery", specialty), ...materialCommand(industry, setup.kind, materials) };
       }, onClose);
     }}>
     {timberIndustry && !product && <SelectField label="Tipo de producto" value={timber ? "timber" : "piece"}
@@ -130,10 +138,12 @@ function ProductEditor({ product, timberIndustry, industry, onClose }: { product
     <TextField label="Código" required maxLength={40} value={code} onChange={(event) => setCode(event.target.value)} />
     {retailIndustry(industry) && <ProductFields industry={industry} edits={!!product} fields={setup} setFields={setSetup} />}
     <SpecialtyFields industry={industry} printing={setup.kind === "stationery"} edits={!!product} fields={specialty} update={setSpecialty} />
+    <MaterialFields industry={industry} kind={setup.kind} fields={materials} update={setMaterials} product={product} />
     {timber ? ["Supercorta · 1–2 pies", "Corta · 3–6 pies", "Larga · 7–20 pies"].map((category, index) =>
       <TextField key={category} label={category + " (Bs por pie tablar)"} inputMode="decimal" required value={rates[index]}
         onChange={(event) => setRates(rates.map((rate, position) => position === index ? event.target.value : rate))} />) :
       <TextField label={setup.kind === "stationery" ? "Precio por cara impresa (Bs)" : setup.kind === "footwear" ? "Precio por par (Bs)" :
+        setup.kind === "cement" ? "Precio por bolsa (Bs)" : setup.kind === "ceramics" ? "Precio por pieza (Bs)" :
         measuredIndustry(setup.kind) ? "Precio por " + unitLabels[setup.unit] + " (Bs)" : "Precio unitario (Bs)"}
         inputMode="decimal" required value={price} onChange={(event) => setPrice(event.target.value)} />}
     {product && <SelectField label="Estado" value={active ? "active" : "archived"} onChange={(event) => setActive(event.target.value === "active")}>

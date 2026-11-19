@@ -38,14 +38,25 @@ export function ReviewDock({ total, cartFocus, children, description, operation,
       root.style.setProperty("--review-space", bar.offsetHeight + "px");
     }
 
+    // El espacio de la barra cambia el tamaño del ancla. Aplicar esos cambios fuera del observador.
+    let frame = 0;
+    function scheduleFit() {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        fit();
+      });
+    }
+
     fit();
-    const observer = new ResizeObserver(fit);
+    const observer = new ResizeObserver(scheduleFit);
     observer.observe(anchor);
     observer.observe(bar);
-    window.addEventListener("resize", fit);
+    window.addEventListener("resize", scheduleFit);
     return () => {
       observer.disconnect();
-      window.removeEventListener("resize", fit);
+      window.removeEventListener("resize", scheduleFit);
+      window.cancelAnimationFrame(frame);
       root.style.removeProperty("--review-space");
     };
   }, [visible, minimized]);

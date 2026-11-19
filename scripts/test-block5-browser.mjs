@@ -14,6 +14,12 @@ export async function checkBrowser(cookies, available = 7) {
     page.setDefaultTimeout(10_000);
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
+    await page.addInitScript(() => {
+      window.layoutErrors = [];
+      window.addEventListener("error", (event) => {
+        if (event.message.includes("ResizeObserver loop")) window.layoutErrors.push(event.message);
+      });
+    });
     await page.goto(base + "/?vista=ventas");
     await page.getByRole("button", { name: /Tabla seca.*Pino/ }).click();
     await page.getByRole("button", { name: "Elegir medida disponible" }).click();
@@ -153,6 +159,7 @@ export async function checkBrowser(cookies, available = 7) {
     await page.getByText(/11,00 \/ pie tablar/).first().waitFor();
     assert.equal(await review.isVisible(), false);
     assert.equal(sent, 1);
+    assert.deepEqual(await page.evaluate(() => window.layoutErrors), []);
     assert.deepEqual(errors, []);
     console.log("Edge a 360, 768 y 1440 px: revisión fija, barra minimizable, compra, faltante, Escape y conservación del borrador.");
   } finally {

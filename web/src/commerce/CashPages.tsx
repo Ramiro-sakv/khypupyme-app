@@ -60,7 +60,7 @@ function CashLedger({ current }: { current: CashSession | null }) {
   const sessions = useCommerceData<Page<CashSession>>("/cash/sessions?page=" + page);
   const active = selected?.id === current?.id ? current : selected ?? current;
   return <div className="cash-ledgers">
-    <Card className="cash-history">
+    <Card className="cash-history cash-sessions">
       <h2 className="cash-section-title">Sesiones de caja</h2>
       {!sessions.data ? <LoadFeedback {...sessions} /> : sessions.data.items.length === 0 ?
         <NoRecords>Las sesiones aparecerán aquí después de abrir Caja.</NoRecords> :

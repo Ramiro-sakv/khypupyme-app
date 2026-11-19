@@ -37,7 +37,7 @@
 .home-totals, .report-selection dl { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); gap: .65rem; }
 .home-totals > div, .report-selection dl > div { padding: .7rem .85rem; border-radius: .62rem; background: var(--accent-soft); }
 .home-totals dt, .report-selection dt { color: var(--muted); font-size: .83rem; }
-.home-totals dd, .report-selection dd { margin: .15rem 0 0; font-weight: var(--weight-emphasis); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.home-totals dd, .report-selection dd { margin: .15rem 0 0; font-weight: var(--weight-emphasis); font-variant-numeric: tabular-nums; font-size: clamp(.84rem, .79rem + .25vw, 1rem); overflow-wrap: anywhere; }
 
 .report-chart { min-width: 0; }
 .report-chart-options { display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; margin: .7rem 0; }

@@ -24,7 +24,8 @@
 .trade-product span { color: var(--muted); font-size: .85rem; font-weight: 400; }
 .trade-split .ui-table .ui-field { min-width: 6.25rem; }
 .trade-split .ui-table .ui-field label { font-size: .82rem; }
-.trade-total { color: var(--accent); font-size: 1.12rem; font-weight: var(--weight-emphasis); font-variant-numeric: tabular-nums; }
+.trade-total { min-inline-size: 0; color: var(--accent); font-size: clamp(.95rem, .87rem + .35vw, 1.12rem);
+  font-weight: var(--weight-emphasis); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .trade-check { display: flex; min-height: 44px; gap: .55rem; align-items: center; }
 .trade-check input { width: 1.18rem; height: 1.18rem; flex: none; accent-color: var(--accent); }
 .buyer { padding: .8rem; border: 1px solid var(--line); border-radius: .7rem; }

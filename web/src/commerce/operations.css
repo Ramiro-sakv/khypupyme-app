@@ -64,7 +64,6 @@
 .inventory-controls > .ui-field { flex: 1 1 11rem; max-width: 17rem; }
 .inventory-toolbar h2 { margin: 0; }
 .inventory-table .ui-table th[scope="col"], .cash-history .ui-table th[scope="col"] { background: var(--accent-soft); }
-.inventory-table .ui-table td, .inventory-table .ui-table th { padding: .78rem .65rem; }
 .inventory-table .ui-table tr:hover { background: var(--accent-soft); }
 .inventory-table .pagination { margin-top: .75rem; }
 .inventory-quantity { font-variant-numeric: tabular-nums; }
@@ -108,8 +107,12 @@
 .cash-metrics div { min-width: 0; padding: .72rem; border-radius: .55rem; border: 1px solid var(--line); }
 .cash-metrics div:first-child { background: var(--accent-soft); }
 .cash-metrics dt { font-size: .82rem; color: var(--muted); }
-.cash-metrics dd { margin: .25rem 0 0; color: var(--ink); font-weight: var(--weight-emphasis); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.cash-metrics div:first-child dd { color: var(--accent); font-size: 1.2rem; }
+.cash-metrics dd { margin: .25rem 0 0; font-size: clamp(.84rem, .79rem + .25vw, 1rem); color: var(--ink); font-weight: var(--weight-emphasis); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.cash-metrics div:first-child dd { color: var(--accent); font-size: clamp(.95rem, .87rem + .4vw, 1.2rem); }
+.cash-sessions .ui-table :is(th, td):nth-child(2), .cash-sessions .ui-table :is(th, td):nth-child(3) {
+  white-space: nowrap;
+}
+.cash-sessions .ui-table :is(th, td):nth-child(3) { text-align: end; }
 .cash-actions .commerce-editor { max-width: none; }
 .cash-actions > details + details { margin-top: .65rem; }
 .cash-actions details .commerce-editor { margin-top: .4rem; }

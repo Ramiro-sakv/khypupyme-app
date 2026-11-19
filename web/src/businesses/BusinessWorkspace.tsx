@@ -68,16 +68,18 @@ type WorkspaceProps = {
   navigate: (view: BusinessView, replace?: boolean, workId?: string) => void; onSave: (profile: BusinessProfile) => void;
   practice?: PracticeControls; practiceEntry?: ReactNode;
   access: AccessSnapshot;
+  accountControls: ReactNode;
   onRemoved: (message: string) => void;
 };
 
-export function BusinessWorkspace({ accountId, business, industry, view, workId, navigate, onSave, practice, practiceEntry, access, onRemoved }: WorkspaceProps) {
+export function BusinessWorkspace({ accountId, business, industry, view, workId, navigate, onSave, practice, practiceEntry, access, accountControls, onRemoved }: WorkspaceProps) {
   const theme = industryTheme(business.industry);
   const content = useRef<HTMLDivElement>(null);
   const more = useRef<HTMLDetailsElement>(null);
   const [document, setDocument] = useState<{ id: string; origin: WorkspaceView; work: string }>();
   const [quote, setQuote] = useState<EntryDocument>();
   const [historyKind, setHistoryKind] = useState("");
+  const [tradeArchive, setTradeArchive] = useState<TradeKind>();
   const [focus, setFocus] = useState("");
   const documentId = document?.origin === view && document.work === workId ? document.id : undefined;
   const units = business.industry === "timber" ? unitsOf(business.timberUnits) : undefined;
@@ -92,6 +94,7 @@ export function BusinessWorkspace({ accountId, business, industry, view, workId,
     navigation.flatMap((item) => item.id === "clientes" ? [...extras, item] : [item]);
   const [online, setOnline] = useState(() => navigator.onLine);
   const guide = INDUSTRY_GUIDES[business.industry as IndustryId];
+  const operational = !documentId && ["ventas", "compras", "catalogo", "caja"].includes(view);
 
   useEffect(() => {
     (content.current?.querySelector<HTMLElement>("[data-entry-focus]") ?? content.current?.querySelector("h1"))?.focus({ preventScroll: true });
@@ -110,6 +113,7 @@ export function BusinessWorkspace({ accountId, business, industry, view, workId,
 
   function go(next: BusinessView, target = "", work = "") {
     setDocument(undefined);
+    setTradeArchive(undefined);
     setFocus(target);
     if (next !== "historial") setHistoryKind("");
     navigate(next, false, work);
@@ -133,6 +137,7 @@ export function BusinessWorkspace({ accountId, business, industry, view, workId,
   }
   function trade(kind: TradeKind) {
     return <TradePage key={kind} kind={kind} units={units} industry={business.industry} scan={focus === "scan"} proposal={kind === "sale" ? quote : undefined}
+      onOpenCatalog={() => go("catalogo")} showHistory={tradeArchive === kind} setShowHistory={(visible) => setTradeArchive(visible ? kind : undefined)}
       dismissProposal={() => setQuote(undefined)} onHistory={() => { setHistoryKind(kind); go("historial"); }}
       onStockBack={kind === "stock-in" ? () => go("catalogo") : undefined} />;
   }
@@ -172,7 +177,7 @@ export function BusinessWorkspace({ accountId, business, industry, view, workId,
         <WorkList key={focus} industry={business.industry} focus={focus} open={(id) => go("trabajos", "", id)} />;
       case "informes": return <ReportsPage business={business.name} practice={!!practice} />;
       case "configuracion": return practice ? <Alert>Para cambiar la configuración, pausa la práctica y vuelve al negocio.</Alert> :
-        <BusinessSettings profile={business} industry={industry} onSave={onSave} openPlan={() => go("plan")} onRemoved={onRemoved} />;
+        <BusinessSettings profile={business} industry={industry} onSave={onSave} openPlan={() => go("plan")} onRemoved={onRemoved} accountControls={accountControls} />;
       case "plan": return null;
     }
   }
@@ -185,6 +190,7 @@ export function BusinessWorkspace({ accountId, business, industry, view, workId,
     event.preventDefault();
     go(next);
   }}>
+    <a className="workspace-skip" href="#business-main">Saltar a la pantalla de trabajo</a>
     <nav className="workspace-nav" aria-label="Navegación del negocio">
       <div className="workspace-nav-business">
         <span className="workspace-business-icon"><Icon name={theme.icon} /></span>
@@ -205,8 +211,8 @@ export function BusinessWorkspace({ accountId, business, industry, view, workId,
         </details></li>
       </ul>
     </nav>
-    <div className="workspace-content" ref={content}>
-      <div className="workspace-masthead">
+    <div className="workspace-content" ref={content} id="business-main" tabIndex={-1}>
+      <div className={"workspace-masthead" + (operational ? " workspace-masthead--compact" : "")}>
         {(view !== "inicio" || documentId) && <div className="card-title">
           <span className="workspace-business-icon"><Icon name={theme.icon} /></span>
           <div><strong>{business.name}</strong><p>{industry}</p></div>
@@ -220,7 +226,7 @@ export function BusinessWorkspace({ accountId, business, industry, view, workId,
             access.until ? "Vence el " + timestamp(access.until) : "Acceso comercial activo."}</p></div>
         <Button variant="secondary" onClick={() => go("plan")}>Plan del negocio</Button>
       </Card>}
-      {!documentId && guide && ["ventas", "compras", "cotizaciones", "catalogo"].includes(view) && <aside className="workspace-industry-banner">
+      {!documentId && guide && view === "cotizaciones" && <aside className="workspace-industry-banner">
         <Icon name={theme.icon} /><div><strong>{industry}</strong><p>{guide.title}</p></div>
         <Button variant="plain" onClick={() => go("ayuda")}>Ver guía</Button>
       </aside>}

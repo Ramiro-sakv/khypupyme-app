@@ -92,6 +92,7 @@ internal sealed class CommerceReads(KhypuPymeDbContext db, TimeProvider clock, S
         var term = Search(search);
         var query = Entries;
         if (kind == "expenses") query = query.Where(x => x.Kind == "expense" || x.Kind == "void-expense");
+        else if (kind == "sales") query = query.Where(x => x.Kind == "sale" || x.Kind == "return" || x.Kind == "exchange");
         else if (kind == "documents") query = query.Where(x => x.Kind == "sale" || x.Kind == "purchase" || x.Kind == "quote" ||
             x.Kind == "return" || x.Kind == "exchange" || x.Kind == "collect" || x.Kind == "close-cash" || x.Kind == "repair-receipt" ||
             x.Kind == "cash-adjust" || x.Kind == "stock-in" || x.Kind == "manual-debt" || x.Kind == "void-debt" ||
@@ -137,11 +138,15 @@ internal sealed class CommerceReads(KhypuPymeDbContext db, TimeProvider clock, S
             entry.DebtDeltaMinor, entry.SourceId, linked, lines, entry.TimberUnits, entry.Practice, balance, containers, delivery, work);
     }
 
-    public async Task<CashStatus> CashAsync(CancellationToken ct) =>
-        new(await db.Set<CashSession>().AsNoTracking().OrderByDescending(x => x.ClosedAt == null)
+    public async Task<CashStatus> CashAsync(CancellationToken ct) => new(await CashSessions().FirstOrDefaultAsync(ct));
+
+    public Task<CommercePage<CashInfo>> CashSessionsAsync(int? page, CancellationToken ct) =>
+        PageAsync(CashSessions(), page, ct);
+
+    private IQueryable<CashInfo> CashSessions() =>
+        db.Set<CashSession>().AsNoTracking().OrderByDescending(x => x.ClosedAt == null)
             .ThenByDescending(x => x.OpenedAt).ThenByDescending(x => x.Id)
-            .Select(x => new CashInfo(x.Id, x.OpenedAt, x.ClosedAt, x.OpeningMinor, x.ExpectedMinor, x.CountedMinor))
-            .FirstOrDefaultAsync(ct));
+            .Select(x => new CashInfo(x.Id, x.OpenedAt, x.ClosedAt, x.OpeningMinor, x.ExpectedMinor, x.CountedMinor));
 
     public Task<CommercePage<ReceivableInfo>> DebtsAsync(bool? paid, int? page, CancellationToken ct)
     {

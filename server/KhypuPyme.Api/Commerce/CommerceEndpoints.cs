@@ -69,6 +69,8 @@ internal static class CommerceEndpoints
         reads.MapGet("/documents/{id:guid}", async (Guid id, CommerceReads service, CancellationToken ct) =>
             Found(await service.DocumentAsync(id, ct))).Produces<EntryDocument>();
         reads.MapGet("/cash", (CommerceReads service, CancellationToken ct) => service.CashAsync(ct)).Produces<CashStatus>();
+        reads.MapGet("/cash/sessions", (int? page, CommerceReads service, CancellationToken ct) =>
+            service.CashSessionsAsync(page, ct)).Produces<CommercePage<CashInfo>>();
         reads.MapGet("/setup", (CommerceReads service, CancellationToken ct) => service.SetupAsync(ct)).Produces<SetupStatus>();
         reads.MapGet("/debts", (bool? paid, int? page, CommerceReads service, CancellationToken ct) =>
             service.DebtsAsync(paid, page, ct)).Produces<CommercePage<ReceivableInfo>>();

@@ -2,6 +2,14 @@
 .workspace-nav-business { border-bottom: 1px solid var(--line); }
 .workspace-nav .workspace-nav-group { padding: .85rem .6rem .2rem; color: var(--muted); font-size: .71rem; font-weight: 700; }
 .workspace-masthead { display: flex; gap: .8rem; flex-wrap: wrap; align-items: center; margin-bottom: .9rem; }
+.workspace-masthead--compact { margin-bottom: .65rem; }
+.workspace-masthead--compact .workspace-business-icon { width: 1.9rem; height: 1.9rem; }
+.workspace-masthead--compact .card-title { gap: .45rem; }
+.workspace-masthead--compact .card-title > div { display: flex; align-items: baseline; flex-wrap: wrap; gap: .25rem .6rem; }
+.workspace-masthead--compact .card-title p { margin: 0; }
+.workspace-skip { position: absolute; z-index: 6; inset-inline-start: 1rem; transform: translateY(-200%); padding: .6rem;
+  background: var(--surface); color: var(--accent); }
+.workspace-skip:focus { transform: none; }
 .workspace-connection { display: inline-flex; gap: .4rem; align-items: center; margin-inline-start: auto; font-size: .8rem; color: var(--muted); }
 .workspace-connection::before { content: ""; width: .46rem; aspect-ratio: 1; border-radius: 50%; background: #9a4735; }
 .workspace-connection[data-online="true"]::before { background: #257557; }

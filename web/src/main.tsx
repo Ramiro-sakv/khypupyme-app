@@ -7,6 +7,7 @@ import "./accounts.css";
 import "./workspace.css";
 import "./businesses/businesses.css";
 import "./commerce/commerce.css";
+import "./commerce/operations.css";
 import "./billing/plan.css";
 
 const root = document.getElementById("root");

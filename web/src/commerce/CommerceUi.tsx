@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { Alert, Button, Card, EmptyState, SelectField, TextField } from "../ui/Primitives";
 import { useCommerce } from "./CommerceContext";
@@ -30,10 +30,22 @@ export function Pages({ index, hasMore, onChange }: { index: number; hasMore?: b
   </nav>;
 }
 
-export function SearchForm({ label, onSearch }: { label: string; onSearch: (query: string) => void }) {
+export function SearchForm({ label, onSearch, instant = false }: { label: string; onSearch: (query: string) => void; instant?: boolean }) {
   const [value, setValue] = useState("");
-  return <form className="inline-actions commerce-search" onSubmit={(event) => { event.preventDefault(); onSearch(value.trim()); }}>
-    <TextField label={label} value={value} type="search" maxLength={80} onChange={(event) => setValue(event.target.value)} />
+  const timer = useRef<number>(undefined);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  return <form className="inline-actions commerce-search" onSubmit={(event) => {
+    event.preventDefault();
+    window.clearTimeout(timer.current);
+    onSearch(value.trim());
+  }}>
+    <TextField label={label} value={value} type="search" maxLength={80} onChange={(event) => {
+      const next = event.target.value;
+      setValue(next);
+      window.clearTimeout(timer.current);
+      const term = next.trim();
+      if (instant && term.length !== 1) timer.current = window.setTimeout(() => onSearch(term), 300);
+    }} />
     <Button type="submit" variant="secondary" icon="search">Buscar</Button>
   </form>;
 }

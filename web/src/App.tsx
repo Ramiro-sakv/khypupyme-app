@@ -62,6 +62,29 @@ function AccountApp() {
     finally { setActing(false); }
   }
 
+  const accountControls = session?.email && <section className="account-controls" aria-labelledby="account-controls-title">
+    <div>
+      <h2 id="account-controls-title">Tu cuenta</h2>
+      <p>{session.email}</p>
+    </div>
+    {session.accountId && <AccountProtection accountId={session.accountId} ended={(message) => {
+      if (isNative) void nativeLogout(false).catch(() => setError("No se pudo limpiar la sesión guardada."));
+      setNotice(message);
+      setSession({ ...session, email: null, accountId: null, googleLinked: false });
+      history.replaceState(null, "", "/");
+    }} />}
+    <div className="inline-actions">
+      {!isNative && session.googleConfigured && !session.googleLinked && <Button variant="secondary"
+        disabled={acting} onClick={() => void accountAction(linkGoogle)}>Vincular Google</Button>}
+      <Button variant="secondary" disabled={acting} onClick={() => void accountAction(async () => {
+        if (isNative) await nativeLogout();
+        else await change(auth + "/logout", "POST");
+        setSession({ ...session, email: null, accountId: null, googleLinked: false });
+        history.replaceState(null, "", "/");
+      })}>Cerrar sesión</Button>
+    </div>
+  </section>;
+
   return <main className="app-shell">
     {session?.localMailbox && <div className="environment-strip">Entorno local · Pagos de demostración</div>}
     <header className="app-header">
@@ -76,28 +99,9 @@ function AccountApp() {
     }}>Reintentar</Button>}
     {!loading && session && (session.email ? (
       <>
-        <div className="session-bar">
-          <span>{session.email}</span>
-          <div className="inline-actions">
-            {session.accountId && <AccountProtection accountId={session.accountId} ended={(message) => {
-              if (isNative) void nativeLogout(false).catch(() => setError("No se pudo limpiar la sesión guardada."));
-              setNotice(message);
-              setSession({ ...session, email: null, accountId: null, googleLinked: false });
-              history.replaceState(null, "", "/");
-            }} />}
-            {!isNative && session.googleConfigured && !session.googleLinked && <Button variant="secondary"
-              disabled={acting} onClick={() => void accountAction(linkGoogle)}>Vincular Google</Button>}
-            <Button variant="secondary" disabled={acting} onClick={() => void accountAction(async () => {
-              if (isNative) await nativeLogout();
-              else await change(auth + "/logout", "POST");
-              setSession({ ...session, email: null, accountId: null, googleLinked: false });
-              history.replaceState(null, "", "/");
-            })}>Cerrar sesión</Button>
-          </div>
-        </div>
         {googleNotice && <Alert>{googleNotice}</Alert>}
-        {session.accountId ? <BusinessesPage key={session.accountId} accountId={session.accountId} />
-          : <Alert tone="error">Reinicia la API local para cargar las operaciones comerciales.</Alert>}
+        {session.accountId ? <BusinessesPage key={session.accountId} accountId={session.accountId} accountControls={accountControls} />
+          : <>{accountControls}<Alert tone="error">Reinicia la API local para cargar las operaciones comerciales.</Alert></>}
       </>
     ) : isNative ? (
       <section className="session-bar">

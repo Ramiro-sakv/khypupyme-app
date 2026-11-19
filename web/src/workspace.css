@@ -3,7 +3,7 @@
   display: grid;
   grid-template-columns: 13.5rem minmax(0, 1fr);
   align-items: start;
-  gap: clamp(.85rem, 2.2vw, 1.6rem);
+  gap: clamp(.75rem, 1.3vw, 1.4rem);
 }
 
 .workspace-nav {

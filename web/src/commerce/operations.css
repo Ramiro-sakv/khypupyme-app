@@ -1,0 +1,130 @@
+
+.operation-hero {
+  --module-tint: #e6ebd9;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(8rem, 29%);
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--line));
+  border-inline-start: 4px solid var(--accent);
+  border-radius: var(--radius);
+  background: linear-gradient(105deg, var(--module-tint), var(--surface) 82%);
+}
+.operation-hero[data-area="purchase"] { --module-tint: #f2e3d5; }
+.operation-hero[data-area="sale"] { --module-tint: #e0ece4; }
+.operation-hero[data-area="cash"] { --module-tint: #e7e8f2; }
+.operation-hero-content { padding: clamp(.9rem, 1.8vw, 1.5rem); min-width: 0; }
+.operation-hero-title { display: flex; align-items: start; gap: .75rem; }
+.operation-hero-title .workspace-business-icon {
+  width: 2.6rem;
+  height: 2.6rem;
+  background: var(--surface);
+}
+.operation-hero-title h1 { color: var(--ink); line-height: 1.1; }
+.operation-hero-title p { margin-top: .34rem; max-width: 54ch; font-size: .91rem; }
+.operation-hero-actions { margin-top: .8rem; gap: .5rem; }
+.operation-hero-photo { position: relative; min-width: 0; }
+.operation-hero-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.operation-hero-photo::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(90deg, color-mix(in srgb, var(--surface) 46%, transparent), transparent 27%);
+}
+
+.trade-controls { display: flex; flex-wrap: wrap; gap: .55rem; }
+.trade-controls .ui-button[aria-pressed="true"] { background: var(--accent); color: white; border-color: var(--accent); }
+.trade-pane[hidden] { display: none; }
+.trade-catalog, .trade-cart { min-width: 0; }
+.trade-catalog .trade-catalog-heading { margin: 0; }
+.trade-catalog .commerce-search { margin-block: .8rem; }
+.trade-catalog .barcode-field { align-items: start; row-gap: .42rem; }
+.trade-catalog .barcode-field .ui-field { display: contents; }
+.trade-catalog .barcode-field :is(label, small) { grid-column: 1 / -1; }
+.trade-catalog .barcode-field button { grid-column: 2; grid-row: 2; }
+@media (max-width: 440px) {
+  .trade-catalog .barcode-field button { grid-column: 1; grid-row: auto; }
+}
+.trade-catalog .trade-help { padding: .45rem .75rem; margin-block: .8rem; }
+.trade-cart .page-heading { align-items: baseline; }
+.trade-cart .ui-empty { border: 1px dashed var(--line); border-radius: .8rem; margin-top: .85rem; }
+.trade-product-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10.5rem), 1fr)); gap: .6rem; }
+.trade-product-grid li { min-width: 0; }
+.trade-product { height: 100%; text-align: start; }
+.trade-product .trade-product-name { display: flex; justify-content: space-between; gap: .5rem; align-items: start; }
+.trade-product-name svg { flex: none; }
+.trade-product > span { overflow-wrap: anywhere; }
+.trade-product:not(:disabled):hover { background: var(--accent-soft); border-color: var(--accent); }
+.trade-stock { color: var(--muted); font-size: .79rem; }
+.trade-product .trade-price { color: var(--accent); font-weight: 700; font-size: .86rem; }
+.trade-draft-note { margin: 0; }
+.inventory-controls { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem; margin-block: .6rem 1rem; }
+.inventory-controls .commerce-search { flex: 1 1 19rem; margin: 0; }
+.inventory-controls > .ui-field { flex: 1 1 11rem; max-width: 17rem; }
+.inventory-toolbar h2 { margin: 0; }
+.inventory-table .ui-table th[scope="col"], .cash-history .ui-table th[scope="col"] { background: var(--accent-soft); }
+.inventory-table .ui-table td, .inventory-table .ui-table th { padding: .78rem .65rem; }
+.inventory-table .ui-table tr:hover { background: var(--accent-soft); }
+.inventory-table .pagination { margin-top: .75rem; }
+.inventory-quantity { font-variant-numeric: tabular-nums; }
+
+.inventory-drawer {
+  inset: 0 0 0 auto;
+  margin: 0;
+  width: min(100%, 56rem);
+  height: 100dvh;
+  max-height: 100dvh;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  border-inline-start: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: -.75rem 0 2rem rgb(21 25 22 / .18);
+}
+.inventory-drawer[open] { display: flex; flex-direction: column; }
+.inventory-drawer::backdrop { background: rgb(25 32 29 / .47); }
+.inventory-drawer-header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .65rem;
+  padding: .85rem 1rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--accent-soft);
+}
+.inventory-drawer-header p { margin: 0; }
+.inventory-drawer-content { flex: 1; min-height: 0; overflow: auto; padding: clamp(.65rem, 2.1vw, 1.4rem); }
+.inventory-drawer-content .ui-card { min-width: 0; }
+.inventory-drawer-content .commerce-editor { max-width: none; }
+
+.cash-workbench { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: 1rem; }
+.cash-status-panel { display: grid; gap: .85rem; }
+.cash-status-panel p { margin: 0; }
+.cash-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; margin: 0; }
+.cash-metrics div { min-width: 0; padding: .72rem; border-radius: .55rem; border: 1px solid var(--line); }
+.cash-metrics div:first-child { background: var(--accent-soft); }
+.cash-metrics dt { font-size: .82rem; color: var(--muted); }
+.cash-metrics dd { margin: .25rem 0 0; color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.cash-metrics div:first-child dd { color: var(--accent); font-size: 1.2rem; }
+.cash-actions .commerce-editor { max-width: none; }
+.cash-actions > details + details { margin-top: .65rem; }
+.cash-actions details .commerce-editor { margin-top: .4rem; }
+.cash-ledgers { display: grid; grid-template-columns: minmax(0, .95fr) minmax(0, 1.3fr); align-items: start; gap: 1rem; }
+.cash-ledgers > * { min-width: 0; }
+.cash-ledgers .page-heading { margin-bottom: .6rem; }
+.cash-ledger-details:focus { outline-offset: .22rem; }
+.cash-section-title { margin-bottom: .6rem; }
+@media (max-width: 63rem) { .cash-ledgers { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 44rem) {
+  .operation-hero { grid-template-columns: minmax(0,1fr) 5.3rem; }
+  .operation-hero-title { gap: .45rem; }
+  .operation-hero-title .workspace-business-icon { display: none; }
+  .operation-hero-title p { font-size: .82rem; }
+  .operation-hero-actions { grid-column: 1 / -1; }
+  .operation-hero-actions .ui-button { font-size: .84rem; }
+  .cash-workbench { grid-template-columns: minmax(0, 1fr); }
+  .inventory-controls > .ui-field { max-width: none; }
+}

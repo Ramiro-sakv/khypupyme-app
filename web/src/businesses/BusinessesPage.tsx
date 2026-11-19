@@ -22,7 +22,7 @@ function readRoute(): { view: BusinessView; workId: string } {
       /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(work) ? work : "" };
 }
 
-export function BusinessesPage({ accountId }: { accountId: string }) {
+export function BusinessesPage({ accountId, accountControls }: { accountId: string; accountControls: ReactNode }) {
   const [{ view, workId }, setRoute] = useState(readRoute);
   const [industries, setIndustries] = useState<IndustryOption[]>([]);
   const [business, setBusiness] = useState<BusinessProfile | null>(null);
@@ -82,6 +82,7 @@ export function BusinessesPage({ accountId }: { accountId: string }) {
     <Button variant="secondary" onClick={() => { setError(""); setOpening(true); setInitialRequest((value) => value + 1); }}>
       Reintentar
     </Button>
+    {accountControls}
   </Card>;
   if (view === "crear") return <BusinessWizard industries={industries} onCancel={() => navigate("negocios", true)}
     onCreated={(created) => { setBusiness(created); navigate("inicio", true); }} />;
@@ -89,12 +90,13 @@ export function BusinessesPage({ accountId }: { accountId: string }) {
     {notice && <Alert>{notice}</Alert>}
     <BusinessPicker industries={industries} accountId={accountId}
       last={business} select={select} create={() => navigate("crear")} />
+    <div className="picker-account">{accountControls}</div>
   </>;
 
   const renderWorkspace = (access: AccessSnapshot, active: BusinessProfile, practice?: PracticeControls, practiceEntry?: ReactNode) =>
     <BusinessWorkspace key={active.id} accountId={accountId} business={active} practice={practice} practiceEntry={practiceEntry}
     industry={industries.find((option) => option.id === business.industry)?.name ?? business.industry}
-    view={view} workId={workId} navigate={navigate} access={access} onRemoved={(message) => {
+    view={view} workId={workId} navigate={navigate} access={access} accountControls={accountControls} onRemoved={(message) => {
       setNotice(message); setBusiness(null); navigate("negocios", true);
     }} onSave={(updated) => {
       setBusiness((current) => current?.id === updated.id ? updated : current);

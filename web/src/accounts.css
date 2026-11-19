@@ -1,5 +1,12 @@
 .app-shell { max-width: 86rem; padding: 1rem clamp(.85rem, 3vw, 2.3rem) 2rem; margin: auto; }
-.app-shell:has(.workspace) { max-width: 103rem; }
+.app-shell:has(.workspace) {
+  max-width: none;
+  padding-inline: clamp(.65rem, 1.35vw, 1.5rem);
+  padding-top: .55rem;
+}
+.app-shell:has(.workspace) .app-header { margin-bottom: .8rem; padding-bottom: .55rem; }
+.account-controls { display: grid; gap: .65rem; justify-items: start; overflow-wrap: anywhere; }
+.picker-account { max-width: 65rem; margin: 1rem auto 0; padding: 1rem; border-top: 1px solid var(--line); }
 .environment-strip { padding: .35rem .65rem; margin-bottom: .55rem; border-radius: .45rem; background: #e7eee9; color: #2d5344; text-align: center; font-size: .76rem; }
 .app-header, .page-heading, .session-bar, .inline-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; }
 .app-header, .page-heading, .session-bar { justify-content: space-between; }

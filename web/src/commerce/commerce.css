@@ -13,7 +13,7 @@
 .commerce-top { margin-top: .65rem; }
 .record-secondary, .trade-issue { display: block; margin-top: .2rem; color: var(--muted); font-weight: 450; }
 .trade-issue { color: #842e24; }
-.trade-split { display: grid; grid-template-columns: minmax(14rem, .85fr) minmax(0, 1.55fr); gap: 1rem; align-items: start; }
+.trade-split { display: grid; grid-template-columns: minmax(16rem, 1fr) minmax(0, 1.42fr); gap: 1rem; align-items: start; }
 .trade-split .commerce-search { margin-top: .7rem; }
 .trade-products { list-style: none; padding: 0; display: grid; gap: .55rem; }
 .trade-product {
@@ -71,7 +71,7 @@
   .practice-guide { right: .5rem; max-height: min(24rem, calc(65dvh)); }
 }
 
-@media (max-width: 1000px) { .trade-split { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 880px) { .trade-split { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 640px) {
   .workspace-nav { max-height: none; overflow: visible; }
   .workspace-nav > ul { grid-template-columns: repeat(5, minmax(0, 1fr)); }

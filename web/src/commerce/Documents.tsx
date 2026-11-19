@@ -19,24 +19,25 @@ const documentKinds = ["sale", "purchase", "quote", "return", "exchange", "colle
 type EntryFilters = { from: string; to: string; search: string };
 const emptyFilters: EntryFilters = { from: "", to: "", search: "" };
 
-export function HistoryPage({ initialKind, allowExport, documents = false }: {
-  initialKind: string; allowExport: boolean; documents?: boolean;
+export function HistoryPage({ initialKind, allowExport, documents = false, fixedTitle }: {
+  initialKind: string; allowExport: boolean; documents?: boolean; fixedTitle?: string;
 }) {
   const [kind, setKind] = useState(initialKind);
   const [draft, setDraft] = useState(emptyFilters);
   const [filters, setFilters] = useState(emptyFilters);
   const effectiveKind = kind || (documents ? "documents" : "");
   return <div className="commerce-stack">
-    <CommerceHeading title={documents ? "Documentos" : "Historial"}>{allowExport && <ExportRecords />}</CommerceHeading>
+    {fixedTitle ? <h2>{fixedTitle}</h2> :
+      <CommerceHeading title={documents ? "Documentos" : "Historial"}>{allowExport && <ExportRecords />}</CommerceHeading>}
     <Card className="history-filter">
       <form className="history-toolbar" onSubmit={(event) => {
         event.preventDefault();
         setFilters({ ...draft, search: draft.search.trim() });
       }}>
-        <SelectField label="Tipo de operación" value={kind} onChange={(event) => setKind(event.target.value)}>
+        {!fixedTitle && <SelectField label="Tipo de operación" value={kind} onChange={(event) => setKind(event.target.value)}>
           <option value="">Todas</option>
           {(documents ? documentKinds : historyKinds).map((value) => <option key={value} value={value}>{documentName(value)}</option>)}
-        </SelectField>
+        </SelectField>}
         <TextField label="Desde" type="date" value={draft.from} max={draft.to || undefined}
           onChange={(event) => setDraft({ ...draft, from: event.target.value })} />
         <TextField label="Hasta" type="date" value={draft.to} min={draft.from || undefined}
@@ -82,12 +83,13 @@ export function EntryList({ kind, cashSession, caption, filters }: {
   return <Card>
     {!data.data ? <LoadFeedback {...data} /> : data.data.items.length === 0 ?
       <NoRecords>{filters ? "No hay operaciones en esta búsqueda. Prueba con otro número o periodo." : undefined}</NoRecords> :
-      <DataTable caption={caption} columns={["Operación", "Fecha", cashSession ? "Movimiento de efectivo" : "Importe", "Acción"]}
+      <DataTable caption={caption} columns={["Operación", "Fecha", cashSession ? "Movimiento de efectivo" : "Importe", ...(cashSession ? ["Forma de pago"] : []), "Acción"]}
         rows={data.data.items.map((entry) => ({ id: entry.id, cells: [
           <div>{entry.number}<small className="record-secondary">{documentName(entry.kind)}
             {entry.linked && entry.kind === "expense" ? " · Anulado" : ""}
             {entry.linked && entry.kind === "quote" ? " · Convertida" : ""}</small></div>,
           dateLabel(entry.date), bob(cashSession ? entry.cashDeltaMinor : entry.totalMinor),
+          ...(cashSession ? [methodLabel(entry.method)] : []),
           <Button variant="secondary" onClick={() => showDocument(entry.id)}>Ver detalle</Button>,
         ] }))} />}
     <Pages index={page} hasMore={data.data?.hasMore} onChange={setPage} />

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { OperationHeading } from "./OperationHeading";
 import { Alert, Button, Card, DataTable, SelectField, TextField } from "../ui/Primitives";
 import { useCommerce, useCommerceData } from "./CommerceContext";
 import { CommerceHeading, LoadFeedback, NoRecords, OperationForm, Pages, PaymentField, SearchForm, useCommercialForm } from "./CommerceUi";
@@ -9,26 +10,83 @@ import type { CashStatus, Customer, Page, Receivable } from "./models";
 export function CashPage({ allowAdjustments = true }: { allowAdjustments?: boolean }) {
   const { readOnly, showDocument } = useCommerce();
   const cash = useCommerceData<CashStatus>("/cash");
-  if (!cash.data) return <><CommerceHeading title="Caja" /><LoadFeedback {...cash} /></>;
-  const session = cash.data.session;
+  const session = cash.data?.session;
   const opened = session && !session.closedAt;
   return <div className="commerce-stack">
-    <CommerceHeading title="Caja" />
-    <Card>
-      <h2>{opened ? "Caja abierta" : "Caja cerrada"}</h2>
-      {session ? <>
-        <p>Apertura {timestamp(session.openedAt)} · Fondo {bob(session.openingMinor)}</p>
-        <p>Efectivo esperado <strong>{bob(session.expectedMinor)}</strong></p>
-        {session.closedAt && session.countedMinor !== null && <p>Cierre {timestamp(session.closedAt)} · Contado {bob(session.countedMinor)}
-          {" · Diferencia " + bob(session.countedMinor - session.expectedMinor)}</p>}
-      </> : <p>Aún no hay una sesión de caja registrada.</p>}
+    <OperationHeading area="cash" title="Caja" description="Controla el efectivo de tu turno y consulta las sesiones anteriores." />
+    {!cash.data ? <LoadFeedback {...cash} /> : <>
+      <div className="cash-workbench">
+        <Card className="cash-status-panel">
+          <div className="page-heading">
+            <h2>Estado de la sesión</h2>
+            <span className="status-chip" data-state={opened ? "open" : "closed"}>{opened ? "Caja abierta" : "Caja cerrada"}</span>
+          </div>
+          {session ? <>
+            <p>{session.closedAt ? "Último cierre · " + timestamp(session.closedAt) : "Abierta desde " + timestamp(session.openedAt)}</p>
+            <dl className="cash-metrics">
+              <div><dt>Efectivo esperado</dt><dd>{bob(session.expectedMinor)}</dd></div>
+              <div><dt>Fondo inicial</dt><dd>{bob(session.openingMinor)}</dd></div>
+              {session.countedMinor != null && <>
+                <div><dt>Efectivo contado</dt><dd>{bob(session.countedMinor)}</dd></div>
+                <div><dt>Diferencia</dt><dd>{bob(session.countedMinor - session.expectedMinor)}</dd></div>
+              </>}
+            </dl>
+          </> : <p>Aún no hay sesiones. Abre Caja antes de registrar un cobro en efectivo.</p>}
+        </Card>
+        <div className="cash-actions">
+          {opened ? <>
+            <details className="trade-help" key={session.id}>
+              <summary>Cerrar y conciliar caja</summary>
+              <CashEditor key={session.expectedMinor} session={session} />
+            </details>
+            {!readOnly && allowAdjustments && <details className="trade-help">
+              <summary>Aporte o retiro de efectivo</summary>
+              <CashAdjustment session={session.id} onDone={showDocument} />
+            </details>}
+          </> : !readOnly && <CashEditor session={null} />}
+        </div>
+      </div>
+      <CashLedger current={session ?? null} />
+    </>}
+  </div>;
+}
+
+type CashSession = NonNullable<CashStatus["session"]>;
+
+function CashLedger({ current }: { current: CashSession | null }) {
+  const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<CashSession>();
+  const details = useRef<HTMLHeadingElement>(null);
+  const sessions = useCommerceData<Page<CashSession>>("/cash/sessions?page=" + page);
+  const active = selected?.id === current?.id ? current : selected ?? current;
+  return <div className="cash-ledgers">
+    <Card className="cash-history">
+      <h2 className="cash-section-title">Sesiones de caja</h2>
+      {!sessions.data ? <LoadFeedback {...sessions} /> : sessions.data.items.length === 0 ?
+        <NoRecords>Las sesiones aparecerán aquí después de abrir Caja.</NoRecords> :
+        <DataTable caption="Sesiones actuales y anteriores" columns={["Apertura", "Estado", "Esperado", "Acción"]}
+          rows={sessions.data.items.map((row) => ({ id: row.id, cells: [
+            timestamp(row.openedAt), row.closedAt ? "Cerrada" : "Abierta", bob(row.expectedMinor),
+            <Button variant="secondary" aria-label={"Ver movimientos de " + timestamp(row.openedAt)} aria-pressed={active?.id === row.id} onClick={() => {
+              setSelected(row);
+              details.current?.focus();
+            }}>Ver movimientos</Button>,
+          ] }))} />}
+      <Pages index={page} hasMore={sessions.data?.hasMore} onChange={setPage} />
     </Card>
-    {(opened || !readOnly) && <CashEditor key={[session?.id, Boolean(opened), session?.expectedMinor].join(":")} session={opened ? session : null} />}
-    {opened && !readOnly && allowAdjustments && <details className="trade-help">
-      <summary>Aporte o retiro de efectivo</summary>
-      <CashAdjustment session={session.id} onDone={showDocument} />
-    </details>}
-    {session && <EntryList cashSession={session.id} caption="Movimientos de la sesión" />}
+    {active && <section className="cash-history commerce-stack" aria-label="Detalle de caja">
+      <div className="page-heading">
+        <div>
+          <h2 ref={details} tabIndex={-1} className="cash-ledger-details">Movimientos de la sesión</h2>
+          <p>{timestamp(active.openedAt)}{active.closedAt && " · Cerrada " + timestamp(active.closedAt)}</p>
+        </div>
+        {active.id !== current?.id && <Button variant="secondary" onClick={() => {
+          setSelected(undefined);
+          details.current?.focus();
+        }}>Volver a la última sesión</Button>}
+      </div>
+      <EntryList key={active.id} cashSession={active.id} caption="Registro de movimientos de efectivo" />
+    </section>}
   </div>;
 }
 

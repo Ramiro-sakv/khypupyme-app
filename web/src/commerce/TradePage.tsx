@@ -5,6 +5,8 @@ import { Icon } from "../ui/Icon";
 import { TradeHelp } from "../businesses/BusinessHelp";
 import { ReviewDock } from "../ui/ReviewDock";
 import { CustomerEditor } from "./CatalogPage";
+import { OperationHeading } from "./OperationHeading";
+import { HistoryPage } from "./Documents";
 import { useCommerce, useCommerceData } from "./CommerceContext";
 import { CommerceHeading, LoadFeedback, NoRecords, Pages, PaymentField, SearchForm, useCommercialForm } from "./CommerceUi";
 import { bob, editableMoney, moneyLimit, parseMoney } from "./models";
@@ -39,10 +41,13 @@ const emptyTile: TileRequest = { area: null, waste: null, tone: null, caliber: n
 const titles: Record<TradeKind, string> = { sale: "Venta nueva", purchase: "Compra nueva", quote: "Cotización nueva", "stock-in": "Entrada manual de inventario" };
 const label: Record<TradeKind, string> = { sale: "venta", purchase: "compra", quote: "cotización", "stock-in": "entrada" };
 
-export function TradePage({ kind, proposal, dismissProposal, onHistory, units = "imperial", industry, work, workService, onWorkBack, scan, onStockBack }: {
+export function TradePage({ kind, proposal, dismissProposal, onHistory, units = "imperial", industry, work, workService, onWorkBack, scan, onStockBack, onOpenCatalog, showHistory = false, setShowHistory }: {
   kind: TradeKind; proposal?: EntryDocument; dismissProposal: () => void; onHistory: () => void; units?: TimberUnits; industry?: string;
   work?: Work; workService?: Product; onWorkBack?: () => void; scan?: boolean;
   onStockBack?: () => void;
+  onOpenCatalog?: () => void;
+  showHistory?: boolean;
+  setShowHistory?: (visible: boolean) => void;
 }) {
   const workspace = useCommerce();
   const draftKey = workspace.scope + ":" + kind + (work ? ":work:" + work.id : "");
@@ -171,18 +176,13 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
     update((draft) => ({ ...draft, lines: draft.lines.filter((line) => (line.key ?? line.id) !== id) }));
   }
 
+  const area = !work && (kind === "sale" || kind === "purchase") ? kind : undefined;
+  const historyTitle = kind === "purchase" ? "Historial de compras" : "Historial de ventas";
+  const modeTitle = area === "purchase" ? "Registrar compra" : "Registrar venta";
   if (!ready) return <><CommerceHeading title={titles[kind]} /><LoadFeedback error={error || undefined} reload={() => void reload()} /></>;
 
-  return <div className="commerce-stack">
-    <CommerceHeading title={work ? "Venta vinculada" : titles[kind]}>
-      {work ? <Button variant="secondary" icon="back" onClick={onWorkBack}>Volver al trabajo</Button> :
-        <div className="inline-actions">
-          {onStockBack && <Button variant="secondary" icon="back" onClick={onStockBack}>Volver a inventario</Button>}
-          <Button variant="secondary" icon="document" onClick={onHistory}>Ver operaciones</Button>
-        </div>}
-    </CommerceHeading>
-    {stockIn ? <Alert>Indica las cantidades, el costo de las existencias y el motivo de la entrada. Este movimiento no registra un pago.</Alert> :
-      <TradeHelp industry={industry} />}
+  const editor = <div className="trade-pane commerce-stack" hidden={showHistory}>
+    {stockIn ? <Alert>Indica las cantidades, el costo de las existencias y el motivo de la entrada. Este movimiento no registra un pago.</Alert> : null}
     {value.lines.length > 0 && <p className="trade-draft-note"><Icon name="document" /> Borrador local · Se registra al confirmar</p>}
     {work && <Alert>{work.title} · {work.customerName}{work.budgetMinor == null ? "" : " · Presupuesto " + bob(work.budgetMinor)}</Alert>}
     {workService && !workService.active && <Alert tone="error">El servicio del trabajo está archivado. Actívalo en Catálogo para cobrar.</Alert>}
@@ -215,25 +215,37 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
       </div>
     </Card>}
     <div className="trade-split">
-      <Card>
-        <SearchForm label={searchLabel(industry)}
+      <Card className="trade-catalog">
+        <div className="page-heading">
+          <h2 className="trade-catalog-heading">{industry === "timber" ? "Madera y medidas" : "Productos"}</h2>
+          {value.lines.length > 0 && <Button variant="plain" icon="cart" onClick={() => cart.current?.focus()}>
+            Ir al carrito
+          </Button>}
+        </div>
+        <SearchForm instant label={searchLabel(industry)}
           onSearch={(query) => { setSearch(query); setPage(1); setSelectedModel(""); }} />
-        <h2 className="trade-catalog-heading">{industry === "timber" ? "Madera y medidas" : "Productos"}</h2>
         <BarcodeField add={add} disabled={frozen} focus={scan}
           accepts={(product) => !isPurchase || (!product.isService && !product.specialty?.printing && !product.specialty?.material?.cement?.isBulk)} />
         {industry === "spareParts" && <CompatibilityFilter onChange={(filter) => { setVehicle(filter); setPage(1); }} />}
-        {!products.data ? <LoadFeedback {...products} /> : products.data.items.length === 0 ? <NoRecords>Consulta el catálogo para dar de alta artículos.</NoRecords> :
-          <ul className="trade-products">
+        {!stockIn && <TradeHelp industry={industry} />}
+        {!products.data ? <LoadFeedback {...products} /> : products.data.items.length === 0 ? <>
+          <NoRecords>{search ? "Prueba otro nombre, especie o código." : "Crea un producto en Inventario para añadirlo aquí."}</NoRecords>
+          {!search && onOpenCatalog && <Button variant="secondary" icon="grid" onClick={onOpenCatalog}>Ir a inventario</Button>}
+        </> :
+          <ul className="trade-products trade-product-grid">
             {products.data.items.filter((product, index, all) => (!isPurchase || (!product.specialty?.printing && !product.specialty?.material?.cement?.isBulk)) && (!product.apparel ||
               all.findIndex((item) => item.apparel?.model.toUpperCase() === product.apparel?.model.toUpperCase()) === index))
               .map((product) => <li key={product.id}>
               <button type="button" className="trade-product" disabled={frozen || (product.timber ? value.lines.length >= 100 :
                 !product.apparel && commercialGroups >= 20 && !lines.some((item) => item.line.id === product.id))}
                 onClick={() => product.apparel ? setSelectedModel(product.apparel.model) : add(product)}>
-                <strong>{product.apparel?.model ?? product.name}</strong>
+                <div className="trade-product-name"><strong>{product.apparel?.model ?? product.name}</strong><Icon name="plus" /></div>
                 {product.apparel ? <span>Elegir talla y color</span> : <>
                   <span>{product.timber?.species && product.timber.species + " · "}{product.code}</span>
-                  <span>{productAvailability(product)}{product.specialty?.printing || product.isService ? "" : " disp."}{product.timber ? " por medidas" : " · " + bob(product.priceMinor)}</span>
+                  <span className="trade-stock">{productAvailability(product)}{product.specialty?.printing || product.isService ? "" : " disponibles"}{product.timber ? " por medidas" : ""}</span>
+                  {!isPurchase && (product.timber
+                    ? <span className="trade-price">Tarifa según el largo</span>
+                    : <span className="trade-price">{bob(product.priceMinor)}</span>)}
                 </>}
               </button>
             </li>)}
@@ -242,7 +254,7 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
         {isPurchase && products.data?.items.some((product) => product.specialty?.printing) && <p>Los servicios de impresión se cobran desde Ventas.</p>}
         {selectedModel && <VariantMatrix model={selectedModel} choose={add} disabled={frozen} />}
       </Card>
-      <Card>
+      <Card className="trade-cart">
         <div className="page-heading">
           <h2 ref={cart} tabIndex={-1}>Carrito</h2>
           <strong className="trade-total" aria-live="polite">Total de {label[kind]} · {totalText}</strong>
@@ -361,7 +373,8 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
         {current.error && <Alert tone="error">{current.error} <Button variant="secondary" onClick={current.reload}>Reintentar disponibilidad</Button></Alert>}
       </Card>
     </div>
-    {value.lines.length > 0 && <ReviewDock cartFocus={cart} total={totalText}>
+    {value.lines.length > 0 && <ReviewDock cartFocus={cart} total={totalText}
+      description={total === null ? "Completa las cantidades y costos pendientes." : unavailable ? "Hay líneas que requieren revisión." : undefined}>
       {work ? <p>Cliente del trabajo · <strong>{work.customerName}</strong></p> : !isPurchase && <Buyer selected={value.customer} disabled={frozen}
         onChange={(customer) => update((draft) => ({ ...draft, customer }))} />}
       <form className="account-form" onSubmit={(event) => {
@@ -401,6 +414,26 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
         <Button type="submit" icon="check" disabled={!canSend || form.blocked}>Confirmar {label[kind]}</Button>
       </form>
     </ReviewDock>}
+  </div>;
+
+  return <div className="commerce-stack">
+    {area ? <OperationHeading area={area} title={titles[kind]} description={area === "purchase"
+      ? "Recibe mercadería y revisa los costos antes de registrar la compra."
+      : "Añade productos por búsqueda o lector y revisa el cobro en el carrito."}>
+      <div className="trade-controls" role="group" aria-label="Vista de la operación">
+        <Button variant="secondary" icon={area === "purchase" ? "parcel" : "cart"}
+          aria-pressed={!showHistory} onClick={() => setShowHistory?.(false)}>{modeTitle}</Button>
+        <Button variant="secondary" icon="archive" aria-pressed={showHistory} onClick={() => setShowHistory?.(true)}>{historyTitle}</Button>
+      </div>
+    </OperationHeading> : <CommerceHeading title={work ? "Venta vinculada" : titles[kind]}>
+      {work ? <Button variant="secondary" icon="back" onClick={onWorkBack}>Volver al trabajo</Button> :
+        <div className="inline-actions">
+          {onStockBack && <Button variant="secondary" icon="back" onClick={onStockBack}>Volver a inventario</Button>}
+          <Button variant="secondary" icon="document" onClick={onHistory}>Ver operaciones</Button>
+        </div>}
+    </CommerceHeading>}
+    {area && showHistory && <HistoryPage initialKind={area === "sale" ? "sales" : "purchase"} fixedTitle={historyTitle} allowExport={false} />}
+    {editor}
   </div>;
 }
 

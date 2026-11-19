@@ -168,6 +168,14 @@ try {
   const summarize = async () => (await request(scope + "/report", 200)).totals;
   const baseline = await summarize();
   const moreCash = (await post({ kind: "open-cash", amountMinor: 2_000 })).entityId;
+  const cashSessions = (await request(scope + "/cash/sessions", 200)).items;
+  assert.deepEqual(cashSessions.map((row) => row.id), [moreCash, opening.entityId]);
+  assert.equal(cashSessions[1].countedMinor, 70_000);
+  assert.deepEqual((await request(secondary + "/cash/sessions", 200)).items, []);
+  assert.deepEqual((await request(secondary + "/history?cashSession=" + opening.entityId, 200)).items, []);
+  const salesJournal = (await request(scope + "/history?kind=sales", 200)).items;
+  assert.ok(salesJournal.some((row) => row.kind === "sale") && salesJournal.some((row) => row.kind === "return"));
+  assert.ok(salesJournal.every((row) => ["sale", "return", "exchange"].includes(row.kind)));
   const deposit = { operationId: randomUUID(), kind: "cash-adjust", sourceId: moreCash, code: "in",
     amountMinor: 1_200, note: "Aporte del titular" };
   await request(scope + "/commands", 422, "POST", deposit, false);
@@ -206,7 +214,7 @@ try {
   assert.deepEqual(await request(scope + "/setup", 200), { cashStarted: true, catalogReady: true, sold: true });
   console.log("Confirmados ajustes protegidos, fiado manual, filtros de documentos y avance inicial sin mezclar saldos ni negocios.");
   if (process.env.KHYPU_TEST_PLAYWRIGHT) {
-    await (await import("./test-polish-browser.mjs")).checkPolish(cookies, scope.split("/").at(-2), confirmed.number);
+    await (await import("./test-polish-browser.mjs")).checkPolish(cookies, scope.split("/").at(-2), confirmed.number, (await entry(purchase.entityId)).number);
   }
 } finally {
   const sql = 'DELETE FROM khypupyme."AspNetUsers" WHERE "NormalizedEmail"=upper(\'' + email + '\'); ' +

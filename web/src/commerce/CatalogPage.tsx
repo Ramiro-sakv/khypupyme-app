@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { InventoryDrawer } from "./InventoryDrawer";
+import { OperationHeading } from "./OperationHeading";
 import { VariantBatch } from "../retail/VariantBatch";
 import { Button, Card, DataTable, SelectField, TextField } from "../ui/Primitives";
 import { useCommerce, useCommerceData } from "./CommerceContext";
@@ -23,6 +25,7 @@ export function CatalogPage({ units, industry, focus, onStockIn }: {
   const { showDocument, readOnly } = useCommerce();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("true");
   const [editing, setEditing] = useState<Product | "new" | null>(null);
   const [variants, setVariants] = useState(false);
   const [loss, setLoss] = useState<{ product: Product; row?: StockRow; lot?: Lot }>();
@@ -32,10 +35,17 @@ export function CatalogPage({ units, industry, focus, onStockIn }: {
   const [filter, setFilter] = useState(focus ?? "");
   const [vehicle, setVehicle] = useState(emptyVehicle);
   const data = useCommerceData<Page<Product>>("/products?" + new URLSearchParams({ page: String(page), search,
-    ...(filter ? { attention: filter } : {}), ...(industry === "spareParts" ? vehicleQuery(vehicle) : {}) }));
+    ...(status ? { active: status } : {}), ...(filter ? { attention: filter } : {}), ...(industry === "spareParts" ? vehicleQuery(vehicle) : {}) }));
+
+  const panelOpen = editing ?? (variants || loss || correction || opening || stock);
+  function closePanel() {
+    setEditing(null); setStock(undefined); setVariants(false); setLoss(undefined); setOpening(undefined); setCorrection(undefined);
+  }
 
   return <div className="commerce-stack">
-    <CommerceHeading title="Catálogo">
+    <OperationHeading area="inventory" title="Inventario" description={units
+      ? "Busca por especie y consulta las piezas disponibles por largo, espesor y ancho."
+      : "Consulta existencias, precios y los movimientos que necesitan atención."}>
       <div className="inline-actions">
         {onStockIn && <Button variant="secondary" icon="parcel" onClick={onStockIn}>Entrada manual</Button>}
         {!readOnly && (industry === "clothing" || industry === "footwear") && <Button variant="secondary" icon="clothing" onClick={() => {
@@ -43,8 +53,9 @@ export function CatalogPage({ units, industry, focus, onStockIn }: {
         }}>Crear variantes juntas</Button>}
         {!readOnly && <Button icon="plus" onClick={() => { setVariants(false); setLoss(undefined); setStock(undefined); setEditing("new"); }}>Nuevo producto</Button>}
       </div>
-    </CommerceHeading>
-    {variants && <VariantBatch close={() => setVariants(false)} />}
+    </OperationHeading>
+    {panelOpen && <InventoryDrawer title={stock ? stock.name : "Gestión de productos"} onDismiss={closePanel}>
+    {variants && <VariantBatch close={closePanel} />}
     {editing && <ProductEditor key={editing === "new" ? "new" : editing.id}
       product={editing === "new" ? undefined : editing} timberIndustry={units !== undefined} industry={industry} onClose={() => setEditing(null)} />}
     {loss && <LossEditor key={loss.product.id + (loss.lot?.lot ?? "")} product={loss.product} timber={loss.row?.timber} available={loss.row?.stock} lot={loss.lot}
@@ -52,7 +63,7 @@ export function CatalogPage({ units, industry, focus, onStockIn }: {
     {correction && <LotCorrection key={correction.product.id + ":" + correction.lot.lot} product={correction.product} lot={correction.lot}
       close={() => setCorrection(undefined)} />}
     {opening && <CementOpening key={opening.id} product={opening} close={() => setOpening(undefined)} />}
-    {stock && units && <Card>
+    {stock && units && !loss && <Card>
       <div className="page-heading"><div><h2>{stock.name}</h2><p>{stock.timber?.species} · {stock.code}</p></div>
         <Button variant="secondary" onClick={() => setStock(undefined)}>Cerrar existencias</Button></div>
       <p>Total del producto · {stock.stock} piezas · {bob(stock.valueMinor)} a costo</p>
@@ -61,31 +72,40 @@ export function CatalogPage({ units, industry, focus, onStockIn }: {
         <TimberStockTable key={stock.id + ":loss"} product={stock} units={units} pick={(row) => setLoss({ product: stock, row })} />
       </details>}
     </Card>}
-    {stock && (stock.apparel || stock.retail?.trackLots) && <Card>
+    {stock && !loss && !correction && (stock.apparel || stock.retail?.trackLots) && <Card>
       <div className="page-heading"><h2>{stock.apparel?.model ?? stock.name}</h2><Button variant="secondary" onClick={() => setStock(undefined)}>Cerrar existencias</Button></div>
       {stock.apparel && <VariantMatrix key={stock.apparel.model} model={stock.apparel.model} />}
       {stock.retail?.trackLots && <LotsTable key={stock.id} product={stock}
         choose={industry !== "cosmetics" ? (lot) => setLoss({ product: stock, lot }) : undefined}
         actions={industry === "cosmetics" ? (lot) => <Button variant="secondary" onClick={() => setCorrection({ product: stock, lot })}>Gestionar lote</Button> : undefined} />}
     </Card>}
-    <Card>
+    </InventoryDrawer>}
+    <Card className="inventory-table">
+      <div className="inventory-toolbar"><h2>Productos y existencias</h2></div>
+      <div className="inventory-controls">
+      <SearchForm instant label={industry === "cosmetics" ? "Buscar por marca, presentación o tono" : searchLabel(industry)}
+        onSearch={(value) => { setSearch(value); setPage(1); }} />
+      <SelectField label="Estado del producto" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>
+        <option value="true">Activos</option><option value="false">Archivados</option><option value="">Todos</option>
+      </SelectField>
       {measuredIndustry(industry) && <SelectField label="Ver existencias" value={filter} onChange={(event) => { setFilter(event.target.value); setPage(1); }}>
         <option value="">Todo el catálogo</option><option value="reorder">Reposición</option><option value="expiring">Lotes que vencen en 30 días</option>
         {industry === "cosmetics" && <option value="held">Lotes apartados</option>}
       </SelectField>}
-      <SearchForm label={industry === "cosmetics" ? "Buscar por marca, presentación o tono" : searchLabel(industry)}
-        onSearch={(value) => { setSearch(value); setPage(1); }} />
+      </div>
       {industry === "spareParts" && <CompatibilityFilter onChange={(filter) => { setVehicle(filter); setPage(1); }} />}
-      {!data.data ? <LoadFeedback {...data} /> : data.data.items.length === 0 ? <NoRecords>Crea un producto para registrar sus compras y ventas.</NoRecords> :
+      {!data.data ? <LoadFeedback {...data} /> : data.data.items.length === 0 ? <NoRecords>
+        {search || filter || status === "false" ? "Cambia los filtros para ver otros productos." : "Crea un producto para registrar sus compras y ventas."}
+      </NoRecords> :
         <DataTable caption="Existencias por producto" columns={["Producto", "Disponible", "Precio", "Valor de stock", "Acciones"]}
           rows={data.data.items.map((product) => ({ id: product.id, cells: [
             <div>{product.name}<small className="record-secondary">{product.timber?.species && product.timber.species + " · "}
-              {product.code} · {product.active ? "Activo" : "Archivado"}</small>
+              {product.code}{!product.active && " · Archivado"}</small>
               {product.apparel && <small className="record-secondary">{product.apparel.model} · {product.apparel.size} · {product.apparel.color}</small>}
               {product.cosmetic && <small className="record-secondary">{[product.cosmetic.brand, product.cosmetic.presentation, product.cosmetic.tone].filter(Boolean).join(" · ")}</small>}
               <SpecialtySummary product={product} />
               {industry === "spareParts" && !product.specialty?.parts && <small>Compatibilidad por confirmar</small>}</div>,
-            productAvailability(product), product.timber ? <div className="timber-rates">
+            <strong className="inventory-quantity">{productAvailability(product)}</strong>, product.timber ? <div className="timber-rates">
               <span>1–2 pies · {bob(product.timber.superShortMinor)}</span>
               <span>3–6 pies · {bob(product.timber.shortMinor)}</span>
               <span>7–20 pies · {bob(product.timber.longMinor)}</span>

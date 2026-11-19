@@ -1,6 +1,7 @@
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
 import { Button } from "./Primitives";
+import { Icon } from "./Icon";
 
 export function ReviewDock({ total, cartFocus, children, description, operation, visible = true }: {
   total: ReactNode;
@@ -76,18 +77,19 @@ export function ReviewDock({ total, cartFocus, children, description, operation,
       <div className="review-dock" ref={dock} data-minimized={minimized || undefined}>
         <div className="review-summary">
           <span className="review-total-label">Total</span><strong>{total}</strong>
-          {!minimized && description && <p>{description}</p>}
         </div>
         <div className="review-actions">
-          <button type="button" className="ui-button ui-button--plain" ref={toggle} aria-controls={actionsId}
-            aria-expanded={!minimized} onClick={() => setMinimized((value) => !value)}>
-            {minimized ? "Mostrar" : "Minimizar barra"}
+          <button type="button" className="ui-button ui-button--plain review-toggle" ref={toggle} aria-controls={actionsId}
+            aria-expanded={!minimized} aria-label={minimized ? "Mostrar" : "Minimizar barra"}
+            title={minimized ? undefined : "Minimizar barra"} onClick={() => setMinimized((value) => !value)}>
+            {minimized ? "Mostrar" : <Icon name="minus" />}
           </button>
           <div id={actionsId} hidden={minimized}>
             <button type="button" className="ui-button ui-button--primary" ref={trigger} aria-haspopup="dialog"
               aria-controls={dialogId} onClick={() => panel.current?.showModal()}>Revisar {operation}</button>
           </div>
         </div>
+        {!minimized && description && <p className="review-description">{description}</p>}
       </div>
     </div>
     <dialog className="review-dialog" id={dialogId} ref={panel} aria-labelledby={title} onClose={restoreFocus}>

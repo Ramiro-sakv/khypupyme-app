@@ -7,6 +7,7 @@ const paths = {
   arrow: "M4 12h15m-6-6 6 6-6 6",
   back: "M20 12H5m6 6-6-6 6-6",
   plus: "M12 4v16M4 12h16",
+  minus: "M5 12h14",
   search: "M16 16l4 4M18 11a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z",
   check: "m5 12 4 4 10-10",
   close: "m6 6 12 12M18 6 6 18",

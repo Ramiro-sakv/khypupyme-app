@@ -120,11 +120,15 @@ export async function checkBrowser(cookies, available = 7) {
           const mobile = matchMedia("(max-width: 640px)").matches;
           const nav = document.querySelector(".workspace-nav")?.getBoundingClientRect();
           return bar && slot && bar.top > 0 && bar.bottom <= (mobile && nav ? nav.top : innerHeight) &&
-            Math.abs(bar.left - slot.left) < 2 && Math.abs(bar.right - slot.right) < 2;
+            bar.width <= (mobile ? 18 : 20) * parseFloat(getComputedStyle(document.documentElement).fontSize) + 1 &&
+            bar.left > slot.left + 24 && Math.abs(bar.right - slot.right) < 2;
         });
         assert.ok(await review.isVisible());
       }
+      const dock = page.locator(".review-dock");
+      const expandedWidth = (await dock.boundingBox()).width;
       await page.getByRole("button", { name: "Minimizar barra", exact: true }).click();
+      assert.ok((await dock.boundingBox()).width < expandedWidth);
       const toggle = page.getByRole("button", { name: "Mostrar", exact: true });
       assert.equal(await toggle.getAttribute("aria-expanded"), "false");
       assert.equal(await review.isVisible(), false);

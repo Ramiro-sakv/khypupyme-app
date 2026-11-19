@@ -84,8 +84,13 @@
   background: var(--accent-soft);
 }
 .review-dock {
-  width: 100%;
+  --review-compact-width: 20rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: .2rem .5rem;
+  width: min(100%, var(--review-compact-width));
   min-width: 0;
+  padding: .5rem .65rem;
   pointer-events: auto;
   border: 1px solid var(--line);
   border-radius: .8rem;
@@ -93,9 +98,10 @@
 }
 .review-dock[data-minimized] { width: fit-content; max-width: 100%; padding-block: .35rem; }
 .review-summary { min-width: 0; overflow-wrap: anywhere; }
-.review-summary p { margin-top: .2rem; font-size: .86rem; }
+.review-description { grid-column: 1 / -1; margin: 0; font-size: .8rem; line-height: 1.35; }
 .review-actions { display: flex; flex-wrap: wrap; gap: .4rem; }
-.review-actions button { white-space: normal; }
+.review-actions .ui-button { padding-inline: .55rem; font-size: .86rem; white-space: normal; }
+.review-actions .review-toggle[aria-expanded="true"] { width: 44px; padding-inline: 0; }
 .review-dock strong { font-size: 1.22rem; font-variant-numeric: tabular-nums; }
 .review-total-label { display: block; color: var(--muted); font-size: .85rem; }
 .review-dialog {
@@ -117,8 +123,6 @@
 .review-heading h2 { font-size: 1.12rem; }
 .review-content { min-height: 0; overflow: auto; padding: 1rem; overscroll-behavior: contain; }
 @media (max-width: 640px) {
-  .review-dock { gap: .35rem .6rem; padding: .45rem .65rem; }
-  .review-dock:not([data-minimized]) .review-summary { flex: 1 1 7rem; }
-  .review-actions .ui-button { padding-inline: .55rem; font-size: .86rem; }
+  .review-dock { --review-compact-width: 18rem; }
   .review-content { padding: .75rem; }
 }

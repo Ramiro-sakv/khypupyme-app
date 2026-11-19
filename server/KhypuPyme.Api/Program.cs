@@ -48,6 +48,7 @@ builder.Services.AddScoped<BillingService>();
 builder.Services.AddScoped<CommerceService>();
 builder.Services.AddScoped<CommerceReads>();
 builder.Services.AddScoped<StoreReads>();
+builder.Services.AddScoped<StockReads>();
 builder.Services.AddScoped<TimberPracticeService>();
 builder.Services.AddScoped<SecurityProofs>();
 builder.Services.AddScoped<BusinessRemoval>();

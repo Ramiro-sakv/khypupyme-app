@@ -72,6 +72,15 @@ try {
   const clothes = await business("clothing", "Ropa QA");
   const appliances = await business("appliances", "Electrodomésticos QA");
 
+  const codeBatch = await Promise.all(["Primero", "Segundo"].map((name) => save(store, name, "", 600,
+    { retailProduct: { unit: "piece", boxSize: 1, trackLots: false, reorder: 0 } })));
+  const autoCodes = await Promise.all(codeBatch.map((item) => product(store, item.entityId)));
+  assert.deepEqual(autoCodes.map((item) => item.code).sort(), ["TIE-000001", "TIE-000002"]);
+  const clientRequest = { operationId: randomUUID(), kind: "customer", name: "Cliente con código" };
+  const client = await post(store, clientRequest);
+  assert.deepEqual(await post(store, clientRequest), client);
+  assert.equal((await request(store + "/customers?search=CLI-000001", 200)).items[0].id, client.entityId);
+  assert.equal((await request(clothes + "/customers?search=CLI-000001", 200)).items.length, 0);
   const soda = (await save(store, "Soda", "BEB-24", 500, {
     retailProduct: { unit: "piece", boxSize: 24, reorder: 43, trackLots: true },
   })).entityId;
@@ -87,10 +96,22 @@ try {
   assert.equal(sold.totalMinor, 2500);
   assert.deepEqual(sold.lines[0].details.lots.map((row) => row.lot), ["PRIMERO"]);
   assert.equal((await product(store, soda)).sellableStock, 43);
-  assert.equal((await request(store + "/products?attention=reorder", 200)).items[0].id, soda);
+  assert.ok((await request(store + "/products?attention=reorder", 200)).items.some((item) => item.id === soda));
   assert.equal((await request(store + "/lots/" + soda, 200)).items.find((row) => row.lot === "VENCIDO").sellable, false);
   assert.match((await sell(store, [measured(soda, "44", "piece", 500)], 409)).detail, /disponible 43/);
   assert.equal((await product(store, soda)).sellableStock, 43);
+  const shortage = await request(store + "/availability", 200, "POST", {
+    lines: [measured(soda, "25", "piece", 500), measured(soda, "19", "piece", 500)],
+  });
+  assert.deepEqual(shortage.map((row) => [row.requested, row.available]), [[44, 43]]);
+  assert.match(shortage[0].reason, /vencidas/);
+  await request(clothes + "/availability", 404, "POST", { lines: [measured(soda, "1", "piece", 500)] });
+  await request(clothes + "/warehouse/" + soda + "/movements", 404);
+  const warehouse = await request(store + "/warehouse?search=BEB-24&status=available", 200);
+  assert.equal(warehouse.items[0].product.id, soda);
+  await post(store, { kind: "hold-lot", entityId: soda, code: "SEGUNDO", note: "Sello por verificar" });
+  assert.equal((await request(store + "/warehouse?attention=held", 200)).items[0].product.id, soda);
+  await post(store, { kind: "release-lot", entityId: soda, code: "SEGUNDO", note: "Sello confirmado" });
   const spoilage = await post(store, { kind: "stock-loss", note: "Lote vencido", lines: [measured(soda, "2", "piece", 0, "VENCIDO")] });
   assert.equal((await document(store, spoilage)).totalMinor, 400);
   assert.equal((await product(store, soda)).sellableStock, 43);
@@ -144,6 +165,9 @@ try {
   const fridge = (await save(appliances, "Refrigerador", "REF-1", 220_000, { equipmentProduct: { warrantyMonths: 12 } })).entityId;
   await buy(appliances, [line(fridge, 2, 100_000, ["EQ-001", "eq-001"])], 409);
   await buy(appliances, [line(fridge, 2, 100_000, ["EQ-001", "EQ-002"])]);
+  const receiving = await request(appliances + "/availability", 200, "POST", { receiving: true, lines: [line(fridge, 2, 0, ["EQ-002", "NUEVA"])] });
+  assert.equal(receiving.find((item) => item.serial === "EQ-002").reason, "Serie ya registrada");
+  assert.equal(receiving.find((item) => item.serial === "NUEVA").available, 1);
   await buy(appliances, [line(fridge, 1, 100_000, ["eq-001"])], 409);
   assert.equal((await product(appliances, fridge)).stock, 2);
   const quote = await post(appliances, { kind: "quote", lines: [line(fridge, 1, 220_000)] });
@@ -160,6 +184,9 @@ try {
     { productId: fridge, originalLineId: unitLine.lineId, quantity: 1 },
   ] });
   assert.equal((await serial()).unit.state, "inspection");
+  const isolated = await request(appliances + "/availability", 200, "POST", { lines: [line(fridge, 1, 0, ["EQ-001"])] });
+  assert.equal(isolated[0].available, 0);
+  assert.equal(isolated[0].reason, "En inspección");
   assert.equal((await request(appliances + "/attention", 200)).inspections, 1);
   assert.equal((await request(appliances + "/report", 200)).stockValueMinor, 200_000);
   assert.equal((await request(appliances + "/serials?state=available", 200)).items.length, 1);

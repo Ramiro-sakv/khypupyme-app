@@ -15,7 +15,9 @@ import { useDraft } from "./useDraft";
 import { TimberFields } from "../timber/TimberFields";
 import { displayMeasure, timberRate, unitsOf } from "../timber/measures";
 import type { Capture, Rates, TimberUnits } from "../timber/measures";
-import { prepareTimber, stockKey, useTimberAvailability } from "../timber/trade";
+import { prepareTimber, stockKey } from "../timber/trade";
+import { primaryCommerce, StockFeedback, useStockCheck } from "./stock";
+import type { StockLine } from "./stock";
 import { BarcodeField, MeasuredFields, SerialPicker, VariantMatrix, equivalence } from "../retail/TradeFields";
 import { fromBase, measurePreview, productAvailability, quantityLabel, seriesFromText, unitLabels } from "../retail/measures";
 import type { Measure } from "../retail/measures";
@@ -30,7 +32,7 @@ import type { TileRequest } from "../retail/MaterialFields";
 import type { Work } from "../services/work";
 
 export type TradeKind = "sale" | "purchase" | "quote" | "stock-in";
-type Line = { id: string; key?: string; name: string; quantity: string; priceMinor: number; cost: string; timber?: Capture; rates?: Rates; manualPrice?: string;
+type Line = { id: string; key?: string; name: string; quantity: string; priceMinor: number; cost: string; timberCostUnit?: "board-foot"; timber?: Capture; rates?: Rates; manualPrice?: string;
   measure?: Omit<Measure, "quantity">; series?: string; printing?: PrintDraft; tile?: TileRequest };
 type TradeDraft = {
   lines: Line[]; customer?: { id: string; name: string }; discount: string; note: string; method: string; quote?: string;
@@ -51,13 +53,22 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
 }) {
   const workspace = useCommerce();
   const draftKey = workspace.scope + ":" + kind + (work ? ":work:" + work.id : "");
-  const { value, update, ready, error, flush, reload } = useDraft(draftKey, work ? { ...emptyDraft, note: work.title,
+  const { value, update: saveDraft, ready, error, flush, reload } = useDraft(draftKey, work ? { ...emptyDraft, note: work.title,
     lines: workService ? [{ id: workService.id, name: workService.name, quantity: "1", priceMinor: workService.priceMinor, cost: "" }] : [] } : emptyDraft);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
   const [vehicle, setVehicle] = useState(emptyVehicle);
   const [acknowledged, setAcknowledged] = useState("");
+  const [stockVersion, setStockVersion] = useState(0);
+  function update(produce: (draft: TradeDraft) => TradeDraft) {
+    setAcknowledged("");
+    saveDraft((draft) => {
+      const next = produce(draft);
+      if (next.lines !== draft.lines) setStockVersion((version) => version + 1);
+      return next;
+    });
+  }
   const cart = useRef<HTMLHeadingElement>(null);
   const stockIn = kind === "stock-in";
   const isPurchase = kind === "purchase" || stockIn;
@@ -84,9 +95,6 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
   const discount = isPurchase ? 0 : parseMoney(value.discount);
   const timberLines = value.lines.flatMap((line) => line.timber ? [{ ...line, timber: line.timber }] : []);
   const timber = prepareTimber(timberLines, current.data, isPurchase);
-  const availability = useTimberAvailability(timber.commands, !isPurchase);
-  const shortageByMeasure = !!availability.stock && timber.commands.some((line) =>
-    line.quantity > (availability.stock?.[stockKey(line.productId, line.timber)] ?? 0));
   const lines = value.lines.filter((line) => !line.timber).map((line) => {
     const product = current.data?.[line.id];
     const serials = line.series === undefined ? undefined : seriesFromText(line.series);
@@ -118,6 +126,22 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
       changed: !isPurchase && product !== undefined && product.priceMinor !== line.priceMinor,
     };
   });
+  const primary = primaryCommerce(industry);
+  const stockLines: StockLine[] = primary ? [
+    ...(!isPurchase ? timber.commands.map(({ productId, quantity, timber }) => ({ productId, quantity, timber })) : []),
+    ...lines.flatMap(({ line, product, serials, measure, quantity, requested }): StockLine[] =>
+      product && (isPurchase ? !!serials?.length : requested !== undefined) &&
+        (!serials || serials.every((serial) => serial.length <= 80))
+        ? [{ productId: line.id, quantity: measure ? 1 : quantity, measure, serials }] : []),
+  ] : [];
+  const stockCheck = useStockCheck(stockLines, isPurchase, stockVersion);
+  const failedChecks = stockCheck.checks?.filter((row) => row.requested > row.available || !!row.reason) ?? [];
+  const stockUnconfirmed = primary && stockLines.length > 0 && !stockCheck.checks;
+  const stockBlocked = primary && (stockUnconfirmed || failedChecks.length > 0);
+  const stockByMeasure = new Map(stockCheck.checks?.flatMap((row) => row.timber
+    ? [[stockKey(row.productId, row.timber), row.available] as const] : []));
+  const stockByProduct = new Map(stockCheck.checks?.flatMap((row) => !row.timber && !row.serial
+    ? [[row.productId, row] as const] : []));
   const scopedSeries = lines.flatMap((row) => row.serials?.map((serial) => serial.toUpperCase()) ?? []);
   const invalidSeries = scopedSeries.length > 100 || new Set(scopedSeries).size !== scopedSeries.length;
   const lotKeys = lines.flatMap((row) => row.measure?.lot ? [row.line.id + ":" + row.measure.lot.toUpperCase()] : []);
@@ -132,7 +156,7 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
   const unavailable = !current.data || lines.some(({ product, changed, shortage, measure, available }) =>
     !product?.active || changed || (kind === "sale" && (shortage || petSale && !!measure?.lot && available === undefined))) ||
     timberLines.some((line) => !current.data?.[line.id]?.active || !current.data[line.id].timber) ||
-    (kind === "sale" && timberLines.length > 0 && (!availability.stock || shortageByMeasure));
+    ((kind === "sale" || isPurchase) && stockBlocked);
   const customerId = work?.customerId ?? value.customer?.id;
   const requiresCustomer = kind === "sale" && value.method === "credit" && (!customerId || total === 0);
   const missingService = !!work?.serviceId && !value.lines.some((line) => line.id === work.serviceId && line.quantity === "1");
@@ -147,7 +171,7 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
       if (product.timber) {
         if (currentDraft.lines.length >= 100) return currentDraft;
         return { ...currentDraft, lines: [...currentDraft.lines, { id: product.id, key: crypto.randomUUID(),
-          name: product.name, quantity: "", priceMinor: product.priceMinor, cost: "", rates: product.timber,
+          name: product.name, quantity: "", priceMinor: product.priceMinor, cost: "", rates: product.timber, timberCostUnit: isPurchase ? "board-foot" : undefined,
           timber: { units, length: "", thickness: "", widths: "" } }] };
       }
       const existing = currentDraft.lines.find((line) => line.id === product.id);
@@ -242,10 +266,15 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
                 <div className="trade-product-name"><strong>{product.apparel?.model ?? product.name}</strong><Icon name="plus" /></div>
                 {product.apparel ? <span>Elegir talla y color</span> : <>
                   <span>{product.timber?.species && product.timber.species + " · "}{product.code}</span>
-                  <span className="trade-stock">{productAvailability(product)}{product.specialty?.printing || product.isService ? "" : " disponibles"}{product.timber ? " por medidas" : ""}</span>
-                  {!isPurchase && (product.timber
-                    ? <span className="trade-price">Tarifa según el largo</span>
-                    : <span className="trade-price">{bob(product.priceMinor)}</span>)}
+                  <span className="trade-stock">{primary && !product.isService && (product.retail ? !product.sellableStock : !product.stock) ? "Sin stock" : productAvailability(product) + (product.specialty?.printing || product.isService ? "" : " disponibles")}{product.timber ? " por medidas" : ""}</span>
+                  {(product.timber
+                    ? <span className="trade-price timber-rates">
+                      <span>1–2 pies · {bob(product.timber.superShortMinor)}</span>
+                      <span>3–6 pies · {bob(product.timber.shortMinor)}</span>
+                      <span>7–20 pies · {bob(product.timber.longMinor)}</span>
+                      <small>Por pie tablar</small>
+                    </span>
+                    : !isPurchase && <span className="trade-price">{bob(product.priceMinor)}</span>)}
                 </>}
               </button>
             </li>)}
@@ -274,8 +303,10 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
                 {industry === "spareParts" && !product?.specialty?.parts && <small>Compatibilidad por confirmar</small>}
                 {product?.apparel && <small className="record-secondary">Talla {product.apparel.size} · {product.apparel.color}</small>}
                 {product?.isService && <small className="record-secondary">Servicio</small>}
-                {product && !product.isService && kind !== "purchase" && <small className="record-secondary">Pedido {Number.isFinite(quantity) ? quantity : "—"} · Disponible {product.stock}
-                  {shortage ? " · Faltan " + (quantity - product.stock) : ""}</small>}
+                {product && !product.isService && !isPurchase && <small className="record-secondary">{primary
+                  ? <StockFeedback row={stockByProduct.get(line.id)} />
+                  : <>Pedido {Number.isFinite(quantity) ? quantity : "—"} · Disponible {product.stock}
+                    {shortage ? " · Faltan " + (quantity - product.stock) : ""}</>}</small>}
                 {product && !product.active && <small className="trade-issue">Producto archivado</small>}
               </div>,
               <TextField label={(product?.isService ? "Cantidad de " : product?.specialty?.countUnit === "pair" ? "Pares de " : "Piezas de ") + line.name}
@@ -318,7 +349,12 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
               disabled={frozen} onChange={(event) => edit(key, { quantity: event.target.value })} />}
             {value.quote && serials && serials.length !== Number(line.quantity) && <p>Selecciona {line.quantity} series para convertir la cotización.</p>}
             {measure && requested !== undefined && unit && <p>Equivale a {equivalence(requested, unit)}</p>}
-            {!isPurchase && requested !== undefined && available !== undefined && <p className={shortage ? "trade-issue" : undefined}>
+            {!isPurchase && primary && !serials && requested !== undefined && <p><StockFeedback row={stockByProduct.get(line.id)} unit={unit} /></p>}
+            {serials && primary && (stockCheck.checks ?? []).filter((check) => check.productId === line.id && check.serial &&
+              (!isPurchase || check.reason)).map((check) => <p key={check.serial}>
+                {check.serial} · {isPurchase ? <span className="trade-issue">{check.reason}</span> : <StockFeedback row={check} />}
+              </p>)}
+            {!isPurchase && !primary && requested !== undefined && available !== undefined && <p className={shortage ? "trade-issue" : undefined}>
               Pedido {measure ? quantityLabel(fromBase(requested, unit!)) : requested} · Disponible {
                 petSale && unit && measure?.lot ? quantityLabel(fromBase(available, unit)) + " " + unitLabels[unit] :
                   product ? productAvailability(product) : "—"}
@@ -344,7 +380,7 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
             {!isPurchase && example && appliedRates && <p>Tarifa de catálogo · {bob(timberRate(currentRates ?? appliedRates, example.timber))} por pie tablar</p>}
             {changed && <Button variant="secondary" disabled={frozen} onClick={() => edit(key, { rates: currentRates })}>Usar tarifa actualizada</Button>}
             <TimberFields name={line.name} species={appliedRates?.species ?? ""} productId={line.id} capture={line.timber}
-              cost={line.cost} onChange={(capture) => edit(key, { timber: capture })} onCost={(cost) => edit(key, { cost })} onRemove={() => remove(key)}
+              cost={line.cost} costUnit={line.timberCostUnit} onChange={(capture) => edit(key, { timber: capture })} onCost={(cost) => edit(key, { cost })} onRemove={() => remove(key)}
               manualPrice={line.manualPrice ?? ""} onPrice={(manualPrice) => edit(key, { manualPrice })}
               onDuplicate={value.lines.length < 100 ? () => update((draft) => {
                 if (draft.lines.length >= 100) return draft;
@@ -358,7 +394,7 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
               disabled={frozen} purchase={isPurchase} rows={group.rows.map((row) => {
                 const id = stockKey(line.id, row.timber);
                 return { ...row, requested: timber.requested.get(id)?.quantity ?? row.quantity,
-                  available: availability.stock ? availability.stock[id] ?? 0 : undefined };
+                  available: stockByMeasure.get(id) };
               })} notices={group.notices} error={group.error} total={group.total} />
           </div>;
         })}
@@ -367,8 +403,8 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
         {duplicateLots && <Alert tone="error">Agrupa la compra de un mismo lote en una línea.</Alert>}
         {limitReached && <Alert tone="error">Divide la operación en hasta 20 grupos y 100 líneas.</Alert>}
         {timber.problem && <Alert tone="error">{timber.problem}</Alert>}
-        {availability.loading && <p role="status">Consultando existencias por medida…</p>}
-        {availability.error && <Alert tone="error">{availability.error} <Button variant="secondary" onClick={availability.retry}>Reintentar medidas</Button></Alert>}
+        {stockCheck.loading && <p role="status">Consultando existencias del carrito…</p>}
+        {stockCheck.error && <Alert tone="error">{stockCheck.error} <Button variant="secondary" onClick={stockCheck.retry}>Reintentar disponibilidad</Button></Alert>}
         {selectedLots.error && <Alert tone="error">{selectedLots.error} <Button variant="secondary" onClick={selectedLots.reload}>Reintentar lote</Button></Alert>}
         {current.error && <Alert tone="error">{current.error} <Button variant="secondary" onClick={current.reload}>Reintentar disponibilidad</Button></Alert>}
       </Card>
@@ -401,11 +437,13 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
           onChange={(event) => update((draft) => ({ ...draft, note: event.target.value }))} />
         {total === null && <Alert>Revisa las cantidades, importes y el descuento antes de confirmar.</Alert>}
         {unavailable && <Alert>Verifica disponibilidad y precios de las líneas en el carrito.</Alert>}
-        {quote && shortageByMeasure && <Alert>Hay medidas con faltantes. Se volverán a verificar al convertir la cotización en venta.</Alert>}
+        {quote && stockBlocked && <Alert>Hay existencias pendientes de verificar o con faltantes. Se revisarán al convertir la cotización en venta.</Alert>}
         {requiresCustomer && <Alert>El fiado requiere un cliente registrado y un importe positivo.</Alert>}
         {missingService && <Alert>Añade el servicio del trabajo antes de confirmar.</Alert>}
         {containers.error && <Alert tone="error">{containers.error}</Alert>}
         {form.error && <Alert tone="error">{form.error}</Alert>}
+        {primary && stockLines.length > 0 && (form.error || stockCheck.error) &&
+          <Button variant="secondary" onClick={stockCheck.retry}>Volver a consultar existencias</Button>}
         <label className="trade-check">
           <input type="checkbox" checked={acknowledged === reviewKey} disabled={frozen || total === null}
             onChange={(event) => setAcknowledged(event.target.checked ? reviewKey : "")} />
@@ -453,7 +491,7 @@ function Buyer({ selected, disabled, onChange }: {
       onChange({ id: customer.id, name: customer.name }); setEditing(false);
     }} />}
     <details><summary>Elegir cliente registrado</summary>
-      <SearchForm label="Buscar cliente" onSearch={(query) => { setSearch(query); setPage(1); }} />
+      <SearchForm label="Buscar cliente por nombre o código" onSearch={(query) => { setSearch(query); setPage(1); }} />
       <Button variant="plain" disabled={disabled} onClick={() => onChange(undefined)}>Cliente ocasional</Button>
       {!data && <LoadFeedback error={error} reload={reload} />}
       {data?.items.length === 0 && <p>Sin clientes en esta búsqueda.</p>}

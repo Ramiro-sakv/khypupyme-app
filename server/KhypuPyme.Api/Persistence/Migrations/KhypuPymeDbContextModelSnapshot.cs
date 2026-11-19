@@ -237,6 +237,23 @@ namespace KhypuPyme.Api.Persistence.Migrations
                     b.ToTable("business_settings", "khypupyme");
                 });
 
+            modelBuilder.Entity("KhypuPyme.Api.Commerce.BusinessCodeCounter", b =>
+                {
+                    b.Property<Guid>("BusinessId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Prefix")
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)");
+
+                    b.Property<long>("Last")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("BusinessId", "Prefix");
+
+                    b.ToTable("business_code_counters", "khypupyme");
+                });
+
             modelBuilder.Entity("KhypuPyme.Api.Commerce.CashSession", b =>
                 {
                     b.Property<Guid>("BusinessId")
@@ -270,7 +287,7 @@ namespace KhypuPyme.Api.Persistence.Migrations
 
                     b.ToTable("cash_sessions", "khypupyme", t =>
                         {
-                            t.HasCheckConstraint("cash_amounts", "\"OpeningMinor\" BETWEEN 0 AND 1000000000000 AND \"ExpectedMinor\" BETWEEN 0 AND 1000000000000\r\nAND (\"CountedMinor\" IS NULL OR \"CountedMinor\" BETWEEN 0 AND 1000000000000)");
+                            t.HasCheckConstraint("cash_amounts", "\"OpeningMinor\" BETWEEN 0 AND 1000000000000 AND \"ExpectedMinor\" BETWEEN 0 AND 1000000000000\nAND (\"CountedMinor\" IS NULL OR \"CountedMinor\" BETWEEN 0 AND 1000000000000)");
                         });
                 });
 
@@ -314,6 +331,10 @@ namespace KhypuPyme.Api.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("Code")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -325,6 +346,9 @@ namespace KhypuPyme.Api.Persistence.Migrations
                         .HasColumnType("character varying(32)");
 
                     b.HasKey("BusinessId", "Id");
+
+                    b.HasIndex("BusinessId", "Code")
+                        .IsUnique();
 
                     b.HasIndex("BusinessId", "Name", "Id");
 
@@ -658,7 +682,7 @@ namespace KhypuPyme.Api.Persistence.Migrations
 
                     b.ToTable("products", "khypupyme", t =>
                         {
-                            t.HasCheckConstraint("products_balance", "\"Stock\" BETWEEN 0 AND 1000000 AND \"ValueMinor\" BETWEEN 0 AND 1000000000000\r\nAND \"PriceMinor\" BETWEEN 0 AND 1000000000000 AND (\"Stock\" > 0 OR \"MeasureStock\" > 0 OR \"ValueMinor\" = 0)\r\nAND \"MeasureStock\" BETWEEN 0 AND 1000000000\r\nAND (\"RetailUnit\" IS NOT NULL OR \"MeasureStock\" = 0)");
+                            t.HasCheckConstraint("products_balance", "\"Stock\" BETWEEN 0 AND 1000000 AND \"ValueMinor\" BETWEEN 0 AND 1000000000000\nAND \"PriceMinor\" BETWEEN 0 AND 1000000000000 AND (\"Stock\" > 0 OR \"MeasureStock\" > 0 OR \"ValueMinor\" = 0)\nAND \"MeasureStock\" BETWEEN 0 AND 1000000000\nAND (\"RetailUnit\" IS NOT NULL OR \"MeasureStock\" = 0)");
                         });
                 });
 
@@ -1190,7 +1214,7 @@ namespace KhypuPyme.Api.Persistence.Migrations
 
                     b.ToTable("work_items", "khypupyme", t =>
                         {
-                            t.HasCheckConstraint("work_item_schedule", "\"Revision\" > 0 AND\r\n((\"Industry\" = 'beauty' AND \"ServiceId\" IS NOT NULL AND \"StartMinute\" IS NOT NULL AND \"Duration\" IS NOT NULL\r\n    AND \"StartMinute\" BETWEEN 0 AND 1439 AND \"Duration\" BETWEEN 5 AND 720 AND \"StartMinute\" + \"Duration\" <= 1440)\r\n OR (\"Industry\" IN ('cleaning','professional','repair','crafts') AND \"StartMinute\" IS NULL AND \"Duration\" IS NULL))");
+                            t.HasCheckConstraint("work_item_schedule", "\"Revision\" > 0 AND\n((\"Industry\" = 'beauty' AND \"ServiceId\" IS NOT NULL AND \"StartMinute\" IS NOT NULL AND \"Duration\" IS NOT NULL\n    AND \"StartMinute\" BETWEEN 0 AND 1439 AND \"Duration\" BETWEEN 5 AND 720 AND \"StartMinute\" + \"Duration\" <= 1440)\n OR (\"Industry\" IN ('cleaning','professional','repair','crafts') AND \"StartMinute\" IS NULL AND \"Duration\" IS NULL))");
                         });
                 });
 
@@ -1253,7 +1277,7 @@ namespace KhypuPyme.Api.Persistence.Migrations
 
                     b.ToTable("timber_stock", "khypupyme", t =>
                         {
-                            t.HasCheckConstraint("timber_stock_amounts", "\"Stock\" BETWEEN 0 AND 1000000 AND \"ValueMinor\" BETWEEN 0 AND 1000000000000\r\nAND (\"Stock\" > 0 OR \"ValueMinor\" = 0)\r\nAND \"LengthMicros\" BETWEEN 304800000 AND 6096000000 AND \"LengthMicros\" % 304800000 = 0\r\nAND \"ThicknessMicros\" BETWEEN 1 AND 10000000000 AND \"WidthMicros\" BETWEEN 1 AND 10000000000");
+                            t.HasCheckConstraint("timber_stock_amounts", "\"Stock\" BETWEEN 0 AND 1000000 AND \"ValueMinor\" BETWEEN 0 AND 1000000000000\nAND (\"Stock\" > 0 OR \"ValueMinor\" = 0)\nAND \"LengthMicros\" BETWEEN 304800000 AND 6096000000 AND \"LengthMicros\" % 304800000 = 0\nAND \"ThicknessMicros\" BETWEEN 1 AND 10000000000 AND \"WidthMicros\" BETWEEN 1 AND 10000000000");
                         });
                 });
 
@@ -1645,6 +1669,15 @@ namespace KhypuPyme.Api.Persistence.Migrations
                         .WithOne()
                         .HasForeignKey("KhypuPyme.Api.Businesses.BusinessSettings", "OwnerId", "BusinessId")
                         .HasPrincipalKey("KhypuPyme.Api.Businesses.Business", "OwnerId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Commerce.BusinessCodeCounter", b =>
+                {
+                    b.HasOne("KhypuPyme.Api.Businesses.Business", null)
+                        .WithMany()
+                        .HasForeignKey("BusinessId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

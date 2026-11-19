@@ -42,6 +42,12 @@ internal static class CommerceModel
         customers.HasIndex(x => new { x.BusinessId, x.Name, x.Id });
         customers.Property(x => x.Name).HasMaxLength(100);
         customers.Property(x => x.Phone).HasMaxLength(32);
+        customers.Property(x => x.Code).HasMaxLength(32);
+        customers.HasIndex(x => new { x.BusinessId, x.Code }).IsUnique();
+
+        var codes = BusinessTable<BusinessCodeCounter>(model, "business_code_counters");
+        codes.HasKey(x => new { x.BusinessId, x.Prefix });
+        codes.Property(x => x.Prefix).HasMaxLength(3);
 
         var cash = BusinessTable<CashSession>(model, "cash_sessions");
         cash.HasKey(x => new { x.BusinessId, x.Id });

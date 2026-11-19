@@ -19,20 +19,21 @@ public sealed record CommerceCommand(
     bool? ServiceProduct = null, WorkInput? Work = null, WorkRevision? WorkLink = null, string? WorkState = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] VariantInput[]? Variants = null);
 
-public sealed record VariantInput(Guid Id, string Code, string Size, string Color, long AmountMinor);
+public sealed record VariantInput(Guid Id, string? Code, string Size, string Color, long AmountMinor);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record CommandLine(Guid ProductId, int Quantity, long? UnitMinor = null, bool? Restock = null,
     TimberDimensions? Timber = null, Guid? OriginalLineId = null, RetailInput? Measure = null, string[]? Serials = null,
     PrintingInput? Printing = null, TileRequest? Tile = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? TimberRateManual = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? TimberRateManual = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? TimberCostUnit = null);
 public sealed record CommandResult(Guid OperationId, string Kind, Guid EntityId);
 
 public sealed record CommercePage<T>(T[] Items, bool HasMore);
 public sealed record ProductInfo(Guid Id, string Name, string Code, long PriceMinor, int Stock, long ValueMinor, bool Active, TimberPrices? Timber,
     RetailProfile? Retail, ApparelProfile? Apparel, EquipmentProfile? Equipment, decimal? MeasuredStock, decimal? SellableStock,
     CosmeticProfile? Cosmetic, ProductSpecialty? Specialty, bool IsService);
-public sealed record CustomerInfo(Guid Id, string Name, string Phone);
+public sealed record CustomerInfo(Guid Id, string Name, string Phone, string? Code = null);
 public sealed record CashInfo(Guid Id, DateTimeOffset OpenedAt, DateTimeOffset? ClosedAt,
     long OpeningMinor, long ExpectedMinor, long? CountedMinor);
 public sealed record CashStatus(CashInfo? Session);

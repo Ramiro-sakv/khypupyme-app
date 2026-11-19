@@ -69,8 +69,8 @@ internal sealed class RetailInventory(CommerceTransaction work)
 
     public async Task<Guid> CorrectLotAsync()
     {
-        if (work.Business.Industry != "cosmetics")
-            throw new CommerceFailure("Esta corrección de lote corresponde al rubro de cosméticos.");
+        if (work.Business.Industry is not ("cosmetics" or "convenience"))
+            throw new CommerceFailure("Esta corrección corresponde a los lotes de tienda o cosméticos.");
         var product = await work.ProductAsync(work.Command.EntityId ?? Guid.Empty);
         var code = LotCode(work.Command.Code);
         var lot = await Lots.FindAsync([product.BusinessId, product.Id, code], work.Ct);

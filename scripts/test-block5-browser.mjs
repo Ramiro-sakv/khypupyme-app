@@ -74,6 +74,36 @@ export async function checkBrowser(cookies, available = 7) {
     await guide.getByRole("button", { name: "Abandonar", exact: true }).click();
     await guide.getByRole("button", { name: "Eliminar esta práctica" }).click();
     await page.getByText("Práctica eliminada.", { exact: true }).waitFor();
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(base + "/?vista=catalogo");
+    const search = page.getByLabel("Buscar en Almacén por nombre o código");
+    await search.fill("MAD-000001");
+    const record = page.getByRole("row", { name: /Costo por pie tablar/ });
+    await record.getByRole("button", { name: "Ver existencias" }).click();
+    await page.getByRole("heading", { name: "Movimientos de Costo por pie tablar" }).waitFor();
+    await page.keyboard.press("Escape");
+    assert.equal(await page.getByRole("button", { name: "Almacén", exact: true }).getAttribute("aria-pressed"), "true");
+
+    await page.setViewportSize({ width: 360, height: 780 });
+    await page.goto(base + "/?vista=compras");
+    await page.getByRole("button", { name: /Costo por pie tablar.*Roble/ }).click();
+    await page.getByLabel("Largo (mm)").fill("3048");
+    await page.getByLabel("Espesor (mm)").fill("50.8");
+    const widths = page.getByLabel("Anchos (mm)");
+    await widths.fill("101.6, 127, 152.4, 177.8");
+    await page.getByLabel("Costo por pie tablar (Bs)").fill("11");
+    await page.getByText(/4 piezas.*403,33/).waitFor();
+    await widths.fill("152.4, 177.8, 203.2, 228.6");
+    await page.getByText(/4 piezas.*550,00/).waitFor();
+    await page.getByRole("button", { name: "Historial de compras", exact: true }).click();
+    await page.getByRole("button", { name: "Registrar compra", exact: true }).click();
+    assert.equal(await page.getByLabel("Costo por pie tablar (Bs)").inputValue(), "11");
+    await page.getByRole("button", { name: "Revisar", exact: true }).click();
+    await dialog.getByLabel("Forma de pago").selectOption("transfer");
+    await dialog.getByRole("checkbox").check();
+    await dialog.getByRole("button", { name: "Confirmar compra", exact: true }).click();
+    await page.getByRole("heading", { name: "Compra confirmada", exact: true }).waitFor();
+    await page.getByText(/11,00 \/ pie tablar/).first().waitFor();
     assert.deepEqual(errors, []);
     console.log("Navegador a 360 px: faltante, revisión, Escape, guía por teclado y arrastre, pausa, recarga y limpieza confirmados.");
   } finally {

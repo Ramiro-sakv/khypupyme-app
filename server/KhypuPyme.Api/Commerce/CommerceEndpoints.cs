@@ -28,6 +28,12 @@ internal static class CommerceEndpoints
             query.ProductsAsync(search, active, attention, vehicleBrand, vehicleModel, year, service, page, ct)).Produces<CommercePage<ProductInfo>>();
         reads.MapGet("/products/{id:guid}", async (Guid id, CommerceReads service, CancellationToken ct) =>
             Found(await service.ProductAsync(id, ct))).Produces<ProductInfo>();
+        reads.MapPost("/availability", (StockRequest input, StockReads stock, CancellationToken ct) => stock.CheckAsync(input, ct))
+            .AddEndpointFilter<CsrfFilter>().Produces<StockCheck[]>();
+        reads.MapGet("/warehouse", (string? search, string? status, string? attention, int? page, StockReads stock, CancellationToken ct) =>
+            stock.WarehouseAsync(search, status, attention, page, ct)).Produces<CommercePage<WarehouseItem>>();
+        reads.MapGet("/warehouse/{id:guid}/movements", (Guid id, int? page, StockReads stock, CancellationToken ct) =>
+            stock.MovementsAsync(id, page, ct)).Produces<CommercePage<StockMovement>>();
         reads.MapGet("/products/code", async (string? code, StoreReads store, CancellationToken ct) =>
             Found(await store.CodeAsync(code, ct))).Produces<ProductInfo>();
         reads.MapGet("/variants", (string? model, StoreReads store, CancellationToken ct) =>

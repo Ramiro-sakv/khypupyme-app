@@ -1,12 +1,9 @@
-import { useEffect, useState } from "react";
-import { get } from "../api/client";
-import { useCommerce } from "../commerce/CommerceContext";
 import { moneyLimit, parseMoney } from "../commerce/models";
-import type { CommandLine, Page, Product } from "../commerce/models";
+import type { CommandLine, Product } from "../commerce/models";
 import { captureTimber, exactVolume, measureKey, timberAmount, timberRate } from "./measures";
-import type { Capture, Dimensions, Rates, StockRow } from "./measures";
+import type { Capture, Dimensions, Rates } from "./measures";
 
-export type TimberLine = { id: string; timber: Capture; rates?: Rates; cost: string; manualPrice?: string };
+export type TimberLine = { id: string; timber: Capture; rates?: Rates; cost: string; timberCostUnit?: "board-foot"; manualPrice?: string };
 export type WidthOrder = { timber: Dimensions; quantity: number; charged: number; subtotal: number | null };
 
 export const stockKey = (id: string, timber: Dimensions) => id + ":" + measureKey(timber);
@@ -27,10 +24,11 @@ export function prepareTimber(lines: TimberLine[], products: Record<string, Prod
       const current = products?.[line.id]?.timber;
       if (!purchase && !manual && unit !== null && current && timberRate(current, row.timber) !== unit)
         problem ||= "Cambiaron las tarifas de " + products?.[line.id].name + ". Actualízalas y vuelve a revisar.";
-      if (previous && (previous.unitMinor !== unit || Boolean(previous.timberRateManual) !== manual))
+      if (previous && (previous.unitMinor !== unit || Boolean(previous.timberRateManual) !== manual || previous.timberCostUnit !== (purchase ? line.timberCostUnit : undefined)))
         problem ||= "Usa la misma tarifa para todas las piezas de una medida en este comprobante.";
       if (quantity > 1_000_000) problem ||= "Una medida supera 1.000.000 de piezas.";
-      if (unit !== null) combined.set(key, { productId: line.id, timber: row.timber, quantity, unitMinor: unit, timberRateManual: manual || undefined });
+      if (unit !== null) combined.set(key, { productId: line.id, timber: row.timber, quantity, unitMinor: unit, timberRateManual: manual || undefined,
+        timberCostUnit: purchase ? line.timberCostUnit : undefined });
       return { ...row, unit, key };
     });
     return { ...capture, error: capture.error || (manual && override === null ? "Introduce una tarifa válida con hasta dos decimales." : ""), widths };
@@ -41,11 +39,11 @@ export function prepareTimber(lines: TimberLine[], products: Record<string, Prod
   const subtotals = new Map<string, number>();
   let gross = 0;
   for (const row of ordered) {
-    const group = [row.productId, row.timber.lengthMicros, row.timber.thicknessMicros, row.unitMinor].join(":");
+    const group = [row.productId, row.timber.lengthMicros, row.timber.thicknessMicros, row.unitMinor, row.timberCostUnit].join(":");
     const previous = cumulative.get(group);
     const volume = (previous?.volume ?? 0n) + exactVolume(row.timber, row.quantity);
     const rounded = timberAmount(volume, row.unitMinor);
-    const subtotal = purchase ? row.quantity * row.unitMinor : rounded - (previous?.rounded ?? 0);
+    const subtotal = purchase && !row.timberCostUnit ? row.quantity * row.unitMinor : rounded - (previous?.rounded ?? 0);
     cumulative.set(group, { volume, rounded });
     subtotals.set(stockKey(row.productId, row.timber), subtotal);
     gross += subtotal;
@@ -67,43 +65,4 @@ export function prepareTimber(lines: TimberLine[], products: Record<string, Prod
   });
   if (combined.size > 100 || gross > moneyLimit) problem ||= "Divide la operación. Se admiten hasta 100 medidas y un importe máximo de Bs 10.000.000.000.";
   return { groups, gross, problem, commands, requested: combined };
-}
-
-export function useTimberAvailability(lines: ReturnType<typeof prepareTimber>["commands"], enabled: boolean) {
-  const { path, revision } = useCommerce();
-  const [attempt, setAttempt] = useState(0);
-  const [state, setState] = useState<{ key: string; stock?: Record<string, number>; error?: string }>();
-  const groups = new Map<string, Set<number>>();
-  if (enabled && lines.length <= 100) {
-    for (const row of lines) {
-      const query = "/timber-stock/" + row.productId + "?length=" + row.timber.lengthMicros + "&thickness=" + row.timber.thicknessMicros;
-      const widths = groups.get(query) ?? new Set<number>();
-      widths.add(row.timber.widthMicros);
-      groups.set(query, widths);
-    }
-  }
-  const query = JSON.stringify([...groups].sort(([a], [b]) => a.localeCompare(b))
-    .map(([group, widths]) => group + "&widths=" + [...widths].sort((a, b) => a - b).join(",")));
-  const key = [path, query, revision, attempt].join("@");
-  useEffect(() => {
-    const requests = JSON.parse(query) as string[];
-    if (!requests.length) return;
-    const abort = new AbortController();
-    void Promise.all(requests.map(async (request) => {
-      const productId = request.slice("/timber-stock/".length, request.indexOf("?"));
-      const data = await get<Page<StockRow>>(path + request, abort.signal);
-      if (data.hasMore) throw new Error("Reduce las medidas y consulta las existencias otra vez.");
-      return data.items.map((row) => [stockKey(productId, row.timber), row.stock] as const);
-    })).then((result) => {
-      if (!abort.signal.aborted) setState({ key, stock: Object.fromEntries(result.flat()) });
-    }).catch((error: unknown) => {
-      if (!abort.signal.aborted) setState({ key, error: error instanceof Error ? error.message : "No se pudieron consultar las medidas." });
-    });
-    return () => abort.abort();
-  }, [key, path, query]);
-  return {
-    loading: groups.size > 0 && state?.key !== key,
-    ...(state?.key === key ? state : {}),
-    retry: () => setAttempt((current) => current + 1),
-  };
 }

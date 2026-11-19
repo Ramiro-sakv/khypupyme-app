@@ -80,6 +80,25 @@ try {
   const pine = (await run(scope, product("Tabla seca", "Pino", "PI-001"))).entityId;
   const oak = (await run(scope, product("Tabla cepillada", "Roble", "RO-001", 2200))).entityId;
   const pine6 = d(10, 2, 6), pine4 = d(10, 2, 4), oak7 = d(5, 1.5, 7);
+  const demonstration = (await run(scope, product("Costo por pie tablar", "Roble", ""))).entityId;
+  assert.match((await request(scope + "/products/" + demonstration, 200)).code, /^MAD-\d{6}$/);
+  const newBuys = [[4, 5, 6, 7], [6, 7, 8, 9]];
+  for (const [index, widths] of newBuys.entries()) {
+    const lines = widths.map((width) => ({ ...line(demonstration, 1, 1100, d(10, 2, width)), timberCostUnit: "board-foot" }));
+    const amount = [40_333, 55_000][index];
+    const board = await run(scope, { kind: "purchase", method: "transfer", lines });
+    const invoice = await detail(scope, board);
+    assert.equal(invoice.totalMinor, amount);
+    assert.equal(invoice.lines.reduce((sum, row) => sum + row.costMinor, 0), amount);
+    assert.ok(invoice.lines.every((row) => row.unitMinor === 1100 && row.details.timberCostUnit === "board-foot"));
+  }
+  assert.equal((await request(scope + "/products/" + demonstration, 200)).valueMinor, 95_333);
+  const repeated = await request(scope + "/availability", 200, "POST", { lines: [
+    line(demonstration, 1, 1100, d(10, 2, 4)), line(demonstration, 3, 1100, d(10, 2, 4)),
+  ] });
+  assert.deepEqual(repeated.map((row) => [row.requested, row.available]), [[4, 1]]);
+  assert.equal((await request(scope + "/warehouse/" + demonstration + "/movements", 200)).items.length, 8);
+  console.log("Compra de madera por volumen: Bs 403,33 y Bs 550,00, costo acumulado, movimientos y faltante agrupado.");
   const purchased = await run(scope, { kind: "purchase", method: "cash", lines: [line(pine, 10, 5000, pine6)] });
   assert.equal((await detail(scope, purchased)).totalMinor, 50_000);
   const sale = await run(scope, { kind: "sale", method: "cash", lines: [line(pine, 2, 1000, pine6)] });

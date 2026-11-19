@@ -48,7 +48,8 @@ internal sealed class TradeOperations(CommerceTransaction work)
             else
             {
                 await inventory.AddAsync(row.Product, row.Timber, row.Quantity, row.Subtotal);
-                entry.Lines.Add(Snapshot(entry, row, row.Subtotal, row.Subtotal));
+                entry.Lines.Add(Snapshot(entry, row, row.Subtotal, row.Subtotal,
+                    row.TimberCostUnit is null ? null : new(TimberCostUnit: row.TimberCostUnit)));
             }
         }
         await work.ApplyCashAsync(entry, -entry.TotalMinor);
@@ -348,26 +349,25 @@ internal sealed class TradeOperations(CommerceTransaction work)
             else
             {
                 if (line.Measure is not null) throw new CommerceFailure("La ficha no admite esa unidad.");
-                var subtotal = useCatalogPrice && dimension is not null ? 0 : Money(unit * line.Quantity, "un subtotal");
+                var subtotal = dimension is not null && (useCatalogPrice || line.TimberCostUnit is not null)
+                    ? 0 : Money(unit * line.Quantity, "un subtotal");
                 rows.Add(new TradeRow(product, line.Quantity, unit, subtotal, dimension, Serials: serials,
-                    TimberCatalogMinor: line.TimberRateManual == true ? catalogUnit : null));
+                    TimberCatalogMinor: line.TimberRateManual == true ? catalogUnit : null, TimberCostUnit: line.TimberCostUnit));
             }
         }
-        if (useCatalogPrice)
+        var groups = rows.Select((row, index) => (row, index))
+            .Where(x => x.row.Timber is not null && (useCatalogPrice || x.row.TimberCostUnit is not null))
+            .GroupBy(x => (x.row.Product.Id, x.row.Timber!.LengthMicros, x.row.Timber.ThicknessMicros, x.row.UnitMinor));
+        foreach (var group in groups)
         {
-            var groups = rows.Select((row, index) => (row, index)).Where(x => x.row.Timber is not null)
-                .GroupBy(x => (x.row.Product.Id, x.row.Timber!.LengthMicros, x.row.Timber.ThicknessMicros, x.row.UnitMinor));
-            foreach (var group in groups)
+            BigInteger cumulative = 0;
+            long before = 0;
+            foreach (var (row, index) in group.OrderBy(x => x.row.Timber!.WidthMicros))
             {
-                BigInteger cumulative = 0;
-                long before = 0;
-                foreach (var (row, index) in group.OrderBy(x => x.row.Timber!.WidthMicros))
-                {
-                    cumulative += TimberMeasures.Volume(row.Timber!, row.Quantity);
-                    var after = TimberMeasures.Total(cumulative, row.UnitMinor);
-                    rows[index] = row with { Subtotal = after - before };
-                    before = after;
-                }
+                cumulative += TimberMeasures.Volume(row.Timber!, row.Quantity);
+                var after = TimberMeasures.Total(cumulative, row.UnitMinor);
+                rows[index] = row with { Subtotal = after - before };
+                before = after;
             }
         }
         return rows.ToArray();
@@ -391,5 +391,5 @@ internal sealed class TradeOperations(CommerceTransaction work)
 
     private sealed record TradeRow(Product Product, int Quantity, long UnitMinor, long Subtotal, TimberDimensions? Timber,
         RetailInput? Measure = null, decimal? BaseQuantity = null, string[]? Serials = null, PrintingDetail? Printing = null, TileCoverage? Tile = null,
-        long? TimberCatalogMinor = null);
+        long? TimberCatalogMinor = null, string? TimberCostUnit = null);
 }

@@ -14,7 +14,7 @@ export type PracticeControls = { session: Session; refresh: () => void; act: (ac
 const steps: { title: string; instruction: string; view: WorkspaceView }[] = [
   { title: "Abre la caja de práctica", instruction: "En Caja, registra un fondo inicial. Puedes usar Bs 1.000 si harás la compra en efectivo.", view: "caja" },
   { title: "Crea un producto de madera", instruction: "En Catálogo, puedes usar Tabla seca, especie Pino, código MAD-01 y Bs 10 por pie tablar en cada tramo.", view: "catalogo" },
-  { title: "Registra una compra", instruction: "Elige tu madera. Prueba con espesor 2″, largo 10′ y anchos 10x6. Indica un costo de Bs 50 por pieza y revisa el pago.", view: "compras" },
+  { title: "Registra una compra", instruction: "Elige tu madera. Prueba con espesor 2″, largo 10′ y anchos 10x6. Indica un costo de Bs 5 por pie tablar y revisa el pago.", view: "compras" },
   { title: "Vende madera", instruction: "Puedes elegir una medida disponible y vender dos piezas. Con las medidas y tarifa sugeridas, el total será Bs 200.", view: "ventas" },
   { title: "Devuelve una pieza", instruction: "En el detalle de la venta, abre Registrar devolución. Elige las piezas y marca si regresan al inventario. Si cerraste el detalle, búscalo en Historial.", view: "historial" },
   { title: "Consulta los resultados", instruction: "En Informes, compara ventas, costo y compras. Confirma la lectura desde la guía cuando termines.", view: "informes" },
@@ -183,7 +183,7 @@ export function PracticeGuide({ controls, view, navigate }: {
       <p aria-live="polite">{session.step} de {steps.length} pasos confirmados</p>
       <h2>{step?.title ?? "Termina la práctica"}</h2>
       <p>{session.step === 2 && session.timberUnits === "metric" ?
-        "Elige tu madera. Puedes probar con espesor 50,8 mm, largo 3048 mm y anchos 10x152.4. Indica Bs 50 por pieza y revisa el pago." :
+        "Elige tu madera. Puedes probar con espesor 50,8 mm, largo 3048 mm y anchos 10x152.4. Indica Bs 5 por pie tablar y revisa el pago." :
         step?.instruction ?? "Elimina la caja, las existencias y los movimientos ficticios de este recorrido."}</p>
       {error && <Alert tone="error">{error} <Button variant="secondary" onClick={controls.refresh}>Actualizar</Button></Alert>}
       <div className="inline-actions">

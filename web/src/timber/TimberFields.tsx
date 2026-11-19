@@ -90,15 +90,30 @@ function TimberRows({ product, units, pick, detailed, query }: {
 export type TimberPreview = { timber: Dimensions; quantity: number; subtotal: number | null;
   requested: number; available?: number };
 
-export function TimberFields({ name, species, productId, capture, onChange, onRemove, cost, onCost, disabled, purchase, manualPrice, onPrice, onDuplicate,
+export function TimberFields({ name, species, productId, capture, onChange, onRemove, cost, costUnit, onCost, disabled, purchase, manualPrice, onPrice, onDuplicate,
   rows, notices, error, total }: {
   name: string; species: string; productId: string; capture: Capture; onChange: (value: Capture) => void; onRemove: () => void;
-  cost: string; onCost: (value: string) => void; disabled: boolean; purchase: boolean;
+  cost: string; costUnit?: "board-foot"; onCost: (value: string) => void; disabled: boolean; purchase: boolean;
   manualPrice: string; onPrice: (value: string) => void; onDuplicate?: () => void;
   rows: TimberPreview[]; notices: string[]; error: string; total: number | null;
 }) {
   const [selecting, setSelecting] = useState(false);
   const { units, selection } = capture;
+  const costLabel = costUnit === "board-foot" ? "Costo por pie tablar" : "Costo por pieza";
+  const pieces = rows.reduce((sum, row) => sum + row.quantity, 0);
+  const volume = timberVolume(rows, units);
+  function replaceWidth(width: number, quantity: number) {
+    if (selection) {
+      onChange({ ...capture, selection: quantity ? { ...selection, quantity: String(quantity) } : undefined, widths: "" });
+      return;
+    }
+    const widths = rows.flatMap((row) => {
+      const count = row.timber.widthMicros === width ? quantity : row.quantity;
+      const measure = displayMeasure(row.timber.widthMicros, units, "face").replace(",", ".");
+      return count ? [count === 1 ? measure : count + "x" + measure] : [];
+    }).join(", ");
+    onChange({ ...capture, widths });
+  }
   return <Card className="timber-group">
     <div className="page-heading"><div><h3>{name}</h3><p>{species}</p></div>
       <div className="inline-actions">
@@ -123,7 +138,7 @@ export function TimberFields({ name, species, productId, capture, onChange, onRe
       </label>
       {capture.widths && <Button variant="secondary" disabled={disabled} onClick={() => onChange({ ...capture, widths: "" })}>Vaciar anchos</Button>}
     </div>}
-    {purchase ? <TextField label="Costo por pieza (Bs)" value={cost} inputMode="decimal" disabled={disabled}
+    {purchase ? <TextField label={costLabel + " (Bs)"} value={cost} inputMode="decimal" disabled={disabled}
       onChange={(event) => onCost(event.target.value)} /> :
       <div className="timber-price-and-stock">
         <TextField label="Tarifa pactada por pie tablar (Bs)" hint="Opcional. Si lo dejas vacío se usa la tarifa del catálogo."
@@ -138,17 +153,33 @@ export function TimberFields({ name, species, productId, capture, onChange, onRe
     {error && <p className="trade-issue">{error}</p>}
     {notices.map((notice) => <p key={notice}>{notice}</p>)}
     {rows.length > 0 && <>
-      <DataTable caption={"Desglose de " + name} columns={["Ancho (" + faceUnit(units) + ")", "Piezas", "Subtotal", ...(purchase ? [] : ["Disponibilidad"])]}
+      <dl className="cash-metrics timber-metrics">
+        <div><dt>Piezas</dt><dd>{pieces}</dd></div>
+        <div><dt>{volumeUnit(units)}</dt><dd>{volume}</dd>
+          {units === "metric" && <small>{timberVolume(rows, "imperial")} pies tablares</small>}</div>
+        <div><dt>Subtotal</dt><dd>{total === null ? "Pendiente" : bob(total)}</dd></div>
+      </dl>
+      <DataTable caption={"Desglose de " + name} columns={["Ancho (" + faceUnit(units) + ")", "Piezas",
+        volumeUnit(units), "Subtotal", ...(purchase ? [] : ["Disponibilidad"]), "Acción"]}
         rows={rows.map((row) => ({ id: JSON.stringify(row.timber), cells: [
-          displayMeasure(row.timber.widthMicros, units, "face"), row.quantity, row.subtotal === null ? "Pendiente" : bob(row.subtotal),
+          displayMeasure(row.timber.widthMicros, units, "face"),
+          selection ? row.quantity : <TextField label={"Piezas del ancho " + displayMeasure(row.timber.widthMicros, units, "face")}
+            type="number" min={1} max={1_000_000} value={row.quantity} disabled={disabled}
+            onChange={(event) => {
+              if (/^\d+$/.test(event.target.value) && event.target.valueAsNumber >= 1 && event.target.valueAsNumber <= 1_000_000)
+                replaceWidth(row.timber.widthMicros, event.target.valueAsNumber);
+            }} />,
+          timberVolume([row], units),
+          row.subtotal === null ? "Pendiente" : bob(row.subtotal),
           ...(purchase ? [] : [row.available === undefined ? "Por comprobar" :
             <span className={row.requested > row.available ? "trade-issue" : undefined}>
-              Pedido {row.requested} · Disponible {row.available}
+              {row.available === 0 && "Sin stock · "}Pedido {row.requested} · Disponible {row.available}
               {row.requested > row.available ? " · Faltan " + (row.requested - row.available) : ""}
             </span>]),
+          <Button variant="plain" disabled={disabled} onClick={() => replaceWidth(row.timber.widthMicros, 0)}>Quitar ancho</Button>,
         ] }))} />
-      <p className="trade-total">{rows.reduce((sum, row) => sum + row.quantity, 0)} piezas · {timberVolume(rows, units)} {volumeUnit(units)} · {total === null ? "Pendiente" : bob(total)}</p>
-      {purchase && total === null && <Alert>Completa el costo por pieza.</Alert>}
+      <p className="trade-total">{pieces} piezas · {volume} {volumeUnit(units)} · {total === null ? "Pendiente" : bob(total)}</p>
+      {purchase && total === null && <Alert>Completa el {costLabel.toLowerCase()}.</Alert>}
     </>}
   </Card>;
 }

@@ -3,6 +3,7 @@ import { Alert, Button, Card, SelectField, TextField } from "../ui/Primitives";
 import { ReviewDock } from "../ui/ReviewDock";
 import { useCommerce } from "../commerce/CommerceContext";
 import { PaymentField, useCommercialForm } from "../commerce/CommerceUi";
+import { StockFeedback, useStockCheck } from "../commerce/stock";
 import { bob, moneyLimit } from "../commerce/models";
 import type { EntryDocument, Product } from "../commerce/models";
 import { describeLine, remainingQuantity } from "./measures";
@@ -16,36 +17,42 @@ export function ExchangeEditor({ document, close }: { document: EntryDocument; c
   const [method, setMethod] = useState(document.method && document.method !== "credit" ? document.method : "cash");
   const [note, setNote] = useState("");
   const [reviewed, setReviewed] = useState("");
+  const [version, setVersion] = useState(0);
+  function reviseStock() { setReviewed(""); setVersion((previous) => previous + 1); }
   const title = useRef<HTMLHeadingElement>(null);
   const { showDocument } = useCommerce();
   const form = useCommercialForm();
   const original = eligible.find((line) => line.lineId === lineId);
-  if (!original?.details?.apparel) return null;
-
   const count = Number(quantity);
-  const valid = Number.isInteger(count) && count > 0 && count <= remainingQuantity(original);
+  const valid = !!original && Number.isInteger(count) && count > 0 && count <= remainingQuantity(original);
+  const byPair = original?.details?.specialty?.countUnit === "pair";
+  const stock = useStockCheck(!byPair && valid && replacement ? [{ productId: replacement.id, quantity: count }] : [], false, version);
+  const replacementStock = stock.checks?.[0];
+  if (!original?.details?.apparel) return null;
   const refund = valid ? portion(original.subtotalMinor, original.returnedQuantity, count, original.quantity) : null;
   const total = valid && replacement && replacement.priceMinor * count <= moneyLimit ? replacement.priceMinor * count : null;
   const debt = Math.min(refund ?? 0, document.debtBalanceMinor);
   const difference = total === null || refund === null ? null : total - (refund - debt);
-  const sufficient = !!replacement && replacement.stock >= count;
+  const sufficient = !!replacement && (byPair ? replacement.stock >= count : !!replacementStock && replacementStock.available >= count);
   const key = JSON.stringify([lineId, count, replacement?.id, replacement?.priceMinor, difference, method]);
   const totalText = difference === null ? "Pendiente" : difference === 0 ? "Sin diferencia" :
     (difference > 0 ? "A cobrar " : "A devolver ") + bob(Math.abs(difference));
 
   return <Card className="store-line">
     <div className="page-heading"><h2 ref={title} tabIndex={-1}>Cambio desde {document.number}</h2><Button variant="plain" onClick={close}>Cancelar cambio</Button></div>
-    <SelectField label="Variante devuelta" value={lineId} onChange={(event) => { setLineId(event.target.value); setReplacement(undefined); setQuantity("1"); }}>
+    <SelectField label="Variante devuelta" value={lineId} onChange={(event) => { setLineId(event.target.value); setReplacement(undefined); setQuantity("1"); reviseStock(); }}>
       {eligible.map((line) => <option key={line.lineId} value={line.lineId}>{describeLine(line)}</option>)}
     </SelectField>
     <TextField label={original.details.specialty?.countUnit === "pair" ? "Pares para cambiar" : "Piezas para cambiar"} type="number" min={1} max={remainingQuantity(original)} value={quantity} step={1}
-      onChange={(event) => setQuantity(event.target.value)} />
+      onChange={(event) => { setQuantity(event.target.value); reviseStock(); }} />
     <h3>Elige la talla y el color de reemplazo</h3>
     <VariantMatrix key={original.lineId} model={original.details.apparel.model} excluded={original.productId}
-      disabled={form.blocked} requireStock choose={setReplacement} />
-    {replacement?.apparel && <p>Talla {replacement.apparel.size} · {replacement.apparel.color} · {replacement.stock} disponibles</p>}
-    {replacement && !sufficient && <Alert tone="error">Pediste {count}, hay {replacement.stock} y faltan {count - replacement.stock}
-      {original.details.specialty?.countUnit === "pair" ? " pares" : " piezas"} de esta variante.</Alert>}
+      disabled={form.blocked} requireStock choose={(product) => { setReplacement(product); reviseStock(); }} />
+    {replacement?.apparel && <p>Talla {replacement.apparel.size} · {replacement.apparel.color} · {byPair
+      ? replacement.stock + " disponibles" : <StockFeedback row={replacementStock} />}</p>}
+    {stock.error && <Alert tone="error">{stock.error} <Button variant="secondary" onClick={stock.retry}>Reintentar disponibilidad</Button></Alert>}
+    {byPair && replacement && !sufficient && <Alert tone="error">Pediste {count}, hay {replacement.stock} y faltan {count - replacement.stock}
+       pares de esta variante.</Alert>}
     <ReviewDock total={totalText} cartFocus={title}>
       <form className="account-form" onSubmit={(event) => {
         event.preventDefault();
@@ -60,7 +67,7 @@ export function ExchangeEditor({ document, close }: { document: EntryDocument; c
         {total !== null && <p>Reemplazo · {bob(total)}</p>}
         <TextField label="Motivo del cambio" required maxLength={240} value={note} onChange={(event) => setNote(event.target.value)} />
         <PaymentField value={method} onChange={setMethod} />
-        {form.error && <Alert tone="error">{form.error}</Alert>}
+        {form.error && <Alert tone="error">{form.error}{!byPair && <Button variant="secondary" onClick={stock.retry}>Volver a consultar existencias</Button>}</Alert>}
         <label className="trade-check"><input type="checkbox" disabled={difference === null || !sufficient} checked={reviewed === key}
           onChange={(event) => setReviewed(event.target.checked ? key : "")} />He revisado la diferencia</label>
         <Button type="submit" disabled={difference === null || !sufficient || reviewed !== key || form.blocked}>Confirmar cambio</Button>

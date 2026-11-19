@@ -12,7 +12,7 @@ import { correctionEffect, needsIdentity } from "../security/corrections";
 type Confirmation = { result: CommandResult; draft?: DraftStamp };
 type Approval = { record: PendingRecord; resolve: () => void; reject: (error: Error) => void };
 type Workspace = {
-  path: string; scope: string; revision: number; ready: boolean; busy: boolean; pending?: PendingRecord;
+  path: string; scope: string; practice?: boolean; revision: number; ready: boolean; busy: boolean; pending?: PendingRecord;
   readOnly: boolean;
   confirmation?: Confirmation;
   execute: (command: CommandInput, draft?: DraftStamp) => Promise<CommandResult>;
@@ -148,7 +148,7 @@ export function CommerceProvider({ accountId, businessId, businessName, children
     finally { setBusy(false); }
   }
 
-  return <Context.Provider value={{ path, scope, revision, ready, busy, pending, confirmation, execute, showDocument, readOnly }}>
+  return <Context.Provider value={{ path, scope, practice, revision, ready, busy, pending, confirmation, execute, showDocument, readOnly }}>
     {approval && <IdentityDialog key={approval.record.command.operationId} title="Autorizar corrección"
       effect={correctionEffect(businessName, approval.record.command)}
       request={{ id: approval.record.command.operationId, purpose: "correction", businessId,

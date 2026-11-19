@@ -275,3 +275,17 @@ Los archivos generados se guardan en `artifacts/pilot/KhypuPyme2-Piloto-Android.
 Pasaron ESLint, TypeScript y las compilaciones web y .NET. En PostgreSQL aislado se verificaron los 21 rubros, la repetición de solicitudes, la protección de correcciones, las devoluciones, las licencias y la conservación de las constancias. En Edge a 360 y 1440 px se verificaron el nuevo selector, los atajos, la búsqueda de documentos, la descarga del informe y, en el recorrido móvil de madera, el faltante, la minimización, Escape, el regreso al carrito y el avance de la práctica.
 
 Los instaladores Android y Windows del piloto se regeneraron. Todavía apuntan al servicio previsto del piloto. Para revisar este cambio ahora, la web local está en `http://127.0.0.1:5282/`. Android físico, el piloto alojado y el regreso a la sesión instalada siguen pendientes de aceptación para esta revisión.
+
+
+## Paridad operativa de los cuatro rubros principales
+
+| Rubro | Referencia de 1.0 incorporada en 2.0 | Verificado |
+|---|---|---|
+| Maderas y barraca | Costo por pie tablar en compras nuevas, tres tarifas por largo, desglose editable, disponibilidad por medida y movimientos desde Almacén. | 4 piezas y Bs 403,33 con anchos 4, 5, 6 y 7. 4 piezas y Bs 550,00 con anchos 6, 7, 8 y 9. Costo acumulado de Bs 953,33. Compra anterior por pieza, venta mixta, PDF, borrador y práctica conservados. |
+| Tienda 24/7 | Venta con lector, equivalencias, reposición y lotes vendibles, vencidos o apartados. | Dos cajas de 24 menos cinco unidades dejan 43. El carrito agrupa 25 más 19, muestra el faltante y excluye el lote vencido. Apartado y liberación con motivo. |
+| Ropa y accesorios | Matriz talla/color, estado Sin stock y cambio desde la venta original con revisión de la diferencia. | Cambio rechazado sin stock, reposición por variante comprobada antes de cobrar y diferencia de Bs 20 confirmada. |
+| Electrodomésticos | Almacén por unidad, historial y garantía, recepción rápida por series y resolución de inspección. | Serie duplicada detectada al recibir. Una unidad en inspección queda fuera del stock vendible hasta que el propietario confirme su liberación. |
+
+- Almacén pagina productos y movimientos dentro del negocio. La consulta de disponibilidad usa un contrato de lectura, agrupa las cantidades por producto y medida, y distingue las series. La transacción comercial vuelve a comprobar el saldo. El historial continúa utilizando el comprobante de origen.
+- Nuevas fichas sin código reciben MAD, TIE, ROP o ELE con un consecutivo por negocio. Los códigos manuales mantienen la búsqueda por lector. Clientes usa CLI; la migración asigna códigos a las fichas existentes de los cuatro rubros. Se comprobó la concurrencia, la idempotencia y el aislamiento entre negocios.
+- La migración se aplicó a PostgreSQL de pruebas y de desarrollo. Pasaron ESLint, TypeScript, Vite, .NET y las suites 4, 5, 6 y 9, con recorridos en Edge a 360 y 1440 px y una comprobación del núcleo a 768 px. La revisión usa la web local en http://127.0.0.1:5282/.

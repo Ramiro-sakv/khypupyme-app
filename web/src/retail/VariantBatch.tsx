@@ -6,7 +6,7 @@ import { parseMoney } from "../commerce/models";
 type Row = { id: string; code: string; size: string; color: string; amount: string };
 const blank = (): Row => ({ id: crypto.randomUUID(), code: "", size: "", color: "", amount: "" });
 
-export function VariantBatch({ close }: { close: () => void }) {
+export function VariantBatch({ close, automatic = false }: { close: () => void; automatic?: boolean }) {
   const [name, setName] = useState("");
   const [model, setModel] = useState("");
   const [rows, setRows] = useState(() => [blank(), blank()]);
@@ -32,7 +32,7 @@ export function VariantBatch({ close }: { close: () => void }) {
     {rows.map((row, index) => <fieldset className="variant-entry" key={row.id}>
       <legend>Variante {index + 1}</legend>
       <div className="wizard-options">
-        <TextField label="Código" value={row.code} required maxLength={40} onChange={(event) => edit(row.id, "code", event.target.value)} />
+        <TextField label="Código" value={row.code} required={!automatic} hint={automatic ? "Opcional. Se genera si queda vacío." : undefined} maxLength={40} onChange={(event) => edit(row.id, "code", event.target.value)} />
         <TextField label="Talla" value={row.size} required maxLength={24} onChange={(event) => edit(row.id, "size", event.target.value)} />
         <TextField label="Color" value={row.color} required maxLength={40} onChange={(event) => edit(row.id, "color", event.target.value)} />
         <TextField label="Precio (Bs)" value={row.amount} inputMode="decimal" required onChange={(event) => edit(row.id, "amount", event.target.value)} />

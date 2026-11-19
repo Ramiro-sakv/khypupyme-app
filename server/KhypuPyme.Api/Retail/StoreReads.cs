@@ -118,6 +118,7 @@ internal sealed class StoreReads(KhypuPymeDbContext db, TimeProvider clock)
         {
             "reorder" => products.Where(AtReorder(today, lots)),
             "expiring" => products.Where(p => lots.Any(x => x.ProductId == p.Id && x.BusinessId == p.BusinessId && !x.Held && x.ExpiresOn >= today && x.ExpiresOn <= end)),
+            "expired" => products.Where(p => lots.Any(x => x.ProductId == p.Id && x.BusinessId == p.BusinessId && x.ExpiresOn < today)),
             "held" => products.Where(p => lots.Any(x => x.ProductId == p.Id && x.BusinessId == p.BusinessId && x.Held)),
             _ => throw new CommerceFailure("Elige reposición o próximos vencimientos."),
         };

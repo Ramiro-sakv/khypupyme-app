@@ -47,12 +47,13 @@ export function get<T>(path: string, signal?: AbortSignal): Promise<T> {
   return read<T>(path, { signal });
 }
 
-export async function change<T>(path: string, method: "POST" | "PUT", body?: unknown): Promise<T> {
+export async function change<T>(path: string, method: "POST" | "PUT", body?: unknown, signal?: AbortSignal): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (!isNative) headers["X-CSRF-TOKEN"] = (await get<{ token: string }>(auth + "/csrf")).token;
+  if (!isNative) headers["X-CSRF-TOKEN"] = (await get<{ token: string }>(auth + "/csrf", signal)).token;
   return read<T>(path, {
     method,
     headers,
+    signal,
     ...(body !== undefined && { body: JSON.stringify(body) }),
   });
 }

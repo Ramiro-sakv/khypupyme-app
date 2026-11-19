@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { InventoryDrawer } from "./InventoryDrawer";
 import { OperationHeading } from "./OperationHeading";
+import { primaryCommerce } from "./stock";
+import { Warehouse, StockMovements, WarehouseSerials } from "./Warehouse";
 import { VariantBatch } from "../retail/VariantBatch";
 import { Button, Card, DataTable, SelectField, TextField } from "../ui/Primitives";
 import { useCommerce, useCommerceData } from "./CommerceContext";
@@ -22,7 +24,9 @@ import { CompatibilityFilter, emptyVehicle, initialSpecialty, searchLabel, Speci
 export function CatalogPage({ units, industry, focus, onStockIn }: {
   units?: TimberUnits; industry?: string; focus?: string; onStockIn?: () => void;
 }) {
-  const { showDocument, readOnly } = useCommerce();
+  const { showDocument, readOnly, practice } = useCommerce();
+  const hasWarehouse = primaryCommerce(industry) && !practice;
+  const [catalog, setCatalog] = useState(false);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("true");
@@ -34,8 +38,8 @@ export function CatalogPage({ units, industry, focus, onStockIn }: {
   const [correction, setCorrection] = useState<{ product: Product; lot: Lot }>();
   const [filter, setFilter] = useState(focus ?? "");
   const [vehicle, setVehicle] = useState(emptyVehicle);
-  const data = useCommerceData<Page<Product>>("/products?" + new URLSearchParams({ page: String(page), search,
-    ...(status ? { active: status } : {}), ...(filter ? { attention: filter } : {}), ...(industry === "spareParts" ? vehicleQuery(vehicle) : {}) }));
+  const data = useCommerceData<Page<Product>>(!hasWarehouse || catalog ? "/products?" + new URLSearchParams({ page: String(page), search,
+    ...(status ? { active: status } : {}), ...(filter ? { attention: filter } : {}), ...(industry === "spareParts" ? vehicleQuery(vehicle) : {}) }) : null);
 
   const panelOpen = editing ?? (variants || loss || correction || opening || stock);
   function closePanel() {
@@ -47,6 +51,10 @@ export function CatalogPage({ units, industry, focus, onStockIn }: {
       ? "Busca por especie y consulta las piezas disponibles por largo, espesor y ancho."
       : "Consulta existencias, precios y los movimientos que necesitan atención."}>
       <div className="inline-actions">
+        {hasWarehouse && <div className="trade-controls" role="group" aria-label="Sección de inventario">
+          <Button variant="secondary" aria-pressed={!catalog} onClick={() => setCatalog(false)}>Almacén</Button>
+          <Button variant="secondary" aria-pressed={catalog} onClick={() => setCatalog(true)}>Catálogo</Button>
+        </div>}
         {onStockIn && <Button variant="secondary" icon="parcel" onClick={onStockIn}>Entrada manual</Button>}
         {!readOnly && (industry === "clothing" || industry === "footwear") && <Button variant="secondary" icon="clothing" onClick={() => {
           setEditing(null); setStock(undefined); setLoss(undefined); setVariants(true);
@@ -55,7 +63,7 @@ export function CatalogPage({ units, industry, focus, onStockIn }: {
       </div>
     </OperationHeading>
     {panelOpen && <InventoryDrawer title={stock ? stock.name : "Gestión de productos"} onDismiss={closePanel}>
-    {variants && <VariantBatch close={closePanel} />}
+    {variants && <VariantBatch close={closePanel} automatic={industry === "clothing"} />}
     {editing && <ProductEditor key={editing === "new" ? "new" : editing.id}
       product={editing === "new" ? undefined : editing} timberIndustry={units !== undefined} industry={industry} onClose={() => setEditing(null)} />}
     {loss && <LossEditor key={loss.product.id + (loss.lot?.lot ?? "")} product={loss.product} timber={loss.row?.timber} available={loss.row?.stock} lot={loss.lot}
@@ -63,12 +71,12 @@ export function CatalogPage({ units, industry, focus, onStockIn }: {
     {correction && <LotCorrection key={correction.product.id + ":" + correction.lot.lot} product={correction.product} lot={correction.lot}
       close={() => setCorrection(undefined)} />}
     {opening && <CementOpening key={opening.id} product={opening} close={() => setOpening(undefined)} />}
-    {stock && units && !loss && <Card>
+    {stock?.timber && units && !loss && <Card>
       <div className="page-heading"><div><h2>{stock.name}</h2><p>{stock.timber?.species} · {stock.code}</p></div>
         <Button variant="secondary" onClick={() => setStock(undefined)}>Cerrar existencias</Button></div>
       <p>Total del producto · {stock.stock} piezas · {bob(stock.valueMinor)} a costo</p>
       <TimberStockTable key={stock.id} product={stock} units={units} detailed />
-      {stock.active && <details><summary>Seleccionar medida para registrar una pérdida</summary>
+      {stock.active && !readOnly && <details><summary>Seleccionar medida para registrar una pérdida</summary>
         <TimberStockTable key={stock.id + ":loss"} product={stock} units={units} pick={(row) => setLoss({ product: stock, row })} />
       </details>}
     </Card>}
@@ -76,10 +84,15 @@ export function CatalogPage({ units, industry, focus, onStockIn }: {
       <div className="page-heading"><h2>{stock.apparel?.model ?? stock.name}</h2><Button variant="secondary" onClick={() => setStock(undefined)}>Cerrar existencias</Button></div>
       {stock.apparel && <VariantMatrix key={stock.apparel.model} model={stock.apparel.model} />}
       {stock.retail?.trackLots && <LotsTable key={stock.id} product={stock}
-        choose={industry !== "cosmetics" ? (lot) => setLoss({ product: stock, lot }) : undefined}
-        actions={industry === "cosmetics" ? (lot) => <Button variant="secondary" onClick={() => setCorrection({ product: stock, lot })}>Gestionar lote</Button> : undefined} />}
+        choose={!readOnly && stock.active && industry !== "cosmetics" && industry !== "convenience" ? (lot) => setLoss({ product: stock, lot }) : undefined}
+        actions={!readOnly && stock.active && (industry === "cosmetics" || industry === "convenience") ? (lot) => <Button variant="secondary" onClick={() => setCorrection({ product: stock, lot })}>Gestionar lote</Button> : undefined} />}
     </Card>}
+    {stock && !loss && !correction && hasWarehouse && <>
+      {stock.equipment && <WarehouseSerials product={stock} />}
+      <StockMovements key={stock.id} product={stock} units={units ?? "imperial"} />
+    </>}
     </InventoryDrawer>}
+    {hasWarehouse && !catalog ? <Warehouse industry={industry} focus={focus} open={setStock} /> :
     <Card className="inventory-table">
       <div className="inventory-toolbar"><h2>Productos y existencias</h2></div>
       <div className="inventory-controls">
@@ -126,7 +139,7 @@ export function CatalogPage({ units, industry, focus, onStockIn }: {
             </div>,
           ] }))} />}
       <Pages index={page} hasMore={data.data?.hasMore} onChange={setPage} />
-    </Card>
+    </Card>}
   </div>;
 }
 
@@ -175,7 +188,8 @@ function ProductEditor({ product, timberIndustry, industry, onClose }: { product
     <TextField label={isService ? "Nombre del servicio" : "Nombre del producto"} required maxLength={100} value={name}
       onChange={(event) => setName(event.target.value)} />
     {timber && <TextField label="Especie" required maxLength={80} value={species} onChange={(event) => setSpecies(event.target.value)} />}
-    <TextField label="Código" required maxLength={40} value={code} onChange={(event) => setCode(event.target.value)} />
+    <TextField label="Código" required={!!product || !primaryCommerce(industry)} maxLength={40} value={code}
+      hint={!product && primaryCommerce(industry) ? "Escanea el código del proveedor o deja el campo vacío para generarlo." : undefined} onChange={(event) => setCode(event.target.value)} />
     {retailIndustry(industry) && <ProductFields industry={industry} edits={!!product} fields={setup} setFields={setSetup} />}
     <SpecialtyFields industry={industry} printing={setup.kind === "stationery"} edits={!!product} fields={specialty} update={setSpecialty} />
     <MaterialFields industry={industry} kind={setup.kind} fields={materials} update={setMaterials} product={product} />
@@ -244,11 +258,11 @@ export function CustomersPage() {
     {editing && <CustomerEditor key={editing === "new" ? "new" : editing.id} customer={editing === "new" ? undefined : editing}
       onClose={() => setEditing(null)} onSaved={() => setEditing(null)} />}
     <Card>
-      <SearchForm label="Buscar por nombre o teléfono" onSearch={(value) => { setSearch(value); setPage(1); }} />
+      <SearchForm label="Buscar por nombre, código o teléfono" onSearch={(value) => { setSearch(value); setPage(1); }} />
       {!data.data ? <LoadFeedback {...data} /> : data.data.items.length === 0 ? <NoRecords>Los clientes registrados aparecerán aquí.</NoRecords> :
-        <DataTable caption="Clientes registrados" columns={["Cliente", "Teléfono", "Acción"]}
+        <DataTable caption="Clientes registrados" columns={["Cliente", "Código", "Teléfono", "Acción"]}
           rows={data.data.items.map((customer) => ({ id: customer.id, cells: [
-            customer.name, customer.phone || "—", <Button variant="secondary" onClick={() => setEditing(customer)}>Editar</Button>,
+            customer.name, customer.code ?? "—", customer.phone || "—", <Button variant="secondary" onClick={() => setEditing(customer)}>Editar</Button>,
           ] }))} />}
       <Pages index={page} hasMore={data.data?.hasMore} onChange={setPage} />
     </Card>

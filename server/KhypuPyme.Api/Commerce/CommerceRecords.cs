@@ -49,6 +49,7 @@ internal sealed class Product : IBusinessRecord
 
 internal sealed class Customer : IBusinessRecord
 {
+    public string? Code { get; init; }
     public Guid BusinessId { get; init; }
     public Guid Id { get; init; }
     public required string Name { get; set; }

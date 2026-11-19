@@ -938,6 +938,124 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/businesses/{businessId}/commerce/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["StockRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StockCheck"][];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/commerce/warehouse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    search?: string;
+                    status?: string;
+                    attention?: string;
+                    page?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CommercePageOfWarehouseItem"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/commerce/warehouse/{id}/movements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CommercePageOfStockMovement"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/businesses/{businessId}/commerce/products/code": {
         parameters: {
             query?: never;
@@ -2024,6 +2142,124 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ProductInfo"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/practice-commerce/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["StockRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StockCheck"][];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/practice-commerce/warehouse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    search?: string;
+                    status?: string;
+                    attention?: string;
+                    page?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CommercePageOfWarehouseItem"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/practice-commerce/warehouse/{id}/movements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                };
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CommercePageOfStockMovement"];
                     };
                 };
             };
@@ -3494,6 +3730,7 @@ export interface components {
             printing?: null | components["schemas"]["PrintingInput"];
             tile?: null | components["schemas"]["TileRequest"];
             timberRateManual?: null | boolean;
+            timberCostUnit?: null | string;
         };
         CommandResult: {
             /** Format: uuid */
@@ -3583,8 +3820,16 @@ export interface components {
             items: components["schemas"]["SerialInfo"][];
             hasMore: boolean;
         };
+        CommercePageOfStockMovement: {
+            items: components["schemas"]["StockMovement"][];
+            hasMore: boolean;
+        };
         CommercePageOfTimberStockInfo: {
             items: components["schemas"]["TimberStockInfo"][];
+            hasMore: boolean;
+        };
+        CommercePageOfWarehouseItem: {
+            items: components["schemas"]["WarehouseItem"][];
             hasMore: boolean;
         };
         CommercePageOfWorkInfo: {
@@ -3648,6 +3893,7 @@ export interface components {
             id: string;
             name: string;
             phone: string;
+            code?: null | string;
         };
         DeliveryInfo: {
             /** Format: uuid */
@@ -3800,6 +4046,7 @@ export interface components {
             isService: boolean;
             /** Format: int64 */
             timberCatalogMinor?: null | number;
+            timberCostUnit?: null | string;
         };
         LotAllocation: {
             lot: string;
@@ -4085,6 +4332,45 @@ export interface components {
             catalogReady: boolean;
             sold: boolean;
         };
+        StockCheck: {
+            /** Format: uuid */
+            productId: string;
+            timber: null | components["schemas"]["TimberDimensions"];
+            serial: null | string;
+            /** Format: double */
+            requested: number;
+            /** Format: double */
+            available: number;
+            reason: null | string;
+        };
+        StockLine: {
+            /** Format: uuid */
+            productId: string;
+            /** Format: int32 */
+            quantity: number;
+            timber?: null | components["schemas"]["TimberDimensions"];
+            measure?: null | components["schemas"]["RetailInput"];
+            serials?: null | string[];
+        };
+        StockMovement: {
+            /** Format: uuid */
+            entryId: string;
+            number: string;
+            /** Format: date */
+            date: string;
+            kind: string;
+            note: string;
+            /** Format: int32 */
+            quantity: number;
+            timber: null | components["schemas"]["TimberDimensions"];
+            details: null | components["schemas"]["LineDetails"];
+            restocked: null | boolean;
+        };
+        StockRequest: {
+            lines: components["schemas"]["StockLine"][];
+            /** @default false */
+            receiving: boolean;
+        };
         StoreAttention: {
             /** Format: int32 */
             reorder: number;
@@ -4143,7 +4429,7 @@ export interface components {
         VariantInput: {
             /** Format: uuid */
             id: string;
-            code: string;
+            code: null | string;
             size: string;
             color: string;
             /** Format: int64 */
@@ -4157,6 +4443,10 @@ export interface components {
             /** Format: int32 */
             toYear: number;
             confirmed: boolean;
+        };
+        WarehouseItem: {
+            product: components["schemas"]["ProductInfo"];
+            status: string;
         };
         WorkAttention: {
             /** Format: int32 */

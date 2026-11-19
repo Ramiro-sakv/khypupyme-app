@@ -8,7 +8,7 @@ import type { Page } from "../commerce/models";
 import type { Serial } from "./measures";
 
 type UnitHistory = components["schemas"]["UnitHistory"];
-const states: Record<string, string> = { available: "Disponible", sold: "Vendido", inspection: "En inspección", discarded: "Dado de baja" };
+export const serialStates: Record<string, string> = { available: "Disponible", sold: "Vendido", inspection: "En inspección", discarded: "Dado de baja" };
 const movements: Record<string, string> = { released: "Inspección · volvió a existencias", discarded: "Inspección · baja",
   "warranty-open": "Reclamo de garantía abierto", "warranty-resolved": "Reclamo de garantía resuelto" };
 
@@ -25,12 +25,12 @@ export function SerialHistory({ initial, filter }: { initial?: string; filter?: 
       <SearchForm label="Buscar número de serie" onSearch={(value) => { setSearch(value); setPage(1); }} />
       <SelectField label="Estado de la unidad" value={state} onChange={(event) => { setState(event.target.value); setPage(1); }}>
         <option value="">Todos</option>
-        {Object.entries(states).map(([key, label]) => <option value={key} key={key}>{label}</option>)}
+        {Object.entries(serialStates).map(([key, label]) => <option value={key} key={key}>{label}</option>)}
       </SelectField>
       {!response.data ? <LoadFeedback {...response} /> : response.data.items.length === 0 ? <NoRecords>Recibe equipos con su número de serie desde Compras.</NoRecords> :
         <DataTable caption="Equipos registrados" columns={["Serie", "Producto", "Estado", "Garantía declarada", "Acción"]}
           rows={response.data.items.map((unit) => ({ id: unit.serial, cells: [
-            unit.serial, unit.productName, states[unit.state],
+            unit.serial, unit.productName, serialStates[unit.state],
             unit.warrantyUntil ? dateLabel(unit.warrantyUntil) : "—",
             <Button variant="secondary" onClick={() => setSerial(unit.serial)}>Ver historial</Button>,
           ] }))} />}
@@ -39,7 +39,7 @@ export function SerialHistory({ initial, filter }: { initial?: string; filter?: 
   </div>;
 }
 
-function UnitDetails({ serial, close }: { serial: string; close: () => void }) {
+export function UnitDetails({ serial, close }: { serial: string; close: () => void }) {
   const data = useCommerceData<UnitHistory>("/serial?" + new URLSearchParams({ serial }));
   const { showDocument, readOnly } = useCommerce();
   const [inspection, setInspection] = useState(false);
@@ -47,7 +47,7 @@ function UnitDetails({ serial, close }: { serial: string; close: () => void }) {
   return <Card className="commerce-stack">
     <div className="page-heading"><h2>Serie {serial}</h2><Button variant="plain" onClick={close}>Cerrar historial de la unidad</Button></div>
     {!data.data ? <LoadFeedback {...data} /> : <>
-      <p>{data.data.unit.productName} · {states[data.data.unit.state]}</p>
+      <p>{data.data.unit.productName} · {serialStates[data.data.unit.state]}</p>
       {data.data.unit.warrantyUntil && <p>Garantía declarada hasta {dateLabel(data.data.unit.warrantyUntil)}</p>}
       {data.data.unit.state === "inspection" && <>
         <Alert>La unidad está apartada hasta registrar el resultado de la inspección.</Alert>

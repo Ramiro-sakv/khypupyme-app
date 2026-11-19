@@ -128,5 +128,7 @@ export function documentTimber(record: Schema["EntryDocument"], line: Schema["Do
 }
 
 export function documentUnit(record: Schema["EntryDocument"], line: Schema["DocumentLine"]) {
-  return line.timber && ["sale", "quote", "return"].includes(record.kind) ? " / pie tablar" : "";
+  if (!line.timber) return "";
+  if (record.kind === "purchase" || record.kind === "stock-in") return line.details?.timberCostUnit === "board-foot" ? " / pie tablar" : " / pieza";
+  return ["sale", "quote", "return"].includes(record.kind) ? " / pie tablar" : "";
 }

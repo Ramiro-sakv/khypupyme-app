@@ -77,12 +77,12 @@ internal sealed class CommerceReads(KhypuPymeDbContext db, TimeProvider clock, S
         var query = db.Set<Customer>().AsNoTracking();
         var term = Search(search);
         if (term is not null)
-            query = query.Where(x => EF.Functions.ILike(x.Name, term, "\\") || EF.Functions.ILike(x.Phone, term, "\\"));
-        return PageAsync(query.OrderBy(x => x.Name).ThenBy(x => x.Id).Select(x => new CustomerInfo(x.Id, x.Name, x.Phone)), page, ct);
+            query = query.Where(x => EF.Functions.ILike(x.Name, term, "\\") || EF.Functions.ILike(x.Phone, term, "\\") || (x.Code != null && EF.Functions.ILike(x.Code, term, "\\")));
+        return PageAsync(query.OrderBy(x => x.Name).ThenBy(x => x.Id).Select(x => new CustomerInfo(x.Id, x.Name, x.Phone, x.Code)), page, ct);
     }
 
     public Task<CustomerInfo?> CustomerAsync(Guid id, CancellationToken ct) =>
-        db.Set<Customer>().AsNoTracking().Where(x => x.Id == id).Select(x => new CustomerInfo(x.Id, x.Name, x.Phone))
+        db.Set<Customer>().AsNoTracking().Where(x => x.Id == id).Select(x => new CustomerInfo(x.Id, x.Name, x.Phone, x.Code))
             .SingleOrDefaultAsync(ct);
 
     public Task<CommercePage<EntryInfo>> HistoryAsync(string? kind, Guid? cashSession, DateOnly? from, DateOnly? to,

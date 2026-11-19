@@ -42,7 +42,7 @@ internal sealed class EquipmentInventory(CommerceTransaction work)
     {
         var unit = await FindAsync(serial);
         if (unit.ProductId != product.Id || unit.State != "available")
-            throw new CommerceFailure($"La serie {serial} no está disponible para este producto.", 409);
+            throw new CommerceFailure($"{product.Name} · Serie {serial}: sin stock para esta serie. Elige otra serie disponible.", 409);
         product.Stock--;
         product.ValueMinor -= unit.CostMinor;
         unit.State = "sold";

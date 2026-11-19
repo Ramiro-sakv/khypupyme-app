@@ -26,6 +26,10 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
             command.Lines?.Any(x => x?.TimberRateManual is not null &&
                 (x.TimberRateManual != true || x.Timber is null || command.Kind is not ("sale" or "quote"))) == true)
             throw new CommerceFailure("La tarifa manual solo corresponde a madera en una venta o cotización.");
+        if (command.ExchangeLines?.Any(x => x?.TimberCostUnit is not null) == true ||
+            command.Lines?.Any(x => x?.TimberCostUnit is not null &&
+                (x.TimberCostUnit != "board-foot" || x.Timber is null || command.Kind is not ("purchase" or "stock-in"))) == true)
+            throw new CommerceFailure("El costo por pie tablar corresponde a una entrada o compra de madera.");
         if ((command.WorkLink is not null && command.Kind is not ("save-work" or "advance-work" or "repair-receipt" or "work-receipt" or "sale")) ||
             (command.Work is not null && command.Kind != "save-work") || (command.WorkState is not null && command.Kind != "advance-work") ||
             (command.ServiceProduct is not null && command.Kind != "product"))
@@ -129,7 +133,7 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
             command.Delivery is not null || command.Lines?.Any(x => x?.Tile is not null) == true ||
             command.ExchangeLines?.Any(x => x?.Tile is not null) == true;
         var service = command.ServiceProduct is not null || command.Work is not null || command.WorkLink is not null || command.WorkState is not null;
-        var negotiated = command.Lines?.Any(x => x?.TimberRateManual == true) == true;
+        var negotiated = command.Lines?.Any(x => x?.TimberRateManual == true || x?.TimberCostUnit is not null) == true;
         object serialized = service || negotiated || command.Variants is not null ? command : material
             ? new
             {
@@ -208,7 +212,7 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
         var ids = variants.Where(variant => variant is not null).Select(variant => variant.Id).ToHashSet();
         if (ids.Count != variants.Length || ids.Contains(Guid.Empty) || await work.Db.Set<Product>().AnyAsync(item => ids.Contains(item.Id), work.Ct))
             throw new CommerceFailure("Cada variante debe tener un identificador nuevo y distinto.", 409);
-        foreach (var variant in variants)
+        foreach (var variant in variants.OrderBy(x => string.IsNullOrWhiteSpace(x.Code)))
         {
             var product = new CommerceCommand(variant.Id, "product", Name: name, Code: variant.Code, AmountMinor: variant.AmountMinor,
                 ApparelProduct: new(model, variant.Size, variant.Color));
@@ -221,7 +225,9 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
     {
         var input = work.Command;
         var name = Text(input.Name, 100, "el nombre del producto", true);
-        var code = Text(input.Code, 40, "el código del producto", true);
+        var code = input.EntityId is null && string.IsNullOrWhiteSpace(input.Code) && BusinessCodes.ProductPrefix(work.Business.Industry) is { } prefix
+            ? await BusinessCodes.NextProductAsync(work, prefix)
+            : Text(input.Code, 40, "el código del producto", true);
         var normalizedCode = Text(code.ToUpperInvariant(), 40, "el código del producto", true);
         var price = Money(input.TimberProduct?.ShortMinor ?? input.AmountMinor, "un precio");
         var products = work.Db.Set<Product>();
@@ -270,7 +276,8 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
             return record.Id;
         }
 
-        var customer = new Customer { BusinessId = work.Business.Id, Id = input.OperationId, Name = name, Phone = phone };
+        var code = BusinessCodes.ProductPrefix(work.Business.Industry) is not null ? await BusinessCodes.NextAsync(work, "CLI") : null;
+        var customer = new Customer { BusinessId = work.Business.Id, Id = input.OperationId, Name = name, Phone = phone, Code = code };
         work.Db.Add(customer);
         return customer.Id;
     }

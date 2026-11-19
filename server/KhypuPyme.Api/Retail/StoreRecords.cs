@@ -12,7 +12,7 @@ public sealed record LotAllocation(string Lot, DateOnly? ExpiresOn, decimal Quan
 public sealed record LineDetails(RetailInput? Measure = null, decimal? BaseQuantity = null,
     LotAllocation[]? Lots = null, ApparelProfile? Apparel = null, string? Serial = null, DateOnly? WarrantyUntil = null,
     string? Direction = null, string? RateUnit = null, ProductSpecialty? Specialty = null, PrintingDetail? Printing = null, TileCoverage? Tile = null,
-    bool IsService = false, long? TimberCatalogMinor = null)
+    bool IsService = false, long? TimberCatalogMinor = null, string? TimberCostUnit = null)
 {
     internal static LineDetails? Parse(string? json) => json is null ? null : JsonSerializer.Deserialize<LineDetails>(json);
     internal static string? Save(LineDetails? value) => value is null ? null : JsonSerializer.Serialize(value);

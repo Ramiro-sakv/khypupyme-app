@@ -93,7 +93,7 @@ internal static class AccountEndpoints
         if (!ValidEmail(email)) return AuthErrors.Fail("Escribe un correo válido.");
         var user = await users.FindByEmailAsync(email!);
         return await codes.SendAsync(email!, users.NormalizeEmail(email)!, EmailCodes.Recovery,
-            user is { EmailConfirmed: true, PasswordHash: not null }, ct);
+            user is { EmailConfirmed: true, PasswordHash: not null } && !ClosureLock(user), ct);
     }
 
     private static async Task<IResult> RecoverAsync(CodePasswordInput input, UserManager<IdentityUser<Guid>> users,
@@ -104,7 +104,7 @@ internal static class AccountEndpoints
         if (!ValidPassword(input.Password)) return AuthErrors.Fail("Usa entre 12 y 128 caracteres para la contraseña.");
 
         var user = await users.FindByEmailAsync(email!);
-        if (user is not { EmailConfirmed: true, PasswordHash: not null })
+        if (user is not { EmailConfirmed: true, PasswordHash: not null } || ClosureLock(user))
             return AuthErrors.Fail("El código venció o ya se usó. Solicita otro.");
 
         var result = await codes.RedeemAsync(users.NormalizeEmail(email)!, EmailCodes.Recovery, input.Code!, async () =>
@@ -125,6 +125,8 @@ internal static class AccountEndpoints
         if (result is Microsoft.AspNetCore.Http.HttpResults.NoContent) await signIn.SignOutAsync();
         return result;
     }
+
+    private static bool ClosureLock(IdentityUser<Guid> user) => user.LockoutEnd > DateTimeOffset.UtcNow.AddYears(50);
 }
 
 internal sealed class CsrfFilter(IAntiforgery antiforgery) : IEndpointFilter
@@ -132,7 +134,7 @@ internal sealed class CsrfFilter(IAntiforgery antiforgery) : IEndpointFilter
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
         var http = context.HttpContext;
-        if (http.Request.Path.StartsWithSegments("/api/v1/businesses") &&
+        if ((http.Request.Path.StartsWithSegments("/api/v1/businesses") || http.Request.Path.StartsWithSegments("/api/v1/security")) &&
             http.Request.Headers.Authorization.Count != 0 && http.User.Identity?.IsAuthenticated == true)
             return await next(context);
 

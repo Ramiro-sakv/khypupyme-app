@@ -6,12 +6,14 @@ import { Alert, Button, Card, EmptyState, TextField } from "../ui/Primitives";
 import { industryTheme } from "./industryThemes";
 import { businessApi } from "./models";
 import type { BusinessCard, BusinessList, IndustryOption } from "./models";
+import { RemovalJobs } from "../security/BusinessRemoval";
 
-export function BusinessPicker({ industries, lastId, select, create }: {
+export function BusinessPicker({ industries, lastId, select, create, accountId }: {
   industries: IndustryOption[];
   lastId?: string;
   select: (id: string) => Promise<void>;
   create: () => void;
+  accountId: string;
 }) {
   const heading = useRef<HTMLHeadingElement>(null);
   const [query, setQuery] = useState("");
@@ -62,6 +64,7 @@ export function BusinessPicker({ industries, lastId, select, create }: {
       <div><h1 ref={heading} tabIndex={-1}>Mis negocios</h1><p>Abre el negocio en el que vas a trabajar.</p></div>
       <Button icon="plus" disabled={openingId !== null} onClick={create}>Crear negocio</Button>
     </div>
+    <RemovalJobs accountId={accountId} />
     <Card className="picker-panel">
       <form className="inline-actions search-form" onSubmit={find}>
         <TextField label="Buscar negocio" type="search" maxLength={80} placeholder="Nombre del negocio"

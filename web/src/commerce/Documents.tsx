@@ -28,7 +28,7 @@ export function HistoryPage({ initialKind, allowExport }: { initialKind: string;
   </div>;
 }
 
-function ExportRecords() {
+export function ExportRecords() {
   const { path } = useCommerce();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");

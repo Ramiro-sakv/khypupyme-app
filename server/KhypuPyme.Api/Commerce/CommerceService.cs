@@ -6,12 +6,13 @@ using KhypuPyme.Api.Persistence;
 using KhypuPyme.Api.Timber;
 using KhypuPyme.Api.Retail;
 using KhypuPyme.Api.Services;
+using KhypuPyme.Api.Security;
 using Microsoft.EntityFrameworkCore;
 using static KhypuPyme.Api.Commerce.CommerceRules;
 
 namespace KhypuPyme.Api.Commerce;
 
-internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess access, LicenseAccess license, TimeProvider clock)
+internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess access, LicenseAccess license, SecurityProofs proofs, TimeProvider clock)
 {
     public async Task<CommandResult> ExecuteAsync(Guid accountId, Guid businessId, CommerceCommand command, bool practiceChannel, CancellationToken ct)
     {
@@ -42,6 +43,10 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
         }
 
         await access.LockBusinessAsync(businessId, ct);
+        if (await access.ClosedAsync(accountId, ct))
+            throw new CommerceFailure("La cuenta tiene una solicitud de eliminación.", 403);
+        if (await access.DeletingAsync(business.PracticeOriginId ?? businessId, ct))
+            throw new CommerceFailure("El negocio tiene una limpieza pendiente.", 409);
         var now = clock.GetUtcNow();
         if (command.Kind != "close-cash")
             await license.RequireAsync(accountId, business.PracticeOriginId ?? businessId, now, ct);
@@ -51,6 +56,14 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
         if (practiceChannel && practice?.State != "active")
             throw new CommerceFailure("Reanuda la práctica antes de registrar movimientos.", 409);
         var work = new CommerceTransaction(db, business, command, now, ct);
+        SecurityProof? approval = null;
+        object? previous = null;
+        if (!practiceChannel && (CorrectionAudit.Protected(command) || await CorrectionAudit.CashDifferenceAsync(db, command, ct)))
+        {
+            approval = await proofs.FindAsync(accountId, command.OperationId, "correction", businessId, digest, ct);
+            proofs.Consume(approval);
+            previous = await CorrectionAudit.BeforeAsync(work);
+        }
         var entityId = command.Kind switch
         {
             "product" => await SaveProductAsync(work),
@@ -74,6 +87,7 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
         };
 
         if (practice is not null) PracticeSteps.Advance(practice, work);
+        if (approval is not null) CorrectionAudit.Record(work, accountId, entityId, approval.Reason, previous);
         db.Add(new CommerceReceipt
         {
             Id = command.OperationId, AccountId = accountId, BusinessId = businessId,
@@ -84,7 +98,7 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
         return new CommandResult(command.OperationId, command.Kind, entityId);
     }
 
-    private static string Digest(CommerceCommand command)
+    internal static string Digest(CommerceCommand command)
     {
         // Los contratos anteriores mantienen sus huellas, incluso cuando se agregan campos opcionales.
         bool specialized = command.RetailProduct is not null || command.ApparelProduct is not null || command.EquipmentProduct is not null ||

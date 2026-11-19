@@ -1,4 +1,5 @@
 using KhypuPyme.Api.Businesses;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace KhypuPyme.Api.Billing;
@@ -12,8 +13,7 @@ internal static class BillingModel
             entry.ToTable("account_trials", table => table.HasCheckConstraint("trial_window",
                 """ ("StartedAt" IS NULL AND "EndsAt" IS NULL) OR ("StartedAt" IS NOT NULL AND "EndsAt" IS NOT NULL AND "EndsAt" > "StartedAt") """));
             entry.HasKey(x => x.OwnerId);
-            entry.HasOne<Business>().WithMany().HasPrincipalKey(x => new { x.OwnerId, x.Id })
-                .HasForeignKey(x => new { x.OwnerId, Id = x.FirstBusinessId });
+            entry.HasOne<IdentityUser<Guid>>().WithMany().HasForeignKey(x => x.OwnerId);
         });
         model.Entity<PaymentAttempt>(entry =>
         {

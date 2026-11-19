@@ -6,8 +6,11 @@ import { commercePath, documentName } from "./models";
 import type { CommandInput, CommandResult } from "./models";
 import { clearRequest, pendingRequest, reserveRequest } from "./storage";
 import type { DraftStamp, PendingRecord } from "./storage";
+import { IdentityDialog } from "../security/IdentityDialog";
+import { correctionEffect, needsIdentity } from "../security/corrections";
 
 type Confirmation = { result: CommandResult; draft?: DraftStamp };
+type Approval = { record: PendingRecord; resolve: () => void; reject: (error: Error) => void };
 type Workspace = {
   path: string; scope: string; revision: number; ready: boolean; busy: boolean; pending?: PendingRecord;
   readOnly: boolean;
@@ -17,8 +20,9 @@ type Workspace = {
 };
 const Context = createContext<Workspace | null>(null);
 
-export function CommerceProvider({ accountId, businessId, children, showDocument, practice, onConfirmed, readOnly = false }: {
+export function CommerceProvider({ accountId, businessId, businessName, children, showDocument, practice, onConfirmed, readOnly = false }: {
   accountId: string; businessId: string; children: ReactNode; showDocument: (id: string) => void;
+  businessName: string;
   practice?: boolean; onConfirmed?: () => void;
   readOnly?: boolean;
 }) {
@@ -31,6 +35,7 @@ export function CommerceProvider({ accountId, businessId, children, showDocument
   const [confirmation, setConfirmation] = useState<Confirmation>();
   const [notice, setNotice] = useState("");
   const [status, setStatus] = useState<"unknown" | "missing">("unknown");
+  const [approval, setApproval] = useState<Approval>();
 
   useEffect(() => {
     let active = true;
@@ -50,6 +55,7 @@ export function CommerceProvider({ accountId, businessId, children, showDocument
   async function finish(record: PendingRecord, result: CommandResult) {
     if (result.operationId !== record.command.operationId || result.kind !== record.command.kind)
       throw new Error("La respuesta no coincide con la solicitud. Consulta su estado.");
+    await change(path + "/commands/" + result.operationId + "/ack", "POST");
     try {
       await clearRequest(record, true);
       setPending(undefined);
@@ -63,8 +69,9 @@ export function CommerceProvider({ accountId, businessId, children, showDocument
   }
 
   async function send(record: PendingRecord) {
+    let result: CommandResult;
     try {
-      return await finish(record, await change<CommandResult>(path + "/commands", "POST", record.command));
+      result = await change<CommandResult>(path + "/commands", "POST", record.command);
     } catch (error) {
       if (error instanceof ApiError && [400, 401, 403, 404, 409, 422, 429].includes(error.status)) {
         await clearRequest(record, false);
@@ -74,20 +81,38 @@ export function CommerceProvider({ accountId, businessId, children, showDocument
       setStatus("unknown");
       throw new Error("No se pudo confirmar la respuesta. Consulta la solicitud antes de reintentar.", { cause: error });
     }
+    try { return await finish(record, result); }
+    catch {
+      setStatus("unknown");
+      throw new Error("El servidor respondió. Consulta la solicitud para terminar de revisar su resultado.");
+    }
+  }
+
+  async function authorize(record: PendingRecord) {
+    if (!practice && await needsIdentity(record.command, path))
+      await new Promise<void>((resolve, reject) => setApproval({ record, resolve, reject }));
   }
 
   async function execute(input: CommandInput, draft?: DraftStamp) {
     if (readOnly && input.kind !== "close-cash") throw new Error("Activa un plan para registrar operaciones nuevas.");
     if (!ready) throw new Error("Espera a que se abra el registro local.");
     const record = { scope, command: { ...input, operationId: crypto.randomUUID() }, draft };
-    const claimed = await reserveRequest(record);
-    setPending(claimed);
-    setStatus("unknown");
-    if (claimed.command.operationId !== record.command.operationId)
-      throw new Error("Resuelve primero la solicitud pendiente de este negocio.");
     setBusy(true);
     setNotice("");
-    try { return await send(record); }
+    try {
+      const existing = await pendingRequest(scope);
+      if (existing) {
+        setPending(existing);
+        throw new Error("Resuelve primero la solicitud pendiente de este negocio.");
+      }
+      await authorize(record);
+      const claimed = await reserveRequest(record);
+      setPending(claimed);
+      setStatus("unknown");
+      if (claimed.command.operationId !== record.command.operationId)
+        throw new Error("Resuelve primero la solicitud pendiente de este negocio.");
+      return await send(record);
+    }
     finally { setBusy(false); }
   }
 
@@ -116,6 +141,7 @@ export function CommerceProvider({ accountId, businessId, children, showDocument
         setNotice("La solicitud local cambió. Actualiza su estado antes de continuar.");
         return;
       }
+      await authorize(record);
       const result = await send(record);
       setNotice(documentName(result.kind) + " confirmada.");
     } catch (error) { setNotice(error instanceof Error ? error.message : "No se pudo reintentar."); }
@@ -123,6 +149,12 @@ export function CommerceProvider({ accountId, businessId, children, showDocument
   }
 
   return <Context.Provider value={{ path, scope, revision, ready, busy, pending, confirmation, execute, showDocument, readOnly }}>
+    {approval && <IdentityDialog key={approval.record.command.operationId} title="Autorizar corrección"
+      effect={correctionEffect(businessName, approval.record.command)}
+      request={{ id: approval.record.command.operationId, purpose: "correction", businessId,
+        command: approval.record.command, reason: approval.record.command.note }}
+      done={() => { approval.resolve(); setApproval(undefined); }}
+      cancel={() => { approval.reject(new Error("La corrección se canceló.")); setApproval(undefined); }} />}
     {pending && <div className="pending-box">
       <strong>{busy ? "Consultando operación…" : "Solicitud pendiente de " + documentName(pending.command.kind).toLowerCase()}</strong>
       <span>{pending.command.operationId}</span>

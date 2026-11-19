@@ -3,6 +3,7 @@ using KhypuPyme.Api.Persistence;
 using KhypuPyme.Api.Retail;
 using KhypuPyme.Api.Services;
 using KhypuPyme.Api.Timber;
+using KhypuPyme.Api.Security;
 using Microsoft.EntityFrameworkCore;
 
 namespace KhypuPyme.Api.Commerce;
@@ -39,6 +40,7 @@ internal static class CommerceExport
             vehicleFitments = await Rows<ProductFitment>(),
             deliveries = await Rows<FurnitureDelivery>(),
             work = await Rows<WorkItem>(),
+            audit = await Rows<CommerceAudit>(),
         };
         return Results.Json(data);
 

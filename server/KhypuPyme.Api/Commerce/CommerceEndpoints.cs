@@ -5,6 +5,7 @@ using KhypuPyme.Api.Persistence;
 using KhypuPyme.Api.Timber;
 using KhypuPyme.Api.Retail;
 using KhypuPyme.Api.Services;
+using KhypuPyme.Api.Security;
 using Microsoft.EntityFrameworkCore;
 using static KhypuPyme.Api.Commerce.CommerceRules;
 
@@ -71,8 +72,21 @@ internal static class CommerceEndpoints
         reads.MapGet("/report", (DateOnly? from, DateOnly? to, CommerceReads service, CancellationToken ct) =>
             service.ReportAsync(from, to, ct)).Produces<CommerceReport>();
         reads.MapGet("/commands/{id:guid}", StatusAsync).Produces<CommandResult>();
-        if (!practice) reads.MapGet("/export", CommerceExport.DownloadAsync);
-        group.MapPost("/commands", ExecuteAsync).AddEndpointFilter<CsrfFilter>().Produces<CommandResult>();
+        reads.MapGet("/unconfirmed", (Guid businessId, KhypuPymeDbContext db, CancellationToken ct) =>
+            db.Set<CommerceReceipt>().Where(x => x.BusinessId == businessId && x.AcknowledgedAt == null)
+                .OrderBy(x => x.Id).Select(x => new CommandResult(x.Id, x.Kind, x.EntityId)).Take(50).ToArrayAsync(ct))
+            .Produces<CommandResult[]>();
+        if (!practice)
+        {
+            reads.MapGet("/export", CommerceExport.DownloadAsync);
+            reads.MapGet("/audit", (int? page, KhypuPymeDbContext db, CancellationToken ct) =>
+                CommerceReads.PageAsync(db.Set<CommerceAudit>().OrderByDescending(x => x.At).ThenBy(x => x.OperationId)
+                    .Select(x => new AuditInfo(x.OperationId, x.AccountId, x.At, x.Kind, x.Reason, x.EntityId, x.Effect)), page, ct))
+                .Produces<CommercePage<AuditInfo>>();
+        }
+        var writes = group.MapGroup("").AddEndpointFilter<CsrfFilter>();
+        writes.MapPost("/commands", ExecuteAsync).Produces<CommandResult>();
+        writes.MapPost("/commands/{id:guid}/ack", AcknowledgeAsync);
     }
 
     private static IResult Found<T>(T? result) where T : class => result is null ? Results.NotFound() : Results.Ok(result);
@@ -90,6 +104,26 @@ internal static class CommerceEndpoints
         var found = await db.Set<CommerceReceipt>().AsNoTracking().SingleOrDefaultAsync(x => x.Id == id && x.BusinessId == businessId, ct);
         return found is null ? Results.NotFound() : Results.Ok(new CommandResult(found.Id, found.Kind, found.EntityId));
     }
+
+    private static async Task<IResult> AcknowledgeAsync(Guid businessId, Guid id, HttpContext http, BusinessAccess access,
+        KhypuPymeDbContext db, TimeProvider clock, CancellationToken ct)
+    {
+        var owner = BusinessAccess.AccountId(http);
+        await using var tx = await access.OpenAsync(owner, businessId, ct);
+        await access.LockBusinessAsync(businessId, ct);
+        var practice = http.GetEndpoint()?.Metadata.GetMetadata<PracticeCommerce>() is not null;
+        if (!await db.Businesses.AnyAsync(x => x.Id == businessId && (x.PracticeOriginId != null) == practice, ct))
+            return Results.NotFound();
+        var found = await db.Set<CommerceReceipt>().SingleOrDefaultAsync(x => x.Id == id && x.BusinessId == businessId, ct);
+        if (found is null) return Results.NotFound();
+        if (found.AcknowledgedAt is null)
+        {
+            found.AcknowledgedAt = clock.GetUtcNow();
+            await db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+        }
+        return Results.NoContent();
+    }
 }
 
 internal sealed class ReadCommerceScope(BusinessAccess access, KhypuPymeDbContext db) : IEndpointFilter
@@ -102,7 +136,8 @@ internal sealed class ReadCommerceScope(BusinessAccess access, KhypuPymeDbContex
         var practice = http.GetEndpoint()?.Metadata.GetMetadata<PracticeCommerce>() is not null;
         http.Response.Headers.CacheControl = "no-store";
         await using var tx = await access.OpenAsync(BusinessAccess.AccountId(http), business, ct, IsolationLevel.RepeatableRead);
-        if (!await db.Businesses.AnyAsync(x => x.Id == business && (x.PracticeOriginId != null) == practice, ct)) return Results.NotFound();
+        var allowed = await db.Businesses.SingleOrDefaultAsync(x => x.Id == business && (x.PracticeOriginId != null) == practice, ct);
+        if (allowed is null || await access.DeletingAsync(allowed.PracticeOriginId ?? allowed.Id, ct)) return Results.NotFound();
         try { return await next(context); }
         catch (CommerceFailure error) { return AuthErrors.Fail(error.Message, error.Status); }
     }

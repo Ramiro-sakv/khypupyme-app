@@ -4,6 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { activateBusiness } from "./test-billing-fixture.mjs";
 import { readdirSync, readFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
+import { authorizeFixture } from "./test-security-fixture.mjs";
 
 const auth = "/api/v1/auth";
 const businesses = "/api/v1/businesses";
@@ -21,6 +22,7 @@ async function request(path, expected, method = "GET", body) {
     headers.set("Content-Type", "application/json");
   }
   if (cookies.size) headers.set("Cookie", [...cookies].map(([key, value]) => key + "=" + value).join("; "));
+  await authorizeFixture(base, path, method, body, headers, password, request);
   const response = await fetch(base + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
   for (const cookie of response.headers.getSetCookie()) {
     const pair = cookie.split(";")[0];

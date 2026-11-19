@@ -4,12 +4,14 @@ import { change } from "../api/client";
 import { Alert, Button, Card, DataTable, SelectField, TextField } from "../ui/Primitives";
 import { businessApi } from "./models";
 import type { BusinessProfile } from "./models";
+import { BusinessProtection } from "../security/BusinessRemoval";
 
-export function BusinessSettings({ profile, industry, onSave, openPlan }: {
+export function BusinessSettings({ profile, industry, onSave, openPlan, onRemoved }: {
   profile: BusinessProfile;
   industry: string;
   onSave: (business: BusinessProfile) => void;
   openPlan: () => void;
+  onRemoved: (message: string) => void;
 }) {
   const [city, setCity] = useState(profile.city ?? "");
   const [phone, setPhone] = useState(profile.phone ?? "");
@@ -62,5 +64,6 @@ export function BusinessSettings({ profile, industry, onSave, openPlan }: {
         </form>
       </Card>
     </div>
+    <BusinessProtection profile={profile} onRemoved={onRemoved} />
   </div>;
 }

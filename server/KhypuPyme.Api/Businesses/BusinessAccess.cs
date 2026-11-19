@@ -1,6 +1,7 @@
 using System.Data;
 using System.Security.Claims;
 using KhypuPyme.Api.Persistence;
+using KhypuPyme.Api.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -8,6 +9,15 @@ namespace KhypuPyme.Api.Businesses;
 
 internal sealed class BusinessAccess(KhypuPymeDbContext db)
 {
+    public Task<bool> DeletingAsync(Guid business, CancellationToken ct) =>
+        db.Set<BusinessDeletion>().AnyAsync(x => x.BusinessId == business, ct);
+
+    public Task<bool> ClosedAsync(Guid owner, CancellationToken ct) =>
+        db.Set<AccountClosure>().AnyAsync(x => x.OwnerId == owner, ct);
+
+    public IQueryable<Business> VisibleBusinesses() =>
+        db.Businesses.Where(business => !db.Set<BusinessDeletion>().Any(job => job.BusinessId == business.Id));
+
     public static Guid AccountId(HttpContext http) =>
         Guid.Parse(http.User.FindFirstValue("sub") ?? http.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 

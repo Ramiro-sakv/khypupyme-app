@@ -5,6 +5,7 @@ import { AuthPage } from "./accounts/AuthPage";
 import { BusinessesPage } from "./businesses/BusinessesPage";
 import { StatusPage } from "./StatusPage";
 import { Alert, Button } from "./ui/Primitives";
+import { AccountProtection } from "./security/AccountProtection";
 
 type Session = components["schemas"]["SessionInfo"];
 const auth = "/api/v1/auth";
@@ -28,6 +29,7 @@ function AccountApp() {
   const [loading, setLoading] = useState(true);
   const [revision, setRevision] = useState(0);
   const [acting, setActing] = useState(false);
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     const abort = new AbortController();
@@ -65,6 +67,7 @@ function AccountApp() {
     </header>
     {loading && <p role="status">Consultando sesión…</p>}
     {error && <Alert tone="error">{error}</Alert>}
+    {notice && <Alert>{notice}</Alert>}
     {!loading && !session && <Button onClick={() => {
       setError(""); setLoading(true); setRevision((value) => value + 1);
     }}>Reintentar</Button>}
@@ -73,6 +76,11 @@ function AccountApp() {
         <div className="session-bar">
           <span>{session.email}</span>
           <div className="inline-actions">
+            {session.accountId && <AccountProtection accountId={session.accountId} ended={(message) => {
+              setNotice(message);
+              setSession({ ...session, email: null, accountId: null, googleLinked: false });
+              history.replaceState(null, "", "/");
+            }} />}
             {session.googleConfigured && !session.googleLinked && <Button variant="secondary"
               disabled={acting} onClick={() => void accountAction(linkGoogle)}>Vincular Google</Button>}
             <Button variant="secondary" disabled={acting} onClick={() => void accountAction(async () => {

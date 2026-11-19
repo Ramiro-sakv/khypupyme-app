@@ -63,6 +63,7 @@ internal sealed class TimberPracticeService(KhypuPymeDbContext db, BusinessAcces
     {
         var now = clock.GetUtcNow();
         await using var tx = await access.OpenAsync(owner, origin, ct);
+        await access.LockBusinessAsync(origin, ct);
         var source = await OriginAsync(origin, ct);
         await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({origin.ToString()}, 5))", ct);
         var current = await db.Set<TimberPractice>().FindAsync([owner, origin], ct);
@@ -135,7 +136,7 @@ internal sealed class TimberPracticeService(KhypuPymeDbContext db, BusinessAcces
     }
 
     private async Task<Business> OriginAsync(Guid origin, CancellationToken ct) =>
-        await db.Businesses.AsNoTracking().SingleOrDefaultAsync(x => x.Id == origin && x.PracticeOriginId == null && x.Industry == "timber", ct)
+        await access.VisibleBusinesses().AsNoTracking().SingleOrDefaultAsync(x => x.Id == origin && x.PracticeOriginId == null && x.Industry == "timber", ct)
         ?? throw new CommerceFailure("No se encontró un negocio de madera autorizado.", 404);
 
     private async Task<PracticeStatus> StatusAsync(Guid owner, TimberPractice? practice, CancellationToken ct)

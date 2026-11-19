@@ -28,6 +28,7 @@ export function BusinessesPage({ accountId }: { accountId: string }) {
   const [business, setBusiness] = useState<BusinessProfile | null>(null);
   const [opening, setOpening] = useState(true);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [initialRequest, setInitialRequest] = useState(0);
 
   useEffect(() => {
@@ -84,13 +85,18 @@ export function BusinessesPage({ accountId }: { accountId: string }) {
   </Card>;
   if (view === "crear") return <BusinessWizard industries={industries} onCancel={() => navigate("negocios", true)}
     onCreated={(created) => { setBusiness(created); navigate("inicio", true); }} />;
-  if (view === "negocios" || !business) return <BusinessPicker industries={industries}
-    lastId={business?.id} select={select} create={() => navigate("crear")} />;
+  if (view === "negocios" || !business) return <>
+    {notice && <Alert>{notice}</Alert>}
+    <BusinessPicker industries={industries} accountId={accountId}
+      lastId={business?.id} select={select} create={() => navigate("crear")} />
+  </>;
 
   const renderWorkspace = (access: AccessSnapshot, active: BusinessProfile, practice?: PracticeControls, practiceEntry?: ReactNode) =>
     <BusinessWorkspace key={active.id} accountId={accountId} business={active} practice={practice} practiceEntry={practiceEntry}
     industry={industries.find((option) => option.id === business.industry)?.name ?? business.industry}
-    view={view} workId={workId} navigate={navigate} access={access} onSave={(updated) => {
+    view={view} workId={workId} navigate={navigate} access={access} onRemoved={(message) => {
+      setNotice(message); setBusiness(null); navigate("negocios", true);
+    }} onSave={(updated) => {
       setBusiness((current) => current?.id === updated.id ? updated : current);
     }} />;
   return <PlanGate key={business.id} business={business} forced={view === "plan"}

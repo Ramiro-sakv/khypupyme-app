@@ -37,8 +37,8 @@ internal sealed class BillingService(KhypuPymeDbContext db, BusinessAccess acces
     public async Task ActivateTrialAsync(Guid owner, Guid business, CancellationToken ct)
     {
         await using var tx = await access.OpenAsync(owner, business, ct);
-        await RequireBusinessAsync(owner, business, ct);
         await access.LockBusinessAsync(business, ct);
+        await RequireBusinessAsync(owner, business, ct);
         var trial = await TrialAsync(owner, ct);
         if (trial is null || trial.FirstBusinessId != business)
             throw new CommerceFailure("La prueba se puede activar en el primer negocio de la cuenta.", 409);
@@ -62,8 +62,8 @@ internal sealed class BillingService(KhypuPymeDbContext db, BusinessAccess acces
         var card = PlanCatalog.Cards.SingleOrDefault(card => card.Id == input.CardId)
             ?? throw new CommerceFailure("Elige una tarjeta de demostración.");
         await using var tx = await access.OpenAsync(owner, business, ct);
-        await RequireBusinessAsync(owner, business, ct);
         await access.LockBusinessAsync(business, ct);
+        await RequireBusinessAsync(owner, business, ct);
         var now = Now;
         var rows = license.Payments(owner, business);
         var old = await rows.SingleOrDefaultAsync(x => x.Id == input.Id, ct);
@@ -101,8 +101,8 @@ internal sealed class BillingService(KhypuPymeDbContext db, BusinessAccess acces
         if (input.Action is not ("confirm" or "cancel" or "expire" or "refund"))
             throw new CommerceFailure("Elige una acción de demostración disponible.");
         await using var tx = await access.OpenAsync(owner, business, ct);
-        await RequireBusinessAsync(owner, business, ct);
         await access.LockBusinessAsync(business, ct);
+        await RequireBusinessAsync(owner, business, ct);
         var rows = license.Payments(owner, business);
         var row = await rows.SingleOrDefaultAsync(x => x.Id == id, ct)
             ?? throw new CommerceFailure("No se encontró ese intento de pago en el negocio.", 404);
@@ -170,7 +170,9 @@ internal sealed class BillingService(KhypuPymeDbContext db, BusinessAccess acces
 
     private async Task RequireBusinessAsync(Guid owner, Guid business, CancellationToken ct)
     {
-        if (!await db.Businesses.AnyAsync(x => x.Id == business && x.OwnerId == owner && x.PracticeOriginId == null, ct))
+        if (await access.ClosedAsync(owner, ct))
+            throw new CommerceFailure("La cuenta tiene una solicitud de eliminación.", 403);
+        if (!await access.VisibleBusinesses().AnyAsync(x => x.Id == business && x.OwnerId == owner && x.PracticeOriginId == null, ct))
             throw new CommerceFailure("No se encontró el negocio.", 404);
     }
 

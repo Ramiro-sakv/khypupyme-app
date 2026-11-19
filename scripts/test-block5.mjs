@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { readdirSync, readFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
+import { authorizeFixture } from "./test-security-fixture.mjs";
 import { captureTimber, timberVolume } from "../web/src/timber/measures.ts";
 
 const auth = "/api/v1/auth";
@@ -21,6 +22,7 @@ async function request(path, expected, method = "GET", body) {
     headers.set("Content-Type", "application/json");
   }
   if (cookies.size) headers.set("Cookie", [...cookies].map(([key, value]) => key + "=" + value).join("; "));
+  await authorizeFixture(base, path, method, body, headers, password, request);
   const response = await fetch(base + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
   for (const cookie of response.headers.getSetCookie()) {
     const pair = cookie.split(";")[0];

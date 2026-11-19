@@ -61,9 +61,10 @@ type WorkspaceProps = {
   navigate: (view: BusinessView, replace?: boolean, workId?: string) => void; onSave: (profile: BusinessProfile) => void;
   practice?: PracticeControls; practiceEntry?: ReactNode;
   access: AccessSnapshot;
+  onRemoved: (message: string) => void;
 };
 
-export function BusinessWorkspace({ accountId, business, industry, view, workId, navigate, onSave, practice, practiceEntry, access }: WorkspaceProps) {
+export function BusinessWorkspace({ accountId, business, industry, view, workId, navigate, onSave, practice, practiceEntry, access, onRemoved }: WorkspaceProps) {
   const theme = industryTheme(business.industry);
   const content = useRef<HTMLDivElement>(null);
   const more = useRef<HTMLDetailsElement>(null);
@@ -143,7 +144,7 @@ export function BusinessWorkspace({ accountId, business, industry, view, workId,
         <WorkList key={focus} industry={business.industry} focus={focus} open={(id) => go("trabajos", "", id)} />;
       case "informes": return <ReportsPage />;
       case "configuracion": return practice ? <Alert>Para cambiar la configuración, pausa la práctica y vuelve al negocio.</Alert> :
-        <BusinessSettings profile={business} industry={industry} onSave={onSave} openPlan={() => go("plan")} />;
+        <BusinessSettings profile={business} industry={industry} onSave={onSave} openPlan={() => go("plan")} onRemoved={onRemoved} />;
       case "plan": return null;
     }
   }
@@ -176,7 +177,7 @@ export function BusinessWorkspace({ accountId, business, industry, view, workId,
         <Button variant="secondary" onClick={() => go("plan")}>Plan del negocio</Button>
       </Card>}
       {practiceEntry}
-      <CommerceProvider accountId={accountId} businessId={business.id} practice={!!practice} readOnly={access.readOnly}
+      <CommerceProvider accountId={accountId} businessId={business.id} businessName={business.name} practice={!!practice} readOnly={access.readOnly}
         onConfirmed={practice?.refresh} showDocument={openDocument}>
         {renderView()}
       </CommerceProvider>

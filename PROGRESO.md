@@ -219,3 +219,24 @@ El bloque 7D se comprueba con `scripts/Test-Block7d.ps1`. El recorrido en Edge a
 | Compatibilidad | Pasaron lint, TypeScript, compilación web y .NET y las regresiones de cuentas y permisos del bloque 2 y del núcleo comercial de los bloques 4 a 7D. Se aplicó la migración en PostgreSQL local de pruebas y desarrollo. Vite mantiene el aviso de tamaño de los módulos de PDF cargados bajo demanda. |
 
 El recorrido aislado se ejecuta con `scripts/Test-Block8.ps1`.
+
+## Bloque 9 · Seguridad, exportación y baja
+
+- Devoluciones, cambios, anulaciones, ajustes de existencias y de caja y ediciones de productos o clientes requieren motivo y confirmación reciente de identidad. La contraseña se valida con ASP.NET Core Identity. Las cuentas sin contraseña pueden confirmar por correo verificado. La autorización dura dos minutos, queda ligada al titular, negocio, identificador y contenido de la operación, y se consume con ella en una transacción. Una repetición de la solicitud original recupera el comprobante existente.
+- La auditoría registra titular, fecha, motivo, registro afectado y la solicitud comercial. La edición de una ficha conserva también sus datos anteriores relevantes. Se consulta y exporta desde Configuración. El rol de ejecución puede consultar y agregar auditoría dentro de su contexto. Los cambios y borrados directos de sus filas quedan denegados.
+- La eliminación de negocio exige escribir su nombre exacto, confirmar identidad y canjear un código de cinco dígitos. El código dura diez minutos, admite cinco intentos y reemplazarlo invalida el anterior. En desarrollo se entrega al buzón local. Se comprueba la caja y las operaciones por revisar en el negocio y en su práctica. Los resultados confirmados requieren acuse del cliente y los navegadores conservan sus solicitudes inciertas. Los registros anteriores a la migración se consideran revisados en el servidor. Un borrador local previo puede seguir consultando su resultado.
+- Tras canjear el código, el negocio queda bloqueado. Un segundo paso elimina exclusivamente ese negocio y su práctica. Si se interrumpe, Mis negocios permite reanudar. Solo se muestra «Negocio eliminado» después de confirmar la limpieza. La marca mínima del borrado y el uso de prueba de la cuenta se conservan.
+- La solicitud de eliminación de cuenta suspende el acceso y revoca las sesiones web e instaladas. Registra la solicitud para su tramitación posterior, con los historiales conservados. La revocación de sesiones también se ofrece por separado.
+
+### Verificación
+
+| Comprobación | Resultado |
+|---|---|
+| Correcciones | PostgreSQL rechazó una corrección sin autorización, un contenido modificado y una autorización vencida. Se comprobó el consumo único, la confirmación de repetidos y la auditoría exportada. |
+| Permisos | Con el usuario de ejecución se rechazaron la edición y el borrado de auditoría, la lectura en otro ámbito y el intento de eliminar otro negocio usando una solicitud válida. |
+| Eliminación | Se rechazaron el nombre inexacto, el código incorrecto, vencido y usado, la caja abierta y la operación sin revisar. Se comprobó el bloqueo, la reanudación y la eliminación del negocio y de su práctica, con los negocios vecinos intactos. |
+| Cuenta y móvil | Pasó la confirmación por correo de una cuenta de prueba sin contraseña. Se revocaron cookies, acceso y renovación de una sesión instalada. Edge a 360 px verificó una edición autorizada y reanudó un borrado que quedó interrumpido tras confirmar el código. |
+| Migración y respaldo | Migración aplicada a las bases existentes de desarrollo y pruebas. Un respaldo con registros ficticios se restauró en `khypupyme2_restore`, en una instancia PostgreSQL aislada. Se comprobaron los registros esperados de auditoría, baja y negocios. |
+| Compatibilidad | Pasaron lint, TypeScript, compilaciones web y .NET y las regresiones de API de los bloques 4 a 8. Vite conserva el aviso de tamaño de los módulos PDF cargados bajo demanda. |
+
+`scripts/Test-Block9.ps1 -RestoreBackup` ejecuta los recorridos con datos ficticios y verifica la restauración en una instancia local aislada.

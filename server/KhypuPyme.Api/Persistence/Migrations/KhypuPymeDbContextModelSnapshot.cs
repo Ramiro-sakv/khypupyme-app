@@ -71,8 +71,6 @@ namespace KhypuPyme.Api.Persistence.Migrations
 
                     b.HasKey("OwnerId");
 
-                    b.HasIndex("OwnerId", "FirstBusinessId");
-
                     b.ToTable("account_trials", "khypupyme", t =>
                         {
                             t.HasCheckConstraint("trial_window", " (\"StartedAt\" IS NULL AND \"EndsAt\" IS NULL) OR (\"StartedAt\" IS NOT NULL AND \"EndsAt\" IS NOT NULL AND \"EndsAt\" > \"StartedAt\") ");
@@ -283,6 +281,9 @@ namespace KhypuPyme.Api.Persistence.Migrations
 
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("AcknowledgedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("BusinessId")
                         .HasColumnType("uuid");
@@ -980,6 +981,142 @@ namespace KhypuPyme.Api.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("KhypuPyme.Api.Security.AccountClosure", b =>
+                {
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("RequestedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("OwnerId");
+
+                    b.ToTable("account_closures", "khypupyme");
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Security.BusinessDeletion", b =>
+                {
+                    b.Property<Guid>("BusinessId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("RequestedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("SandboxId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("BusinessId");
+
+                    b.HasIndex("OwnerId", "CompletedAt");
+
+                    b.ToTable("business_deletions", "khypupyme");
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Security.CommerceAudit", b =>
+                {
+                    b.Property<Guid>("BusinessId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OperationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Effect")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid>("EntityId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("BusinessId", "OperationId");
+
+                    b.HasIndex("AccountId", "BusinessId");
+
+                    b.HasIndex("BusinessId", "At");
+
+                    b.ToTable("commerce_audit", "khypupyme");
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Security.SecurityMailLimit", b =>
+                {
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid");
+
+                    b.PrimitiveCollection<DateTimeOffset[]>("SentAt")
+                        .IsRequired()
+                        .HasColumnType("timestamp with time zone[]");
+
+                    b.HasKey("OwnerId");
+
+                    b.ToTable("security_mail_limits", "khypupyme");
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Security.SecurityProof", b =>
+                {
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Binding")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("BusinessId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ProtectedCode")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Stage")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("OwnerId", "Id");
+
+                    b.HasIndex("OwnerId", "BusinessId");
+
+                    b.ToTable("security_proofs", "khypupyme");
+                });
+
             modelBuilder.Entity("KhypuPyme.Api.Services.WorkItem", b =>
                 {
                     b.Property<Guid>("BusinessId")
@@ -1460,10 +1597,9 @@ namespace KhypuPyme.Api.Persistence.Migrations
 
             modelBuilder.Entity("KhypuPyme.Api.Billing.AccountTrial", b =>
                 {
-                    b.HasOne("KhypuPyme.Api.Businesses.Business", null)
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser<System.Guid>", null)
                         .WithMany()
-                        .HasForeignKey("OwnerId", "FirstBusinessId")
-                        .HasPrincipalKey("OwnerId", "Id")
+                        .HasForeignKey("OwnerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
@@ -1771,6 +1907,58 @@ namespace KhypuPyme.Api.Persistence.Migrations
                         .HasForeignKey("BusinessId", "ProductId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Security.AccountClosure", b =>
+                {
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser<System.Guid>", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Security.BusinessDeletion", b =>
+                {
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser<System.Guid>", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Security.CommerceAudit", b =>
+                {
+                    b.HasOne("KhypuPyme.Api.Businesses.Business", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId", "BusinessId")
+                        .HasPrincipalKey("OwnerId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Security.SecurityMailLimit", b =>
+                {
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser<System.Guid>", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Security.SecurityProof", b =>
+                {
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser<System.Guid>", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("KhypuPyme.Api.Businesses.Business", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId", "BusinessId")
+                        .HasPrincipalKey("OwnerId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("KhypuPyme.Api.Services.WorkItem", b =>

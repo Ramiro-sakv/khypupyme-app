@@ -139,4 +139,5 @@ internal sealed class CommerceReceipt
     public required string Kind { get; init; }
     public required string Digest { get; init; }
     public Guid EntityId { get; init; }
+    public DateTimeOffset? AcknowledgedAt { get; set; }
 }

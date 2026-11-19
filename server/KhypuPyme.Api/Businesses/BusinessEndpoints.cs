@@ -31,7 +31,7 @@ internal static class BusinessEndpoints
             return AuthErrors.Fail("Selecciona una página válida y busca hasta 80 caracteres.");
 
         await using var transaction = await access.OpenAsync(BusinessAccess.AccountId(http), null, ct);
-        var query = db.Businesses.AsNoTracking().Where(item => item.PracticeOriginId == null);
+        var query = access.VisibleBusinesses().AsNoTracking().Where(item => item.PracticeOriginId == null);
         if (!string.IsNullOrWhiteSpace(search))
         {
             var escaped = search.Trim().Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
@@ -51,7 +51,7 @@ internal static class BusinessEndpoints
         var owner = BusinessAccess.AccountId(http);
         await using var transaction = await access.OpenAsync(owner, null, ct);
         var business = await (from selection in db.AccountSelections
-                              join item in db.Businesses on new { selection.OwnerId, Id = selection.BusinessId }
+                              join item in access.VisibleBusinesses() on new { selection.OwnerId, Id = selection.BusinessId }
                                 equals new { item.OwnerId, item.Id }
                               where selection.OwnerId == owner && item.PracticeOriginId == null
                               select new BusinessCard(item.Id, item.Name, item.Industry)).FirstOrDefaultAsync(ct);
@@ -63,7 +63,7 @@ internal static class BusinessEndpoints
     {
         http.Response.Headers.CacheControl = "no-store";
         await using var transaction = await access.OpenAsync(BusinessAccess.AccountId(http), id, ct);
-        var business = await db.Businesses.SingleOrDefaultAsync(x => x.Id == id && x.PracticeOriginId == null, ct);
+        var business = await access.VisibleBusinesses().SingleOrDefaultAsync(x => x.Id == id && x.PracticeOriginId == null, ct);
         if (business is null) return Results.NotFound();
         var settings = await db.BusinessSettings.SingleAsync(x => x.BusinessId == id, ct);
         return Results.Ok(Profile(business, settings));
@@ -89,6 +89,8 @@ internal static class BusinessEndpoints
         var digest = Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(normalized)));
         await using var transaction = await access.OpenAsync(owner, input.Id, ct);
         await access.LockSelectionAsync(owner, ct);
+        if (await access.ClosedAsync(owner, ct)) return AuthErrors.Fail("La cuenta tiene una solicitud de eliminación.", 403);
+        if (await access.DeletingAsync(input.Id, ct)) return AuthErrors.Fail("Ese identificador corresponde a un negocio retirado.", 409);
         var existing = await db.Businesses.SingleOrDefaultAsync(x => x.Id == input.Id, ct);
         if (existing is not null)
         {
@@ -121,8 +123,9 @@ internal static class BusinessEndpoints
     {
         var owner = BusinessAccess.AccountId(http);
         await using var transaction = await access.OpenAsync(owner, id, ct);
-        if (!await db.Businesses.AnyAsync(x => x.Id == id && x.PracticeOriginId == null, ct)) return Results.NotFound();
         await access.LockSelectionAsync(owner, ct);
+        await access.LockBusinessAsync(id, ct);
+        if (!await access.VisibleBusinesses().AnyAsync(x => x.Id == id && x.PracticeOriginId == null, ct)) return Results.NotFound();
         await SetSelectionAsync(db, owner, id, ct);
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
@@ -134,7 +137,8 @@ internal static class BusinessEndpoints
     {
         if (input.BusinessId != id) return AuthErrors.Fail("La configuración pertenece a otro negocio.");
         await using var transaction = await access.OpenAsync(BusinessAccess.AccountId(http), id, ct);
-        var business = await db.Businesses.SingleOrDefaultAsync(x => x.Id == id && x.PracticeOriginId == null, ct);
+        await access.LockBusinessAsync(id, ct);
+        var business = await access.VisibleBusinesses().SingleOrDefaultAsync(x => x.Id == id && x.PracticeOriginId == null, ct);
         if (business is null) return Results.NotFound();
 
         var city = input.City?.Trim() ?? "";

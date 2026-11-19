@@ -1,4 +1,4 @@
-﻿param([ValidateSet('4', '5', '6', '7a', '7b', '7c', '7d', '8')][string]$Block = '4')
+﻿param([ValidateSet('4', '5', '6', '7a', '7b', '7c', '7d', '8', '9')][string]$Block = '4')
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Postgres.Local.ps1')
@@ -28,6 +28,10 @@ try {
         $previous[$name] = [Environment]::GetEnvironmentVariable($name)
         [Environment]::SetEnvironmentVariable($name, $testEnvironment[$name])
     }
+    if ($Block -eq '9') {
+        & $api --register-native-clients *> (Join-Path $directory 'native.log')
+        if ($LASTEXITCODE -ne 0) { throw 'No se pudieron preparar los clientes instalados de prueba.' }
+    }
     $launch = @{
         FilePath = $api
         ArgumentList = @('--urls', 'http://127.0.0.1:5183')
@@ -48,9 +52,11 @@ try {
         catch { Start-Sleep -Milliseconds 250 }
     }
     if (-not $ready) { throw "La API de prueba no quedó disponible. Consulta $directory." }
-    @{
+    $credentials = @{
         owner = Get-DatabasePassword (Read-DatabaseCredentials) 'khypupyme2_test_owner'
-    } | ConvertTo-Json -Compress | node (Join-Path $PSScriptRoot "test-block$Block.mjs")
+    }
+    if ($Block -eq '9') { $credentials.app = Get-DatabasePassword (Read-DatabaseCredentials) 'khypupyme2_test_app' }
+    $credentials | ConvertTo-Json -Compress | node (Join-Path $PSScriptRoot "test-block$Block.mjs")
     if ($LASTEXITCODE -ne 0) { throw "Fallo del recorrido. Registros técnicos en $directory." }
 }
 finally {

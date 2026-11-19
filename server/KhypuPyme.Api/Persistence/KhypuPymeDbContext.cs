@@ -3,6 +3,7 @@ using KhypuPyme.Api.Businesses;
 using KhypuPyme.Api.Billing;
 using KhypuPyme.Api.Commerce;
 using KhypuPyme.Api.Timber;
+using KhypuPyme.Api.Security;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -25,6 +26,7 @@ public sealed class KhypuPymeDbContext(DbContextOptions<KhypuPymeDbContext> opti
         modelBuilder.UseOpenIddict<Guid>();
         CommerceModel.Configure(modelBuilder);
         BillingModel.Configure(modelBuilder);
+        SecurityModel.Configure(modelBuilder);
         modelBuilder.Entity<IdentityUser<Guid>>().HasIndex(user => user.NormalizedEmail).IsUnique();
 
         modelBuilder.Entity<EmailChallenge>(entry =>

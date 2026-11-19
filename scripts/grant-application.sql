@@ -24,3 +24,6 @@ GRANT SELECT, INSERT, DELETE ON khypupyme.part_references, khypupyme.product_fit
 GRANT SELECT, INSERT, UPDATE ON khypupyme.furniture_deliveries TO :"app_name";
 GRANT SELECT, INSERT, UPDATE ON khypupyme.work_items TO :"app_name";
 GRANT SELECT, INSERT, UPDATE ON khypupyme.account_trials, khypupyme.demo_payments TO :"app_name";
+GRANT SELECT, INSERT, UPDATE ON khypupyme.security_proofs, khypupyme.security_mail_limits, khypupyme.business_deletions TO :"app_name";
+GRANT SELECT, INSERT ON khypupyme.commerce_audit, khypupyme.account_closures TO :"app_name";
+GRANT UPDATE ("AcknowledgedAt") ON khypupyme.commerce_receipts TO :"app_name";

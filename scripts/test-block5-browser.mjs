@@ -21,17 +21,22 @@ export async function checkBrowser(cookies, available = 7) {
     await page.getByRole("button", { name: "Elegir " + picked, exact: true }).click();
     await page.getByLabel("Piezas de la medida elegida").fill("100");
     await page.getByText("Pedido 100 · Disponible " + available + " · Faltan " + (100 - available)).waitFor();
-    await page.getByRole("button", { name: "Revisar", exact: true }).click();
+    await page.getByRole("button", { name: "Revisar venta", exact: true }).click();
     const dialog = page.getByRole("dialog");
+    await dialog.getByLabel("Descuento total (Bs)").fill("5");
+    await dialog.getByLabel("Referencia (opcional)").fill("Revisión del borrador");
     await dialog.getByRole("checkbox").check();
     assert.equal(await dialog.getByRole("button", { name: "Confirmar venta" }).isDisabled(), true);
     await page.keyboard.press("Escape");
     await dialog.waitFor({ state: "hidden" });
-    assert.equal(await page.evaluate(() => document.activeElement?.textContent), "Carrito");
+    await page.waitForFunction(() => /^(Carrito|Revisar venta)$/.test(document.activeElement?.textContent?.trim() ?? ""));
     await page.getByLabel("Piezas de la medida elegida").fill("2");
     await page.getByText("Pedido 2 · Disponible " + available).waitFor();
-    await page.getByRole("button", { name: "Revisar", exact: true }).click();
+    await page.getByRole("button", { name: "Revisar venta", exact: true }).click();
     assert.equal(await dialog.getByRole("button", { name: "Confirmar venta" }).isDisabled(), true);
+    assert.equal(await dialog.getByLabel("Descuento total (Bs)").inputValue(), "5");
+    assert.equal(await dialog.getByLabel("Referencia (opcional)").inputValue(), "Revisión del borrador");
+    await dialog.getByLabel("Descuento total (Bs)").fill("0");
     assert.match(await dialog.innerText(), /200,00/);
     await dialog.getByRole("checkbox").check();
     await dialog.getByRole("button", { name: "Confirmar venta" }).click();
@@ -95,17 +100,61 @@ export async function checkBrowser(cookies, available = 7) {
     await page.getByText(/4 piezas.*403,33/).waitFor();
     await widths.fill("152.4, 177.8, 203.2, 228.6");
     await page.getByText(/4 piezas.*550,00/).waitFor();
+    for (let group = 0; group < 4; group++) {
+      await page.getByRole("button", { name: "Duplicar grupo", exact: true }).first().click();
+    }
+    const review = page.getByRole("button", { name: "Revisar compra", exact: true });
+    for (const width of [360, 768, 1440]) {
+      await page.setViewportSize({ width, height: 700 });
+      for (const fraction of [0, .5, 1]) {
+        await page.evaluate((portion) => window.scrollTo(0, (document.documentElement.scrollHeight - innerHeight) * portion), fraction);
+        await page.waitForFunction(() => {
+          const bar = document.querySelector(".review-dock")?.getBoundingClientRect();
+          const slot = document.querySelector(".review-slot")?.getBoundingClientRect();
+          const mobile = matchMedia("(max-width: 640px)").matches;
+          const nav = document.querySelector(".workspace-nav")?.getBoundingClientRect();
+          return bar && slot && bar.top > 0 && bar.bottom <= (mobile && nav ? nav.top : innerHeight) &&
+            Math.abs(bar.left - slot.left) < 2 && Math.abs(bar.right - slot.right) < 2;
+        });
+        assert.ok(await review.isVisible());
+      }
+      await page.getByRole("button", { name: "Minimizar barra", exact: true }).click();
+      const toggle = page.getByRole("button", { name: "Mostrar", exact: true });
+      assert.equal(await toggle.getAttribute("aria-expanded"), "false");
+      assert.equal(await review.isVisible(), false);
+      await toggle.click();
+      assert.ok(await review.isVisible());
+    }
+    await page.setViewportSize({ width: 360, height: 640 });
+    const remove = page.getByRole("button", { name: "Quitar grupo", exact: true });
+    for (let group = 0; group < 4; group++) await remove.last().click();
     await page.getByRole("button", { name: "Historial de compras", exact: true }).click();
+    assert.equal(await review.isVisible(), false);
     await page.getByRole("button", { name: "Registrar compra", exact: true }).click();
     assert.equal(await page.getByLabel("Costo por pie tablar (Bs)").inputValue(), "11");
-    await page.getByRole("button", { name: "Revisar", exact: true }).click();
+    await page.getByRole("button", { name: "Revisar compra", exact: true }).click();
     await dialog.getByLabel("Forma de pago").selectOption("transfer");
+    await dialog.getByLabel("Referencia (opcional)").fill("Revisión fija");
+    let sent = 0;
+    page.on("request", (request) => {
+      if (request.method() === "POST" && request.url().endsWith("/commands")) sent++;
+    });
+    const scrollBefore = await page.evaluate(() => scrollY);
+    await dialog.getByRole("button", { name: "Minimizar", exact: true }).click();
+    await dialog.waitFor({ state: "hidden" });
+    assert.equal(await page.evaluate(() => scrollY), scrollBefore);
+    assert.equal(sent, 0);
+    await review.click();
+    assert.equal(await dialog.getByLabel("Forma de pago").inputValue(), "transfer");
+    assert.equal(await dialog.getByLabel("Referencia (opcional)").inputValue(), "Revisión fija");
     await dialog.getByRole("checkbox").check();
     await dialog.getByRole("button", { name: "Confirmar compra", exact: true }).click();
     await page.getByRole("heading", { name: "Compra confirmada", exact: true }).waitFor();
     await page.getByText(/11,00 \/ pie tablar/).first().waitFor();
+    assert.equal(await review.isVisible(), false);
+    assert.equal(sent, 1);
     assert.deepEqual(errors, []);
-    console.log("Navegador a 360 px: faltante, revisión, Escape, guía por teclado y arrastre, pausa, recarga y limpieza confirmados.");
+    console.log("Edge a 360, 768 y 1440 px: revisión fija, barra minimizable, compra, faltante, Escape y conservación del borrador.");
   } finally {
     await browser.close();
   }

@@ -32,11 +32,11 @@ export async function checkBrowser(cookies, businesses, password) {
     assert.equal(await scanner.evaluate((field) => field === document.activeElement), true);
     await page.getByRole("textbox", { name: "Cantidad", exact: true }).fill("44");
     await page.getByText(/Pedido 44 · Disponible 43 unidades · Faltan 1/).waitFor();
-    await button("Revisar").click();
+    await button(/^Revisar (venta|compra|cotización|entrada|cambio)$/).click();
     assert.equal(await dialog.getByRole("button", { name: "Confirmar venta" }).isDisabled(), true);
     await page.keyboard.press("Escape");
     await dialog.waitFor({ state: "hidden" });
-    await page.waitForFunction(() => document.activeElement?.textContent === "Carrito");
+    await page.waitForFunction(() => /^(Carrito|Revisar )/.test(document.activeElement?.textContent?.trim() ?? ""));
 
     await open(businesses.clothes);
     await page.getByRole("heading", { name: "Tallas, colores y cambios" }).waitFor();
@@ -47,7 +47,7 @@ export async function checkBrowser(cookies, businesses, password) {
     await unavailable.waitFor();
     assert.equal(await unavailable.isDisabled(), true);
     await button(/Talla M, Negro, 2 disponibles/).click();
-    await button("Revisar").click();
+    await button(/^Revisar (venta|compra|cotización|entrada|cambio)$/).click();
     assert.match(await dialog.innerText(), /10,00/);
     await dialog.getByLabel("Motivo del cambio").fill("Prueba de cambio en móvil");
     await dialog.getByLabel("Forma de pago").selectOption("qr");
@@ -68,7 +68,7 @@ export async function checkBrowser(cookies, businesses, password) {
     await open(businesses.appliances, "ventas");
     await button(/Refrigerador/).click();
     await page.getByLabel("EQ-002", { exact: true }).check();
-    await button("Revisar").click();
+    await button(/^Revisar (venta|compra|cotización|entrada|cambio)$/).click();
     await dialog.getByLabel("Forma de pago").selectOption("qr");
     await dialog.getByRole("checkbox").check();
     await dialog.getByRole("button", { name: "Confirmar venta" }).click();

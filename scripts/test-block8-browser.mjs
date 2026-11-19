@@ -71,7 +71,7 @@ export async function checkBrowser(cookies, businesses, trial, credentials) {
       await seed({ kind: "purchase", method: "transfer", lines: [{ productId: entityId, unitMinor: 2500, quantity: 1 }] });
       await page.goto(base + "/?vista=ventas");
       await button(/Termo de piloto/).click();
-      await button("Revisar").click();
+      await button(/^Revisar (venta|compra|cotización|entrada|cambio)$/).click();
       const review = page.getByRole("dialog");
       await review.getByLabel("Forma de pago").selectOption("qr");
       await review.getByRole("checkbox").check();

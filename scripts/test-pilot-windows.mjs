@@ -87,7 +87,7 @@ export async function checkWindows({ email, password, business }) {
     await app.getByText("Plan vigente", { exact: true }).waitFor();
     await app.goto("https://tauri.localhost/?vista=ventas");
     await app.getByRole("button", { name: /Termo de prueba/ }).click();
-    await app.getByRole("button", { name: "Revisar", exact: true }).click();
+    await app.getByRole("button", { name: "Revisar venta", exact: true }).click();
     const review = app.getByRole("dialog");
     await review.getByLabel("Forma de pago").selectOption("qr");
     await review.getByRole("checkbox").check();

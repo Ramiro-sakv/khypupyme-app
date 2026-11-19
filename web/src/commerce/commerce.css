@@ -59,8 +59,11 @@
 .timber-widths { display: grid; gap: .35rem; grid-column: 1 / -1; }
 .timber-widths textarea { width: 100%; padding: .65rem; border: 1px solid var(--line); border-radius: .6rem; resize: vertical; font: inherit; }
 .practice-entry { margin-bottom: 1rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .8rem; }
-.practice-guide { position: fixed; z-index: 20; right: 1rem; bottom: 5.5rem; width: min(23rem, calc(100% - 1rem));
-  max-height: min(27rem, calc(100dvh - 1rem)); display: flex; flex-direction: column; overflow: hidden;
+.practice-guide {
+  --guide-bottom: calc(5.5rem + var(--review-space, 0px));
+  --guide-available: calc(100dvh - var(--guide-bottom) - .5rem);
+  position: fixed; z-index: 20; right: 1rem; bottom: var(--guide-bottom); width: min(23rem, calc(100% - 1rem));
+  max-height: min(27rem, var(--guide-available)); display: flex; flex-direction: column; overflow: hidden;
   border: 1px solid var(--accent); border-radius: .8rem; background: var(--surface); color: var(--ink); box-shadow: 0 .5rem 1.5rem #26201b30; }
 .practice-guide-header { display: flex; flex: none; justify-content: space-between; align-items: center; padding: .5rem; background: var(--accent-soft); }
 .practice-move { cursor: grab; touch-action: none; background: transparent; color: var(--accent); border: 0; padding: .55rem; }
@@ -68,7 +71,7 @@
 .practice-guide-body h2 { margin: .35rem 0; }
 .practice-guide-body .inline-actions { margin-top: .5rem; }
 @media (max-width: 640px), (max-height: 560px) {
-  .practice-guide { right: .5rem; max-height: min(24rem, calc(65dvh)); }
+  .practice-guide { right: .5rem; max-height: min(24rem, 65dvh, var(--guide-available)); }
 }
 
 @media (max-width: 880px) { .trade-split { grid-template-columns: minmax(0, 1fr); } }

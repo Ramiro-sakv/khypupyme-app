@@ -47,7 +47,7 @@ export async function checkBrowser(cookies, businesses, password) {
     await page.getByLabel("Unidad", { exact: true }).selectOption("box");
     await page.getByLabel("Unidades sueltas").fill("1");
     await page.getByText(/Equivale a 25 unidad/).waitFor();
-    await button("Revisar").click();
+    await button(/^Revisar (venta|compra|cotización|entrada|cambio)$/).click();
     await dialog.getByText("Elegir cliente registrado").click();
     await dialog.getByRole("button", { name: "Cliente ficticio QA", exact: true }).click();
     await dialog.getByText("Envases entregados y devueltos").click();
@@ -78,7 +78,7 @@ export async function checkBrowser(cookies, businesses, password) {
     await page.getByLabel("Lote de origen").selectOption("BOLSA-B");
     await page.getByText(/Faltan 0,5/).waitFor();
     await page.getByLabel("Cantidad", { exact: true }).fill("0.25");
-    await button("Revisar").click();
+    await button(/^Revisar (venta|compra|cotización|entrada|cambio)$/).click();
     await dialog.getByLabel("Forma de pago").selectOption("qr");
     await dialog.getByRole("checkbox").check();
     await dialog.getByRole("button", { name: "Confirmar venta" }).click();

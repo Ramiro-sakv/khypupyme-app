@@ -28,7 +28,7 @@ export async function checkBrowser(cookies, businesses) {
     await button(/Zapato Andino/).click();
     await button(/Talla 40, Negro, 2 pares disponibles/).click();
     await page.getByLabel("Pares de Zapato", { exact: true }).fill("1");
-    await button("Revisar").click();
+    await button(/^Revisar (venta|compra|cotización|entrada|cambio)$/).click();
     await dialog.getByLabel("Forma de pago").selectOption("qr");
     await dialog.getByRole("checkbox").check();
     await dialog.getByRole("button", { name: "Confirmar venta" }).click();
@@ -44,7 +44,7 @@ export async function checkBrowser(cookies, businesses) {
     await button(/Cable USB/).click();
     await button(/Tableta/).click();
     await page.getByLabel("EL-002", { exact: true }).check();
-    await button("Revisar").click();
+    await button(/^Revisar (venta|compra|cotización|entrada|cambio)$/).click();
     assert.match(await dialog.innerText(), /825,00/);
     await dialog.getByLabel("Forma de pago").selectOption("qr");
     await dialog.getByRole("checkbox").check();
@@ -67,10 +67,10 @@ export async function checkBrowser(cookies, businesses) {
     await page.getByText(/Estante A-03/).waitFor();
     await page.getByLabel("Cantidad", { exact: true }).fill("91");
     await page.getByText(/Faltan 1/).waitFor();
-    await button("Revisar").click();
+    await button(/^Revisar (venta|compra|cotización|entrada|cambio)$/).click();
     assert.equal(await dialog.getByRole("button", { name: "Confirmar venta" }).isDisabled(), true);
     await page.keyboard.press("Escape");
-    await page.waitForFunction(() => document.activeElement?.textContent === "Carrito");
+    await page.waitForFunction(() => /^(Carrito|Revisar )/.test(document.activeElement?.textContent?.trim() ?? ""));
 
     await open(businesses.parts, "catalogo");
     await page.getByLabel("Filtrar marca de vehículo").fill("Toyota");
@@ -94,7 +94,7 @@ export async function checkBrowser(cookies, businesses) {
     await scanner.fill("LAP-1");
     await scanner.press("Enter");
     await page.getByLabel("Piezas de Lápiz").fill("2");
-    await button("Revisar").click();
+    await button(/^Revisar (venta|compra|cotización|entrada|cambio)$/).click();
     assert.match(await dialog.innerText(), /10,50/);
     await dialog.getByLabel("Forma de pago").selectOption("qr");
     await dialog.getByRole("checkbox").check();

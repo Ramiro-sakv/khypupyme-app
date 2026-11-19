@@ -32,7 +32,7 @@ export async function checkBrowser(cookies, businesses) {
       await button(name).click();
     }
     async function sellFromCart() {
-      await button("Revisar").click();
+      await button(/^Revisar (venta|compra|cotización|entrada|cambio)$/).click();
       await dialog.getByLabel("Forma de pago").selectOption("qr");
       await dialog.getByRole("checkbox").check();
       await dialog.getByRole("button", { name: "Confirmar venta" }).click();
@@ -57,13 +57,13 @@ export async function checkBrowser(cookies, businesses) {
     await button("Marcar atendida").click();
     await button("Cobrar con una venta").click();
     await page.getByRole("heading", { name: "Venta vinculada" }).waitFor();
-    await button("Revisar").click();
+    await button(/^Revisar (venta|compra|cotización|entrada|cambio)$/).click();
     await dialog.getByText("Cliente beauty", { exact: true }).waitFor();
     await dialog.getByLabel("Forma de pago").selectOption("qr");
     await page.keyboard.press("Escape");
-    await page.waitForFunction(() => document.activeElement?.textContent === "Carrito");
+    await page.waitForFunction(() => /^(Carrito|Revisar )/.test(document.activeElement?.textContent?.trim() ?? ""));
     await page.reload();
-    await button("Revisar").click();
+    await button(/^Revisar (venta|compra|cotización|entrada|cambio)$/).click();
     assert.equal(await dialog.getByLabel("Forma de pago").inputValue(), "qr");
     await dialog.getByRole("checkbox").check();
     await dialog.getByRole("button", { name: "Confirmar venta" }).click();

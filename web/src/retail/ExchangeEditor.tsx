@@ -53,7 +53,7 @@ export function ExchangeEditor({ document, close }: { document: EntryDocument; c
     {stock.error && <Alert tone="error">{stock.error} <Button variant="secondary" onClick={stock.retry}>Reintentar disponibilidad</Button></Alert>}
     {byPair && replacement && !sufficient && <Alert tone="error">Pediste {count}, hay {replacement.stock} y faltan {count - replacement.stock}
        pares de esta variante.</Alert>}
-    <ReviewDock total={totalText} cartFocus={title}>
+    <ReviewDock total={totalText} cartFocus={title} operation="cambio">
       <form className="account-form" onSubmit={(event) => {
         event.preventDefault();
         if (difference === null || !sufficient || reviewed !== key || !replacement) return;

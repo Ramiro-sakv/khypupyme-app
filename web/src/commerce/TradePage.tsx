@@ -409,8 +409,9 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
         {current.error && <Alert tone="error">{current.error} <Button variant="secondary" onClick={current.reload}>Reintentar disponibilidad</Button></Alert>}
       </Card>
     </div>
-    {value.lines.length > 0 && <ReviewDock cartFocus={cart} total={totalText}
-      description={total === null ? "Completa las cantidades y costos pendientes." : unavailable ? "Hay líneas que requieren revisión." : undefined}>
+    {value.lines.length > 0 && <ReviewDock cartFocus={cart} total={totalText} operation={label[kind]} visible={!showHistory}
+      description={total === null ? (isPurchase ? "Completa las cantidades y costos pendientes." : "Completa las cantidades e importes pendientes.") :
+        stockCheck.loading ? "Consultando existencias…" : unavailable ? "Hay líneas que requieren revisión." : undefined}>
       {work ? <p>Cliente del trabajo · <strong>{work.customerName}</strong></p> : !isPurchase && <Buyer selected={value.customer} disabled={frozen}
         onChange={(customer) => update((draft) => ({ ...draft, customer }))} />}
       <form className="account-form" onSubmit={(event) => {

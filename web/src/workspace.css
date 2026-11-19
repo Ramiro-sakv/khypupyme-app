@@ -95,8 +95,8 @@
 }
 @media (max-width: 640px) {
   .workspace { --workspace-nav-space: calc(4.75rem + env(safe-area-inset-bottom, 0px)); display: block; }
-  :root { scroll-padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)); }
-  :root:has(.practice-guide[data-minimized]) { scroll-padding-bottom: calc(9.5rem + env(safe-area-inset-bottom, 0px)); }
+  :root { scroll-padding-bottom: calc(5.5rem + var(--review-space, 0px) + env(safe-area-inset-bottom, 0px)); }
+  :root:has(.practice-guide[data-minimized]) { scroll-padding-bottom: calc(9.5rem + var(--review-space, 0px) + env(safe-area-inset-bottom, 0px)); }
   .workspace:has(.practice-guide[data-minimized]) .workspace-content { padding-bottom: calc(var(--workspace-nav-space) + 4rem); }
   .practice-guide[data-minimized] { width: max-content; max-width: calc(100% - 1rem); }
   .workspace-nav { position: fixed; z-index: 5; inset: auto 0 0; padding: .3rem .65rem calc(.4rem + env(safe-area-inset-bottom, 0px)); border-radius: .95rem .95rem 0 0; box-shadow: 0 -3px 15px rgb(36 36 23 / .09); }

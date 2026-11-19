@@ -21,7 +21,7 @@ export function canBillWork(work: Work) {
 }
 const statuses: Record<string, string> = {
   scheduled: "Programada", received: "Recibido", diagnosed: "Diagnosticado", approved: "Aprobado", working: "En trabajo",
-  ready: "Listo", delivered: "Entregado", attended: "Atendida", "no-show": "Inasistencia",
+  ready: "Listo", delivered: "Entregado", attended: "Atendida", "no-show": "Inasistencia", cancelled: "Cancelada", "waiting-parts": "En espera de repuestos",
 };
 export function workStatus(work: Work) {
   return work.industry === "repair" && work.state === "working" ? "En reparación" : statuses[work.state] ?? work.state;
@@ -30,6 +30,6 @@ export const detailLabels: Record<keyof WorkDetails, string> = {
   tasks: "Tareas", plannedMaterials: "Materiales previstos", usedMaterials: "Materiales utilizados",
   billableMaterials: "Materiales a cobrar", internalMaterials: "Materiales de consumo interno",
   deliverables: "Entregables", equipment: "Equipo recibido", accessories: "Accesorios recibidos", fault: "Falla declarada",
-  diagnosis: "Diagnóstico", specifications: "Especificaciones del encargo",
+  diagnosis: "Diagnóstico", statusNote: "Nota de estado", specifications: "Especificaciones del encargo",
 };
 export const detailKeys = Object.keys(detailLabels) as (keyof WorkDetails)[];

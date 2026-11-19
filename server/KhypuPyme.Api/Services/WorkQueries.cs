@@ -8,7 +8,13 @@ internal static class WorkQueries
 {
     private static IQueryable<WorkItem> Items(KhypuPymeDbContext db) => db.Set<WorkItem>().AsNoTracking();
 
-    public static async Task<CommercePage<WorkInfo>> ListAsync(KhypuPymeDbContext db, DateOnly? day, string? filter,
+    private static IQueryable<WorkItem> Active(IQueryable<WorkItem> rows) =>
+        rows.Where(x => x.State != "delivered" && x.State != "attended" && x.State != "no-show" && x.State != "cancelled");
+
+    private static IQueryable<WorkItem> Billable(IQueryable<WorkItem> rows) =>
+        rows.Where(x => x.SaleId == null && (x.State == "ready" || x.State == "attended" || x.State == "delivered"));
+
+    public static async Task<CommercePage<WorkInfo>> ListAsync(KhypuPymeDbContext db, DateOnly? day, string? filter, string? search,
         DateOnly today, int? page, CancellationToken ct)
     {
         var rows = Items(db);
@@ -16,11 +22,21 @@ internal static class WorkQueries
         rows = filter switch
         {
             null or "" => rows,
-            "overdue" => rows.Where(x => x.Day < today && x.State != "delivered" && x.State != "attended" && x.State != "no-show"),
-            "billable" => rows.Where(x => x.SaleId == null && (x.State == "ready" || x.State == "attended" || x.State == "delivered")),
+            "overdue" => Active(rows).Where(x => x.Day < today),
+            "today" => Active(rows).Where(x => x.Day == today),
+            "upcoming" => Active(rows).Where(x => x.Day > today && x.Day <= today.AddDays(7)),
+            "waiting-parts" => rows.Where(x => x.State == "waiting-parts"),
+            "cancelled" => rows.Where(x => x.State == "cancelled"),
+            "billable" => Billable(rows),
             _ => throw new CommerceFailure("El filtro de la agenda u órdenes no es válido."),
         };
-        var pageResult = await CommerceReads.PageAsync(Project(db, rows), page, ct);
+        var query = Project(db, rows);
+        var term = CommerceReads.Search(search);
+        if (term is not null)
+            query = query.Where(x => EF.Functions.ILike(x.Item.Title, term, "\\") ||
+                EF.Functions.ILike(x.CustomerName, term, "\\") ||
+                x.Item.Address != null && EF.Functions.ILike(x.Item.Address, term, "\\"));
+        var pageResult = await CommerceReads.PageAsync(query, page, ct);
         return new(pageResult.Items.Select(ProjectInfo).ToArray(), pageResult.HasMore);
     }
 
@@ -36,18 +52,29 @@ internal static class WorkQueries
     public static async Task<WorkAttention> AttentionAsync(KhypuPymeDbContext db, DateOnly today, CancellationToken ct)
     {
         var rows = Items(db);
-        var active = rows.Where(x => x.State != "delivered" && x.State != "attended" && x.State != "no-show");
-        return new(await active.CountAsync(x => x.Day == today, ct), await active.CountAsync(x => x.Day < today, ct),
-            await rows.CountAsync(x => x.SaleId == null && (x.State == "ready" || x.State == "attended" || x.State == "delivered"), ct));
+        var active = Active(rows);
+        var pending = await active.GroupBy(_ => 1).Select(group => new
+        {
+            Today = group.Count(x => x.Day == today),
+            Overdue = group.Count(x => x.Day < today),
+            Upcoming = group.Count(x => x.Day > today && x.Day <= today.AddDays(7)),
+            WaitingParts = group.Count(x => x.State == "waiting-parts"),
+        }).SingleOrDefaultAsync(ct);
+        return new(pending?.Today ?? 0, pending?.Overdue ?? 0, await Billable(rows).CountAsync(ct),
+            pending?.Upcoming ?? 0, pending?.WaitingParts ?? 0);
     }
 
-    private sealed record WithCustomer(WorkItem Item, string CustomerName);
+    private sealed class WithCustomer
+    {
+        public required WorkItem Item { get; init; }
+        public required string CustomerName { get; init; }
+    }
 
     private static IQueryable<WithCustomer> Project(KhypuPymeDbContext db, IQueryable<WorkItem> rows) =>
         from row in rows
         join customer in db.Set<Customer>().AsNoTracking() on new { row.BusinessId, Id = row.CustomerId } equals new { customer.BusinessId, customer.Id }
         orderby row.Day, row.StartMinute, row.Id
-        select new WithCustomer(row, customer.Name);
+        select new WithCustomer { Item = row, CustomerName = customer.Name };
 
     private static WorkInfo ProjectInfo(WithCustomer data)
     {

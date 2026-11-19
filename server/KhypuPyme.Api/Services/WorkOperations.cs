@@ -21,7 +21,7 @@ internal sealed class WorkOperations(CommerceTransaction work)
         var row = editing ? await LoadAsync(work.Command.WorkLink) :
             new WorkItem { BusinessId = work.Business.Id, Id = work.Command.OperationId, Industry = industry, Title = "", DetailsJson = "{}",
                 State = industry == "repair" ? "received" : "scheduled" };
-        if (row.State is "attended" or "delivered" or "no-show" || row.SaleId is not null)
+        if (row.State is "attended" or "delivered" or "no-show" or "cancelled" || row.SaleId is not null)
             throw new CommerceFailure("Este registro ya está atendido, cerrado o cobrado.", 409);
         if (input.Day == default || (input.Day < work.Today && (!editing || row.Day != input.Day)))
             throw new CommerceFailure("Indica una fecha desde hoy.");
@@ -40,14 +40,14 @@ internal sealed class WorkOperations(CommerceTransaction work)
                 input.Duration is not int duration || duration is < 5 or > 720 || start + duration > 1440)
                 throw new CommerceFailure("Elige un servicio y una duración de 5 a 720 minutos dentro del mismo día.");
             if (await work.Db.Set<WorkItem>().AnyAsync(x => x.BusinessId == work.Business.Id && x.Industry == "beauty" &&
-                x.Day == input.Day && x.Id != row.Id && x.State != "no-show" && x.StartMinute < start + duration &&
+                x.Day == input.Day && x.Id != row.Id && x.State != "no-show" && x.State != "cancelled" && x.StartMinute < start + duration &&
                 x.StartMinute + x.Duration > start, work.Ct))
                 throw new CommerceFailure("Ese horario se cruza con otra cita. Elige otra hora o reprograma la cita existente.", 409);
         }
         else if (input.StartMinute is not null || input.Duration is not null)
             throw new CommerceFailure("La duración por horario corresponde a la agenda de peluquería.");
 
-        var details = ValidateDetails(industry, input.Details ?? new(), row);
+        var details = ValidateDetails(industry, input.Details ?? new(), row) with { StatusNote = WorkDetails.Read(row.DetailsJson).StatusNote };
         row.Title = Text(input.Title, 100, "el nombre del trabajo o cita", true);
         row.Day = input.Day;
         row.StartMinute = input.StartMinute;
@@ -71,6 +71,8 @@ internal sealed class WorkOperations(CommerceTransaction work)
         bool allowed = (row.Industry, row.State, next) switch
         {
             ("beauty", "scheduled", "attended" or "no-show") => row.Day <= work.Today,
+            ("beauty", "scheduled", "cancelled") => true,
+            ("repair", "working", "waiting-parts") or ("repair", "waiting-parts", "working") => true,
             ("repair", "received", "diagnosed") => !string.IsNullOrWhiteSpace(WorkDetails.Read(row.DetailsJson).Diagnosis),
             ("repair", "diagnosed", "approved") or ("professional", "scheduled", "approved") => row.BudgetMinor is not null,
             ("repair" or "professional", "approved", "working") => true,
@@ -79,6 +81,13 @@ internal sealed class WorkOperations(CommerceTransaction work)
             _ => false,
         };
         if (!allowed) throw new CommerceFailure("Revisa el estado, la fecha y los datos del paso. Para aprobar, guarda primero el presupuesto.", 409);
+        if (next is "waiting-parts" or "cancelled" || row.State == "waiting-parts")
+        {
+            var note = next is "waiting-parts" or "cancelled"
+                ? Text(work.Command.Note, 240, next == "waiting-parts" ? "el repuesto pendiente" : "el motivo de cancelación", true)
+                : null;
+            row.DetailsJson = JsonSerializer.Serialize(WorkDetails.Read(row.DetailsJson) with { StatusNote = note });
+        }
         row.State = next!;
         if (next == "delivered") row.DeliveredOn = work.Today;
         row.Revision++;

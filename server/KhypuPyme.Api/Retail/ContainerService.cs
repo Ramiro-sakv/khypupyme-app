@@ -119,6 +119,22 @@ internal sealed class ContainerService(CommerceTransaction work)
         work.Db.Add(new ContainerMovement { BusinessId = entry.BusinessId, EntryId = entry.Id, TypeId = type.Id, Name = type.Name,
             Delivered = delivered, Returned = received, Added = added, CustomerBalance = balance, Available = type.Available });
 
+    public static Task<CommercePage<ContainerObligation>> ObligationsAsync(KhypuPymeDbContext db, string? search, int? page, CancellationToken ct)
+    {
+        var balances = db.Set<ContainerBalance>().AsNoTracking();
+        var term = CommerceReads.Search(search);
+        var customers = db.Set<Customer>().AsNoTracking();
+        if (term is not null) customers = customers.Where(x => EF.Functions.ILike(x.Name, term, "\\") ||
+            EF.Functions.ILike(x.Phone, term, "\\") || x.Code != null && EF.Functions.ILike(x.Code, term, "\\"));
+        var rows = from balance in balances
+                   join customer in customers on new { balance.BusinessId, Id = balance.CustomerId } equals new { customer.BusinessId, customer.Id }
+                   join type in db.Set<ContainerType>().AsNoTracking() on new { balance.BusinessId, Id = balance.TypeId } equals new { type.BusinessId, type.Id }
+                   where balance.Quantity > 0
+                   orderby customer.Name, customer.Id, type.Name, type.Id
+                   select new ContainerObligation(customer.Id, customer.Name, type.Id, type.Name, balance.Quantity);
+        return CommerceReads.PageAsync(rows, page, ct);
+    }
+
     public static Task<ContainerInfo[]> ListAsync(Guid? customer, KhypuPymeDbContext db, CancellationToken ct)
     {
         var balances = db.Set<ContainerBalance>().AsNoTracking();
@@ -128,3 +144,5 @@ internal sealed class ContainerService(CommerceTransaction work)
                     .Select(x => x.Quantity).SingleOrDefault())).ToArrayAsync(ct);
     }
 }
+
+public sealed record ContainerObligation(Guid CustomerId, string CustomerName, Guid TypeId, string ContainerName, int Quantity);

@@ -1338,6 +1338,9 @@ export interface paths {
             parameters: {
                 query?: {
                     page?: number;
+                    filter?: string;
+                    mode?: string;
+                    search?: string;
                 };
                 header?: never;
                 path?: never;
@@ -1364,6 +1367,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/businesses/{businessId}/commerce/delivery-attention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DeliveryAttention"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/businesses/{businessId}/commerce/work": {
         parameters: {
             query?: never;
@@ -1376,6 +1414,7 @@ export interface paths {
                 query?: {
                     day?: string;
                     filter?: string;
+                    search?: string;
                     page?: number;
                 };
                 header?: never;
@@ -1463,6 +1502,44 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["WorkAttention"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/commerce/container-obligations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    search?: string;
+                    page?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CommercePageOfContainerObligation"];
                     };
                 };
             };
@@ -2602,6 +2679,9 @@ export interface paths {
             parameters: {
                 query?: {
                     page?: number;
+                    filter?: string;
+                    mode?: string;
+                    search?: string;
                 };
                 header?: never;
                 path?: never;
@@ -2628,6 +2708,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/businesses/{businessId}/practice-commerce/delivery-attention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DeliveryAttention"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/businesses/{businessId}/practice-commerce/work": {
         parameters: {
             query?: never;
@@ -2640,6 +2755,7 @@ export interface paths {
                 query?: {
                     day?: string;
                     filter?: string;
+                    search?: string;
                     page?: number;
                 };
                 header?: never;
@@ -2727,6 +2843,44 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["WorkAttention"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/practice-commerce/container-obligations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    search?: string;
+                    page?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CommercePageOfContainerObligation"];
                     };
                 };
             };
@@ -3890,6 +4044,10 @@ export interface components {
             items: components["schemas"]["CashInfo"][];
             hasMore: boolean;
         };
+        CommercePageOfContainerObligation: {
+            items: components["schemas"]["ContainerObligation"][];
+            hasMore: boolean;
+        };
         CommercePageOfCustomerInfo: {
             items: components["schemas"]["CustomerInfo"][];
             hasMore: boolean;
@@ -3978,6 +4136,16 @@ export interface components {
             /** Format: int32 */
             added: number;
         };
+        ContainerObligation: {
+            /** Format: uuid */
+            customerId: string;
+            customerName: string;
+            /** Format: uuid */
+            typeId: string;
+            containerName: string;
+            /** Format: int32 */
+            quantity: number;
+        };
         CosmeticProfile: {
             brand: string;
             presentation: string;
@@ -3994,6 +4162,16 @@ export interface components {
             name: string;
             phone: string;
             code?: null | string;
+        };
+        DeliveryAttention: {
+            /** Format: int32 */
+            today: number;
+            /** Format: int32 */
+            overdue: number;
+            /** Format: int32 */
+            pending: number;
+            /** Format: int32 */
+            prepared: number;
         };
         DeliveryInfo: {
             /** Format: uuid */
@@ -4506,6 +4684,10 @@ export interface components {
             expiring: number;
             /** Format: int32 */
             inspections: number;
+            /** Format: int32 */
+            expired: number;
+            /** Format: int32 */
+            held: number;
         };
         TileCoverage: {
             request: components["schemas"]["TileRequest"];
@@ -4583,6 +4765,10 @@ export interface components {
             overdue: number;
             /** Format: int32 */
             readyToCharge: number;
+            /** Format: int32 */
+            upcoming: number;
+            /** Format: int32 */
+            waitingParts: number;
         };
         WorkCharge: {
             /** Format: uuid */
@@ -4601,6 +4787,7 @@ export interface components {
             specifications?: null | string;
             billableMaterials?: null | string;
             internalMaterials?: null | string;
+            statusNote?: null | string;
         };
         WorkInfo: {
             /** Format: uuid */

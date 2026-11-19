@@ -121,11 +121,16 @@ internal sealed class StoreReads(KhypuPymeDbContext db, TimeProvider clock)
         var today = Today;
         var products = db.Set<Product>().AsNoTracking().Where(x => x.Active);
         var lots = db.Set<RetailLot>().AsNoTracking().Where(x => x.Quantity > 0);
+        var activeLots = lots.Where(x => products.Any(p => p.Id == x.ProductId && p.BusinessId == x.BusinessId));
         var reorder = await products.Where(AtReorder(today, lots)).CountAsync(ct);
-        var expiring = await ExpiringLots(lots, today).CountAsync(x =>
-            products.Any(p => p.Id == x.ProductId && p.BusinessId == x.BusinessId), ct);
+        var expiring = await ExpiringLots(activeLots, today).CountAsync(ct);
+        var lotCounts = await activeLots.GroupBy(_ => 1).Select(group => new
+        {
+            Expired = group.Count(x => x.ExpiresOn < today),
+            Held = group.Count(x => x.Held),
+        }).SingleOrDefaultAsync(ct);
         var inspections = await db.Set<EquipmentUnit>().CountAsync(x => x.State == "inspection", ct);
-        return new StoreAttention(reorder, expiring, inspections);
+        return new StoreAttention(reorder, expiring, inspections, lotCounts?.Expired ?? 0, lotCounts?.Held ?? 0);
     }
 
     public IQueryable<Product> AttentionProducts(IQueryable<Product> products, string attention)

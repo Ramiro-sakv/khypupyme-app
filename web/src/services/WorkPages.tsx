@@ -1,36 +1,27 @@
 import { useState } from "react";
 import { useCommerce, useCommerceData } from "../commerce/CommerceContext";
-import { CommerceHeading, LoadFeedback, NoRecords, Pages, useCommercialForm } from "../commerce/CommerceUi";
+import { CommerceHeading, LoadFeedback, NoRecords, OperationForm, Pages, SearchForm, useCommercialForm } from "../commerce/CommerceUi";
 import { bob, dateLabel } from "../commerce/models";
 import type { Page } from "../commerce/models";
 import { Alert, Button, Card, DataTable, SelectField, TextField } from "../ui/Primitives";
 import { WorkEditor } from "./WorkEditor";
 import { canBillWork, clockTime, detailKeys, detailLabels, todayInBolivia, workNavigation, workStatus } from "./work";
-import type { Work, WorkAttention } from "./work";
+import type { Work } from "./work";
 
-export function WorkPanel({ industry, open }: { industry: string; open: (focus: string) => void }) {
-  const config = workNavigation[industry];
-  const result = useCommerceData<WorkAttention>("/work-attention");
-  const count = (value?: number) => value == null ? "" : " · " + value;
-  return <Card className="industry-home-card">
-    <h2>{config.title}</h2>
-    <Button variant="secondary" onClick={() => open("new")}>{config.create}</Button>
-    <Button variant="secondary" onClick={() => open("today")}>{config.today}{count(result.data?.today)}</Button>
-    {industry !== "beauty" && <Button variant="secondary" onClick={() => open("overdue")}>
-      Atrasados{count(result.data?.overdue)}</Button>}
-    <Button variant="secondary" onClick={() => open("billable")}>Listos para cobrar{count(result.data?.readyToCharge)}</Button>
-    {result.error && <Alert tone="error">{result.error}</Alert>}
-  </Card>;
-}
+const workFilters = {
+  today: "De hoy", upcoming: "Próximos siete días", overdue: "Atrasados", billable: "Listos para cobrar",
+  "waiting-parts": "En espera de repuestos", cancelled: "Citas canceladas",
+};
 
 export function WorkList({ industry, focus, open }: { industry: string; focus: string; open: (id: string) => void }) {
   const appointment = industry === "beauty";
   const config = workNavigation[industry];
-  const [day, setDay] = useState(focus === "today" || (appointment && focus !== "billable") ? todayInBolivia() : "");
-  const [filter, setFilter] = useState(["overdue", "billable"].includes(focus) ? focus : "");
+  const [day, setDay] = useState(appointment && (!focus || focus === "new") ? todayInBolivia() : "");
+  const [filter, setFilter] = useState(Object.hasOwn(workFilters, focus) ? focus : "");
+  const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [creating, setCreating] = useState(focus === "new");
-  const query = new URLSearchParams({ page: String(page) });
+  const query = new URLSearchParams({ page: String(page), search });
   if (day) query.set("day", day);
   if (filter) query.set("filter", filter);
   const result = useCommerceData<Page<Work>>("/work?" + query);
@@ -40,17 +31,22 @@ export function WorkList({ industry, focus, open }: { industry: string; focus: s
     {creating && <WorkEditor industry={industry} initialDay={day >= todayInBolivia() ? day : undefined}
       close={() => setCreating(false)} onSaved={open} />}
     <Card>
-      <div className="store-fields">
+      <div className="inventory-controls">
+        <SearchForm label={appointment ? "Buscar cita o cliente" : "Buscar orden, cliente o dirección"}
+          onSearch={(value) => { setSearch(value); setPage(1); }} />
         <TextField label="Filtrar por fecha" type="date" value={day} onChange={(event) => { setDay(event.target.value); setPage(1); }} />
-        <SelectField label="Ver registros" value={filter} onChange={(event) => { setFilter(event.target.value); setPage(1); }}>
-          <option value="">Todos</option><option value="overdue">Atrasados</option><option value="billable">Listos para cobrar</option>
+        <SelectField label="Ver registros" value={filter} onChange={(event) => { setFilter(event.target.value); setDay(""); setPage(1); }}>
+          <option value="">Todos</option>
+          {Object.entries(workFilters).filter(([id]) => (id !== "cancelled" || appointment) &&
+            (id !== "waiting-parts" || industry === "repair")).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
         </SelectField>
       </div>
-      {!result.data ? <LoadFeedback {...result} /> : result.data.items.length === 0 ? <NoRecords>Elige otra fecha o crea un registro.</NoRecords> :
-        <DataTable caption={config.title} columns={[appointment ? "Cita" : "Trabajo", "Cliente", "Fecha y estado", "Acción"]}
+      {!result.data ? <LoadFeedback {...result} /> : result.data.items.length === 0 ? <NoRecords>{search || filter ? "Prueba otra búsqueda o cambia los filtros." : "Elige otra fecha o crea un registro."}</NoRecords> :
+        <DataTable caption={config.title} columns={[appointment ? "Cita" : "Trabajo", "Cliente", "Fecha y estado", "Presupuesto", "Acción"]}
           rows={result.data.items.map((row) => ({ id: row.id, cells: [
             <>{row.title}{row.address && <small className="record-secondary">{row.address}</small>}</>, row.customerName,
             <>{schedule(row)}<small className="record-secondary">{workStatus(row)}{row.saleId && " · Venta vinculada"}</small></>,
+            row.budgetMinor == null ? "—" : bob(row.budgetMinor),
             <Button variant="secondary" onClick={() => open(row.id)}>Abrir</Button>,
           ] }))} />}
       <Pages index={page} hasMore={result.data?.hasMore} onChange={setPage} />
@@ -78,9 +74,11 @@ function WorkDetailBody({ item, charge, openInventory }: { item: Work; charge: (
   const { showDocument } = useCommerce();
   const form = useCommercialForm();
   const [editing, setEditing] = useState(false);
+  const [noteAction, setNoteAction] = useState<"cancelled" | "waiting-parts">();
+  const [note, setNote] = useState("");
   const link = { id: item.id, revision: item.revision };
   const appointment = item.industry === "beauty";
-  const canEdit = !item.saleId && !["attended", "no-show", "delivered"].includes(item.state);
+  const canEdit = !item.saleId && !["attended", "no-show", "delivered", "cancelled"].includes(item.state);
   const primary = nextStep(item);
   const service = useCommerceData<{ name: string }>(item.serviceId ? "/products/" + item.serviceId : null);
   return <>
@@ -102,29 +100,44 @@ function WorkDetailBody({ item, charge, openInventory }: { item: Work; charge: (
       <div className="inline-actions">
         {item.industry === "cleaning" && item.details.internalMaterials &&
           <Button variant="secondary" onClick={openInventory}>Ir a Inventario</Button>}
-        {canEdit && <Button variant="secondary" disabled={editing || form.blocked} onClick={() => setEditing(true)}>
+        {canEdit && <Button variant="secondary" disabled={editing || noteAction != null || form.blocked} onClick={() => setEditing(true)}>
           {appointment ? "Reprogramar cita" : "Editar orden"}</Button>}
-        {primary && <Button variant="secondary" disabled={editing || form.blocked || primary.blocked}
+        {primary && <Button variant="secondary" disabled={editing || noteAction != null || form.blocked || primary.blocked}
           onClick={() => void form.submit(() => ({ kind: "advance-work", workLink: link, workState: primary.state }), () => undefined)}>
           {primary.label}</Button>}
         {appointment && item.state === "scheduled" && item.day <= todayInBolivia() &&
-          <Button variant="plain" disabled={editing || form.blocked}
+          <Button variant="plain" disabled={editing || noteAction != null || form.blocked}
             onClick={() => void form.submit(() => ({ kind: "advance-work", workLink: link, workState: "no-show" }), () => undefined)}>
             Registrar inasistencia</Button>}
-        {item.industry === "repair" && <Button variant="secondary" disabled={editing || form.blocked}
+        {appointment && item.state === "scheduled" && <Button variant="plain" disabled={editing || noteAction != null || form.blocked}
+          onClick={() => { setNote(""); setNoteAction("cancelled"); }}>Cancelar cita</Button>}
+        {item.industry === "repair" && item.state === "working" && <Button variant="secondary" disabled={editing || noteAction != null || form.blocked}
+          onClick={() => { setNote(""); setNoteAction("waiting-parts"); }}>Poner en espera de repuesto</Button>}
+        {item.industry === "repair" && <Button variant="secondary" disabled={editing || noteAction != null || form.blocked}
           onClick={() => item.receiptId ? showDocument(item.receiptId) :
             void form.submit(() => ({ kind: "repair-receipt", workLink: link }), (result) => showDocument(result.entityId))}>
           {item.receiptId ? "Ver constancia de recepción" : "Emitir constancia de recepción"}</Button>}
-        {!appointment && item.industry !== "repair" && <Button variant="secondary" disabled={editing || form.blocked}
+        {!appointment && item.industry !== "repair" && <Button variant="secondary" disabled={editing || noteAction != null || form.blocked}
           onClick={() => void form.submit(() => ({ kind: "work-receipt", workLink: link }), (result) => showDocument(result.entityId))}>
           Emitir constancia de trabajo
         </Button>}
         {item.saleId ? <Button onClick={() => showDocument(item.saleId!)}>Ver venta vinculada</Button> :
-          canBillWork(item) && <Button disabled={editing || form.blocked} onClick={() => charge(item.id)}>Cobrar con una venta</Button>}
+          canBillWork(item) && <Button disabled={editing || noteAction != null || form.blocked} onClick={() => charge(item.id)}>Cobrar con una venta</Button>}
       </div>
       {primary?.hint && <p>{primary.hint}</p>}
       {form.error && <Alert tone="error">{form.error}</Alert>}
     </Card>
+    {noteAction && <OperationForm title={noteAction === "cancelled" ? "Cancelar cita" : "Espera de repuesto"}
+      action={noteAction === "cancelled" ? "Confirmar cancelación" : "Guardar espera"}
+      blocked={form.blocked} error={form.error} onClose={() => setNoteAction(undefined)} onSubmit={(event) => {
+        event.preventDefault();
+        void form.submit(() => ({ kind: "advance-work", workLink: link, workState: noteAction, note }), () => setNoteAction(undefined));
+      }}>
+      <p>{noteAction === "cancelled" ? "Se libera el horario y la cita queda en el historial." :
+        "La orden seguirá abierta y podrás reanudarla cuando llegue el repuesto."}</p>
+      <TextField label={noteAction === "cancelled" ? "Motivo de cancelación" : "Repuesto pendiente"}
+        value={note} onChange={(event) => setNote(event.target.value)} maxLength={240} required />
+    </OperationForm>}
     {editing && <WorkEditor industry={item.industry} record={item} close={() => setEditing(false)} onSaved={() => setEditing(false)} />}
   </>;
 }
@@ -140,6 +153,7 @@ function nextStep(item: Work): { state: string; label: string; blocked?: boolean
         hint: !item.details.diagnosis ? "Guarda el diagnóstico desde Editar orden." : undefined };
     case "diagnosed": return approval(item);
     case "approved": return { state: "working", label: item.industry === "repair" ? "Iniciar reparación" : "Iniciar trabajo" };
+    case "waiting-parts": return { state: "working", label: "Reanudar reparación" };
     case "working": return { state: "ready", label: "Marcar como listo" };
     case "ready": return { state: "delivered", label: "Confirmar entrega" };
   }

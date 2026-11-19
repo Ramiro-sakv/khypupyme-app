@@ -19,11 +19,12 @@ const purchaseLabels: Record<string, string> = {
 };
 
 export function BusinessHome({ business, industry, icon, cash, report, cashError, reportError, openCash, openSale,
-  openPurchase, openInventory, openReports, industryPanel, readOnly, gettingStarted, openHelp }: {
+  openPurchase, openInventory, openReports, industryPanel, readOnly, gettingStarted, openHelp, prioritizeOperations, createWork }: {
   business: BusinessProfile; industry: string; icon: IconName;
   cash: CashSummary | null; report?: Report; cashError?: string; reportError?: string;
   openCash: () => void; openSale: () => void; openPurchase: () => void; openInventory: () => void; openReports: () => void;
-  industryPanel?: ReactNode; readOnly: boolean;
+  industryPanel?: ReactNode; readOnly: boolean; prioritizeOperations?: boolean;
+  createWork?: { label: string; run: () => void };
   gettingStarted?: { cashStarted: boolean; catalogReady: boolean }; openHelp: () => void;
 }) {
   const totals = report?.totals;
@@ -39,9 +40,10 @@ export function BusinessHome({ business, industry, icon, cash, report, cashError
           </div>
         </div>
         <div className="hero-actions">
-          {!readOnly && <Button icon="cart" onClick={openSale}>{saleLabels[business.industry] ?? "Vender"}</Button>}
+          {!readOnly && createWork && <Button icon="calendar" onClick={createWork.run}>{createWork.label}</Button>}
+          {!readOnly && <Button variant={createWork ? "secondary" : "primary"} icon="cart" onClick={openSale}>{saleLabels[business.industry] ?? "Vender"}</Button>}
           {business.industry === "timber" && <Button variant="secondary" icon="wood" onClick={openInventory}>Consultar medidas</Button>}
-          {!readOnly && <Button variant="secondary" icon="parcel" onClick={openPurchase}>
+          {!readOnly && !createWork && <Button variant="secondary" icon="parcel" onClick={openPurchase}>
             {purchaseLabels[business.industry] ?? "Registrar compra"}
           </Button>}
         </div>
@@ -56,12 +58,13 @@ export function BusinessHome({ business, industry, icon, cash, report, cashError
         </Button>
       </section>
     </header>
+    {prioritizeOperations && industryPanel}
     {totals && <dl className="home-totals">
       {([["Ventas netas", totals.salesMinor], ["Compras", totals.purchasesMinor], ["Gastos netos", totals.expensesMinor],
         ["Resultado estimado", reportResult(totals)]] as const).map(([label, amount]) =>
         <div key={label}><dt>{label}</dt><dd>{bob(amount)}</dd></div>)}
     </dl>}
-    {industryPanel}
+    {!prioritizeOperations && industryPanel}
     {gettingStarted && <aside className="workspace-industry-banner">
       <Icon name="help" /><div><strong>Primeros pasos</strong><p>{gettingStarted.catalogReady
         ? "El catálogo está listo para tu primera venta."

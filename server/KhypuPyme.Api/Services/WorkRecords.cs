@@ -11,14 +11,15 @@ public sealed record WorkDetails(string? Tasks = null, string? PlannedMaterials 
     string? Deliverables = null, string? Equipment = null, string? Accessories = null, string? Fault = null,
     string? Diagnosis = null, string? Specifications = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? BillableMaterials = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? InternalMaterials = null)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? InternalMaterials = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? StatusNote = null)
 {
     internal static WorkDetails Read(string json) => JsonSerializer.Deserialize<WorkDetails>(json)!;
 }
 
 public sealed record WorkRevision(Guid Id, int Revision);
 public sealed record WorkCharge(Guid Id, string Title);
-public sealed record WorkAttention(int Today, int Overdue, int ReadyToCharge);
+public sealed record WorkAttention(int Today, int Overdue, int ReadyToCharge, int Upcoming, int WaitingParts);
 public sealed record WorkInfo(Guid Id, string Title, string Industry, Guid CustomerId, string CustomerName, Guid? ServiceId,
     DateOnly Day, int? StartMinute, int? Duration, long? BudgetMinor, string? Address, WorkDetails Details,
     string State, int Revision, Guid? SaleId, Guid? ReceiptId, DateOnly? DeliveredOn);

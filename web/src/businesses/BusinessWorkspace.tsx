@@ -12,6 +12,8 @@ import { bob, timestamp } from "../commerce/models";
 import type { AccessSnapshot } from "../billing/PlanGate";
 import type { CashStatus, EntryDocument, Product, Report } from "../commerce/models";
 import { BusinessHome } from "./BusinessHome";
+import { IndustryOperations } from "./IndustryOperations";
+import { operationsFor } from "./industryWorkflows";
 import { INDUSTRY_GUIDES } from "./industryGuides";
 import { industryTheme, usesDeliveries } from "./industryThemes";
 import type { IndustryId } from "./industryThemes";
@@ -21,7 +23,7 @@ import type { PracticeControls } from "../timber/TimberPractice";
 import { unitsOf } from "../timber/measures";
 import { Alert, Button, Card } from "../ui/Primitives";
 import type { StoreAttention } from "../retail/measures";
-import { WorkDetail, WorkList, WorkPanel } from "../services/WorkPages";
+import { WorkDetail, WorkList } from "../services/WorkPages";
 import { canBillWork, workNavigation } from "../services/work";
 import type { Work } from "../services/work";
 import { equipmentIndustry, measuredIndustry, variantIndustry } from "../retail/ProductFields";
@@ -127,6 +129,7 @@ export function BusinessWorkspace({ accountId, business, industry, view, workId,
     setTradeArchive(undefined);
     setFocus(target);
     if (next !== "historial") setHistoryKind("");
+    else if (target === "sales") setHistoryKind("sale");
     navigate(next, false, work);
   }
   async function refreshSettings() {
@@ -187,8 +190,8 @@ export function BusinessWorkspace({ accountId, business, industry, view, workId,
       case "documentos": return <HistoryPage key="documents" initialKind="" documents allowExport={!practice} />;
       case "series": return equipmentIndustry(business.industry) ? <SerialHistory key={focus} initial={focus.startsWith("serial:") ? focus.slice(7) : undefined}
         filter={focus === "inspection" ? focus : undefined} /> : <Alert>Esta vista pertenece al rubro de Electrodomésticos.</Alert>;
-      case "envases": return business.industry === "beverages" ? <ContainersPage /> : <Alert>Esta vista pertenece al rubro de Bebidas.</Alert>;
-      case "entregas": return delivery && !practice ? <DeliveriesPage /> : <Alert>Esta vista corresponde a rubros con entregas.</Alert>;
+      case "envases": return business.industry === "beverages" ? <ContainersPage key={focus} initial={focus} /> : <Alert>Esta vista pertenece al rubro de Bebidas.</Alert>;
+      case "entregas": return delivery && !practice ? <DeliveriesPage key={focus} initial={focus} /> : <Alert>Esta vista corresponde a rubros con entregas.</Alert>;
       case "trabajos": return !works ? <Alert>Esta vista corresponde a negocios con agenda u órdenes.</Alert> : workId ?
         <WorkDetail id={workId} back={() => go("trabajos")} openInventory={() => go("catalogo")}
           charge={(id) => { setQuote(undefined); go("ventas", "", id); }} /> :
@@ -300,32 +303,20 @@ function CommercialHome({ business, industry, icon, navigate, openSalesHistory, 
     ? { state: opened ? "open" as const : "closed" as const, label: opened ? "Caja abierta" : "Caja cerrada",
       detail: opened ? "Desde " + timestamp(session.openedAt) + " · Efectivo esperado " + bob(session.expectedMinor) : undefined }
     : cash.data ? { state: "closed" as const, label: "Caja cerrada" } : null;
+  const operations = operationsFor(business.industry);
+  const workflow = workNavigation[business.industry];
   return <BusinessHome business={business} industry={industry} icon={icon} cash={summary} report={report.data}
-    readOnly={readOnly}
+    readOnly={readOnly} prioritizeOperations={!!operations}
+    createWork={workflow && { label: workflow.create, run: () => navigate("trabajos", "new") }}
     gettingStarted={setup.data && !setup.data.sold ? setup.data : undefined}
     openHelp={() => navigate("ayuda")}
     cashError={cash.error} reportError={report.error} openCash={() => navigate("caja")}
     openSale={() => navigate("ventas", ["convenience", "grocery"].includes(business.industry) ? "scan" : "")}
     openPurchase={() => navigate("compras")} openReports={() => navigate("informes")} openInventory={() => navigate("catalogo")}
-    industryPanel={readOnly ? undefined : workNavigation[business.industry] ? <WorkPanel industry={business.industry} open={(focus) => navigate("trabajos", focus)} /> :
+    industryPanel={readOnly ? undefined : operations ? <IndustryOperations industry={business.industry} open={navigate} lotDays={business.policy?.lotAlertDays} /> :
       variantIndustry(business.industry) ? <Card className="industry-home-card">
       <h2>Tallas, colores y cambios</h2><Button variant="secondary" onClick={() => navigate("catalogo")}>Consultar variantes</Button>
       <Button variant="secondary" onClick={openSalesHistory}>Buscar venta para un cambio</Button>
-    </Card> : business.industry === "spareParts" ? <Card className="industry-home-card">
-      <h2>Referencias y compatibilidad</h2><Button variant="secondary" onClick={() => navigate("catalogo")}>Buscar repuesto por vehículo</Button>
-      <Button variant="secondary" onClick={() => navigate("ventas")}>Vender repuestos</Button>
-    </Card> : business.industry === "stationery" ? <Card className="industry-home-card">
-      <h2>Artículos e impresión</h2><Button variant="secondary" onClick={() => navigate("ventas")}>Cobrar artículos e impresiones</Button>
-      <Button variant="secondary" onClick={() => navigate("catalogo")}>Configurar tarifas por cara</Button>
-    </Card> : business.industry === "furniture" ? <Card className="industry-home-card">
-      <h2>Piezas terminadas y entregas</h2><Button variant="secondary" onClick={() => navigate("cotizaciones")}>Cotizar muebles</Button>
-      <Button variant="secondary" onClick={() => navigate("entregas")}>Ver retiros y entregas</Button>
-    </Card> : business.industry === "ceramics" ? <Card className="industry-home-card">
-      <h2>Cobertura, tono y calibre</h2><Button variant="secondary" onClick={() => navigate("cotizaciones")}>Calcular y cotizar revestimiento</Button>
-      <Button variant="secondary" onClick={() => navigate("catalogo")}>Consultar existencias</Button>
-    </Card> : business.industry === "cement" ? <Card className="industry-home-card">
-      <h2>Bolsas y granel</h2><Button variant="secondary" onClick={() => navigate("catalogo")}>Consultar lotes y abrir bolsas</Button>
-      <Button variant="secondary" onClick={() => navigate("ventas")}>Vender cemento</Button>
     </Card> : (measuredIndustry(business.industry) || equipmentIndustry(business.industry)) &&
       <IndustryAttention industry={business.industry} lotAlertDays={business.policy?.lotAlertDays} navigate={navigate} />} />;
 }

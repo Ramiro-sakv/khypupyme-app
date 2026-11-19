@@ -4,6 +4,7 @@ import { useCommercialForm } from "../commerce/CommerceUi";
 import { measuredIndustry } from "../retail/ProductFields";
 import { Alert, Button, Card, SelectField, TextField } from "../ui/Primitives";
 import type { BusinessView } from "./BusinessWorkspace";
+import { operationsFor } from "./industryWorkflows";
 import { INDUSTRY_GUIDES } from "./industryGuides";
 import type { IndustryId } from "./industryThemes";
 import type { BusinessProfile } from "./models";
@@ -65,28 +66,11 @@ export function BusinessOperatingSettings({ profile, refresh, error }: {
 }
 
 type IndustryShortcut = readonly [BusinessView, string, string?];
-const industryShortcuts: Record<IndustryId, readonly IndustryShortcut[]> = {
+const coreShortcuts: Partial<Record<IndustryId, readonly IndustryShortcut[]>> = {
   timber: [["catalogo", "Existencias por medida"], ["cotizaciones", "Cotizar por pies tablares"]],
   convenience: [["ventas", "Venta con lector", "scan"], ["catalogo", "Reposición", "reorder"]],
-  grocery: [["compras", "Recibir presentaciones"], ["catalogo", "Revisar vencimientos", "expiring"]],
-  beverages: [["envases", "Saldos de envases"], ["compras", "Recibir cajas y unidades"]],
-  clothing: [["catalogo", "Modelos y variantes"], ["historial", "Buscar venta para cambio"]],
-  footwear: [["catalogo", "Pares por talla y color"], ["historial", "Buscar venta para cambio"]],
-  furniture: [["cotizaciones", "Cotizar muebles"], ["entregas", "Retiros y entregas"]],
-  cosmetics: [["catalogo", "Lotes por vencer", "expiring"], ["catalogo", "Lotes apartados", "held"]],
-  ceramics: [["cotizaciones", "Calcular cobertura"], ["catalogo", "Existencias por tono y calibre"]],
-  cement: [["catalogo", "Bolsas, lotes y granel"], ["ventas", "Vender por bolsa o peso"]],
-  hardware: [["catalogo", "Referencias y estantes"], ["compras", "Recibir piezas y rollos"]],
+  clothing: [["catalogo", "Modelos y variantes"], ["historial", "Buscar venta para cambio", "sales"]],
   appliances: [["series", "Series, garantía e inspección"], ["compras", "Recibir equipos"]],
-  electronics: [["series", "Historial por serie"], ["ventas", "Vender accesorios y equipos"]],
-  spareParts: [["catalogo", "Referencias y compatibilidad"], ["ventas", "Vender repuestos"]],
-  stationery: [["catalogo", "Tarifas de impresión"], ["ventas", "Cobrar materiales e impresiones"]],
-  pets: [["catalogo", "Lotes de alimento", "expiring"], ["ventas", "Vender alimento fraccionado"]],
-  crafts: [["trabajos", "Encargos"], ["ventas", "Vender piezas terminadas"]],
-  beauty: [["trabajos", "Agenda de citas"], ["ventas", "Atender sin cita"]],
-  cleaning: [["trabajos", "Trabajos y materiales"], ["cotizaciones", "Preparar una cotización"]],
-  professional: [["trabajos", "Entregables y fechas"], ["cotizaciones", "Preparar una cotización"]],
-  repair: [["trabajos", "Recepción y taller"], ["catalogo", "Consultar repuestos"]],
 };
 
 export function IndustrySettings({ industry, navigate }: {
@@ -95,11 +79,12 @@ export function IndustrySettings({ industry, navigate }: {
   const id = industry as IndustryId;
   const guide = INDUSTRY_GUIDES[id];
   if (!guide) return null;
+  const links: readonly IndustryShortcut[] = operationsFor(id)?.actions.map(([view, label, , , focus]) => [view, label, focus]) ?? coreShortcuts[id] ?? [];
   return <Card>
     <h2>{guide.title}</h2>
     <ol className="industry-settings-steps">{guide.steps.map((step) => <li key={step}>{step}</li>)}</ol>
     <div className="inline-actions">
-      {industryShortcuts[id].map(([view, label, focus]) =>
+      {links.map(([view, label, focus]) =>
         <Button key={label} variant="secondary" onClick={() => navigate(view, focus)}>{label}</Button>)}
       <Button variant="plain" onClick={() => navigate("ayuda")}>Guía del rubro</Button>
     </div>

@@ -8,6 +8,7 @@ import { Alert, Button, Card, DataTable, SelectField, TextField } from "../ui/Pr
 type Schema = components["schemas"];
 type ContainerInfo = Schema["ContainerInfo"];
 type ContainerInput = Schema["ContainerInput"];
+type ContainerObligation = Schema["ContainerObligation"];
 export type ContainerDraft = Record<string, { delivered: string; returned: string }>;
 const empty = { delivered: "", returned: "" };
 
@@ -63,7 +64,7 @@ export function ContainerFields({ balances, draft, update, disabled, customer }:
   </div>;
 }
 
-export function ContainersPage() {
+export function ContainersPage({ initial }: { initial?: string }) {
   const { showDocument } = useCommerce();
   const [setup, setSetup] = useState<ContainerInfo | "new">();
   const [customer, setCustomer] = useState<{ id: string; name: string }>();
@@ -73,6 +74,7 @@ export function ContainersPage() {
   const balances = useContainerBalances(true, customer?.id);
   const clients = useCommerceData<Page<Customer>>("/customers?" + new URLSearchParams({ search, page: String(page) }));
   const pending = prepareContainerMoves(draft, balances.data, customer?.id);
+  const [openObligations, setOpenObligations] = useState(initial === "pending");
   const form = useCommercialForm();
 
   return <div className="commerce-stack">
@@ -84,8 +86,21 @@ export function ContainersPage() {
           <Button variant="secondary" onClick={() => setSetup(row)}>Añadir existencias</Button>] }))} /> : <LoadFeedback {...balances} />}
     </Card>
     <Card>
+      <div className="page-heading">
+        <h2>Envases pendientes por cliente</h2>
+        <Button variant="secondary" aria-expanded={openObligations} onClick={() => setOpenObligations(!openObligations)}>
+          {openObligations ? "Ocultar pendientes" : "Ver pendientes"}
+        </Button>
+      </div>
+      {openObligations && <ContainerObligations onSelect={(id, name) => {
+        setCustomer({ id, name });
+        setDraft({});
+        document.getElementById("container-movement-client")?.focus();
+      }} />}
+    </Card>
+    <Card>
       <SearchForm label="Buscar cliente por nombre o teléfono" onSearch={(value) => { setSearch(value); setPage(1); }} />
-      <SelectField label="Cliente del movimiento" value={customer?.id ?? ""} onChange={(event) => {
+      <SelectField id="container-movement-client" label="Cliente del movimiento" value={customer?.id ?? ""} onChange={(event) => {
         const found = clients.data?.items.find((row) => row.id === event.target.value);
         setCustomer(found ? { id: found.id, name: found.name } : undefined); setDraft({});
       }}>
@@ -107,6 +122,22 @@ export function ContainersPage() {
       <ContainerFields balances={balances} draft={draft} update={setDraft} disabled={form.blocked} customer={customer?.id} />
     </OperationForm>
   </div>;
+}
+
+function ContainerObligations({ onSelect }: { onSelect: (id: string, name: string) => void }) {
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const result = useCommerceData<Page<ContainerObligation>>("/container-obligations?" + new URLSearchParams({ search, page: String(page) }));
+  return <>
+    <SearchForm label="Buscar pendientes por cliente" onSearch={(value) => { setSearch(value); setPage(1); }} />
+    {!result.data ? <LoadFeedback {...result} /> : !result.data.items.length ? <p>No hay envases pendientes para esa búsqueda.</p> :
+      <DataTable caption="Préstamos pendientes" columns={["Cliente", "Envase", "Cantidad por devolver", "Acción"]}
+        rows={result.data.items.map((row) => ({ id: row.customerId + ":" + row.typeId, cells: [
+          row.customerName, row.containerName, row.quantity,
+          <Button variant="secondary" onClick={() => onSelect(row.customerId, row.customerName)}>Registrar devolución</Button>,
+        ] }))} />}
+    <Pages index={page} hasMore={result.data?.hasMore} onChange={setPage} />
+  </>;
 }
 
 function ContainerStock({ type, close }: { type?: ContainerInfo; close: () => void }) {

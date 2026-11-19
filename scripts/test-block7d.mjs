@@ -124,6 +124,19 @@ try {
   assert.deepEqual(await post(beauty, sameCharge), salonSale);
   await post(beauty, charge(await read(beauty, first), [line(haircut, 1, 3500)]), 409);
   assert.equal((await document(beauty, salonSale)).work.id, first);
+  const scheduled = (await create(beauty, users.beauty, { ...appointment, startMinute: 760, title: "Cita a cancelar" })).entityId;
+  const toCancel = await read(beauty, scheduled);
+  const cancellation = { operationId: randomUUID(), kind: "advance-work", workState: "cancelled",
+    workLink: link(toCancel), note: "La clienta pidió otro día" };
+  const scope = beauty.split("/").at(-2);
+  await post(beauty, cancellation, 422);
+  await request("/api/v1/security/proof", 200, "POST", { id: cancellation.operationId, businessId: scope,
+    purpose: "correction", command: cancellation, reason: cancellation.note, password });
+  await post(beauty, cancellation);
+  assert.equal((await read(beauty, scheduled)).details.statusNote, cancellation.note);
+  assert.equal((await request(beauty + "/work?filter=cancelled&search=Cita", 200)).items[0].id, scheduled);
+  assert.equal((await request(beauty + "/work?filter=today&search=Cita+a+cancelar", 200)).items.length, 0);
+  await create(beauty, users.beauty, { ...appointment, startMinute: 760, title: "Horario recuperado" });
   const walkIn = await sell(beauty, [line(haircut, 1, 3500)]);
   const walkInDoc = await document(beauty, walkIn);
   assert.equal(walkInDoc.work, null);
@@ -204,7 +217,16 @@ try {
   await edit(repair, withReceipt, { details: { ...withReceipt.details, fault: "Otro texto", diagnosis: "Batería agotada" } });
   await advance(repair, repairId, "diagnosed");
   await advance(repair, repairId, "approved");
-  await advance(repair, repairId, "working");
+  const inProgress = await advance(repair, repairId, "working");
+  const waiting = { kind: "advance-work", workState: "waiting-parts", workLink: link(inProgress) };
+  await post(repair, waiting, 400);
+  await post(repair, { ...waiting, note: "Batería por recibir" });
+  const workWait = await read(repair, repairId);
+  assert.equal(workWait.details.statusNote, "Batería por recibir");
+  assert.equal((await request(repair + "/work?filter=waiting-parts&search=teléfono", 200)).items[0].id, repairId);
+  assert.equal((await request(repair + "/work-attention", 200)).waitingParts, 1);
+  await post(repair, { kind: "advance-work", workState: "ready", workLink: link(workWait) }, 409);
+  assert.equal((await advance(repair, repairId, "working")).details.statusNote ?? null, null);
   const repaired = await advance(repair, repairId, "ready");
   const repairedSale = await post(repair, charge(repaired, [line(fix, 1, 9000), line(spare, 1, 5000)]));
   const returned = await advance(repair, repairId, "delivered");

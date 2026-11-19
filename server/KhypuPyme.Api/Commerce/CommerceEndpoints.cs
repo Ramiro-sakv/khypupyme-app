@@ -49,15 +49,19 @@ internal static class CommerceEndpoints
             Found(await store.SerialAsync(serial, ct))).Produces<UnitHistory>();
         reads.MapGet("/attention", (StoreReads store, CancellationToken ct) =>
             store.AttentionAsync(ct)).Produces<StoreAttention>();
-        reads.MapGet("/deliveries", (int? page, KhypuPymeDbContext db, CancellationToken ct) =>
-            CommerceReads.PageAsync(FurnitureDeliveries.Query(db), page, ct))
+        reads.MapGet("/deliveries", (int? page, string? filter, string? mode, string? search, KhypuPymeDbContext db, TimeProvider clock, CancellationToken ct) =>
+            FurnitureDeliveries.ListAsync(db, filter, mode, search, LocalDate(clock.GetUtcNow()), page, ct))
             .Produces<CommercePage<DeliveryInfo>>();
-        reads.MapGet("/work", (DateOnly? day, string? filter, int? page, KhypuPymeDbContext db, TimeProvider clock, CancellationToken ct) =>
-            WorkQueries.ListAsync(db, day, filter, LocalDate(clock.GetUtcNow()), page, ct)).Produces<CommercePage<WorkInfo>>();
+        reads.MapGet("/delivery-attention", (KhypuPymeDbContext db, TimeProvider clock, CancellationToken ct) =>
+            FurnitureDeliveries.AttentionAsync(db, LocalDate(clock.GetUtcNow()), ct)).Produces<DeliveryAttention>();
+        reads.MapGet("/work", (DateOnly? day, string? filter, string? search, int? page, KhypuPymeDbContext db, TimeProvider clock, CancellationToken ct) =>
+            WorkQueries.ListAsync(db, day, filter, search, LocalDate(clock.GetUtcNow()), page, ct)).Produces<CommercePage<WorkInfo>>();
         reads.MapGet("/work/{id:guid}", async (Guid id, KhypuPymeDbContext db, CancellationToken ct) =>
             Found(await WorkQueries.FindAsync(db, id, ct))).Produces<WorkInfo>();
         reads.MapGet("/work-attention", (KhypuPymeDbContext db, TimeProvider clock, CancellationToken ct) =>
             WorkQueries.AttentionAsync(db, LocalDate(clock.GetUtcNow()), ct)).Produces<WorkAttention>();
+        reads.MapGet("/container-obligations", (string? search, int? page, KhypuPymeDbContext db, CancellationToken ct) =>
+            ContainerService.ObligationsAsync(db, search, page, ct)).Produces<CommercePage<ContainerObligation>>();
         reads.MapGet("/containers", async (Guid? customer, KhypuPymeDbContext db, CancellationToken ct) =>
         {
             if (customer is Guid id && !await db.Set<Customer>().AnyAsync(x => x.Id == id, ct))

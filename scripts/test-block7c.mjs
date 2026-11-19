@@ -106,8 +106,14 @@ try {
   await post(furniture, { kind: "schedule-delivery", sourceId: secondSale.entityId, delivery: { mode: "pickup", day: today } });
   await post(furniture, { kind: "prepare-delivery", sourceId: secondSale.entityId });
   assert.equal((await document(furniture, secondSale)).delivery.preparedOn, today);
+  assert.equal((await request(furniture + "/deliveries?filter=prepared&mode=pickup", 200)).items[0].saleId, secondSale.entityId);
+  assert.equal((await request(otherFurniture + "/deliveries?filter=today", 200)).items.length, 0);
+  assert.equal((await request(furniture + "/deliveries?filter=completed&search=Calle", 200)).items[0].saleId, sale.entityId);
+  assert.deepEqual(await request(furniture + "/delivery-attention", 200), { today: 1, overdue: 0, pending: 1, prepared: 1 });
   await post(furniture, { kind: "cancel-delivery", sourceId: secondSale.entityId, note: "El cliente cambió el retiro" });
   assert.equal((await document(furniture, secondSale)).delivery.cancelledOn, today);
+  assert.equal((await request(furniture + "/deliveries?filter=pending", 200)).items.length, 0);
+  assert.equal((await request(furniture + "/deliveries?filter=cancelled", 200)).items[0].saleId, secondSale.entityId);
   await post(furniture, { kind: "delivery-receipt", sourceId: secondSale.entityId }, 409);
   await post(furniture, { kind: "complete-delivery", sourceId: secondSale.entityId }, 409);
   assert.equal((await product(furniture, desk)).stock, 2);

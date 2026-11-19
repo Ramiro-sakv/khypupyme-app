@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { components } from "../api/schema";
 import { useCommerce, useCommerceData } from "../commerce/CommerceContext";
-import { CommerceHeading, LoadFeedback, OperationForm, Pages, useCommercialForm } from "../commerce/CommerceUi";
+import { CommerceHeading, LoadFeedback, OperationForm, Pages, SearchForm, useCommercialForm } from "../commerce/CommerceUi";
 import { dateLabel } from "../commerce/models";
 import type { EntryDocument, Page } from "../commerce/models";
 import { Alert, Button, Card, DataTable, SelectField, TextField } from "../ui/Primitives";
@@ -11,18 +11,35 @@ const modeLabel = (mode: string) => mode === "pickup" ? "Retiro" : "Entrega";
 const statusLabel = (row: Delivery) => row.cancelledOn ? "Cancelada" : row.completedOn ? "Completada" : row.preparedOn ? "Preparada" : "Programada";
 const today = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "America/La_Paz" }).format(new Date());
 
-export function DeliveriesPage() {
+const deliveryFilters = { pending: "Pendientes", today: "Para hoy", overdue: "Atrasadas", prepared: "Preparadas",
+  completed: "Completadas", cancelled: "Canceladas" };
+
+export function DeliveriesPage({ initial }: { initial?: string }) {
   const { showDocument } = useCommerce();
   const [page, setPage] = useState(1);
-  const result = useCommerceData<Page<Delivery>>("/deliveries?page=" + page);
+  const [filter, setFilter] = useState(initial && Object.hasOwn(deliveryFilters, initial) ? initial : "");
+  const [mode, setMode] = useState("");
+  const [search, setSearch] = useState("");
+  const result = useCommerceData<Page<Delivery>>("/deliveries?" + new URLSearchParams({ page: String(page), filter, mode, search }));
   return <div className="commerce-stack">
     <CommerceHeading title="Retiros y entregas" />
     <Card>
+      <div className="inventory-controls">
+        <SearchForm label="Buscar venta, cliente o dirección" onSearch={(value) => { setSearch(value); setPage(1); }} />
+        <SelectField label="Estado del despacho" value={filter} onChange={(event) => { setFilter(event.target.value); setPage(1); }}>
+          <option value="">Todos</option>
+          {Object.entries(deliveryFilters).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </SelectField>
+        <SelectField label="Modalidad" value={mode} onChange={(event) => { setMode(event.target.value); setPage(1); }}>
+          <option value="">Todas</option><option value="pickup">Retiro</option><option value="delivery">Entrega</option>
+        </SelectField>
+      </div>
       {result.data ? <DataTable caption="Retiros y entregas" columns={["Venta", "Cliente", "Modalidad", "Fecha", "Estado", "Acción"]}
         rows={result.data.items.map((row) => ({ id: row.saleId, cells: [row.number, row.customerName ?? "—", modeLabel(row.mode),
-          dateLabel(row.day), statusLabel(row), <Button variant="secondary" onClick={() => showDocument(row.saleId)}>Abrir venta</Button>] }))} />
+          <>{dateLabel(row.day)}{row.address && <small className="record-secondary">{row.address}</small>}</>,
+          statusLabel(row), <Button variant="secondary" onClick={() => showDocument(row.saleId)}>Abrir venta</Button>] }))} />
         : <LoadFeedback {...result} />}
-      {result.data?.items.length === 0 && <p>Programa el retiro o la entrega desde una venta confirmada.</p>}
+      {result.data?.items.length === 0 && <p>{filter || mode || search ? "No hay despachos que coincidan con estos filtros." : "Programa el retiro o la entrega desde una venta confirmada."}</p>}
       <Pages index={page} hasMore={result.data?.hasMore} onChange={setPage} />
     </Card>
   </div>;

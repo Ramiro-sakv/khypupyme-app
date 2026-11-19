@@ -22,7 +22,7 @@ export function Warehouse({ industry, focus, open, openBags }: {
 }) {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(focus && Object.hasOwn(states, focus) ? focus : "");
   const measured = measuredIndustry(industry);
   const [attention, setAttention] = useState(measured && focus && ["reorder", "expiring", "expired", "held"].includes(focus) ? focus : "");
   const [vehicle, setVehicle] = useState(emptyVehicle);

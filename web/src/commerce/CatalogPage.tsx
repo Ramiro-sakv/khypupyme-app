@@ -25,7 +25,7 @@ export function CatalogPage({ units, industry, focus, onStockIn, lotAlertDays = 
 }) {
   const { showDocument, readOnly, practice } = useCommerce();
   const hasWarehouse = !practice;
-  const [catalog, setCatalog] = useState(false);
+  const [catalog, setCatalog] = useState(focus === "catalog");
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("true");
@@ -35,7 +35,7 @@ export function CatalogPage({ units, industry, focus, onStockIn, lotAlertDays = 
   const [stock, setStock] = useState<Product>();
   const [opening, setOpening] = useState<Product>();
   const [correction, setCorrection] = useState<{ product: Product; lot: Lot }>();
-  const [filter, setFilter] = useState(focus ?? "");
+  const [filter, setFilter] = useState(focus && ["reorder", "expiring", "expired", "held"].includes(focus) ? focus : "");
   const [vehicle, setVehicle] = useState(emptyVehicle);
   const data = useCommerceData<Page<Product>>(!hasWarehouse || catalog ? "/products?" + new URLSearchParams({ page: String(page), search,
     ...(status ? { active: status } : {}), ...(filter ? { attention: filter } : {}), ...(industry === "spareParts" ? vehicleQuery(vehicle) : {}) }) : null);

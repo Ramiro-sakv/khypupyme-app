@@ -9,6 +9,8 @@ public sealed record DeliveryInput(string Mode, DateOnly Day, string? Address = 
 public sealed record DeliveryInfo(Guid SaleId, string Number, string? CustomerName, string Mode,
     DateOnly Day, string? Address, DateOnly? CompletedOn, DateOnly? PreparedOn, DateOnly? CancelledOn);
 
+public sealed record DeliveryAttention(int Today, int Overdue, int Pending, int Prepared);
+
 internal sealed class FurnitureDelivery : IBusinessRecord
 {
     public Guid BusinessId { get; init; }
@@ -85,16 +87,70 @@ internal sealed class FurnitureDeliveries(CommerceTransaction work)
         return sale.Id;
     }
 
-    public static IQueryable<DeliveryInfo> Query(KhypuPymeDbContext db, Guid? saleId = null)
+    public static Task<CommercePage<DeliveryInfo>> ListAsync(KhypuPymeDbContext db, string? filter, string? mode,
+        string? search, DateOnly today, int? page, CancellationToken ct)
     {
-        var deliveries = db.Set<FurnitureDelivery>().AsNoTracking();
-        var entries = db.Set<Entry>().AsNoTracking();
-        if (saleId is Guid id) deliveries = deliveries.Where(row => row.SaleId == id);
-        return from row in deliveries
-               join sale in db.Set<Entry>().AsNoTracking() on new { row.BusinessId, Id = row.SaleId } equals new { sale.BusinessId, sale.Id }
-               orderby row.CompletedOn != null, row.Day, row.SaleId
-               select new DeliveryInfo(row.SaleId, sale.Number, sale.CustomerName, row.Mode, row.Day, row.Address, row.CompletedOn,
-                   entries.Where(x => x.SourceId == row.SaleId && x.Kind == "prepare-delivery").Select(x => (DateOnly?)x.Date).FirstOrDefault(),
-                   entries.Where(x => x.SourceId == row.SaleId && x.Kind == "cancel-delivery").Select(x => (DateOnly?)x.Date).FirstOrDefault());
+        var rows = Rows(db);
+        var active = Pending(rows);
+        rows = filter switch
+        {
+            null or "" => rows,
+            "pending" => active,
+            "today" => active.Where(x => x.Delivery.Day == today),
+            "overdue" => active.Where(x => x.Delivery.Day < today),
+            "prepared" => active.Where(x => x.PreparedOn != null),
+            "completed" => rows.Where(x => x.Delivery.CompletedOn != null),
+            "cancelled" => rows.Where(x => x.CancelledOn != null),
+            _ => throw new CommerceFailure("Selecciona un estado de entrega válido."),
+        };
+        if (mode is not (null or "" or "pickup" or "delivery"))
+            throw new CommerceFailure("Selecciona retiro o entrega.");
+        if (!string.IsNullOrEmpty(mode)) rows = rows.Where(x => x.Delivery.Mode == mode);
+        var term = CommerceReads.Search(search);
+        if (term is not null)
+            rows = rows.Where(x => EF.Functions.ILike(x.Sale.Number, term, "\\") ||
+                x.Sale.CustomerName != null && EF.Functions.ILike(x.Sale.CustomerName, term, "\\") ||
+                x.Delivery.Address != null && EF.Functions.ILike(x.Delivery.Address, term, "\\"));
+        return CommerceReads.PageAsync(Describe(rows), page, ct);
     }
+
+    public static async Task<DeliveryAttention> AttentionAsync(KhypuPymeDbContext db, DateOnly today, CancellationToken ct) =>
+        await Pending(Rows(db)).GroupBy(_ => 1)
+            .Select(group => new DeliveryAttention(group.Count(x => x.Delivery.Day == today), group.Count(x => x.Delivery.Day < today),
+                group.Count(), group.Count(x => x.PreparedOn != null))).SingleOrDefaultAsync(ct) ?? new(0, 0, 0, 0);
+
+    public static IQueryable<DeliveryInfo> Query(KhypuPymeDbContext db, Guid saleId) =>
+        Describe(Rows(db).Where(x => x.Delivery.SaleId == saleId));
+
+    private static IQueryable<DeliveryRow> Pending(IQueryable<DeliveryRow> rows) =>
+        rows.Where(x => x.Delivery.CompletedOn == null && x.CancelledOn == null);
+
+    private sealed class DeliveryRow
+    {
+        public required FurnitureDelivery Delivery { get; init; }
+        public required Entry Sale { get; init; }
+        public DateOnly? PreparedOn { get; init; }
+        public DateOnly? CancelledOn { get; init; }
+    }
+
+    private static IQueryable<DeliveryRow> Rows(KhypuPymeDbContext db)
+    {
+        var entries = db.Set<Entry>().AsNoTracking();
+        return from row in db.Set<FurnitureDelivery>().AsNoTracking()
+               join sale in entries on new { row.BusinessId, Id = row.SaleId } equals new { sale.BusinessId, sale.Id }
+               select new DeliveryRow
+               {
+                   Delivery = row,
+                   Sale = sale,
+                   PreparedOn = entries.Where(x => x.BusinessId == row.BusinessId && x.SourceId == row.SaleId && x.Kind == "prepare-delivery")
+                       .Select(x => (DateOnly?)x.Date).FirstOrDefault(),
+                   CancelledOn = entries.Where(x => x.BusinessId == row.BusinessId && x.SourceId == row.SaleId && x.Kind == "cancel-delivery")
+                       .Select(x => (DateOnly?)x.Date).FirstOrDefault(),
+               };
+    }
+
+    private static IQueryable<DeliveryInfo> Describe(IQueryable<DeliveryRow> rows) =>
+        rows.OrderBy(x => x.Delivery.CompletedOn != null).ThenBy(x => x.Delivery.Day).ThenBy(x => x.Delivery.SaleId)
+            .Select(x => new DeliveryInfo(x.Delivery.SaleId, x.Sale.Number, x.Sale.CustomerName, x.Delivery.Mode, x.Delivery.Day,
+                x.Delivery.Address, x.Delivery.CompletedOn, x.PreparedOn, x.CancelledOn));
 }

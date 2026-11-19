@@ -11,6 +11,7 @@ internal static class CorrectionAudit
     {
         "return" or "exchange" or "void-expense" or "void-debt" or "cash-adjust" or "stock-in" or "stock-loss" or "inspection" or "hold-lot" or "release-lot" or
             "discard-lot" or "open-cement" or "configure-business" => true,
+        "advance-work" => command.WorkState == "cancelled",
         "product" or "customer" => command.EntityId is not null,
         _ => false,
     };

@@ -25,7 +25,7 @@ public sealed record SerialInfo(string Serial, Guid ProductId, string ProductNam
 public sealed record SerialMovement(string Kind, Guid EntryId, string Number, DateOnly Date, string Note, DateOnly? WarrantyUntil,
     Guid? SourceId);
 public sealed record UnitHistory(SerialInfo Unit, SerialMovement[] Movements);
-public sealed record StoreAttention(int Reorder, int Expiring, int Inspections);
+public sealed record StoreAttention(int Reorder, int Expiring, int Inspections, int Expired, int Held);
 
 internal sealed class RetailLot : IBusinessRecord
 {

@@ -122,6 +122,13 @@ try {
   assert.equal((await supply())[0].customerBalance, 10);
   await post(beverages, { kind: "containers", customerId, containers: moves(0, 3) });
   assert.equal((await supply())[0].customerBalance, 7);
+  const pendingContainers = await request(beverages + "/container-obligations", 200);
+  assert.deepEqual(pendingContainers.items.map((row) => [row.customerId, row.quantity]), [[customerId, 7]]);
+  assert.equal((await request(beverages + "/container-obligations?search=no-coincide", 200)).items.length, 0);
+  assert.equal((await request(grocery + "/container-obligations", 200)).items.length, 0);
+  const groceryAttention = await request(grocery + "/attention", 200);
+  assert.equal(groceryAttention.expired, 1);
+  assert.equal(groceryAttention.expiring, 1);
   assert.equal((await supply())[0].available, 3);
   assert.equal((await request(beverages + "/report", 200)).totals.salesMinor, 5200);
   assert.equal((await request(grocery + "/containers", 200)).length, 0);
@@ -145,6 +152,7 @@ try {
   assert.equal((await document(cosmetics, hold)).note, "Revisar empaque");
   assert.equal((await request(cosmetics + "/lots/" + makeup, 200)).items[0].held, true);
   assert.equal((await request(cosmetics + "/warehouse?status=unavailable&attention=held", 200)).items[0].product.id, makeup);
+  assert.equal((await request(cosmetics + "/attention", 200)).held, 1);
   await sell(cosmetics, [measured(makeup, "1", "piece", 4000)], 409);
   await correct("release-lot", "Empaque revisado");
   assert.equal((await product(cosmetics, makeup)).sellableStock, 3);

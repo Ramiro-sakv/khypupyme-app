@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { VariantBatch } from "../retail/VariantBatch";
 import { Button, Card, DataTable, SelectField, TextField } from "../ui/Primitives";
 import { useCommerce, useCommerceData } from "./CommerceContext";
 import { CommerceHeading, LoadFeedback, NoRecords, OperationForm, Pages, SearchForm, useCommercialForm } from "./CommerceUi";
@@ -16,11 +17,14 @@ import { initialMaterials, MaterialFields, materialCommand } from "../retail/Mat
 import { workNavigation } from "../services/work";
 import { CompatibilityFilter, emptyVehicle, initialSpecialty, searchLabel, SpecialtyFields, specialtyCommand, SpecialtySummary, vehicleQuery } from "../retail/SpecialtyFields";
 
-export function CatalogPage({ units, industry, focus }: { units?: TimberUnits; industry?: string; focus?: string }) {
-  const { showDocument } = useCommerce();
+export function CatalogPage({ units, industry, focus, onStockIn }: {
+  units?: TimberUnits; industry?: string; focus?: string; onStockIn?: () => void;
+}) {
+  const { showDocument, readOnly } = useCommerce();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<Product | "new" | null>(null);
+  const [variants, setVariants] = useState(false);
   const [loss, setLoss] = useState<{ product: Product; row?: StockRow; lot?: Lot }>();
   const [stock, setStock] = useState<Product>();
   const [opening, setOpening] = useState<Product>();
@@ -32,8 +36,15 @@ export function CatalogPage({ units, industry, focus }: { units?: TimberUnits; i
 
   return <div className="commerce-stack">
     <CommerceHeading title="Catálogo">
-      <Button icon="plus" onClick={() => { setLoss(undefined); setStock(undefined); setEditing("new"); }}>Nuevo producto</Button>
+      <div className="inline-actions">
+        {onStockIn && <Button variant="secondary" icon="parcel" onClick={onStockIn}>Entrada manual</Button>}
+        {!readOnly && (industry === "clothing" || industry === "footwear") && <Button variant="secondary" icon="clothing" onClick={() => {
+          setEditing(null); setStock(undefined); setLoss(undefined); setVariants(true);
+        }}>Crear variantes juntas</Button>}
+        {!readOnly && <Button icon="plus" onClick={() => { setVariants(false); setLoss(undefined); setStock(undefined); setEditing("new"); }}>Nuevo producto</Button>}
+      </div>
     </CommerceHeading>
+    {variants && <VariantBatch close={() => setVariants(false)} />}
     {editing && <ProductEditor key={editing === "new" ? "new" : editing.id}
       product={editing === "new" ? undefined : editing} timberIndustry={units !== undefined} industry={industry} onClose={() => setEditing(null)} />}
     {loss && <LossEditor key={loss.product.id + (loss.lot?.lot ?? "")} product={loss.product} timber={loss.row?.timber} available={loss.row?.stock} lot={loss.lot}
@@ -44,7 +55,8 @@ export function CatalogPage({ units, industry, focus }: { units?: TimberUnits; i
     {stock && units && <Card>
       <div className="page-heading"><div><h2>{stock.name}</h2><p>{stock.timber?.species} · {stock.code}</p></div>
         <Button variant="secondary" onClick={() => setStock(undefined)}>Cerrar existencias</Button></div>
-      <TimberStockTable key={stock.id} product={stock} units={units} />
+      <p>Total del producto · {stock.stock} piezas · {bob(stock.valueMinor)} a costo</p>
+      <TimberStockTable key={stock.id} product={stock} units={units} detailed />
       {stock.active && <details><summary>Seleccionar medida para registrar una pérdida</summary>
         <TimberStockTable key={stock.id + ":loss"} product={stock} units={units} pick={(row) => setLoss({ product: stock, row })} />
       </details>}
@@ -131,9 +143,10 @@ function ProductEditor({ product, timberIndustry, industry, onClose }: { product
           ...specialtyCommand(industry, setup.kind === "stationery", specialty), ...materialCommand(industry, setup.kind, materials) };
       }, onClose);
     }}>
-    {timberIndustry && !product && <SelectField label="Tipo de producto" value={timber ? "timber" : "piece"}
-      onChange={(event) => setTimber(event.target.value === "timber")}>
+    {timberIndustry && !product && <SelectField label="Tipo de producto" value={timber ? "timber" : isService ? "service" : "piece"}
+      onChange={(event) => { setTimber(event.target.value === "timber"); setIsService(event.target.value === "service"); }}>
       <option value="timber">Madera por medidas</option><option value="piece">Producto por pieza</option>
+      <option value="service">Servicio de corte sin existencias</option>
     </SelectField>}
     {industry && workNavigation[industry] && <SelectField label="Tipo de ficha" value={isService ? "service" : "item"} disabled={!!product}
       onChange={(event) => setIsService(event.target.value === "service")}>

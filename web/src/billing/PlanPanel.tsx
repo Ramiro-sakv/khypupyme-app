@@ -7,6 +7,7 @@ import { bob, timestamp } from "../commerce/models";
 import { Icon } from "../ui/Icon";
 import { Alert, Button, Card } from "../ui/Primitives";
 import type { PlanStatus } from "./PlanGate";
+import planPhoto from "../assets/planes-khypupyme.jpg";
 
 type Plan = components["schemas"]["PlanOption"];
 type Payment = components["schemas"]["PaymentInfo"];
@@ -82,6 +83,7 @@ export function PlanPanel({ business, path, status, error, reload, back, enter, 
         <p>{active && status?.accessUntil ? "Acceso vigente hasta " + timestamp(status.accessUntil) :
           status?.accessUntil ? "Último vencimiento · " + timestamp(status.accessUntil) : "Elige el acceso para este negocio."}</p>
       </div>
+      <img className="plan-photo" src={planPhoto} alt="" />
     </header>
     <div className="inline-actions plan-navigation">
       <Button icon="back" variant="secondary" onClick={back}>Volver a mis negocios</Button>

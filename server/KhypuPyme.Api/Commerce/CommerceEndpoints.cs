@@ -55,18 +55,21 @@ internal static class CommerceEndpoints
                 throw new CommerceFailure("El cliente no está disponible en este negocio.", 404);
             return await ContainerService.ListAsync(customer, db, ct);
         }).Produces<ContainerInfo[]>();
-        reads.MapGet("/timber-stock/{id:guid}", (Guid id, long? length, long? thickness, long? width, string? widths, int? page,
-            CommerceReads service, CancellationToken ct) => service.TimberStockAsync(id, length, thickness, width, widths, page, ct))
+        reads.MapGet("/timber-stock/{id:guid}", (Guid id, long? length, long? thickness, long? width, string? widths,
+            string? category, int? page, CommerceReads service, CancellationToken ct) =>
+            service.TimberStockAsync(id, length, thickness, width, widths, category, page, ct))
             .Produces<CommercePage<TimberStockInfo>>();
         reads.MapGet("/customers", (string? search, int? page, CommerceReads service, CancellationToken ct) =>
             service.CustomersAsync(search, page, ct)).Produces<CommercePage<CustomerInfo>>();
         reads.MapGet("/customers/{id:guid}", async (Guid id, CommerceReads service, CancellationToken ct) =>
             Found(await service.CustomerAsync(id, ct))).Produces<CustomerInfo>();
-        reads.MapGet("/history", (string? kind, Guid? cashSession, int? page, CommerceReads service, CancellationToken ct) =>
-            service.HistoryAsync(kind, cashSession, page, ct)).Produces<CommercePage<EntryInfo>>();
+        reads.MapGet("/history", (string? kind, Guid? cashSession, DateOnly? from, DateOnly? to, string? search,
+            int? page, CommerceReads service, CancellationToken ct) =>
+            service.HistoryAsync(kind, cashSession, from, to, search, page, ct)).Produces<CommercePage<EntryInfo>>();
         reads.MapGet("/documents/{id:guid}", async (Guid id, CommerceReads service, CancellationToken ct) =>
             Found(await service.DocumentAsync(id, ct))).Produces<EntryDocument>();
         reads.MapGet("/cash", (CommerceReads service, CancellationToken ct) => service.CashAsync(ct)).Produces<CashStatus>();
+        reads.MapGet("/setup", (CommerceReads service, CancellationToken ct) => service.SetupAsync(ct)).Produces<SetupStatus>();
         reads.MapGet("/debts", (bool? paid, int? page, CommerceReads service, CancellationToken ct) =>
             service.DebtsAsync(paid, page, ct)).Produces<CommercePage<ReceivableInfo>>();
         reads.MapGet("/report", (DateOnly? from, DateOnly? to, CommerceReads service, CancellationToken ct) =>

@@ -12,6 +12,11 @@ internal sealed class CommerceReads(KhypuPymeDbContext db, TimeProvider clock, S
     private const int PageSize = 20;
     private IQueryable<Entry> Entries => db.Set<Entry>().AsNoTracking();
 
+    public async Task<SetupStatus> SetupAsync(CancellationToken ct) => new(
+        await db.Set<CashSession>().AnyAsync(ct),
+        await db.Set<Product>().AnyAsync(x => x.Active, ct),
+        await Entries.AnyAsync(x => x.Kind == "sale", ct));
+
     public Task<CommercePage<ProductInfo>> ProductsAsync(string? search, bool? active, string? attention,
         string? vehicleBrand, string? vehicleModel, int? year, bool? service, int? page, CancellationToken ct)
     {
@@ -41,9 +46,16 @@ internal sealed class CommerceReads(KhypuPymeDbContext db, TimeProvider clock, S
         store.Describe(db.Set<Product>().AsNoTracking().Where(x => x.Id == id)).SingleOrDefaultAsync(ct);
 
     public Task<CommercePage<TimberStockInfo>> TimberStockAsync(Guid productId, long? length, long? thickness, long? width,
-        string? widths, int? page, CancellationToken ct)
+        string? widths, string? category, int? page, CancellationToken ct)
     {
         var query = db.Set<TimberStock>().AsNoTracking().Where(x => x.ProductId == productId && x.Stock > 0);
+        (int Min, int Max) range = category switch
+        {
+            null or "" => (1, 20), "super-short" => (1, 2), "short" => (3, 6), "long" => (7, 20),
+            _ => throw new CommerceFailure("Elige una categoría de largo válida.")
+        };
+        if (category is not null and not "")
+            query = query.Where(x => x.LengthMicros >= range.Min * TimberMeasures.Foot && x.LengthMicros <= range.Max * TimberMeasures.Foot);
         if (length is not null) query = query.Where(x => x.LengthMicros == length);
         if (thickness is not null) query = query.Where(x => x.ThicknessMicros == thickness);
         if (width is not null) query = query.Where(x => x.WidthMicros == width);
@@ -73,12 +85,24 @@ internal sealed class CommerceReads(KhypuPymeDbContext db, TimeProvider clock, S
         db.Set<Customer>().AsNoTracking().Where(x => x.Id == id).Select(x => new CustomerInfo(x.Id, x.Name, x.Phone))
             .SingleOrDefaultAsync(ct);
 
-    public Task<CommercePage<EntryInfo>> HistoryAsync(string? kind, Guid? cashSession, int? page, CancellationToken ct)
+    public Task<CommercePage<EntryInfo>> HistoryAsync(string? kind, Guid? cashSession, DateOnly? from, DateOnly? to,
+        string? search, int? page, CancellationToken ct)
     {
+        if (from > to) throw new CommerceFailure("La fecha inicial debe ser anterior o igual a la final.");
+        var term = Search(search);
         var query = Entries;
         if (kind == "expenses") query = query.Where(x => x.Kind == "expense" || x.Kind == "void-expense");
+        else if (kind == "documents") query = query.Where(x => x.Kind == "sale" || x.Kind == "purchase" || x.Kind == "quote" ||
+            x.Kind == "return" || x.Kind == "exchange" || x.Kind == "collect" || x.Kind == "close-cash" || x.Kind == "repair-receipt" ||
+            x.Kind == "cash-adjust" || x.Kind == "stock-in" || x.Kind == "manual-debt" || x.Kind == "void-debt" ||
+            x.Kind == "warranty" || x.Kind == "prepare-delivery" || x.Kind == "cancel-delivery" ||
+            x.Kind == "delivery-receipt" || x.Kind == "work-receipt");
         else if (!string.IsNullOrEmpty(kind)) query = query.Where(x => x.Kind == kind);
         if (cashSession is not null) query = query.Where(x => x.CashSessionId == cashSession);
+        if (from is DateOnly start) query = query.Where(x => x.Date >= start);
+        if (to is DateOnly end) query = query.Where(x => x.Date <= end);
+        if (term is not null) query = query.Where(x => EF.Functions.ILike(x.Number, term, "\\") ||
+            x.CustomerName != null && EF.Functions.ILike(x.CustomerName, term, "\\") || EF.Functions.ILike(x.Note, term, "\\"));
         return PageAsync(query.OrderByDescending(x => x.Sequence).Select(x => new EntryInfo(x.Id, x.Number, x.Kind, x.Date,
             x.Method, x.CustomerName, x.TotalMinor, x.CashDeltaMinor, x.SourceId,
             Entries.Any(next => next.SourceId == x.Id && (next.Kind == "sale" || next.Kind == "void-expense")))), page, ct);
@@ -102,7 +126,7 @@ internal sealed class CommerceReads(KhypuPymeDbContext db, TimeProvider clock, S
             x.Restocked, x.BaseQuantity is null ? (int)returned.GetValueOrDefault(x.LineId) : 0, x.LineId, x.Species, x.Timber,
             LineDetails.Parse(x.DetailsJson), returned.GetValueOrDefault(x.LineId))).ToArray();
 
-        var balance = entry.Kind == "sale" && entry.Method == "credit"
+        var balance = entry.Kind is "manual-debt" || entry.Kind == "sale" && entry.Method == "credit"
             ? await db.Set<Receivable>().Where(x => x.SaleId == id).Select(x => x.BalanceMinor).SingleOrDefaultAsync(ct) : 0;
         var containers = await db.Set<ContainerMovement>().AsNoTracking().Where(x => x.EntryId == id).OrderBy(x => x.Name)
             .Select(x => new ContainerMovementInfo(x.Name, x.Delivered, x.Returned, x.CustomerBalance, x.Available, x.Added)).ToArrayAsync(ct);
@@ -125,7 +149,8 @@ internal sealed class CommerceReads(KhypuPymeDbContext db, TimeProvider clock, S
                     join sale in Entries on new { debt.BusinessId, Id = debt.SaleId } equals new { sale.BusinessId, sale.Id }
                     where paid != true ? debt.BalanceMinor > 0 : debt.BalanceMinor == 0
                     orderby sale.Sequence descending
-                    select new ReceivableInfo(sale.Id, sale.Number, sale.Date, sale.CustomerName!, debt.OriginalMinor, debt.BalanceMinor);
+                    select new ReceivableInfo(sale.Id, sale.Number, sale.Date, sale.CustomerName!, debt.OriginalMinor, debt.BalanceMinor,
+                        sale.Kind == "manual-debt", Entries.Any(x => x.Kind == "void-debt" && x.SourceId == sale.Id));
         return PageAsync(query, page, ct);
     }
 

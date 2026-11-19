@@ -1,4 +1,4 @@
-const sensitive = new Set(["return", "exchange", "void-expense", "stock-loss", "inspection",
+const sensitive = new Set(["return", "exchange", "void-expense", "void-debt", "cash-adjust", "stock-in", "stock-loss", "inspection",
   "hold-lot", "release-lot", "discard-lot", "open-cement"]);
 
 export async function authorizeFixture(base, path, method, body, headers, password, request) {

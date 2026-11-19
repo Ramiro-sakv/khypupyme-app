@@ -8,7 +8,7 @@ import { Alert, Button, Card, DataTable, SelectField, TextField } from "../ui/Pr
 
 type Delivery = components["schemas"]["DeliveryInfo"];
 const modeLabel = (mode: string) => mode === "pickup" ? "Retiro" : "Entrega";
-const statusLabel = (row: Delivery) => row.completedOn ? "Completada" : "Programada";
+const statusLabel = (row: Delivery) => row.cancelledOn ? "Cancelada" : row.completedOn ? "Completada" : row.preparedOn ? "Preparada" : "Programada";
 const today = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "America/La_Paz" }).format(new Date());
 
 export function DeliveriesPage() {
@@ -30,13 +30,20 @@ export function DeliveriesPage() {
 
 export function DeliveryPanel({ document }: { document: EntryDocument }) {
   const [editing, setEditing] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [note, setNote] = useState("");
+  const { readOnly, showDocument } = useCommerce();
   const form = useCommercialForm();
   const delivery = document.delivery;
   return <Card>
     <h2>Retiro o entrega</h2>
     {delivery && <p>{modeLabel(delivery.mode)} · {dateLabel(delivery.day)}{delivery.address && " · " + delivery.address}
       {" · " + statusLabel(delivery)}{delivery.completedOn && " el " + dateLabel(delivery.completedOn)}</p>}
-    {!delivery?.completedOn && <div className="inline-actions">
+    {!readOnly && delivery && !delivery.cancelledOn && <Button variant="plain" disabled={form.blocked || editing || cancelling}
+      onClick={() => void form.submit(() => ({ kind: "delivery-receipt", sourceId: document.id }), (result) => showDocument(result.entityId))}>
+      Emitir constancia de despacho
+    </Button>}
+    {!readOnly && !cancelling && !delivery?.cancelledOn && !delivery?.completedOn && <div className="inline-actions">
       <Button variant="secondary" disabled={editing} onClick={() => setEditing(true)}>
         {delivery ? "Reprogramar" : "Programar retiro o entrega"}
       </Button>
@@ -44,9 +51,20 @@ export function DeliveryPanel({ document }: { document: EntryDocument }) {
         onClick={() => void form.submit(() => ({ kind: "complete-delivery", sourceId: document.id }), () => undefined)}>
         {delivery.mode === "pickup" ? "Completar retiro" : "Completar entrega"}
       </Button>}
+      {delivery && !editing && !delivery.preparedOn && <Button variant="secondary" disabled={form.blocked}
+        onClick={() => void form.submit(() => ({ kind: "prepare-delivery", sourceId: document.id }), () => undefined)}>Marcar preparada</Button>}
+      {delivery && !editing && <Button variant="plain" disabled={form.blocked} onClick={() => setCancelling(true)}>Cancelar entrega</Button>}
     </div>}
     {form.error && <Alert tone="error">{form.error}</Alert>}
     {editing && <DeliveryEditor document={document} close={() => setEditing(false)} />}
+    {cancelling && <OperationForm title="Cancelar entrega" action="Confirmar cancelación"
+      error={form.error} blocked={form.blocked} onClose={() => setCancelling(false)} onSubmit={(event) => {
+        event.preventDefault();
+        void form.submit(() => ({ kind: "cancel-delivery", sourceId: document.id, note }), () => setCancelling(false));
+      }}>
+      <p>La venta y su movimiento de existencias siguen confirmados.</p>
+      <TextField label="Motivo de cancelación" required maxLength={240} value={note} onChange={(event) => setNote(event.target.value)} />
+    </OperationForm>}
   </Card>;
 }
 

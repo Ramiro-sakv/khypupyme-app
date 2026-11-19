@@ -9,7 +9,8 @@ import type { Serial } from "./measures";
 
 type UnitHistory = components["schemas"]["UnitHistory"];
 const states: Record<string, string> = { available: "Disponible", sold: "Vendido", inspection: "En inspección", discarded: "Dado de baja" };
-const movements: Record<string, string> = { released: "Inspección · volvió a existencias", discarded: "Inspección · baja" };
+const movements: Record<string, string> = { released: "Inspección · volvió a existencias", discarded: "Inspección · baja",
+  "warranty-open": "Reclamo de garantía abierto", "warranty-resolved": "Reclamo de garantía resuelto" };
 
 export function SerialHistory({ initial, filter }: { initial?: string; filter?: string }) {
   const [serial, setSerial] = useState(initial ?? "");
@@ -40,8 +41,9 @@ export function SerialHistory({ initial, filter }: { initial?: string; filter?: 
 
 function UnitDetails({ serial, close }: { serial: string; close: () => void }) {
   const data = useCommerceData<UnitHistory>("/serial?" + new URLSearchParams({ serial }));
-  const { showDocument } = useCommerce();
+  const { showDocument, readOnly } = useCommerce();
   const [inspection, setInspection] = useState(false);
+  const [claim, setClaim] = useState<{ saleId: string; code: "open" | "resolved" }>();
   return <Card className="commerce-stack">
     <div className="page-heading"><h2>Serie {serial}</h2><Button variant="plain" onClick={close}>Cerrar historial de la unidad</Button></div>
     {!data.data ? <LoadFeedback {...data} /> : <>
@@ -49,17 +51,40 @@ function UnitDetails({ serial, close }: { serial: string; close: () => void }) {
       {data.data.unit.warrantyUntil && <p>Garantía declarada hasta {dateLabel(data.data.unit.warrantyUntil)}</p>}
       {data.data.unit.state === "inspection" && <>
         <Alert>La unidad está apartada hasta registrar el resultado de la inspección.</Alert>
-        {inspection ? <InspectionEditor serial={serial} close={() => setInspection(false)} /> :
-          <Button onClick={() => setInspection(true)}>Resolver inspección</Button>}
+        {!readOnly && (inspection ? <InspectionEditor serial={serial} close={() => setInspection(false)} /> :
+          <Button onClick={() => setInspection(true)}>Resolver inspección</Button>)}
       </>}
+      {claim && <WarrantyEditor serial={serial} {...claim} close={() => setClaim(undefined)} />}
       <DataTable caption="Movimientos de la unidad" columns={["Fecha", "Operación", "Detalle", "Comprobante"]}
         rows={data.data.movements.map((movement) => ({ id: movement.entryId, cells: [
           dateLabel(movement.date), movements[movement.kind] ?? documentName(movement.kind),
           [movement.note, movement.kind === "sale" && movement.warrantyUntil ? "Garantía hasta " + dateLabel(movement.warrantyUntil) : ""].filter(Boolean).join(" · "),
-          <Button variant="secondary" onClick={() => showDocument(movement.entryId)}>{movement.number}</Button>,
+          <div className="inline-actions">
+            <Button variant="secondary" onClick={() => showDocument(movement.entryId)}>{movement.number}</Button>
+            {!readOnly && movement.kind === "sale" && (() => {
+              const last = data.data?.movements.find((item) => item.sourceId === movement.entryId && item.kind.startsWith("warranty-"));
+              const code = last?.kind === "warranty-open" ? "resolved" : "open";
+              return <Button variant="plain" onClick={() => setClaim({ saleId: movement.entryId, code })}>
+                {code === "open" ? "Registrar reclamo" : "Resolver reclamo"}
+              </Button>;
+            })()}
+          </div>,
         ] }))} />
     </>}
   </Card>;
+}
+
+function WarrantyEditor({ serial, saleId, code, close }: { serial: string; saleId: string; code: "open" | "resolved"; close: () => void }) {
+  const [note, setNote] = useState("");
+  const form = useCommercialForm();
+  return <OperationForm title={code === "open" ? "Registrar reclamo de garantía" : "Resolver reclamo de garantía"}
+    action={code === "open" ? "Registrar reclamo" : "Guardar resolución"} error={form.error} blocked={form.blocked} onClose={close} onSubmit={(event) => {
+      event.preventDefault();
+      void form.submit(() => ({ kind: "warranty", serial, sourceId: saleId, code, note }), close);
+    }}>
+    <TextField label={code === "open" ? "Motivo del reclamo" : "Resolución"} required maxLength={240} value={note}
+      onChange={(event) => setNote(event.target.value)} />
+  </OperationForm>;
 }
 
 function InspectionEditor({ serial, close }: { serial: string; close: () => void }) {

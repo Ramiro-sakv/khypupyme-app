@@ -1364,6 +1364,7 @@ export interface paths {
                     thickness?: number;
                     width?: number;
                     widths?: string;
+                    category?: string;
                     page?: number;
                 };
                 header?: never;
@@ -1480,6 +1481,9 @@ export interface paths {
                 query?: {
                     kind?: string;
                     cashSession?: string;
+                    from?: string;
+                    to?: string;
+                    search?: string;
                     page?: number;
                 };
                 header?: never;
@@ -1567,6 +1571,41 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["CashStatus"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/commerce/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SetupStatus"];
                     };
                 };
             };
@@ -2386,6 +2425,7 @@ export interface paths {
                     thickness?: number;
                     width?: number;
                     widths?: string;
+                    category?: string;
                     page?: number;
                 };
                 header?: never;
@@ -2502,6 +2542,9 @@ export interface paths {
                 query?: {
                     kind?: string;
                     cashSession?: string;
+                    from?: string;
+                    to?: string;
+                    search?: string;
                     page?: number;
                 };
                 header?: never;
@@ -2589,6 +2632,41 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["CashStatus"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/practice-commerce/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SetupStatus"];
                     };
                 };
             };
@@ -3341,6 +3419,7 @@ export interface components {
             serials?: null | string[];
             printing?: null | components["schemas"]["PrintingInput"];
             tile?: null | components["schemas"]["TileRequest"];
+            timberRateManual?: null | boolean;
         };
         CommandResult: {
             /** Format: uuid */
@@ -3392,6 +3471,7 @@ export interface components {
             work?: null | components["schemas"]["WorkInput"];
             workLink?: null | components["schemas"]["WorkRevision"];
             workState?: null | string;
+            variants?: null | components["schemas"]["VariantInput"][];
         };
         CommercePageOfAuditInfo: {
             items: components["schemas"]["AuditInfo"][];
@@ -3502,6 +3582,10 @@ export interface components {
             address: null | string;
             /** Format: date */
             completedOn: null | string;
+            /** Format: date */
+            preparedOn: null | string;
+            /** Format: date */
+            cancelledOn: null | string;
         };
         DeliveryInput: {
             mode: string;
@@ -3636,6 +3720,8 @@ export interface components {
             tile?: null | components["schemas"]["TileCoverage"];
             /** @default false */
             isService: boolean;
+            /** Format: int64 */
+            timberCatalogMinor?: null | number;
         };
         LotAllocation: {
             lot: string;
@@ -3833,6 +3919,8 @@ export interface components {
             originalMinor: number;
             /** Format: int64 */
             balanceMinor: number;
+            manual: boolean;
+            voided: boolean;
         };
         ResultDay: {
             /** Format: date */
@@ -3895,6 +3983,8 @@ export interface components {
             note: string;
             /** Format: date */
             warrantyUntil: null | string;
+            /** Format: uuid */
+            sourceId: null | string;
         };
         SessionInfo: {
             email: null | string;
@@ -3902,6 +3992,8 @@ export interface components {
             googleLinked: boolean;
             /** Format: uuid */
             accountId: null | string;
+            /** @default false */
+            localMailbox: boolean;
         };
         SettingsInput: {
             /** Format: uuid */
@@ -3909,6 +4001,11 @@ export interface components {
             city: null | string;
             phone: null | string;
             timberUnits: null | string;
+        };
+        SetupStatus: {
+            cashStarted: boolean;
+            catalogReady: boolean;
+            sold: boolean;
         };
         StoreAttention: {
             /** Format: int32 */
@@ -3964,6 +4061,15 @@ export interface components {
         UnitHistory: {
             unit: components["schemas"]["SerialInfo"];
             movements: components["schemas"]["SerialMovement"][];
+        };
+        VariantInput: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            size: string;
+            color: string;
+            /** Format: int64 */
+            amountMinor: number;
         };
         VehicleFitment: {
             brand: string;

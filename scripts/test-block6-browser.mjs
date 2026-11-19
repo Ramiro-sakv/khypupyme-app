@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { pathToFileURL } from "node:url";
 
-export async function checkBrowser(cookies, businesses) {
+export async function checkBrowser(cookies, businesses, password) {
   const { chromium } = await import(pathToFileURL(process.env.KHYPU_TEST_PLAYWRIGHT).href);
   const browser = await chromium.launch({ channel: "msedge", headless: true });
   try {
@@ -53,6 +53,9 @@ export async function checkBrowser(cookies, businesses) {
     await dialog.getByLabel("Forma de pago").selectOption("qr");
     await dialog.getByRole("checkbox").check();
     await dialog.getByRole("button", { name: "Confirmar cambio" }).click();
+    const identity = page.getByRole("dialog", { name: "Autorizar corrección" });
+    await identity.getByLabel("Contraseña de tu cuenta").fill(password);
+    await identity.getByRole("button", { name: "Confirmar identidad" }).click();
     await page.getByRole("heading", { name: "Cambio de prenda confirmado" }).waitFor();
 
     await open(businesses.appliances);

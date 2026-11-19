@@ -1,13 +1,13 @@
 import { useState } from "react";
-import { Alert, Button, Card, DataTable, TextField } from "../ui/Primitives";
+import { Alert, Button, Card, DataTable, SelectField, TextField } from "../ui/Primitives";
 import { useCommerce, useCommerceData } from "./CommerceContext";
-import { CommerceHeading, LoadFeedback, NoRecords, OperationForm, Pages, PaymentField, useCommercialForm } from "./CommerceUi";
+import { CommerceHeading, LoadFeedback, NoRecords, OperationForm, Pages, PaymentField, SearchForm, useCommercialForm } from "./CommerceUi";
 import { EntryList } from "./Documents";
 import { bob, editableMoney, parseMoney, timestamp } from "./models";
-import type { CashStatus, Page, Receivable } from "./models";
+import type { CashStatus, Customer, Page, Receivable } from "./models";
 
-export function CashPage() {
-  const { readOnly } = useCommerce();
+export function CashPage({ allowAdjustments = true }: { allowAdjustments?: boolean }) {
+  const { readOnly, showDocument } = useCommerce();
   const cash = useCommerceData<CashStatus>("/cash");
   if (!cash.data) return <><CommerceHeading title="Caja" /><LoadFeedback {...cash} /></>;
   const session = cash.data.session;
@@ -23,9 +23,34 @@ export function CashPage() {
           {" · Diferencia " + bob(session.countedMinor - session.expectedMinor)}</p>}
       </> : <p>Aún no hay una sesión de caja registrada.</p>}
     </Card>
-    {(opened || !readOnly) && <CashEditor key={session?.id + ":" + Boolean(opened)} session={opened ? session : null} />}
+    {(opened || !readOnly) && <CashEditor key={[session?.id, Boolean(opened), session?.expectedMinor].join(":")} session={opened ? session : null} />}
+    {opened && !readOnly && allowAdjustments && <details className="trade-help">
+      <summary>Aporte o retiro de efectivo</summary>
+      <CashAdjustment session={session.id} onDone={showDocument} />
+    </details>}
     {session && <EntryList cashSession={session.id} caption="Movimientos de la sesión" />}
   </div>;
+}
+
+function CashAdjustment({ session, onDone }: { session: string; onDone: (id: string) => void }) {
+  const [direction, setDirection] = useState("in");
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const form = useCommercialForm();
+  return <OperationForm title="Ajustar efectivo" error={form.error} blocked={form.blocked} action="Confirmar ajuste" onSubmit={(event) => {
+    event.preventDefault();
+    void form.submit(() => {
+      const parsed = parseMoney(amount);
+      if (!parsed) throw new Error("Indica un importe mayor a cero. [400]");
+      return { kind: "cash-adjust", sourceId: session, code: direction, amountMinor: parsed, note };
+    }, (result) => onDone(result.entityId));
+  }}>
+    <SelectField label="Movimiento de efectivo" value={direction} onChange={(event) => setDirection(event.target.value)}>
+      <option value="in">Aporte a caja</option><option value="out">Retiro de caja</option>
+    </SelectField>
+    <TextField label="Importe (Bs)" required inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} />
+    <TextField label="Motivo" required maxLength={240} value={note} onChange={(event) => setNote(event.target.value)} />
+  </OperationForm>;
 }
 
 function CashEditor({ session }: { session: CashStatus["session"] }) {
@@ -76,31 +101,77 @@ export function ExpensesPage() {
   </div>;
 }
 
-export function ReceivablesPage() {
+export function ReceivablesPage({ allowManual = true }: { allowManual?: boolean }) {
   const [paid, setPaid] = useState(false);
   const [index, setIndex] = useState(1);
   const [charging, setCharging] = useState<Receivable>();
+  const [creating, setCreating] = useState(false);
+  const [voiding, setVoiding] = useState<Receivable>();
   const data = useCommerceData<Page<Receivable>>("/debts?" + new URLSearchParams({ paid: String(paid), page: String(index) }));
-  const { showDocument } = useCommerce();
+  const { showDocument, readOnly } = useCommerce();
   return <div className="commerce-stack">
-    <CommerceHeading title="Fiados" />
+    <CommerceHeading title="Fiados">{!readOnly && allowManual && <Button icon="plus" onClick={() => {
+      setCreating(true); setCharging(undefined); setVoiding(undefined);
+    }}>Registrar fiado manual</Button>}</CommerceHeading>
+    {creating && <ManualDebt onClose={() => setCreating(false)} />}
+    {voiding && <ManualDebt key={voiding.saleId} existing={voiding} onClose={() => setVoiding(undefined)} />}
     {charging && <CollectEditor key={charging.saleId} debt={charging} close={() => setCharging(undefined)} />}
     <Card>
       <label className="trade-check"><input type="checkbox" checked={paid} onChange={(event) => {
-        setPaid(event.target.checked); setIndex(1); setCharging(undefined);
-      }} />Ver fiados saldados</label>
+        setPaid(event.target.checked); setIndex(1); setCharging(undefined); setVoiding(undefined);
+      }} />Ver fiados saldados y anulados</label>
       {!data.data ? <LoadFeedback {...data} /> : data.data.items.length === 0 ? <NoRecords /> :
-        <DataTable caption={paid ? "Saldados" : "Saldos pendientes"} columns={["Cliente", "Importe original", "Saldo", "Acciones"]}
+        <DataTable caption={paid ? "Saldados y anulados" : "Saldos pendientes"} columns={["Cliente", "Importe original", "Saldo", "Acciones"]}
           rows={data.data.items.map((debt) => ({ id: debt.saleId, cells: [
-            <div>{debt.customerName}<small className="record-secondary">{debt.number}</small></div>,
+            <div>{debt.customerName}<small className="record-secondary">{debt.number}{debt.voided ? " · Anulado" : ""}</small></div>,
             bob(debt.originalMinor), bob(debt.balanceMinor), <div className="inline-actions">
-              <Button variant="secondary" onClick={() => showDocument(debt.saleId)}>Ver venta</Button>
-              {debt.balanceMinor > 0 && <Button onClick={() => setCharging(debt)}>Cobrar saldo</Button>}
+              <Button variant="secondary" onClick={() => showDocument(debt.saleId)}>{debt.manual ? "Ver fiado" : "Ver venta"}</Button>
+              {!readOnly && debt.balanceMinor > 0 && <>
+                <Button onClick={() => { setCharging(debt); setCreating(false); setVoiding(undefined); }}>Cobrar saldo</Button>
+                {debt.manual && <Button variant="plain" onClick={() => { setVoiding(debt); setCharging(undefined); setCreating(false); }}>Anular fiado</Button>}
+              </>}
             </div>,
           ] }))} />}
       <Pages index={index} hasMore={data.data?.hasMore} onChange={setIndex} />
     </Card>
   </div>;
+}
+
+function ManualDebt({ existing, onClose }: { existing?: Receivable; onClose: () => void }) {
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [customer, setCustomer] = useState<Customer>();
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const { showDocument } = useCommerce();
+  const customers = useCommerceData<Page<Customer>>(existing ? null : "/customers?" + new URLSearchParams({ search, page: String(page) }));
+  const form = useCommercialForm();
+  return <>
+    {!existing && <Card>
+      <SearchForm label="Buscar cliente del fiado" onSearch={(value) => { setSearch(value); setPage(1); }} />
+      {!customers.data ? <LoadFeedback {...customers} /> : customers.data.items.length === 0 ? <p>Sin clientes en esta búsqueda.</p> :
+        <div className="inline-actions">{customers.data.items.map((item) => <Button key={item.id} variant="secondary"
+          aria-pressed={customer?.id === item.id} onClick={() => setCustomer(item)}>{item.name}</Button>)}</div>}
+      <Pages index={page} hasMore={customers.data?.hasMore} onChange={setPage} />
+    </Card>}
+    <OperationForm title={existing ? "Anular " + existing.number : "Registrar fiado sin venta"} onClose={onClose}
+      error={form.error} blocked={form.blocked || (!existing && !customer)} action={existing ? "Confirmar anulación" : "Confirmar fiado"}
+      onSubmit={(event) => {
+        event.preventDefault();
+        void form.submit(() => {
+          if (existing) return { kind: "void-debt", sourceId: existing.saleId, note };
+          const parsed = parseMoney(amount);
+          if (!parsed || !customer) throw new Error("Elige un cliente y un importe positivo. [400]");
+          return { kind: "manual-debt", customerId: customer.id, amountMinor: parsed, note };
+        }, (result) => { onClose(); showDocument(result.entityId); });
+      }}>
+      <p>{existing ? existing.customerName + " · Se anulará el saldo de " + bob(existing.balanceMinor) :
+        customer ? "Cliente · " + customer.name : "Selecciona un cliente registrado."}</p>
+      {!existing && <TextField label="Importe (Bs)" inputMode="decimal" required value={amount} onChange={(event) => setAmount(event.target.value)} />}
+      <TextField label={existing ? "Motivo de anulación" : "Concepto del fiado"} required maxLength={240} value={note}
+        onChange={(event) => setNote(event.target.value)} />
+    </OperationForm>
+  </>;
 }
 
 function CollectEditor({ debt, close }: { debt: Receivable; close: () => void }) {

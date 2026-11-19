@@ -6,7 +6,7 @@ import type { CommandLine, Page, Product } from "../commerce/models";
 import { captureTimber, exactVolume, measureKey, timberAmount, timberRate } from "./measures";
 import type { Capture, Dimensions, Rates, StockRow } from "./measures";
 
-export type TimberLine = { id: string; timber: Capture; rates?: Rates; cost: string };
+export type TimberLine = { id: string; timber: Capture; rates?: Rates; cost: string; manualPrice?: string };
 export type WidthOrder = { timber: Dimensions; quantity: number; charged: number; subtotal: number | null };
 
 export const stockKey = (id: string, timber: Dimensions) => id + ":" + measureKey(timber);
@@ -17,20 +17,23 @@ export function prepareTimber(lines: TimberLine[], products: Record<string, Prod
   const captured = lines.map((line) => {
     const capture = captureTimber(line.timber);
     const rates = line.rates ?? products?.[line.id]?.timber;
+    const manual = !purchase && !!line.manualPrice?.trim();
+    const override = manual ? parseMoney(line.manualPrice!) : null;
     const widths = capture.rows.map((row) => {
-      const unit = purchase ? parseMoney(line.cost) : rates ? timberRate(rates, row.timber) : null;
+      const unit = purchase ? parseMoney(line.cost) : manual ? override : rates ? timberRate(rates, row.timber) : null;
       const key = stockKey(line.id, row.timber);
       const previous = combined.get(key);
       const quantity = (previous?.quantity ?? 0) + row.quantity;
       const current = products?.[line.id]?.timber;
-      if (!purchase && unit !== null && current && timberRate(current, row.timber) !== unit)
+      if (!purchase && !manual && unit !== null && current && timberRate(current, row.timber) !== unit)
         problem ||= "Cambiaron las tarifas de " + products?.[line.id].name + ". Actualízalas y vuelve a revisar.";
-      if (previous && previous.unitMinor !== unit) problem ||= "Usa el mismo costo para las piezas de una medida dentro de esta compra.";
+      if (previous && (previous.unitMinor !== unit || Boolean(previous.timberRateManual) !== manual))
+        problem ||= "Usa la misma tarifa para todas las piezas de una medida en este comprobante.";
       if (quantity > 1_000_000) problem ||= "Una medida supera 1.000.000 de piezas.";
-      if (unit !== null) combined.set(key, { productId: line.id, timber: row.timber, quantity, unitMinor: unit });
+      if (unit !== null) combined.set(key, { productId: line.id, timber: row.timber, quantity, unitMinor: unit, timberRateManual: manual || undefined });
       return { ...row, unit, key };
     });
-    return { ...capture, widths };
+    return { ...capture, error: capture.error || (manual && override === null ? "Introduce una tarifa válida con hasta dos decimales." : ""), widths };
   });
   const commands = [...combined.values()];
   const ordered = [...commands].sort((left, right) => left.timber.widthMicros - right.timber.widthMicros);

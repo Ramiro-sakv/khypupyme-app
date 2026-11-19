@@ -86,6 +86,36 @@ internal sealed class EquipmentInventory(CommerceTransaction work)
         return entry.Id;
     }
 
+    public async Task<Guid> WarrantyAsync()
+    {
+        if (!SpecialtyProfiles.HasEquipment(work.Business.Industry) || work.Command.Code is not ("open" or "resolved"))
+            throw new CommerceFailure("Selecciona un estado de garantía válido.");
+        var serial = await FindAsync(work.Command.Serial);
+        var sale = await work.SourceAsync("sale");
+        var records = work.Db.Set<EquipmentMovement>().Where(item => item.SerialKey == serial.Key);
+        var original = await records.SingleOrDefaultAsync(item => item.EntryId == sale.Id && item.Kind == "sale", work.Ct)
+            ?? throw new CommerceFailure("La serie no corresponde a esa venta.", 404);
+        var state = work.Command.Code == "open" ? "warranty-open" : "warranty-resolved";
+        var previous = await (from movement in records
+                              join claim in work.Db.Set<Entry>() on new { movement.BusinessId, Id = movement.EntryId }
+                                  equals new { claim.BusinessId, claim.Id }
+                              where claim.SourceId == sale.Id && claim.Kind == "warranty"
+                              orderby claim.Sequence descending
+                              select movement.Kind).FirstOrDefaultAsync(work.Ct);
+        if (previous == state || (state == "warranty-resolved" && previous != "warranty-open"))
+            throw new CommerceFailure("Consulta el último estado del reclamo antes de actualizarlo.", 409);
+        var entry = await work.NewEntryAsync("GAR");
+        entry.SourceId = sale.Id;
+        entry.Note = Text(work.Command.Note, 240, state == "warranty-open" ? "el motivo del reclamo" : "la resolución del reclamo", true);
+        entry.CustomerId = sale.CustomerId;
+        entry.CustomerName = sale.CustomerName;
+        work.Db.Add(new EquipmentMovement
+        {
+            BusinessId = serial.BusinessId, SerialKey = serial.Key, EntryId = entry.Id, Kind = state, WarrantyUntil = original.WarrantyUntil,
+        });
+        return entry.Id;
+    }
+
     private async Task<EquipmentUnit> FindAsync(string? serial) =>
         await Units.FindAsync([work.Business.Id, RetailMeasures.SeriesKey(serial)], work.Ct)
         ?? throw new CommerceFailure("La serie no está registrada en este negocio.", 404);

@@ -40,14 +40,15 @@ internal static class AccountEndpoints
     }
 
     private static async Task<Microsoft.AspNetCore.Http.HttpResults.Ok<SessionInfo>> SessionAsync(
-        HttpContext context, UserManager<IdentityUser<Guid>> users, PilotOptions pilot)
+        HttpContext context, UserManager<IdentityUser<Guid>> users, PilotOptions pilot, IWebHostEnvironment environment)
     {
         context.Response.Headers.CacheControl = "no-store";
         var user = await users.GetUserAsync(context.User);
         if (!pilot.Allows(user?.Email)) user = null;
         var googleConfigured = GoogleFlow.IsEnabled(context.RequestServices.GetRequiredService<IConfiguration>());
         var linked = user is not null && (await users.GetLoginsAsync(user)).Any(login => login.LoginProvider == "Google");
-        return TypedResults.Ok(new SessionInfo(user?.Email, googleConfigured, linked, user?.Id));
+        return TypedResults.Ok(new SessionInfo(user?.Email, googleConfigured, linked, user?.Id,
+            LocalMailbox: environment.IsDevelopment() && !pilot.Enabled));
     }
 
     private static bool ValidEmail(string? email) =>
@@ -159,7 +160,7 @@ internal sealed class CsrfFilter(IAntiforgery antiforgery) : IEndpointFilter
 }
 
 public sealed record CsrfToken(string Token);
-public sealed record SessionInfo(string? Email, bool GoogleConfigured, bool GoogleLinked, Guid? AccountId);
+public sealed record SessionInfo(string? Email, bool GoogleConfigured, bool GoogleLinked, Guid? AccountId, bool LocalMailbox = false);
 public sealed record EmailInput(string? Email);
 public sealed record PasswordInput(string? Email, string? Password);
 public sealed record CodePasswordInput(string? Email, string? Code, string? Password);

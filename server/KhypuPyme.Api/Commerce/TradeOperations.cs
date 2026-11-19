@@ -12,12 +12,24 @@ internal sealed class TradeOperations(CommerceTransaction work)
     private readonly TimberInventory inventory = new(work);
     private readonly RetailInventory retail = new(work);
     private readonly EquipmentInventory equipment = new(work);
-    public async Task<Guid> PurchaseAsync()
+    public Task<Guid> PurchaseAsync() => ReceiveAsync(stockAdjustment: false);
+    public Task<Guid> StockInAsync() => ReceiveAsync(stockAdjustment: true);
+
+    private async Task<Guid> ReceiveAsync(bool stockAdjustment)
     {
         var rows = await PrepareAsync(useCatalogPrice: false);
-        var entry = await work.NewEntryAsync("COM");
-        entry.Method = Payment(work.Command.Method);
-        entry.TotalMinor = entry.PurchasesMinor = Total(rows.Select(x => x.Subtotal));
+        var entry = await work.NewEntryAsync(stockAdjustment ? "ENT" : "COM");
+        entry.TotalMinor = Total(rows.Select(x => x.Subtotal));
+        if (stockAdjustment)
+        {
+            entry.Note = Text(work.Command.Note, 240, "el motivo del ajuste de inventario", true);
+            if (work.Command.Method is not null) throw new CommerceFailure("Una entrada manual no admite forma de pago.");
+        }
+        else
+        {
+            entry.Method = Payment(work.Command.Method);
+            entry.PurchasesMinor = entry.TotalMinor;
+        }
         foreach (var row in rows)
         {
             if (row.Measure is { } measure)
@@ -130,8 +142,8 @@ internal sealed class TradeOperations(CommerceTransaction work)
             entry.CostMinor += cost;
             var variant = StoreProfiles.Apparel(row.Product);
             if (quote && row.Product.WarrantyMonths is not null) direction = "choose-series";
-            entry.Lines.Add(Snapshot(entry, row, net, cost, variant is null && direction is null ? null :
-                new(Apparel: variant, Direction: direction)));
+            entry.Lines.Add(Snapshot(entry, row, net, cost, variant is null && direction is null && row.TimberCatalogMinor is null ? null :
+                new(Apparel: variant, Direction: direction, TimberCatalogMinor: row.TimberCatalogMinor)));
         }
     }
 
@@ -144,6 +156,7 @@ internal sealed class TradeOperations(CommerceTransaction work)
             rows.Length != source.Lines.Count || rows.Any(row => !source.Lines.Any(line =>
                 line.ProductId == row.Product.Id && line.Quantity == row.Quantity && line.UnitMinor == row.UnitMinor &&
                 line.Timber == row.Timber && line.BaseQuantity == row.BaseQuantity &&
+                (line.Timber is null || (LineDetails.Parse(line.DetailsJson)?.TimberCatalogMinor is not null) == (row.TimberCatalogMinor is not null)) &&
                 (row.Measure is null || LineDetails.Parse(line.DetailsJson)?.Measure?.Unit == row.Measure.Unit) &&
                 (row.Printing is null || LineDetails.Parse(line.DetailsJson)?.Printing?.Job == row.Printing.Job) &&
                 (row.Tile is null || LineDetails.Parse(line.DetailsJson)?.Tile == row.Tile))))
@@ -307,7 +320,8 @@ internal sealed class TradeOperations(CommerceTransaction work)
                 throw new CommerceFailure("La cobertura corresponde a una ficha de cerámicas en venta o cotización.");
             var dimension = TimberInventory.Check(product, line.Timber);
             var unit = Money(line.UnitMinor, useCatalogPrice ? "el precio unitario" : "el costo unitario");
-            if (useCatalogPrice && unit != (dimension is null ? product.PriceMinor : TimberMeasures.Rate(product, dimension)))
+            var catalogUnit = dimension is null ? product.PriceMinor : TimberMeasures.Rate(product, dimension);
+            if (useCatalogPrice && unit != catalogUnit && line.TimberRateManual != true)
                 throw new CommerceFailure($"Cambió el precio de {product.Name}. Actualízalo y vuelve a revisar.", 409);
             var serials = equipment.Validate(product, line, required: work.Command.Kind != "quote");
             if (work.Command.Kind == "quote" && serials.Length > 0)
@@ -335,7 +349,8 @@ internal sealed class TradeOperations(CommerceTransaction work)
             {
                 if (line.Measure is not null) throw new CommerceFailure("La ficha no admite esa unidad.");
                 var subtotal = useCatalogPrice && dimension is not null ? 0 : Money(unit * line.Quantity, "un subtotal");
-                rows.Add(new TradeRow(product, line.Quantity, unit, subtotal, dimension, Serials: serials));
+                rows.Add(new TradeRow(product, line.Quantity, unit, subtotal, dimension, Serials: serials,
+                    TimberCatalogMinor: line.TimberRateManual == true ? catalogUnit : null));
             }
         }
         if (useCatalogPrice)
@@ -375,5 +390,6 @@ internal sealed class TradeOperations(CommerceTransaction work)
     }
 
     private sealed record TradeRow(Product Product, int Quantity, long UnitMinor, long Subtotal, TimberDimensions? Timber,
-        RetailInput? Measure = null, decimal? BaseQuantity = null, string[]? Serials = null, PrintingDetail? Printing = null, TileCoverage? Tile = null);
+        RetailInput? Measure = null, decimal? BaseQuantity = null, string[]? Serials = null, PrintingDetail? Printing = null, TileCoverage? Tile = null,
+        long? TimberCatalogMinor = null);
 }

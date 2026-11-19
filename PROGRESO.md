@@ -262,3 +262,16 @@ El recorrido aislado se ejecuta con `scripts/Test-Block8.ps1`.
 Los archivos generados se guardan en `artifacts/pilot/KhypuPyme2-Piloto-Android.apk` y `artifacts/pilot/KhypuPyme2-Piloto-Windows.exe`. Apuntan a `https://khypupyme2-piloto.onrender.com`, la dirección prevista. Si Render asigna otra, se vuelven a generar con esa dirección.
 
 [PILOTO.md](PILOTO.md) explica cómo arrancar en local, preparar las cuentas del titular y verificar los recorridos alojados. La siguiente etapa del plan es activar el piloto con autorización del titular y cerrar su aceptación. El lanzamiento público y los cargos reales se deciden después.
+
+## Pulido de 2.0 con KhypuPyme 1 como referencia
+
+- Inicio recupera el estado de Caja, las acciones de cada rubro y las barras de ventas y gastos con compras opcionales. Mis negocios destaca el último espacio autorizado y el asistente ordena los 21 rubros por familia. Las imágenes de ingreso y planes proceden de KhypuPyme 1.
+- La navegación agrupa las operaciones, la gestión y el archivo. Ayuda reúne los atajos, las guías por rubro y los calculadores de madera, cerámicas y cemento. En la práctica móvil, ir al formulario reduce la guía hasta confirmar el paso.
+- Las compras, ventas y cotizaciones mantienen el borrador y el panel Revisar. Se recuperaron la búsqueda por lector, la consulta de medidas paginada y filtrada, las tarifas de madera por grupo, el servicio de corte y el alta conjunta de variantes.
+- Se incorporaron entradas manuales de inventario, aportes y retiros de Caja, fiados manuales, reclamos de garantía y estados de entregas. Las operaciones sensibles usan la reautenticación existente. El servidor conserva la validación y la confirmación en una transacción por negocio.
+- Documentos incorpora filtros por fechas y número, cliente o referencia. El informe PDF usa los mismos resultados que la pantalla. Las constancias de trabajo y despacho guardan sus datos al emitirlas y se vuelven a abrir desde el archivo.
+- Quedan por recuperar el cambio de nombre desde Configuración, los pies de página personalizados y el archivo de informes emitidos con un número propio. Las versiones de la aplicación conservan bases independientes.
+
+Pasaron ESLint, TypeScript y las compilaciones web y .NET. En PostgreSQL aislado se verificaron los 21 rubros, la repetición de solicitudes, la protección de correcciones, las devoluciones, las licencias y la conservación de las constancias. En Edge a 360 y 1440 px se verificaron el nuevo selector, los atajos, la búsqueda de documentos, la descarga del informe y, en el recorrido móvil de madera, el faltante, la minimización, Escape, el regreso al carrito y el avance de la práctica.
+
+Los instaladores Android y Windows del piloto se regeneraron. Todavía apuntan al servicio previsto del piloto. Para revisar este cambio ahora, la web local está en `http://127.0.0.1:5282/`. Android físico, el piloto alojado y el regreso a la sesión instalada siguen pendientes de aceptación para esta revisión.

@@ -1,23 +1,28 @@
 import { useState } from "react";
-import { SalesChart } from "../businesses/BusinessHome";
-import { Button, Card, DataTable, TextField } from "../ui/Primitives";
+import { ReportChart } from "./ReportChart";
+import { Alert, Button, Card, TextField } from "../ui/Primitives";
 import { useCommerceData } from "./CommerceContext";
 import { CommerceHeading, LoadFeedback } from "./CommerceUi";
-import { bob, dateLabel } from "./models";
+import { bob, dateLabel, reportResult } from "./models";
 import type { Report } from "./models";
 
-function result(day: Report["totals"]) {
-  return day.resultMinor ?? day.salesMinor - day.costMinor - day.expensesMinor - day.lossesMinor;
-}
-
-export function ReportsPage() {
+export function ReportsPage({ business, practice }: { business: string; practice: boolean }) {
+  const [saving, setSaving] = useState(false);
+  const [pdfError, setPdfError] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [period, setPeriod] = useState("");
   const data = useCommerceData<Report>("/report?" + period);
   const report = data.data;
   return <div className="commerce-stack">
-    <CommerceHeading title="Informes" />
+    <CommerceHeading title="Informes">{report && <Button variant="secondary" icon="document" disabled={saving} onClick={async () => {
+      setSaving(true);
+      setPdfError("");
+      try { await (await import("./pdf")).downloadReport(report, business, practice); }
+      catch { setPdfError("No se pudo guardar el PDF del informe. Vuelve a intentar."); }
+      finally { setSaving(false); }
+    }}>{saving ? "Preparando PDF…" : "Guardar informe PDF"}</Button>}</CommerceHeading>
+    {pdfError && <Alert tone="error">{pdfError}</Alert>}
     <Card>
       <form className="inline-actions report-range" onSubmit={(event) => {
         event.preventDefault();
@@ -38,15 +43,12 @@ export function ReportsPage() {
         {([
           ["Ventas netas", report.totals.salesMinor], ["Costo de lo vendido", report.totals.costMinor],
           ["Gastos operativos", report.totals.expensesMinor], ["Pérdidas de inventario", report.totals.lossesMinor],
-          ["Resultado estimado", result(report.totals)], ["Compras de mercadería", report.totals.purchasesMinor],
+          ["Resultado estimado", reportResult(report.totals)], ["Compras de mercadería", report.totals.purchasesMinor],
           ["Inventario a costo actual", report.stockValueMinor], ["Fiados pendientes actuales", report.receivablesMinor],
         ] as const).map(([title, amount]) => <Card key={title}><h2>{title}</h2><p className="trade-total">{bob(amount)}</p></Card>)}
       </div>
       <p>El resultado descuenta costo de lo vendido, gastos y pérdidas. Las compras se registran por separado.</p>
-      <SalesChart days={report.days.slice(-7)} subtitle="Hasta los últimos siete días del periodo" />
-      <Card><DataTable caption="Detalle del periodo" columns={["Día", "Ventas", "Compras", "Costo vendido", "Gastos", "Pérdidas", "Resultado"]}
-        rows={report.days.map((day) => ({ id: day.date, cells: [dateLabel(day.date), bob(day.salesMinor), bob(day.purchasesMinor),
-          bob(day.costMinor), bob(day.expensesMinor), bob(day.lossesMinor), bob(result(day))] }))} /></Card>
+      <ReportChart days={report.days} />
     </>}
   </div>;
 }

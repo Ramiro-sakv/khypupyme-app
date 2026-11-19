@@ -171,9 +171,25 @@ try {
   assert.deepEqual(after.movements.map((item) => item.kind), ["released", "return", "sale", "purchase"]);
   assert.equal(after.movements[2].warrantyUntil, before.unit.warrantyUntil);
   await request(store + "/serial?serial=eq-001", 404);
+  const claim = { kind: "warranty", serial: "EQ-001", sourceId: soldUnit.entityId, note: "Revisión solicitada" };
+  await post(appliances, { ...claim, code: "resolved" }, 409);
+  await post(appliances, { ...claim, serial: "EQ-002", code: "open" }, 404);
+  await post(appliances, { ...claim, code: "open" });
+  await post(appliances, { ...claim, code: "open" }, 409);
+  await post(appliances, { ...claim, code: "resolved", note: "Se completó la revisión" });
+  assert.deepEqual((await serial()).movements.slice(0, 2).map((item) => item.kind), ["warranty-resolved", "warranty-open"]);
+  assert.equal((await serial()).unit.state, "available");
+  const variants = [{ id: randomUUID(), code: "MATRIZ-1", size: "S", color: "Verde", amountMinor: 1500 },
+    { id: randomUUID(), code: "MATRIZ-2", size: "M", color: "Azul", amountMinor: 2500 }];
+  const batch = { kind: "variants", code: "Modelo conjunto", name: "Modelo conjunto", operationId: randomUUID() };
+  await post(clothes, { ...batch, variants: [variants[0], { ...variants[1], code: "matriz-1" }] }, 409);
+  assert.equal((await request(clothes + "/variants?model=Modelo%20conjunto", 200)).length, 0);
+  const saved = await post(clothes, { ...batch, variants });
+  assert.deepEqual(await post(clothes, { ...batch, variants }), saved);
+  assert.deepEqual((await request(clothes + "/variants?model=Modelo%20conjunto", 200)).map((row) => row.stock), [0, 0]);
   console.log("Electrodomésticos: duplicados bloqueados, venta por serie, garantía en historial, inspección y liberación aisladas.");
   if (process.env.KHYPU_TEST_PLAYWRIGHT) await (await import("./test-block6-browser.mjs")).checkBrowser(cookies,
-    { store: store.split("/").at(-2), clothes: clothes.split("/").at(-2), appliances: appliances.split("/").at(-2) });
+    { store: store.split("/").at(-2), clothes: clothes.split("/").at(-2), appliances: appliances.split("/").at(-2) }, password);
 } finally {
   const sql = 'DELETE FROM khypupyme."AspNetUsers" WHERE "NormalizedEmail"=upper(\'' + email + '\'); ' +
     'DELETE FROM khypupyme.email_challenges WHERE "Email"=upper(\'' + email + '\');';

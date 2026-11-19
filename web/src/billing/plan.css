@@ -17,6 +17,8 @@
 .plan-banner h1 { line-height: 1.14; margin: .38rem 0; overflow-wrap: anywhere; }
 .plan-banner p, .plan-demo { color: inherit; margin: 0; }
 .plan-demo { font-size: .81rem; }
+.plan-photo { margin-inline-start: auto; width: min(30%, 13rem); height: 6.5rem; border-radius: .7rem; object-fit: cover; }
+@media (max-width: 32rem) { .plan-photo { display: none; } }
 .plan-business-icon { display: grid; place-items: center; border: 1px solid #ffffff66; border-radius: .9rem; width: 2.8rem; height: 2.8rem; flex: none; }
 .plan-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .85rem; }
 .plan-option { display: grid; gap: .7rem; align-content: start; grid-template-rows: auto auto minmax(2.5rem, auto) 1fr auto; }

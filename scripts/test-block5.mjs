@@ -121,9 +121,28 @@ try {
   const inMetric = await run(scope, { kind: "quote", lines: [line(pine, 2, 1000, pine6)] });
   assert.equal((await detail(scope, inMetric)).timberUnits, "metric");
   assert.equal((await detail(scope, inMetric)).totalMinor, 20_000);
+  const custom = { ...line(pine, 1, 1250, pine6), timberRateManual: true };
+  const cut = (await run(scope, { kind: "product", name: "Corte QA", code: "CORTE-QA", amountMinor: 500, serviceProduct: true })).entityId;
+  await run(scope, { kind: "quote", lines: [line(pine, 1, 1250, pine6)] }, 409);
+  const mixedRate = [custom, line(cut, 1, 500)];
+  const negotiated = await run(scope, { kind: "quote", lines: mixedRate });
+  const proposed = await detail(scope, negotiated);
+  assert.equal(proposed.totalMinor, 13_000);
+  assert.equal(proposed.lines.find((row) => row.productId === pine).details.timberCatalogMinor, 1000);
+  const converted = await run(scope, { kind: "sale", sourceId: proposed.id, method: "qr", lines: mixedRate });
+  const document = await detail(scope, converted);
+  assert.equal(document.lines.find((row) => row.productId === pine).unitMinor, 1250);
+  assert.equal(document.lines.find((row) => row.productId === cut).details.isService, true);
+  assert.equal((await request(scope + "/products/" + cut, 200)).stock, 0);
+  assert.equal((await request(scope + "/products/" + pine, 200)).timber.longMinor, 1000);
+  const long = await request(scope + "/timber-stock/" + pine + "?category=long&width=" + pine6.widthMicros, 200);
+  assert.deepEqual(long.items.map((row) => row.timber), [pine6]);
+  assert.equal((await request(scope + "/timber-stock/" + pine + "?category=short", 200)).items.length, 0);
+  console.log("Tarifa pactada conservada al convertir, catálogo intacto y filtros exactos por medidas.");
   console.log("Tarifas por largo, prorrateo del centavo y presentación histórica confirmados.");
 
   const practice = business + "/practice";
+  const originalStock = (await stock(scope, pine)).items;
   const session = async () => (await request(practice, 200)).session;
   const control = (action, revision, status = 200) => request(practice, status, "POST", { action, revision });
   const started = (await control("start", null)).session;
@@ -158,13 +177,14 @@ try {
   assert.equal((await control("finish", (await session()).revision)).session.state, "completed");
   await request(fictional + "/products", 404);
   await request(fictional + "/commands/" + sandboxSale.operationId, 404);
-  assert.equal((await stock(scope, pine)).items.find((row) => row.timber.widthMicros === pine6.widthMicros).stock, 7);
+  assert.deepEqual((await stock(scope, pine)).items, originalStock);
   assert.equal((await detail(scope, sale)).totalMinor, 20_000);
   const restart = (await control("start", (await session()).revision)).session;
   assert.notEqual(restart.sandboxId, started.sandboxId);
   await control("abandon", restart.revision);
   console.log("Práctica: pausada, reanudada, completada, limpiada y reiniciada sin tocar el negocio real.");
-  if (process.env.KHYPU_TEST_PLAYWRIGHT) await (await import("./test-block5-browser.mjs")).checkBrowser(cookies);
+  if (process.env.KHYPU_TEST_PLAYWRIGHT) await (await import("./test-block5-browser.mjs")).checkBrowser(cookies,
+    originalStock.find((row) => row.timber.widthMicros === pine6.widthMicros).stock);
 } finally {
   const sql = 'DELETE FROM khypupyme."AspNetUsers" WHERE "NormalizedEmail"=upper(\'' + email + '\'); ' +
     'DELETE FROM khypupyme.email_challenges WHERE "Email"=upper(\'' + email + '\');';

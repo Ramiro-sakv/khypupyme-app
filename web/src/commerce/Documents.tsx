@@ -4,28 +4,50 @@ import { downloadFile } from "../native/platform";
 import { Alert, Button, Card, DataTable, SelectField, TextField } from "../ui/Primitives";
 import { useCommerce, useCommerceData } from "./CommerceContext";
 import { CommerceHeading, LoadFeedback, NoRecords, OperationForm, Pages, PaymentField, useCommercialForm } from "./CommerceUi";
-import { bob, dateLabel, documentAmount, documentName, methodLabel } from "./models";
+import { bob, dateLabel, documentAmount, documentName, isOperationalReceipt, methodLabel } from "./models";
 import type { EntryDocument, EntryInfo, Page } from "./models";
 import { documentTimber, documentUnit } from "../timber/measures";
 import { describeLine, lineQuantity, lineRate, remainingQuantity, returnUnit, unitLabels } from "../retail/measures";
 import { ExchangeEditor } from "../retail/ExchangeEditor";
 import { DeliveryPanel } from "../retail/FurnitureDeliveries";
 
-const historyKinds = ["sale", "purchase", "quote", "return", "expense", "void-expense",
+const historyKinds = ["sale", "purchase", "quote", "return", "expense", "void-expense", "cash-adjust", "stock-in", "manual-debt", "void-debt",
   "stock-loss", "open-cash", "close-cash", "collect", "exchange", "inspection",
-  "containers", "container-stock", "hold-lot", "release-lot", "discard-lot", "open-cement", "repair-receipt"];
+  "containers", "container-stock", "hold-lot", "release-lot", "discard-lot", "open-cement", "repair-receipt", "work-receipt", "delivery-receipt", "warranty", "prepare-delivery", "cancel-delivery"];
+const documentKinds = ["sale", "purchase", "quote", "return", "exchange", "collect", "close-cash", "repair-receipt", "work-receipt", "delivery-receipt",
+  "cash-adjust", "stock-in", "manual-debt", "void-debt", "warranty", "prepare-delivery", "cancel-delivery"];
+type EntryFilters = { from: string; to: string; search: string };
+const emptyFilters: EntryFilters = { from: "", to: "", search: "" };
 
-export function HistoryPage({ initialKind, allowExport }: { initialKind: string; allowExport: boolean }) {
+export function HistoryPage({ initialKind, allowExport, documents = false }: {
+  initialKind: string; allowExport: boolean; documents?: boolean;
+}) {
   const [kind, setKind] = useState(initialKind);
+  const [draft, setDraft] = useState(emptyFilters);
+  const [filters, setFilters] = useState(emptyFilters);
+  const effectiveKind = kind || (documents ? "documents" : "");
   return <div className="commerce-stack">
-    <CommerceHeading title="Historial">{allowExport && <ExportRecords />}</CommerceHeading>
+    <CommerceHeading title={documents ? "Documentos" : "Historial"}>{allowExport && <ExportRecords />}</CommerceHeading>
     <Card className="history-filter">
-      <SelectField label="Tipo de operación" value={kind} onChange={(event) => setKind(event.target.value)}>
-        <option value="">Todas</option>
-        {historyKinds.map((value) => <option key={value} value={value}>{documentName(value)}</option>)}
-      </SelectField>
+      <form className="history-toolbar" onSubmit={(event) => {
+        event.preventDefault();
+        setFilters({ ...draft, search: draft.search.trim() });
+      }}>
+        <SelectField label="Tipo de operación" value={kind} onChange={(event) => setKind(event.target.value)}>
+          <option value="">Todas</option>
+          {(documents ? documentKinds : historyKinds).map((value) => <option key={value} value={value}>{documentName(value)}</option>)}
+        </SelectField>
+        <TextField label="Desde" type="date" value={draft.from} max={draft.to || undefined}
+          onChange={(event) => setDraft({ ...draft, from: event.target.value })} />
+        <TextField label="Hasta" type="date" value={draft.to} min={draft.from || undefined}
+          onChange={(event) => setDraft({ ...draft, to: event.target.value })} />
+        <TextField label="Número, cliente o referencia" value={draft.search} maxLength={80}
+          onChange={(event) => setDraft({ ...draft, search: event.target.value })} />
+        <Button type="submit" icon="search">Buscar</Button>
+      </form>
     </Card>
-    <EntryList key={kind} kind={kind} caption="Operaciones confirmadas" />
+    <EntryList key={JSON.stringify([effectiveKind, filters])} kind={effectiveKind} filters={filters}
+      caption={documents ? "Comprobantes disponibles" : "Operaciones confirmadas"} />
   </div>;
 }
 
@@ -47,15 +69,19 @@ export function ExportRecords() {
     {busy ? "Preparando exportación…" : "Descargar mis datos"}</Button>{error && <Alert tone="error">{error}</Alert>}</div>;
 }
 
-export function EntryList({ kind, cashSession, caption }: { kind?: string; cashSession?: string; caption: string }) {
+export function EntryList({ kind, cashSession, caption, filters }: {
+  kind?: string; cashSession?: string; caption: string; filters?: EntryFilters;
+}) {
   const [page, setPage] = useState(1);
   const { showDocument } = useCommerce();
   const query = new URLSearchParams({ page: String(page) });
   if (kind) query.set("kind", kind);
   if (cashSession) query.set("cashSession", cashSession);
+  if (filters) for (const [name, value] of Object.entries(filters)) if (value) query.set(name, value);
   const data = useCommerceData<Page<EntryInfo>>("/history?" + query);
   return <Card>
-    {!data.data ? <LoadFeedback {...data} /> : data.data.items.length === 0 ? <NoRecords /> :
+    {!data.data ? <LoadFeedback {...data} /> : data.data.items.length === 0 ?
+      <NoRecords>{filters ? "No hay operaciones en esta búsqueda. Prueba con otro número o periodo." : undefined}</NoRecords> :
       <DataTable caption={caption} columns={["Operación", "Fecha", cashSession ? "Movimiento de efectivo" : "Importe", "Acción"]}
         rows={data.data.items.map((entry) => ({ id: entry.id, cells: [
           <div>{entry.number}<small className="record-secondary">{documentName(entry.kind)}
@@ -68,8 +94,8 @@ export function EntryList({ kind, cashSession, caption }: { kind?: string; cashS
   </Card>;
 }
 
-export function DocumentPage({ id, back, convert, openSerial, furniture, openWork }: {
-  id: string; back: () => void; convert: (quote: EntryDocument) => void; openSerial?: (serial: string) => void; furniture?: boolean;
+export function DocumentPage({ id, back, convert, openSerial, deliveries, openWork }: {
+  id: string; back: () => void; convert: (quote: EntryDocument) => void; openSerial?: (serial: string) => void; deliveries?: boolean;
   openWork?: (id: string) => void;
 }) {
   const data = useCommerceData<EntryDocument>("/documents/" + id);
@@ -108,7 +134,7 @@ export function DocumentPage({ id, back, convert, openSerial, furniture, openWor
         {error && <Alert tone="error">{error}</Alert>}
         <dl className="business-summary document-summary">
           {!!document.discountMinor && <><dt>Descuento</dt><dd>{bob(document.discountMinor)}</dd></>}
-          {amount && document.kind !== "repair-receipt" && <><dt>{amount.label}</dt><dd className="trade-total">{bob(amount.minor)}</dd></>}
+          {amount && !isOperationalReceipt(document.kind) && <><dt>{amount.label}</dt><dd className="trade-total">{bob(amount.minor)}</dd></>}
           {!!document.cashDeltaMinor && <><dt>Movimiento de caja</dt><dd>{bob(document.cashDeltaMinor)}</dd></>}
           {!!document.debtDeltaMinor && <><dt>Movimiento del fiado</dt><dd>{bob(document.debtDeltaMinor)}</dd></>}
         </dl>
@@ -125,12 +151,15 @@ export function DocumentPage({ id, back, convert, openSerial, furniture, openWor
             {line.details && <small className="record-secondary">{describeLine(line)}</small>}
             {line.details?.serial && openSerial && <Button variant="plain" onClick={() => openSerial(line.details!.serial!)}>Historial de la serie</Button>}
             {line.timber && <small className="record-secondary">{documentTimber(document, line)}</small>}</div>,
-          lineQuantity(line), ...(document.kind === "open-cement" ? [] : [bob(line.unitMinor) + documentUnit(document, line) + lineRate(line)]),
+          lineQuantity(line), ...(document.kind === "open-cement" ? [] : [<div>
+            {bob(line.unitMinor) + documentUnit(document, line) + lineRate(line)}
+            {line.details?.timberCatalogMinor != null && <small className="record-secondary">Catálogo · {bob(line.details.timberCatalogMinor)}/pie tablar</small>}
+          </div>]),
           bob(line.subtotalMinor),
         ] }))} /></Card>}
       {document.containers.length > 0 && <Card><DataTable caption="Envases" columns={["Tipo", "Entrada", "Entregados", "Devueltos", "Saldo del cliente"]}
         rows={document.containers.map((row) => ({ id: row.name, cells: [row.name, row.added, row.delivered, row.returned, row.customerBalance ?? "—"] }))} /></Card>}
-      {furniture && document.kind === "sale" && <DeliveryPanel document={document} />}
+      {deliveries && document.kind === "sale" && <DeliveryPanel document={document} />}
       <div className="inline-actions">
         {document.kind === "quote" && !document.linked && <Button onClick={() => convert(document)}>Preparar venta desde la cotización</Button>}
         {["sale", "exchange"].includes(document.kind) && document.lines.some((line) => remainingQuantity(line) > 0) &&
@@ -149,7 +178,7 @@ export function DocumentPage({ id, back, convert, openSerial, furniture, openWor
 
 function documentTitle(kind: string) {
   const name = documentName(kind);
-  if (kind === "hold-lot" || kind === "release-lot" || kind === "repair-receipt") return name;
+  if (kind === "hold-lot" || kind === "release-lot" || isOperationalReceipt(kind)) return name;
   return name + (["exchange", "containers", "expense", "collect", "close-cash"].includes(kind) ? " confirmado" : " confirmada");
 }
 

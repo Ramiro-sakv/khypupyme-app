@@ -5,12 +5,12 @@ import { Icon } from "../ui/Icon";
 import { Alert, Button, Card, EmptyState, TextField } from "../ui/Primitives";
 import { industryTheme } from "./industryThemes";
 import { businessApi } from "./models";
-import type { BusinessCard, BusinessList, IndustryOption } from "./models";
+import type { BusinessCard, BusinessList, BusinessProfile, IndustryOption } from "./models";
 import { RemovalJobs } from "../security/BusinessRemoval";
 
-export function BusinessPicker({ industries, lastId, select, create, accountId }: {
+export function BusinessPicker({ industries, last, select, create, accountId }: {
   industries: IndustryOption[];
-  lastId?: string;
+  last?: BusinessProfile | null;
   select: (id: string) => Promise<void>;
   create: () => void;
   accountId: string;
@@ -51,7 +51,7 @@ export function BusinessPicker({ industries, lastId, select, create, accountId }
     setPage(next);
   }
 
-  async function open(item: BusinessCard) {
+  async function open(item: Pick<BusinessCard, "id">) {
     setOpeningId(item.id);
     setError("");
     try { await select(item.id); }
@@ -59,12 +59,21 @@ export function BusinessPicker({ industries, lastId, select, create, accountId }
     finally { setOpeningId(null); }
   }
 
+  const previousTheme = last ? industryTheme(last.industry) : null;
+
   return <div className="business-picker">
     <div className="page-heading picker-heading">
       <div><h1 ref={heading} tabIndex={-1}>Mis negocios</h1><p>Abre el negocio en el que vas a trabajar.</p></div>
       <Button icon="plus" disabled={openingId !== null} onClick={create}>Crear negocio</Button>
     </div>
     <RemovalJobs accountId={accountId} />
+    {last && previousTheme && !search && page === 1 && <button type="button" className="picker-recent"
+      style={previousTheme.style} onClick={() => void open(last)} disabled={openingId !== null}>
+      <span className="workspace-business-icon"><Icon name={previousTheme.icon} /></span>
+      <span><small>Último negocio utilizado</small><strong>{last.name}</strong>
+        <span>{industries.find((option) => option.id === last.industry)?.name}</span></span>
+      <Icon name="arrow" />
+    </button>}
     <Card className="picker-panel">
       <form className="inline-actions search-form" onSubmit={find}>
         <TextField label="Buscar negocio" type="search" maxLength={80} placeholder="Nombre del negocio"
@@ -77,13 +86,12 @@ export function BusinessPicker({ industries, lastId, select, create, accountId }
         {search ? "Prueba con otro nombre." : "Cuando crees un negocio aparecerá aquí."}
       </EmptyState>}
       {data && data.items.length > 0 && <ul className="business-picker-list">
-        {data.items.map((item) => {
+        {data.items.filter((item) => search || page !== 1 || item.id !== last?.id).map((item) => {
           const theme = industryTheme(item.industry);
           return <li key={item.id} style={theme.style}>
             <button className="picker-business" type="button" disabled={openingId !== null}
               onClick={() => void open(item)}>
               <span className="picker-card-top"><span className="workspace-business-icon"><Icon name={theme.icon} /></span>
-                {item.id === lastId && <span className="picker-last">Último abierto</span>}
               </span>
               <strong>{item.name}</strong>
               <span className="picker-industry">{industries.find((option) => option.id === item.industry)?.name ?? item.industry}</span>

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { pathToFileURL } from "node:url";
 
-export async function checkBrowser(cookies, businesses) {
+export async function checkBrowser(cookies, businesses, password) {
   const { chromium } = await import(pathToFileURL(process.env.KHYPU_TEST_PLAYWRIGHT).href);
   const browser = await chromium.launch({ channel: "msedge", headless: true });
   try {
@@ -67,6 +67,9 @@ export async function checkBrowser(cookies, businesses) {
     await page.getByRole("row", { name: /C-VISUAL/ }).getByRole("button", { name: "Gestionar lote" }).click();
     await page.getByLabel("Motivo de la corrección").fill("Revisión del sello");
     await button("Confirmar cambio de lote").click();
+    const identity = page.getByRole("dialog", { name: "Autorizar corrección" });
+    await identity.getByLabel("Contraseña de tu cuenta").fill(password);
+    await identity.getByRole("button", { name: "Confirmar identidad" }).click();
     await page.getByRole("heading", { name: "Lote apartado", exact: true }).waitFor();
     await page.getByText("Revisión del sello", { exact: true }).waitFor();
 

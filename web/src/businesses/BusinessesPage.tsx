@@ -88,7 +88,7 @@ export function BusinessesPage({ accountId }: { accountId: string }) {
   if (view === "negocios" || !business) return <>
     {notice && <Alert>{notice}</Alert>}
     <BusinessPicker industries={industries} accountId={accountId}
-      lastId={business?.id} select={select} create={() => navigate("crear")} />
+      last={business} select={select} create={() => navigate("crear")} />
   </>;
 
   const renderWorkspace = (access: AccessSnapshot, active: BusinessProfile, practice?: PracticeControls, practiceEntry?: ReactNode) =>
@@ -102,7 +102,7 @@ export function BusinessesPage({ accountId }: { accountId: string }) {
   return <PlanGate key={business.id} business={business} forced={view === "plan"}
     back={() => navigate("negocios")} onEnter={() => navigate("inicio", true)}>
     {(access) => business.industry === "timber" && !access.readOnly ?
-      <TimberPractice key={business.id} business={business} accountId={accountId} home={view === "inicio"}
+      <TimberPractice key={business.id} business={business} accountId={accountId} home={view === "inicio" || view === "ayuda"}
         onExit={() => navigate("inicio", true)} render={(active, practice, entry) => renderWorkspace(access, active, practice, entry)} /> :
       renderWorkspace(access, business)}
   </PlanGate>;

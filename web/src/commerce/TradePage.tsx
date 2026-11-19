@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { get } from "../api/client";
-import { Alert, Button, Card, DataTable, TextField } from "../ui/Primitives";
+import { Alert, Button, Card, DataTable, EmptyState, TextField } from "../ui/Primitives";
+import { Icon } from "../ui/Icon";
+import { TradeHelp } from "../businesses/BusinessHelp";
 import { ReviewDock } from "../ui/ReviewDock";
 import { CustomerEditor } from "./CatalogPage";
 import { useCommerce, useCommerceData } from "./CommerceContext";
@@ -9,7 +11,7 @@ import { bob, editableMoney, moneyLimit, parseMoney } from "./models";
 import type { CommandLine, Customer, EntryDocument, Page, Product } from "./models";
 import { useDraft } from "./useDraft";
 import { TimberFields } from "../timber/TimberFields";
-import { timberRate, unitsOf } from "../timber/measures";
+import { displayMeasure, timberRate, unitsOf } from "../timber/measures";
 import type { Capture, Rates, TimberUnits } from "../timber/measures";
 import { prepareTimber, stockKey, useTimberAvailability } from "../timber/trade";
 import { BarcodeField, MeasuredFields, SerialPicker, VariantMatrix, equivalence } from "../retail/TradeFields";
@@ -25,8 +27,8 @@ import { TileFields, tilePreview } from "../retail/MaterialFields";
 import type { TileRequest } from "../retail/MaterialFields";
 import type { Work } from "../services/work";
 
-export type TradeKind = "sale" | "purchase" | "quote";
-type Line = { id: string; key?: string; name: string; quantity: string; priceMinor: number; cost: string; timber?: Capture; rates?: Rates;
+export type TradeKind = "sale" | "purchase" | "quote" | "stock-in";
+type Line = { id: string; key?: string; name: string; quantity: string; priceMinor: number; cost: string; timber?: Capture; rates?: Rates; manualPrice?: string;
   measure?: Omit<Measure, "quantity">; series?: string; printing?: PrintDraft; tile?: TileRequest };
 type TradeDraft = {
   lines: Line[]; customer?: { id: string; name: string }; discount: string; note: string; method: string; quote?: string;
@@ -34,12 +36,13 @@ type TradeDraft = {
 };
 const emptyDraft: TradeDraft = { lines: [], discount: "0", method: "cash", note: "" };
 const emptyTile: TileRequest = { area: null, waste: null, tone: null, caliber: null };
-const titles: Record<TradeKind, string> = { sale: "Venta nueva", purchase: "Compra nueva", quote: "Cotización nueva" };
-const label: Record<TradeKind, string> = { sale: "venta", purchase: "compra", quote: "cotización" };
+const titles: Record<TradeKind, string> = { sale: "Venta nueva", purchase: "Compra nueva", quote: "Cotización nueva", "stock-in": "Entrada manual de inventario" };
+const label: Record<TradeKind, string> = { sale: "venta", purchase: "compra", quote: "cotización", "stock-in": "entrada" };
 
-export function TradePage({ kind, proposal, dismissProposal, onHistory, units = "imperial", industry, work, workService, onWorkBack }: {
+export function TradePage({ kind, proposal, dismissProposal, onHistory, units = "imperial", industry, work, workService, onWorkBack, scan, onStockBack }: {
   kind: TradeKind; proposal?: EntryDocument; dismissProposal: () => void; onHistory: () => void; units?: TimberUnits; industry?: string;
-  work?: Work; workService?: Product; onWorkBack?: () => void;
+  work?: Work; workService?: Product; onWorkBack?: () => void; scan?: boolean;
+  onStockBack?: () => void;
 }) {
   const workspace = useCommerce();
   const draftKey = workspace.scope + ":" + kind + (work ? ":work:" + work.id : "");
@@ -51,7 +54,8 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
   const [vehicle, setVehicle] = useState(emptyVehicle);
   const [acknowledged, setAcknowledged] = useState("");
   const cart = useRef<HTMLHeadingElement>(null);
-  const isPurchase = kind === "purchase";
+  const stockIn = kind === "stock-in";
+  const isPurchase = kind === "purchase" || stockIn;
   const products = useCommerceData<Page<Product>>("/products?" + new URLSearchParams({ active: "true", search, page: String(page),
     ...(isPurchase ? { service: "false" } : {}),
     ...(industry === "spareParts" ? vehicleQuery(vehicle) : {}) }));
@@ -128,7 +132,8 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
   const requiresCustomer = kind === "sale" && value.method === "credit" && (!customerId || total === 0);
   const missingService = !!work?.serviceId && !value.lines.some((line) => line.id === work.serviceId && line.quantity === "1");
   const reviewKey = JSON.stringify([value.lines, value.discount, value.method, customerId, value.quote, total, timber.commands, value.containers, work?.revision]);
-  const canSend = total !== null && !unavailable && !requiresCustomer && !missingService && !error && !containers.error && acknowledged === reviewKey;
+  const canSend = total !== null && !unavailable && !requiresCustomer && !missingService && !error && !containers.error &&
+    (!stockIn || !!value.note.trim()) && acknowledged === reviewKey;
   const totalText = total === null ? "Pendiente" : bob(total);
 
   function add(product: Product, newLot = false) {
@@ -171,8 +176,14 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
   return <div className="commerce-stack">
     <CommerceHeading title={work ? "Venta vinculada" : titles[kind]}>
       {work ? <Button variant="secondary" icon="back" onClick={onWorkBack}>Volver al trabajo</Button> :
-        <Button variant="secondary" icon="document" onClick={onHistory}>Ver operaciones</Button>}
+        <div className="inline-actions">
+          {onStockBack && <Button variant="secondary" icon="back" onClick={onStockBack}>Volver a inventario</Button>}
+          <Button variant="secondary" icon="document" onClick={onHistory}>Ver operaciones</Button>
+        </div>}
     </CommerceHeading>
+    {stockIn ? <Alert>Indica las cantidades, el costo de las existencias y el motivo de la entrada. Este movimiento no registra un pago.</Alert> :
+      <TradeHelp industry={industry} />}
+    {value.lines.length > 0 && <p className="trade-draft-note"><Icon name="document" /> Borrador local · Se registra al confirmar</p>}
     {work && <Alert>{work.title} · {work.customerName}{work.budgetMinor == null ? "" : " · Presupuesto " + bob(work.budgetMinor)}</Alert>}
     {workService && !workService.active && <Alert tone="error">El servicio del trabajo está archivado. Actívalo en Catálogo para cobrar.</Alert>}
     {missingService && workService && <Card><Alert>Falta el servicio del trabajo. Añade una unidad para continuar.</Alert>
@@ -196,6 +207,7 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
                 facesPerCopy: String(line.details.printing.job.facesPerCopy), duplex: line.details.printing.job.duplex } : undefined,
               series: line.details?.direction === "choose-series" ? "" : undefined,
               rates: line.timber ? { species: line.species ?? "", superShortMinor: line.unitMinor, shortMinor: line.unitMinor, longMinor: line.unitMinor } : undefined,
+              manualPrice: line.timber && line.details?.timberCatalogMinor != null ? editableMoney(line.unitMinor) : undefined,
               timber: line.timber ? { units: unitsOf(proposal.timberUnits), length: "", thickness: "", widths: "",
                 selection: { timber: line.timber, quantity: String(line.quantity) } } : undefined })) }));
           dismissProposal();
@@ -204,11 +216,11 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
     </Card>}
     <div className="trade-split">
       <Card>
-        <h2>Productos</h2>
-        {["convenience", "grocery", "beverages", "hardware", "spareParts", "stationery"].includes(industry ?? "") &&
-          <BarcodeField add={add} disabled={frozen} />}
         <SearchForm label={searchLabel(industry)}
           onSearch={(query) => { setSearch(query); setPage(1); setSelectedModel(""); }} />
+        <h2 className="trade-catalog-heading">{industry === "timber" ? "Madera y medidas" : "Productos"}</h2>
+        <BarcodeField add={add} disabled={frozen} focus={scan}
+          accepts={(product) => !isPurchase || (!product.isService && !product.specialty?.printing && !product.specialty?.material?.cement?.isBulk)} />
         {industry === "spareParts" && <CompatibilityFilter onChange={(filter) => { setVehicle(filter); setPage(1); }} />}
         {!products.data ? <LoadFeedback {...products} /> : products.data.items.length === 0 ? <NoRecords>Consulta el catálogo para dar de alta artículos.</NoRecords> :
           <ul className="trade-products">
@@ -239,7 +251,9 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
           <p>Venta vinculada a cotización</p>
           <Button variant="plain" disabled={frozen} onClick={() => update((draft) => ({ ...draft, quote: undefined }))}>Quitar vínculo</Button>
         </div>}
-        {value.lines.length === 0 && <NoRecords>Elige un producto para iniciar el borrador.</NoRecords>}
+        {value.lines.length === 0 && <EmptyState title="Empieza seleccionando un producto" icon="cart">
+          Las cantidades y el importe aparecerán aquí.
+        </EmptyState>}
         {lines.some((row) => !row.line.measure && !row.line.printing && row.line.series === undefined && !row.product?.equipment) &&
           <DataTable caption="Líneas del borrador" columns={["Producto", industry === "footwear" ? "Pares" : "Cantidad", isPurchase ? "Costo unitario" : "Precio unitario", "Subtotal", "Acción"]}
             rows={lines.filter((row) => !row.line.measure && !row.line.printing && row.line.series === undefined && !row.product?.equipment).map(({ line, product, changed, shortage, unitMinor, subtotal, quantity }) => ({ id: line.id, cells: [
@@ -312,12 +326,23 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
           const key = line.key ?? line.id;
           const currentRates = current.data?.[line.id]?.timber;
           const appliedRates = line.rates ?? currentRates;
-          const changed = !isPurchase && currentRates && group.rows.some((row) => row.charged !== timberRate(currentRates, row.timber));
+          const changed = !isPurchase && !line.manualPrice?.trim() && currentRates && group.rows.some((row) => row.charged !== timberRate(currentRates, row.timber));
+          const example = group.rows[0];
           return <div key={key} className="timber-trade">
-            {!isPurchase && group.rows[0] && <p>Tarifa aplicada · {bob(group.rows[0].charged)} por pie tablar</p>}
+            {!isPurchase && example && appliedRates && <p>Tarifa de catálogo · {bob(timberRate(currentRates ?? appliedRates, example.timber))} por pie tablar</p>}
             {changed && <Button variant="secondary" disabled={frozen} onClick={() => edit(key, { rates: currentRates })}>Usar tarifa actualizada</Button>}
             <TimberFields name={line.name} species={appliedRates?.species ?? ""} productId={line.id} capture={line.timber}
               cost={line.cost} onChange={(capture) => edit(key, { timber: capture })} onCost={(cost) => edit(key, { cost })} onRemove={() => remove(key)}
+              manualPrice={line.manualPrice ?? ""} onPrice={(manualPrice) => edit(key, { manualPrice })}
+              onDuplicate={value.lines.length < 100 ? () => update((draft) => {
+                if (draft.lines.length >= 100) return draft;
+                const capture = line.timber;
+                const picked = capture.selection?.timber;
+                const timber = { ...capture, selection: undefined, widths: "",
+                  length: picked ? displayMeasure(picked.lengthMicros, capture.units, "length") : capture.length,
+                  thickness: picked ? displayMeasure(picked.thicknessMicros, capture.units, "face") : capture.thickness };
+                return { ...draft, lines: [...draft.lines, { ...line, key: crypto.randomUUID(), timber }] };
+              }) : undefined}
               disabled={frozen} purchase={isPurchase} rows={group.rows.map((row) => {
                 const id = stockKey(line.id, row.timber);
                 return { ...row, requested: timber.requested.get(id)?.quantity ?? row.quantity,
@@ -343,7 +368,7 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
         event.preventDefault();
         if (!canSend) return;
         void form.submit(() => ({
-          kind, method: quote ? undefined : value.method,
+          kind, method: quote || stockIn ? undefined : value.method,
           customerId: isPurchase ? undefined : customerId, workLink: work ? { id: work.id, revision: work.revision } : undefined,
           discountMinor: discount ?? undefined, sourceId: value.quote, note: value.note,
           containers: containers.moves.length ? containers.moves : undefined,
@@ -357,9 +382,9 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
         </details>}
         {!isPurchase && <TextField label="Descuento total (Bs)" inputMode="decimal" value={value.discount} disabled={frozen}
           onChange={(event) => update((draft) => ({ ...draft, discount: event.target.value }))} />}
-        {!quote && <PaymentField value={value.method} credit={kind === "sale"} disabled={frozen}
+        {!quote && !stockIn && <PaymentField value={value.method} credit={kind === "sale"} disabled={frozen}
           onChange={(method) => { if (!frozen) update((draft) => ({ ...draft, method })); }} />}
-        <TextField label="Referencia (opcional)" maxLength={240} value={value.note} disabled={frozen}
+        <TextField label={stockIn ? "Motivo de la entrada" : "Referencia (opcional)"} required={stockIn} maxLength={240} value={value.note} disabled={frozen}
           onChange={(event) => update((draft) => ({ ...draft, note: event.target.value }))} />
         {total === null && <Alert>Revisa las cantidades, importes y el descuento antes de confirmar.</Alert>}
         {unavailable && <Alert>Verifica disponibilidad y precios de las líneas en el carrito.</Alert>}

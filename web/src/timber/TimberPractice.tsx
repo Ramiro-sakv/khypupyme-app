@@ -128,7 +128,8 @@ export function PracticeGuide({ controls, view, navigate }: {
 }) {
   const { session, act, busy, error } = controls;
   const [position, setPosition] = useState<Position>();
-  const [minimized, setMinimized] = useState(false);
+  const [minimizedStep, setMinimizedStep] = useState<number>();
+  const minimized = minimizedStep === session.step;
   const [confirmAbandon, setConfirmAbandon] = useState(false);
   const panel = useRef<HTMLElement>(null);
   const pointer = useRef<{ x: number; y: number }>(null);
@@ -150,7 +151,7 @@ export function PracticeGuide({ controls, view, navigate }: {
     return () => { observer.disconnect(); window.removeEventListener("resize", resize); };
   }, []);
 
-  return <aside ref={panel} className="practice-guide" aria-label="Guía de la práctica"
+  return <aside ref={panel} className="practice-guide" data-minimized={minimized || undefined} aria-label="Guía de la práctica"
     style={position && { left: position.x, top: position.y, right: "auto", bottom: "auto" }}>
     <div className="practice-guide-header">
       <button type="button" className="practice-move" aria-label="Mover guía con las flechas del teclado"
@@ -174,7 +175,7 @@ export function PracticeGuide({ controls, view, navigate }: {
           const bounds = panel.current?.getBoundingClientRect();
           if (bounds) setPosition(clamp({ x: bounds.left + delta[event.key].x, y: bounds.top + delta[event.key].y }));
         }}>Mover guía</button>
-      <Button variant="secondary" aria-expanded={!minimized} onClick={() => setMinimized(!minimized)}>
+      <Button variant="secondary" aria-expanded={!minimized} onClick={() => setMinimizedStep(minimized ? undefined : session.step)}>
         {minimized ? "Mostrar guía" : "Minimizar"}
       </Button>
     </div>
@@ -186,7 +187,10 @@ export function PracticeGuide({ controls, view, navigate }: {
         step?.instruction ?? "Elimina la caja, las existencias y los movimientos ficticios de este recorrido."}</p>
       {error && <Alert tone="error">{error} <Button variant="secondary" onClick={controls.refresh}>Actualizar</Button></Alert>}
       <div className="inline-actions">
-        {step && view !== step.view && <Button disabled={busy} onClick={() => navigate(step.view)}>Ir a {step.view}</Button>}
+        {step && view !== step.view && <Button disabled={busy} onClick={() => {
+          setMinimizedStep(session.step);
+          navigate(step.view);
+        }}>Ir a {step.view}</Button>}
         {session.step === 5 && view === "informes" && <Button disabled={busy} onClick={() => void act("reports-seen")}>Ya revisé los informes</Button>}
         {!step && <Button disabled={busy} onClick={() => void act("finish")}>Finalizar y eliminar práctica</Button>}
         <Button variant="plain" onClick={() => setPosition(undefined)}>Restablecer posición</Button>

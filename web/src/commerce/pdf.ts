@@ -1,8 +1,9 @@
 import type { Content, TableCell, TDocumentDefinitions } from "pdfmake/interfaces";
-import type { EntryDocument } from "./models";
-import { bob, dateLabel, documentAmount, documentName, methodLabel } from "./models";
+import type { EntryDocument, Report } from "./models";
+import { bob, dateLabel, documentAmount, documentName, isOperationalReceipt, methodLabel, reportResult } from "./models";
 import { documentTimber, documentUnit } from "../timber/measures";
 import { describeLine, lineQuantity, lineRate } from "../retail/measures";
+import { downloadFile, isNative } from "../native/platform";
 
 function buildDocument(record: EntryDocument): TDocumentDefinitions {
   const heading = documentName(record.kind);
@@ -25,6 +26,7 @@ function buildDocument(record: EntryDocument): TDocumentDefinitions {
       ...record.lines.map((line) => [
         { stack: [{ text: line.name }, { text: line.code, color: "#466058", fontSize: 9 },
           ...(line.timber ? [{ text: documentTimber(record, line), color: "#466058", fontSize: 9 }] : []),
+          ...(line.details?.timberCatalogMinor != null ? [{ text: "Tarifa de catálogo: " + bob(line.details.timberCatalogMinor) + " por pie tablar", fontSize: 8 }] : []),
           ...(line.details ? [{ text: describeLine(line), color: "#466058", fontSize: 9 }] : [])] },
         { text: lineQuantity(line), alignment: "right" as const },
         ...(transfer ? [] : [{ text: bob(line.unitMinor) + documentUnit(record, line) + lineRate(line), alignment: "right" as const }]),
@@ -40,7 +42,7 @@ function buildDocument(record: EntryDocument): TDocumentDefinitions {
     layout: "lightHorizontalLines", margin: [0, 6, 0, 10] });
   if (record.discountMinor) content.push({ text: "Descuento · " + bob(record.discountMinor), alignment: "right" });
   const amount = documentAmount(record);
-  if (record.kind !== "repair-receipt") content.push({ text: amount.label + " · " + bob(amount.minor), style: "total" });
+  if (!isOperationalReceipt(record.kind)) content.push({ text: amount.label + " · " + bob(amount.minor), style: "total" });
   if (record.cashDeltaMinor) content.push({ text: "Movimiento de caja · " + bob(record.cashDeltaMinor), alignment: "right" });
   if (record.debtDeltaMinor) content.push({ text: "Movimiento del fiado · " + bob(record.debtDeltaMinor), alignment: "right" });
 
@@ -62,15 +64,39 @@ function buildDocument(record: EntryDocument): TDocumentDefinitions {
 }
 
 export async function downloadDocument(record: EntryDocument) {
+  const file = record.number.replace(/[^a-zA-Z0-9_-]/g, "_") + ".pdf";
+  await savePdf(buildDocument(record), file);
+}
+
+export async function downloadReport(report: Report, business: string, practice: boolean) {
+  const columns = ["Fecha", "Ventas", "Compras", "Costo vendido", "Gastos", "Pérdidas", "Resultado"];
+  const rows = report.days.map((day) => [dateLabel(day.date), ...[day.salesMinor, day.purchasesMinor, day.costMinor,
+    day.expensesMinor, day.lossesMinor, reportResult(day)].map(bob)]);
+  const totals = report.totals;
+  await savePdf({
+    pageSize: "A4", pageOrientation: "landscape", pageMargins: [34, 34, 34, 36],
+    defaultStyle: { fontSize: 9, color: "#172a24" },
+    content: [
+      { text: business, fontSize: 20, bold: true, color: "#12483d" },
+      { text: "Informe de resultados · No fiscal", fontSize: 14, margin: [0, 3, 0, 4] },
+      { text: dateLabel(report.from) + " al " + dateLabel(report.to) + " · BOB", margin: [0, 0, 0, 10] },
+      ...(practice ? [{ text: "PRÁCTICA — DATOS FICTICIOS", bold: true, color: "#784622" }] : []),
+      { text: "Resultado estimado: " + bob(reportResult(totals)) + " · Compras: " + bob(totals.purchasesMinor), bold: true, margin: [0, 0, 0, 10] },
+      { table: { headerRows: 1, widths: ["*", 93, 93, 93, 93, 93, 93],
+        body: [columns.map((text) => ({ text, bold: true, fillColor: "#e7f1eb" })), ...rows] }, layout: "lightHorizontalLines" },
+    ],
+    footer: (page, pages) => ({ text: "KhypuPyme · Página " + page + " de " + pages, alignment: "center", margin: [0, 10, 0, 0] }),
+  }, "informe-" + report.from + "-" + report.to + ".pdf");
+}
+
+async function savePdf(definition: TDocumentDefinitions, file: string) {
   const [{ default: pdfMake }, { default: fonts }] = await Promise.all([
     import("pdfmake/build/pdfmake"), import("pdfmake/build/vfs_fonts"),
   ]);
-  const file = record.number.replace(/[^a-zA-Z0-9_-]/g, "_") + ".pdf";
-  const pdf = pdfMake.createPdf(buildDocument(record), undefined, undefined, fonts as unknown as Record<string, string>);
+  const pdf = pdfMake.createPdf(definition, undefined, undefined, fonts as unknown as Record<string, string>);
   if (!isNative) pdf.download(file);
   else {
     const blob = await new Promise<Blob>((resolve) => pdf.getBlob(resolve));
     await downloadFile(blob, file);
   }
 }
-import { downloadFile, isNative } from "../native/platform";

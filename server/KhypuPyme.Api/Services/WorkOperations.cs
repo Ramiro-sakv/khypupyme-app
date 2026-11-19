@@ -103,6 +103,31 @@ internal sealed class WorkOperations(CommerceTransaction work)
         return entry.Id;
     }
 
+    public async Task<Guid> IssueReceiptAsync()
+    {
+        var row = await LoadAsync(work.Command.WorkLink);
+        if (row.Industry is "beauty" or "repair")
+            throw new CommerceFailure("La constancia de trabajo corresponde a una orden de limpieza, servicios profesionales o artesanía.");
+        var customer = await work.CustomerAsync(row.CustomerId);
+        var details = WorkDetails.Read(row.DetailsJson);
+        var entry = await work.NewEntryAsync("ORD");
+        entry.CustomerId = customer.Id;
+        entry.CustomerName = customer.Name;
+        entry.SourceId = row.SaleId;
+        entry.Note = string.Join("\n", new[] {
+            row.Title, "Fecha comprometida: " + row.Day.ToString("dd/MM/yyyy"),
+            row.Address is null ? null : "Dirección: " + row.Address,
+            row.DeliveredOn is DateOnly delivered ? "Entregada el " + delivered.ToString("dd/MM/yyyy") : null,
+            row.Industry switch {
+                "cleaning" => "Tareas: " + details.Tasks,
+                "professional" => "Entregables: " + details.Deliverables,
+                "crafts" => "Especificaciones: " + details.Specifications,
+                _ => null,
+            },
+        }.OfType<string>());
+        return entry.Id;
+    }
+
     public async Task LinkSaleAsync(Entry sale, CommandLine[] lines)
     {
         if (work.Command.WorkLink is null) return;

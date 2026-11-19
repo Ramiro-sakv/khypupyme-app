@@ -63,6 +63,7 @@ function AccountApp() {
   }
 
   return <main className="app-shell">
+    {session?.localMailbox && <div className="environment-strip">Entorno local · Pagos de demostración</div>}
     <header className="app-header">
       <div className="brand"><span className="brand-mark" aria-hidden="true">K</span><strong>KhypuPyme 2.0</strong></div>
       <a href="/?view=status">Estado del servicio</a>
@@ -108,7 +109,7 @@ function AccountApp() {
         })}>{acting ? "Esperando al navegador…" : "Ingresar con el navegador"}</Button>
       </section>
     ) : (
-      <AuthPage google={session.googleConfigured} notice={googleNotice} returnTo={returnTo} onSignIn={refreshSession} />
+      <AuthPage google={session.googleConfigured} localMailbox={session.localMailbox} notice={googleNotice} returnTo={returnTo} onSignIn={refreshSession} />
     ))}
   </main>;
 }

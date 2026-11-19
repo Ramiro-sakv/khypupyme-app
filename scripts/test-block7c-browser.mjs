@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 
-export async function checkBrowser(cookies, businesses) {
+export async function checkBrowser(cookies, businesses, password) {
   const { chromium } = await import(pathToFileURL(process.env.KHYPU_TEST_PLAYWRIGHT).href);
   const browser = await chromium.launch({ channel: "msedge", headless: true });
   try {
@@ -40,8 +40,11 @@ export async function checkBrowser(cookies, businesses) {
     await button("Guardar programación").click();
     await button("Completar entrega").click();
     await page.getByText(/Calle de prueba móvil · Completada/).waitFor();
+    await button("Emitir constancia de despacho").click();
+    await page.getByRole("heading", { name: "Constancia de despacho" }).waitFor();
+    await page.getByText(/Dirección: Calle de prueba móvil/).waitFor();
     await open(businesses.furniture, "catalogo");
-    await page.getByText("2 piezas", { exact: true }).waitFor();
+    await page.getByText(/^1 piezas?$/).waitFor();
 
     await open(businesses.ceramics, "cotizaciones");
     await button(/Revestimiento Ensayo/).click();
@@ -66,6 +69,10 @@ export async function checkBrowser(cookies, businesses) {
     await button("Elegir LOTE A").click();
     await page.getByText(/50 kg a granel.*50,00 de valor transferido/).waitFor();
     await button("Confirmar apertura").click();
+    const identity = page.getByRole("dialog", { name: "Autorizar corrección" });
+    await identity.getByLabel("Motivo de la corrección").fill("Preparar la venta a granel");
+    await identity.getByLabel("Contraseña de tu cuenta").fill(password);
+    await identity.getByRole("button", { name: "Confirmar identidad" }).click();
     await page.getByRole("heading", { name: "Apertura de bolsas confirmada" }).waitFor();
     await page.getByText("Valor transferido", { exact: true }).waitFor();
     const download = page.waitForEvent("download");

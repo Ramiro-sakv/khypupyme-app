@@ -91,7 +91,7 @@ internal sealed class StoreReads(KhypuPymeDbContext db, TimeProvider clock)
                                 equals new { entry.BusinessId, entry.Id }
                              where movement.SerialKey == key
                              orderby entry.Sequence descending
-                             select new SerialMovement(movement.Kind, entry.Id, entry.Number, entry.Date, entry.Note, movement.WarrantyUntil))
+                             select new SerialMovement(movement.Kind, entry.Id, entry.Number, entry.Date, entry.Note, movement.WarrantyUntil, entry.SourceId))
             .ToArrayAsync(ct);
         return new UnitHistory(unit, history);
     }

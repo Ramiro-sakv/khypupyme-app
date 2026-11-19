@@ -167,6 +167,12 @@ try {
   const planned = (await create(professional, users.professional,
     { title: "Informe comercial", serviceId: consulting, details: { deliverables: "Informe y presentación" } })).entityId;
   const beforeBudget = await read(professional, planned);
+  const receiptRequest = { kind: "work-receipt", workLink: link(beforeBudget), operationId: randomUUID() };
+  await post(cleaning, receiptRequest, 404);
+  const reportReceipt = await post(professional, receiptRequest);
+  assert.equal((await post(professional, receiptRequest)).entityId, reportReceipt.entityId);
+  const workDocument = await document(professional, reportReceipt);
+  assert.match(workDocument.note, /Entregables: Informe y presentación/);
   await post(professional, { kind: "advance-work", workState: "approved", workLink: link(beforeBudget) }, 409);
   await edit(professional, beforeBudget, { budgetMinor: 35000 });
   await advance(professional, planned, "approved");

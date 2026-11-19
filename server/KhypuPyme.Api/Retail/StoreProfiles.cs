@@ -61,11 +61,13 @@ internal static class StoreProfiles
             var key = model.ToUpperInvariant();
             var variant = string.Join('\u001f', key, size.ToUpperInvariant(), color.ToUpperInvariant());
             var existing = work.Db.Set<Product>().Where(x => x.ModelKey == key && x.Id != product.Id);
+            var staged = work.Db.Set<Product>().Local.Where(x => x.BusinessId == work.Business.Id && x.ModelKey == key && x.Id != product.Id &&
+                work.Db.Entry(x).State == EntityState.Added).ToArray();
             if (command.EntityId is not null && product.VariantKey != variant)
                 throw new CommerceFailure("Crea otra variante para cambiar su modelo, talla o color.");
-            if (await existing.AnyAsync(x => x.VariantKey == variant, work.Ct))
+            if (staged.Any(x => x.VariantKey == variant) || await existing.AnyAsync(x => x.VariantKey == variant, work.Ct))
                 throw new CommerceFailure("Ese modelo ya tiene una variante con esta talla y color.", 409);
-            if (command.EntityId is null && await existing.CountAsync(work.Ct) >= 100)
+            if (command.EntityId is null && staged.Length + await existing.CountAsync(work.Ct) >= 100)
                 throw new CommerceFailure("El modelo admite hasta 100 variantes.");
             product.Model = model;
             product.ModelKey = key;

@@ -109,6 +109,10 @@ function WorkDetailBody({ item, charge }: { item: Work; charge: (id: string) => 
           onClick={() => item.receiptId ? showDocument(item.receiptId) :
             void form.submit(() => ({ kind: "repair-receipt", workLink: link }), (result) => showDocument(result.entityId))}>
           {item.receiptId ? "Ver constancia de recepción" : "Emitir constancia de recepción"}</Button>}
+        {!appointment && item.industry !== "repair" && <Button variant="secondary" disabled={editing || form.blocked}
+          onClick={() => void form.submit(() => ({ kind: "work-receipt", workLink: link }), (result) => showDocument(result.entityId))}>
+          Emitir constancia de trabajo
+        </Button>}
         {item.saleId ? <Button onClick={() => showDocument(item.saleId!)}>Ver venta vinculada</Button> :
           canBillWork(item) && <Button disabled={editing || form.blocked} onClick={() => charge(item.id)}>Cobrar con una venta</Button>}
       </div>

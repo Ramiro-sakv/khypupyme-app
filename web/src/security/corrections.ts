@@ -2,7 +2,7 @@ import { get } from "../api/client";
 import { bob, documentName } from "../commerce/models";
 import type { CashStatus, Command } from "../commerce/models";
 
-const protectedKinds = new Set(["return", "exchange", "void-expense", "stock-loss", "inspection",
+const protectedKinds = new Set(["return", "exchange", "void-expense", "void-debt", "cash-adjust", "stock-in", "stock-loss", "inspection",
   "hold-lot", "release-lot", "discard-lot", "open-cement"]);
 
 export async function needsIdentity(command: Command, path: string) {

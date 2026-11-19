@@ -82,11 +82,15 @@ try {
   assert.equal((await product(furniture, desk)).stock, 3);
   const delivery = { sourceId: sale.entityId };
   await post(furniture, { kind: "complete-delivery", ...delivery }, 409);
-  await post(ceramics, { kind: "schedule-delivery", ...delivery, delivery: { mode: "pickup", day: today } }, 400);
+  await post(ceramics, { kind: "schedule-delivery", ...delivery, delivery: { mode: "pickup", day: today } }, 404);
   const otherFurniture = await business("furniture", "Muebles de otro local");
   await post(otherFurniture, { kind: "schedule-delivery", ...delivery, delivery: { mode: "pickup", day: today } }, 404);
   await post(furniture, { kind: "schedule-delivery", ...delivery, delivery: { mode: "pickup", day: today } });
   assert.equal((await document(furniture, sale)).delivery.mode, "pickup");
+  const dispatch = { kind: "delivery-receipt", ...delivery, operationId: randomUUID() };
+  await post(ceramics, dispatch, 404);
+  const originalDispatch = await post(furniture, dispatch);
+  assert.equal((await post(furniture, dispatch)).entityId, originalDispatch.entityId);
   await post(furniture, { kind: "schedule-delivery", ...delivery, delivery: { mode: "delivery", day: today } }, 400);
   await post(furniture, { kind: "schedule-delivery", ...delivery,
     delivery: { mode: "delivery", day: today, address: "Calle de prueba 1" } });
@@ -96,7 +100,17 @@ try {
   await post(furniture, { kind: "complete-delivery", ...delivery }, 409);
   assert.equal((await request(furniture + "/deliveries", 200)).items[0].completedOn, today);
   assert.equal((await document(furniture, sale)).delivery.address, "Calle de prueba 1");
+  assert.match((await document(furniture, originalDispatch)).note, /Retiro en tienda/);
   assert.equal((await product(furniture, desk)).stock, 3);
+  const secondSale = await sell(furniture, [line(desk, 1, 12000)]);
+  await post(furniture, { kind: "schedule-delivery", sourceId: secondSale.entityId, delivery: { mode: "pickup", day: today } });
+  await post(furniture, { kind: "prepare-delivery", sourceId: secondSale.entityId });
+  assert.equal((await document(furniture, secondSale)).delivery.preparedOn, today);
+  await post(furniture, { kind: "cancel-delivery", sourceId: secondSale.entityId, note: "El cliente cambió el retiro" });
+  assert.equal((await document(furniture, secondSale)).delivery.cancelledOn, today);
+  await post(furniture, { kind: "delivery-receipt", sourceId: secondSale.entityId }, 409);
+  await post(furniture, { kind: "complete-delivery", sourceId: secondSale.entityId }, 409);
+  assert.equal((await product(furniture, desk)).stock, 2);
   console.log("Muebles: 5 piezas; cotización conserva 5; venta deja 3; entrega completada conserva 3.");
 
   const tileProfile = { boxArea: 1.44, tone: "Arena", caliber: "C1" };
@@ -163,7 +177,7 @@ try {
   console.log("Cemento: abrir dos bolsas de 50 kg trasladó 100 kg y Bs 100 del lote sin cambiar el informe ni la caja.");
 
   if (process.env.KHYPU_TEST_PLAYWRIGHT) await (await import("./test-block7c-browser.mjs")).checkBrowser(cookies,
-    Object.fromEntries(Object.entries({ furniture, ceramics, cement }).map(([key, path]) => [key, path.split("/").at(-2)])));
+    Object.fromEntries(Object.entries({ furniture, ceramics, cement }).map(([key, path]) => [key, path.split("/").at(-2)])), password);
 } finally {
   const sql = 'DELETE FROM khypupyme."AspNetUsers" WHERE "NormalizedEmail"=upper(\'' + email + '\'); ' +
     'DELETE FROM khypupyme.email_challenges WHERE "Email"=upper(\'' + email + '\');';

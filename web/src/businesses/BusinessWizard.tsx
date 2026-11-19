@@ -3,7 +3,9 @@ import type { FormEvent } from "react";
 import { change } from "../api/client";
 import { Icon } from "../ui/Icon";
 import { Alert, Button, Card, SelectField, TextField } from "../ui/Primitives";
-import { industryTheme } from "./industryThemes";
+import { industryFamilies, industryTheme } from "./industryThemes";
+import { INDUSTRY_GUIDES } from "./industryGuides";
+import type { IndustryId } from "./industryThemes";
 import { businessApi } from "./models";
 import type { BusinessProfile, IndustryOption } from "./models";
 
@@ -22,6 +24,7 @@ export function BusinessWizard({ industries, onCancel, onCreated }: {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const theme = industryTheme(industry?.id ?? "");
+  const guide = industry ? INDUSTRY_GUIDES[industry.id as IndustryId] : null;
 
   useEffect(() => { heading.current?.focus({ preventScroll: true }); }, [step]);
 
@@ -51,26 +54,44 @@ export function BusinessWizard({ industries, onCancel, onCreated }: {
 
   return <div className="business-wizard" style={theme.style}>
     <Card>
-      <h1 ref={heading} tabIndex={-1}>Crear negocio</h1>
       <ol className="wizard-steps">
         {["Rubro", "Configuración", "Revisión"].map((name, index) => (
           <li key={name} aria-current={step === index + 1 ? "step" : undefined}>{name}</li>
         ))}
       </ol>
+      <header className="wizard-heading"><h1 ref={heading} tabIndex={-1}>Crear negocio</h1>
+        <p>{step === 1 ? "Elige el rubro. Cada negocio tiene su propia caja, inventario e historial." :
+          step === 2 ? "Completa los datos con los que identificarás este negocio." : "Revisa los datos antes de crear el negocio."}</p>
+      </header>
       <form className="account-form" onSubmit={(event) => void submit(event)}>
-        {step === 1 && <>
-          <SelectField label="Rubro del negocio" required value={industry?.id ?? ""} onChange={(event) => {
-            setIndustry(industries.find((item) => item.id === event.target.value) ?? null);
-            setAttemptId(crypto.randomUUID());
-          }}>
-            <option value="">Elige un rubro</option>
-            {industries.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-          </SelectField>
-          {industry && <div className="wizard-industry">
-            <span className="workspace-business-icon"><Icon name={theme.icon} /></span>
-            <div><strong>{industry.name}</strong><p>{industry.description}</p></div>
-          </div>}
-        </>}
+        {step === 1 && <div className="wizard-choice">
+          <fieldset className="wizard-families">
+            <legend>Elige el tipo de negocio</legend>
+            {industryFamilies.map(({ label, ids }) => <section key={label} className="wizard-family">
+              <h2>{label}</h2>
+              <div className="wizard-options">
+                {ids.flatMap((id) => industries.filter((option) => option.id === id)).map((option) => {
+                  const identity = industryTheme(option.id);
+                  return <label className="wizard-option" style={identity.style} key={option.id}>
+                    <span className="workspace-business-icon"><Icon name={identity.icon} /></span>
+                    <span>{option.name}</span>
+                    <input type="radio" name="industry" required checked={industry?.id === option.id} onChange={() => {
+                      setIndustry(option);
+                      setAttemptId(crypto.randomUUID());
+                    }} />
+                  </label>;
+                })}
+              </div>
+            </section>)}
+          </fieldset>
+          <aside className="wizard-preview" aria-live="polite">
+            {industry && guide ? <>
+              <span className="workspace-business-icon"><Icon name={theme.icon} /></span>
+              <h2>{industry.name}</h2><p>{industry.description}</p>
+              <ul>{guide.steps.slice(0, 3).map((stepText) => <li key={stepText}><Icon name="check" />{stepText}</li>)}</ul>
+            </> : <p>Selecciona un rubro para ver sus herramientas.</p>}
+          </aside>
+        </div>}
         {step === 2 && <>
           <TextField label="Nombre del negocio" required maxLength={100} value={draft.name}
             onChange={(event) => update("name", event.target.value)} />

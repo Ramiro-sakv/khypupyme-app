@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { timberLabel } from "../web/src/timber/measures.ts";
 
-export async function checkBrowser(cookies) {
+export async function checkBrowser(cookies, available = 7) {
   const module = await import(pathToFileURL(process.env.KHYPU_TEST_PLAYWRIGHT).href);
   const browser = await module.chromium.launch({ channel: "msedge", headless: true });
   try {
@@ -20,7 +20,7 @@ export async function checkBrowser(cookies) {
     const picked = timberLabel({ lengthMicros: 3_048_000_000, thicknessMicros: 50_800_000, widthMicros: 152_400_000 }, "metric");
     await page.getByRole("button", { name: "Elegir " + picked, exact: true }).click();
     await page.getByLabel("Piezas de la medida elegida").fill("100");
-    await page.getByText("Pedido 100 · Disponible 7 · Faltan 93").waitFor();
+    await page.getByText("Pedido 100 · Disponible " + available + " · Faltan " + (100 - available)).waitFor();
     await page.getByRole("button", { name: "Revisar", exact: true }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByRole("checkbox").check();
@@ -29,7 +29,7 @@ export async function checkBrowser(cookies) {
     await dialog.waitFor({ state: "hidden" });
     assert.equal(await page.evaluate(() => document.activeElement?.textContent), "Carrito");
     await page.getByLabel("Piezas de la medida elegida").fill("2");
-    await page.getByText("Pedido 2 · Disponible 7").waitFor();
+    await page.getByText("Pedido 2 · Disponible " + available).waitFor();
     await page.getByRole("button", { name: "Revisar", exact: true }).click();
     assert.equal(await dialog.getByRole("button", { name: "Confirmar venta" }).isDisabled(), true);
     assert.match(await dialog.innerText(), /200,00/);

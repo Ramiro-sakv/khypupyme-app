@@ -9,7 +9,7 @@ internal static class CorrectionAudit
 {
     public static bool Protected(CommerceCommand command) => command.Kind switch
     {
-        "return" or "exchange" or "void-expense" or "stock-loss" or "inspection" or "hold-lot" or "release-lot" or
+        "return" or "exchange" or "void-expense" or "void-debt" or "cash-adjust" or "stock-in" or "stock-loss" or "inspection" or "hold-lot" or "release-lot" or
             "discard-lot" or "open-cement" => true,
         "product" or "customer" => command.EntityId is not null,
         _ => false,
@@ -32,6 +32,8 @@ internal static class CorrectionAudit
             var item = await work.CustomerAsync(customer);
             return new { item.Name, item.Phone };
         }
+        if (work.Command.Kind == "cash-adjust" && await work.OpenCashAsync() is { } session)
+            return new { session.Id, session.ExpectedMinor };
         return null;
     }
 

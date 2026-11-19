@@ -2,12 +2,14 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { change } from "../api/client";
 import { Alert, Button, TextField } from "../ui/Primitives";
+import shopPhoto from "../assets/comercio-khypupyme.jpg";
 
 type Mode = "login" | "register" | "recover";
 const auth = "/api/v1/auth";
 
-export function AuthPage({ google, returnTo, notice, onSignIn }: {
+export function AuthPage({ google, localMailbox, returnTo, notice, onSignIn }: {
   google: boolean;
+  localMailbox: boolean;
   returnTo: string | null;
   notice: string;
   onSignIn: () => Promise<void>;
@@ -15,6 +17,7 @@ export function AuthPage({ google, returnTo, notice, onSignIn }: {
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [code, setCode] = useState("");
   const [sentTo, setSentTo] = useState("");
   const [busy, setBusy] = useState(false);
@@ -34,6 +37,7 @@ export function AuthPage({ google, returnTo, notice, onSignIn }: {
   function open(next: Mode) {
     setMode(next);
     setPassword("");
+    setShowPassword(false);
     setCode("");
     setSentTo("");
     setError("");
@@ -64,15 +68,17 @@ export function AuthPage({ google, returnTo, notice, onSignIn }: {
     await change(auth + "/" + mode + "/code", "POST", { email });
     setSentTo(email.trim());
     setCode("");
-    setFeedback("Si el correo corresponde a esta solicitud, encontrarás el código en el buzón local.");
+    setFeedback(localMailbox ? "Si el correo corresponde a esta solicitud, encontrarás el código en el buzón local." :
+      "Si el correo corresponde a esta solicitud, recibirás el código por correo. Revisa también la carpeta de spam.");
   }
 
   const title = mode === "login" ? "Ingresa a KhypuPyme" : mode === "register" ? "Crea tu cuenta" : "Recupera tu contraseña";
   return (
     <section className="auth-layout">
       <div className="intro">
-        <h1>Un espacio para cada negocio.</h1>
-        <p>Administra tus negocios de Bolivia desde la misma cuenta.</p>
+        <img src={shopPhoto} alt="" fetchPriority="high" />
+        <div className="intro-copy"><h1>Tu negocio, en orden.</h1>
+          <p>Ventas, inventario y caja para cada negocio, desde una sola cuenta.</p></div>
       </div>
       <div className="account-card">
         <h2>{title}</h2>
@@ -86,11 +92,13 @@ export function AuthPage({ google, returnTo, notice, onSignIn }: {
             <TextField label="Código de cinco dígitos" inputMode="numeric" pattern="[0-9]{5}" autoComplete="one-time-code" maxLength={5}
               required value={code} onChange={(event) => setCode(event.target.value)} />
           )}
-          {(mode === "login" || verified) && (
-            <TextField label={mode === "recover" ? "Nueva contraseña" : "Contraseña"} type="password"
+          {(mode === "login" || verified) && <>
+            <TextField label={mode === "recover" ? "Nueva contraseña" : "Contraseña"} type={showPassword ? "text" : "password"}
               autoComplete={mode === "login" ? "current-password" : "new-password"} minLength={mode === "login" ? undefined : 12}
               maxLength={128} required value={password} onChange={(event) => setPassword(event.target.value)} />
-          )}
+            <Button className="password-toggle" variant="plain" disabled={busy}
+              onClick={() => setShowPassword((current) => !current)}>{showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}</Button>
+          </>}
           <Button type="submit" disabled={busy}>{busy ? "Procesando…" :
             mode === "login" ? "Ingresar" : !verified ? "Enviar código" :
               mode === "register" ? "Crear cuenta" : "Guardar contraseña"}</Button>

@@ -15,14 +15,14 @@ const email = "block4-api-" + randomUUID() + "@example.test";
 const password = "Clave de ejemplo de bloque cuatro 2026!";
 const cookies = new Map();
 
-async function request(path, expected, method = "GET", body) {
+async function request(path, expected, method = "GET", body, approve = true) {
   const headers = new Headers();
   if (method !== "GET") {
     headers.set("X-CSRF-TOKEN", (await request(auth + "/csrf", 200)).token);
     headers.set("Content-Type", "application/json");
   }
   if (cookies.size) headers.set("Cookie", [...cookies].map(([key, value]) => key + "=" + value).join("; "));
-  await authorizeFixture(base, path, method, body, headers, password, request);
+  if (approve) await authorizeFixture(base, path, method, body, headers, password, request);
   const response = await fetch(base + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
   for (const cookie of response.headers.getSetCookie()) {
     const pair = cookie.split(";")[0];
@@ -164,6 +164,50 @@ try {
   assert.deepEqual(amounts, [[1, 2], [0, 1], [1, 2]]);
   assert.deepEqual([(await stock(cents)).stock, (await stock(cents)).valueMinor], [2, 3]);
   console.log("Las devoluciones repartieron exactamente centavos de importe y costo, separando la pieza dañada.");
+
+  const summarize = async () => (await request(scope + "/report", 200)).totals;
+  const baseline = await summarize();
+  const moreCash = (await post({ kind: "open-cash", amountMinor: 2_000 })).entityId;
+  const deposit = { operationId: randomUUID(), kind: "cash-adjust", sourceId: moreCash, code: "in",
+    amountMinor: 1_200, note: "Aporte del titular" };
+  await request(scope + "/commands", 422, "POST", deposit, false);
+  assert.deepEqual(await post(deposit), await post(deposit));
+  await cash(3_200);
+  await post({ ...deposit, operationId: randomUUID(), code: "out", amountMinor: 3_201 }, 409);
+  await post({ ...deposit, operationId: randomUUID(), code: "out", amountMinor: 200 });
+  await cash(3_000);
+
+  const adjustment = { operationId: randomUUID(), kind: "stock-in", note: "Ajuste de conteo QA",
+    lines: [{ productId: cents, quantity: 3, unitMinor: 10 }] };
+  await request(scope + "/commands", 422, "POST", adjustment, false);
+  const added = await post(adjustment);
+  await post(adjustment);
+  assert.deepEqual([(await stock(cents)).stock, (await stock(cents)).valueMinor], [5, 33]);
+  assert.equal((await entry(added.entityId)).totalMinor, 30);
+  await post({ ...adjustment, operationId: randomUUID(), method: "cash" }, 400);
+  assert.deepEqual(await summarize(), baseline);
+  await cash(3_000);
+
+  const manual = { kind: "manual-debt", customerId: customer, amountMinor: 1_500, note: "Saldo anterior" };
+  const firstDebt = await post(manual);
+  assert.ok((await request(scope + "/debts", 200)).items.find((row) => row.saleId === firstDebt.entityId)?.manual);
+  await post({ kind: "collect", sourceId: firstDebt.entityId, method: "qr", amountMinor: 1_500 });
+  await post({ kind: "void-debt", sourceId: firstDebt.entityId, note: "Ya fue cobrado" }, 409);
+  const secondDebt = await post(manual);
+  await post({ kind: "void-debt", sourceId: secondDebt.entityId, note: "Saldo duplicado" });
+  assert.ok((await request(scope + "/debts?paid=true", 200)).items.find((row) => row.saleId === secondDebt.entityId)?.voided);
+  assert.deepEqual(await summarize(), baseline);
+
+  const from = confirmed.date;
+  const filtered = await request(scope + "/history?" + new URLSearchParams({ kind: "documents", from, to: from, search: confirmed.number }), 200);
+  assert.deepEqual(filtered.items.map((row) => row.id), [confirmed.id]);
+  assert.equal((await request(secondary + "/history?search=" + confirmed.number, 200)).items.length, 0);
+  await request(scope + "/history?from=2030-01-01&to=2000-01-01", 400);
+  assert.deepEqual(await request(scope + "/setup", 200), { cashStarted: true, catalogReady: true, sold: true });
+  console.log("Confirmados ajustes protegidos, fiado manual, filtros de documentos y avance inicial sin mezclar saldos ni negocios.");
+  if (process.env.KHYPU_TEST_PLAYWRIGHT) {
+    await (await import("./test-polish-browser.mjs")).checkPolish(cookies, scope.split("/").at(-2), confirmed.number);
+  }
 } finally {
   const sql = 'DELETE FROM khypupyme."AspNetUsers" WHERE "NormalizedEmail"=upper(\'' + email + '\'); ' +
     'DELETE FROM khypupyme.email_challenges WHERE "Email"=upper(\'' + email + '\');';

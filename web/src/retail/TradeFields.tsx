@@ -9,7 +9,9 @@ import type { Page, Product } from "../commerce/models";
 import { baseUnit, fromBase, quantityLabel, retailUnits, unitLabels } from "./measures";
 import type { Lot, Measure, Serial } from "./measures";
 
-export function BarcodeField({ add, disabled }: { add: (product: Product) => void; disabled: boolean }) {
+export function BarcodeField({ add, disabled, focus, accepts }: {
+  add: (product: Product) => void; disabled: boolean; focus?: boolean; accepts: (product: Product) => boolean;
+}) {
   const { path } = useCommerce();
   const field = useRef<HTMLInputElement>(null);
   const [code, setCode] = useState("");
@@ -18,19 +20,30 @@ export function BarcodeField({ add, disabled }: { add: (product: Product) => voi
   const [error, setError] = useState("");
   return <form className="barcode-field" onSubmit={async (event) => {
     event.preventDefault();
-    if (disabled || busy || !code.trim()) return;
+    if (disabled || busy) return;
+    if (!code.trim()) {
+      setError("Escribe o escanea el código del producto. [400]");
+      setStatus("");
+      field.current?.focus();
+      return;
+    }
     setBusy(true); setError(""); setStatus("");
     try {
       const product = await get<Product>(path + "/products/code?" + new URLSearchParams({ code: code.trim() }));
+      if (!accepts(product)) {
+        setError("Este producto no se puede añadir a esta operación. [400]");
+        return;
+      }
       add(product); setCode(""); setStatus(product.name + " añadido.");
     } catch (error) {
       setError(error instanceof ApiError && error.status === 404 ? "No hay un producto activo con ese código. [404]" :
         error instanceof Error ? error.message : "No se pudo consultar el código.");
     } finally { setBusy(false); field.current?.focus(); }
   }}>
-    <TextField ref={field} autoFocus data-entry-focus label="Código o lector" hint="Escanea el código o escríbelo y pulsa Enter." error={error || undefined}
-      value={code} maxLength={40} disabled={disabled} onChange={(event) => setCode(event.target.value)} />
-    <Button type="submit" disabled={disabled || busy || !code.trim()}>{busy ? "Buscando…" : "Añadir por código"}</Button>
+    <TextField ref={field} data-entry-focus={focus || undefined} label="Código o lector"
+      hint="Escanea el código o escríbelo y pulsa Enter." error={error || undefined}
+      value={code} maxLength={40} disabled={disabled} onChange={(event) => { setCode(event.target.value); setError(""); setStatus(""); }} />
+    <Button type="submit" icon="barcode" disabled={disabled || busy}>{busy ? "Buscando…" : "Añadir por código"}</Button>
     {status && <small role="status">{status}</small>}
   </form>;
 }

@@ -9,9 +9,12 @@ internal sealed class CashOperations(CommerceTransaction work)
     {
         "open-cash" => OpenAsync(),
         "close-cash" => CloseAsync(),
+        "cash-adjust" => AdjustAsync(),
         "expense" => ExpenseAsync(),
         "void-expense" => VoidExpenseAsync(),
         "collect" => CollectAsync(),
+        "manual-debt" => RegisterDebtAsync(),
+        "void-debt" => VoidDebtAsync(),
         _ => throw new InvalidOperationException(),
     };
 
@@ -59,6 +62,24 @@ internal sealed class CashOperations(CommerceTransaction work)
         return entry.Id;
     }
 
+    private async Task<Guid> AdjustAsync()
+    {
+        var session = await work.OpenCashAsync() ?? throw new CommerceFailure("Abre caja antes de registrar un ajuste.", 409);
+        if (session.Id != work.Command.SourceId)
+            throw new CommerceFailure("La sesión de caja cambió. Vuelve a consultar.", 409);
+        var direction = work.Command.Code switch
+        {
+            "in" => 1, "out" => -1,
+            _ => throw new CommerceFailure("Elige aporte o retiro de efectivo.")
+        };
+        var entry = await work.NewEntryAsync(direction == 1 ? "APO" : "RET");
+        entry.Note = Text(work.Command.Note, 240, "el motivo del ajuste de caja", true);
+        entry.TotalMinor = Money(work.Command.AmountMinor, "un importe para el ajuste", positive: true);
+        entry.Method = "cash";
+        await work.ApplyCashAsync(entry, direction * entry.TotalMinor);
+        return entry.Id;
+    }
+
     private async Task<Guid> VoidExpenseAsync()
     {
         var original = await work.SourceAsync("expense");
@@ -77,7 +98,7 @@ internal sealed class CashOperations(CommerceTransaction work)
 
     private async Task<Guid> CollectAsync()
     {
-        var sale = await work.SourceAsync("sale");
+        var sale = await work.SourceAsync("sale", allowManualDebt: true);
         var debt = await work.Db.Set<Receivable>().FindAsync([work.Business.Id, sale.Id], work.Ct);
         if (debt is null || debt.BalanceMinor <= 0)
             throw new CommerceFailure("El fiado ya no tiene saldo pendiente.", 409);
@@ -92,6 +113,42 @@ internal sealed class CashOperations(CommerceTransaction work)
         entry.TotalMinor = debt.BalanceMinor;
         entry.DebtDeltaMinor = -debt.BalanceMinor;
         await work.ApplyCashAsync(entry, entry.TotalMinor);
+        debt.BalanceMinor = 0;
+        return entry.Id;
+    }
+
+    private async Task<Guid> RegisterDebtAsync()
+    {
+        if (work.Command.CustomerId is not Guid customerId)
+            throw new CommerceFailure("Selecciona un cliente registrado para el fiado.");
+        var customer = await work.CustomerAsync(customerId);
+        var entry = await work.NewEntryAsync("FIA");
+        entry.Note = Text(work.Command.Note, 240, "el concepto del fiado", true);
+        entry.Method = "credit";
+        entry.CustomerId = customer.Id;
+        entry.CustomerName = customer.Name;
+        entry.TotalMinor = entry.DebtDeltaMinor = Money(work.Command.AmountMinor, "un importe para el fiado", positive: true);
+        work.Db.Add(new Receivable
+        {
+            BusinessId = entry.BusinessId, SaleId = entry.Id, CustomerId = customer.Id,
+            OriginalMinor = entry.TotalMinor, BalanceMinor = entry.TotalMinor,
+        });
+        return entry.Id;
+    }
+
+    private async Task<Guid> VoidDebtAsync()
+    {
+        var original = await work.SourceAsync("manual-debt");
+        var debt = await work.Db.Set<Receivable>().FindAsync([work.Business.Id, original.Id], work.Ct);
+        if (debt is null || debt.BalanceMinor <= 0)
+            throw new CommerceFailure("El fiado manual ya fue saldado o anulado.", 409);
+        var entry = await work.NewEntryAsync("ANF");
+        entry.Note = Text(work.Command.Note, 240, "el motivo de anulación", true);
+        entry.SourceId = original.Id;
+        entry.CustomerId = original.CustomerId;
+        entry.CustomerName = original.CustomerName;
+        entry.TotalMinor = debt.BalanceMinor;
+        entry.DebtDeltaMinor = -debt.BalanceMinor;
         debt.BalanceMinor = 0;
         return entry.Id;
     }

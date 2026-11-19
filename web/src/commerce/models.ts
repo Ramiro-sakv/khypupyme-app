@@ -13,6 +13,8 @@ export type EntryInfo = Schema["EntryInfo"];
 export type EntryDocument = Schema["EntryDocument"];
 export type Receivable = Schema["ReceivableInfo"];
 export type Report = Schema["CommerceReport"];
+export const reportResult = (day: Report["totals"]) =>
+  day.resultMinor ?? day.salesMinor - day.costMinor - day.expensesMinor - day.lossesMinor;
 export type Page<T> = { items: T[]; hasMore: boolean };
 
 export const commercePath = (id: string, practice?: boolean) => businessApi + "/" + id + (practice ? "/practice-commerce" : "/commerce");
@@ -35,15 +37,21 @@ export const methodLabel = (method: string | null) => method ? methods[method as
 
 const documentNames: Record<string, string> = {
   "save-work": "Registro de agenda u orden", "advance-work": "Actualización de estado", "repair-receipt": "Constancia de recepción",
+  "work-receipt": "Constancia de trabajo", "delivery-receipt": "Constancia de despacho",
   "open-cement": "Apertura de bolsas",
   sale: "Venta", purchase: "Compra", quote: "Cotización", return: "Devolución", expense: "Gasto",
   "void-expense": "Anulación de gasto", collect: "Cobro de fiado", "stock-loss": "Pérdida de inventario",
   "open-cash": "Apertura de caja", "close-cash": "Cierre de caja",
+  "cash-adjust": "Ajuste de caja", "stock-in": "Entrada manual de inventario",
+  "manual-debt": "Fiado manual", "void-debt": "Anulación de fiado manual",
+  "prepare-delivery": "Entrega preparada", "cancel-delivery": "Entrega cancelada",
+  warranty: "Reclamo de garantía",
   exchange: "Cambio de prenda", inspection: "Inspección",
   containers: "Movimiento de envases", "container-stock": "Entrada de envases",
   "hold-lot": "Lote apartado", "release-lot": "Lote liberado", "discard-lot": "Baja de lote",
 };
 export const documentName = (kind: string) => documentNames[kind] ?? kind;
+export const isOperationalReceipt = (kind: string) => ["repair-receipt", "work-receipt", "delivery-receipt"].includes(kind);
 export function documentAmount(document: EntryDocument) {
   if (document.kind === "open-cement") return { label: "Valor transferido", minor: document.lines[0]?.subtotalMinor ?? 0 };
   return { label: document.kind === "exchange" ? "Diferencia cobrada (+) o devuelta (−)" : "Total confirmado", minor: document.totalMinor };

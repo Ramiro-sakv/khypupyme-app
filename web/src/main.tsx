@@ -5,6 +5,7 @@ import "./styles.css";
 import "./ui/ui.css";
 import "./accounts.css";
 import "./workspace.css";
+import "./businesses/businesses.css";
 import "./commerce/commerce.css";
 import "./billing/plan.css";
 

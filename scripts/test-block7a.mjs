@@ -163,7 +163,7 @@ try {
   console.log("Mascotas: fraccionamiento con lote elegido, vencimiento y costo de la bolsa de origen, rechazo del faltante de ese lote.");
   if (process.env.KHYPU_TEST_PLAYWRIGHT) await (await import("./test-block7a-browser.mjs")).checkBrowser(cookies,
     { grocery: grocery.split("/").at(-2), beverages: beverages.split("/").at(-2),
-      cosmetics: cosmetics.split("/").at(-2), pets: pets.split("/").at(-2) });
+      cosmetics: cosmetics.split("/").at(-2), pets: pets.split("/").at(-2) }, password);
 } finally {
   const sql = 'DELETE FROM khypupyme."AspNetUsers" WHERE "NormalizedEmail"=upper(\'' + email + '\'); ' +
     'DELETE FROM khypupyme.email_challenges WHERE "Email"=upper(\'' + email + '\');';

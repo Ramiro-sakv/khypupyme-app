@@ -20,7 +20,13 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
             throw new CommerceFailure("La solicitud comercial no es válida.");
         if (command.Containers is not null && command.Kind is not ("sale" or "containers"))
             throw new CommerceFailure("Registra los envases en una venta o en su movimiento independiente.");
-        if ((command.WorkLink is not null && command.Kind is not ("save-work" or "advance-work" or "repair-receipt" or "sale")) ||
+        if (command.Variants is not null && command.Kind != "variants")
+            throw new CommerceFailure("La lista de variantes solo corresponde al alta conjunta de variantes.");
+        if (command.ExchangeLines?.Any(x => x?.TimberRateManual is not null) == true ||
+            command.Lines?.Any(x => x?.TimberRateManual is not null &&
+                (x.TimberRateManual != true || x.Timber is null || command.Kind is not ("sale" or "quote"))) == true)
+            throw new CommerceFailure("La tarifa manual solo corresponde a madera en una venta o cotización.");
+        if ((command.WorkLink is not null && command.Kind is not ("save-work" or "advance-work" or "repair-receipt" or "work-receipt" or "sale")) ||
             (command.Work is not null && command.Kind != "save-work") || (command.WorkState is not null && command.Kind != "advance-work") ||
             (command.ServiceProduct is not null && command.Kind != "product"))
             throw new CommerceFailure("Los datos de la cita o servicio no corresponden a la operación.");
@@ -55,6 +61,8 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
             : null;
         if (practiceChannel && practice?.State != "active")
             throw new CommerceFailure("Reanuda la práctica antes de registrar movimientos.", 409);
+        if (practiceChannel && command.Kind is ("stock-in" or "cash-adjust" or "manual-debt" or "void-debt"))
+            throw new CommerceFailure("Ese ajuste manual no forma parte de esta práctica.", 403);
         var work = new CommerceTransaction(db, business, command, now, ct);
         SecurityProof? approval = null;
         object? previous = null;
@@ -67,21 +75,26 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
         var entityId = command.Kind switch
         {
             "product" => await SaveProductAsync(work),
+            "variants" => await SaveVariantsAsync(work),
             "customer" => await SaveCustomerAsync(work),
             "purchase" => await new TradeOperations(work).PurchaseAsync(),
+            "stock-in" => await new TradeOperations(work).StockInAsync(),
             "sale" or "quote" => await new TradeOperations(work).SellAsync(),
             "return" or "exchange" => await new TradeOperations(work).ReturnAsync(),
             "inspection" => await new EquipmentInventory(work).InspectAsync(),
+            "warranty" => await new EquipmentInventory(work).WarrantyAsync(),
             "containers" => await new ContainerService(work).RegisterAsync(),
             "container-stock" => await new ContainerService(work).ReceiveStockAsync(),
             "open-cement" => await new CementOperations(work).OpenAsync(),
-            "schedule-delivery" or "complete-delivery" => await new FurnitureDeliveries(work).ExecuteAsync(),
+            "schedule-delivery" or "prepare-delivery" or "complete-delivery" or "cancel-delivery" or "delivery-receipt" =>
+                await new FurnitureDeliveries(work).ExecuteAsync(),
             "save-work" => await new WorkOperations(work).SaveAsync(),
             "advance-work" => await new WorkOperations(work).TransitionAsync(),
             "repair-receipt" => await new WorkOperations(work).ReceiveAsync(),
+            "work-receipt" => await new WorkOperations(work).IssueReceiptAsync(),
             "hold-lot" or "release-lot" or "discard-lot" => await new RetailInventory(work).CorrectLotAsync(),
             "stock-loss" => await new TradeOperations(work).LossAsync(),
-            "open-cash" or "close-cash" or "expense" or "void-expense" or "collect"
+            "open-cash" or "close-cash" or "cash-adjust" or "expense" or "void-expense" or "collect" or "manual-debt" or "void-debt"
                 => await new CashOperations(work).ExecuteAsync(),
             _ => throw new CommerceFailure("El tipo de operación no es válido."),
         };
@@ -116,7 +129,8 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
             command.Delivery is not null || command.Lines?.Any(x => x?.Tile is not null) == true ||
             command.ExchangeLines?.Any(x => x?.Tile is not null) == true;
         var service = command.ServiceProduct is not null || command.Work is not null || command.WorkLink is not null || command.WorkState is not null;
-        object serialized = service ? command : material
+        var negotiated = command.Lines?.Any(x => x?.TimberRateManual == true) == true;
+        object serialized = service || negotiated || command.Variants is not null ? command : material
             ? new
             {
                 command.OperationId, command.Kind, command.EntityId, command.CustomerId, command.SourceId, command.Name,
@@ -184,6 +198,25 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
         };
     }
 
+    private static async Task<Guid> SaveVariantsAsync(CommerceTransaction work)
+    {
+        var input = work.Command;
+        if (!SpecialtyProfiles.HasVariants(work.Business.Industry) || input.Variants is not { Length: >= 1 and <= 20 } variants)
+            throw new CommerceFailure("Registra de 1 a 20 variantes juntas en ropa o calzado.");
+        var name = Text(input.Name, 100, "el nombre del producto", true);
+        var model = Text(input.Code, 80, "el modelo", true);
+        var ids = variants.Where(variant => variant is not null).Select(variant => variant.Id).ToHashSet();
+        if (ids.Count != variants.Length || ids.Contains(Guid.Empty) || await work.Db.Set<Product>().AnyAsync(item => ids.Contains(item.Id), work.Ct))
+            throw new CommerceFailure("Cada variante debe tener un identificador nuevo y distinto.", 409);
+        foreach (var variant in variants)
+        {
+            var product = new CommerceCommand(variant.Id, "product", Name: name, Code: variant.Code, AmountMinor: variant.AmountMinor,
+                ApparelProduct: new(model, variant.Size, variant.Color));
+            await SaveProductAsync(new CommerceTransaction(work.Db, work.Business, product, work.Now, work.Ct));
+        }
+        return variants[0].Id;
+    }
+
     private static async Task<Guid> SaveProductAsync(CommerceTransaction work)
     {
         var input = work.Command;
@@ -192,7 +225,8 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
         var normalizedCode = Text(code.ToUpperInvariant(), 40, "el código del producto", true);
         var price = Money(input.TimberProduct?.ShortMinor ?? input.AmountMinor, "un precio");
         var products = work.Db.Set<Product>();
-        if (await products.AnyAsync(x => x.NormalizedCode == normalizedCode && x.Id != input.EntityId, work.Ct))
+        if (products.Local.Any(x => x.BusinessId == work.Business.Id && x.NormalizedCode == normalizedCode && x.Id != input.EntityId) ||
+            await products.AnyAsync(x => x.NormalizedCode == normalizedCode && x.Id != input.EntityId, work.Ct))
             throw new CommerceFailure("Ya existe un producto con ese código.", 409);
 
         Product product;
@@ -216,9 +250,9 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
         await MaterialProfiles.SaveAsync(work, product);
         if (input.ServiceProduct is bool service && service != product.IsService)
             throw new CommerceFailure("Crea otra ficha para cambiar entre producto y servicio.");
-        if (product.IsService && (!WorkOperations.Supports(work.Business.Industry) || product.RetailUnit is not null ||
+        if (product.IsService && (!(WorkOperations.Supports(work.Business.Industry) || work.Business.Industry == "timber") || product.RetailUnit is not null ||
             product.Species is not null || product.Model is not null || product.WarrantyMonths is not null || product.PrintingSize is not null))
-            throw new CommerceFailure("El servicio requiere una ficha sin control de inventario en un rubro de servicios.");
+            throw new CommerceFailure("El servicio requiere una ficha sin control de inventario en un rubro compatible.");
         product.PriceMinor = price;
         return product.Id;
     }
@@ -260,9 +294,10 @@ internal sealed class CommerceTransaction(KhypuPymeDbContext db, Business busine
         await db.Set<Customer>().FindAsync([business.Id, id], ct)
         ?? throw new CommerceFailure("El cliente no está disponible en este negocio.", 404);
 
-    public async Task<Entry> SourceAsync(string kind, bool includeLines = false, bool allowExchange = false)
+    public async Task<Entry> SourceAsync(string kind, bool includeLines = false, bool allowExchange = false, bool allowManualDebt = false)
     {
-        var query = db.Set<Entry>().Where(x => x.Id == command.SourceId && (x.Kind == kind || allowExchange && x.Kind == "exchange"));
+        var query = db.Set<Entry>().Where(x => x.Id == command.SourceId &&
+            (x.Kind == kind || allowExchange && x.Kind == "exchange" || allowManualDebt && x.Kind == "manual-debt"));
         if (includeLines) query = query.Include(x => x.Lines);
         return await query.SingleOrDefaultAsync(ct)
             ?? throw new CommerceFailure("La operación de origen no está disponible en este negocio.", 404);

@@ -16,12 +16,16 @@ public sealed record CommerceCommand(
     CosmeticProfile? CosmeticProduct = null, ContainerInput[]? Containers = null, int? StockQuantity = null,
     ProductDetail? DetailProduct = null, PartsProfile? PartsProduct = null, PrintingProfile? PrintingProduct = null,
     FurnitureDimensions? FurnitureProduct = null, TileProfile? TileProduct = null, CementSetup? CementProduct = null, DeliveryInput? Delivery = null,
-    bool? ServiceProduct = null, WorkInput? Work = null, WorkRevision? WorkLink = null, string? WorkState = null);
+    bool? ServiceProduct = null, WorkInput? Work = null, WorkRevision? WorkLink = null, string? WorkState = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] VariantInput[]? Variants = null);
+
+public sealed record VariantInput(Guid Id, string Code, string Size, string Color, long AmountMinor);
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record CommandLine(Guid ProductId, int Quantity, long? UnitMinor = null, bool? Restock = null,
     TimberDimensions? Timber = null, Guid? OriginalLineId = null, RetailInput? Measure = null, string[]? Serials = null,
-    PrintingInput? Printing = null, TileRequest? Tile = null);
+    PrintingInput? Printing = null, TileRequest? Tile = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? TimberRateManual = null);
 public sealed record CommandResult(Guid OperationId, string Kind, Guid EntityId);
 
 public sealed record CommercePage<T>(T[] Items, bool HasMore);
@@ -32,7 +36,9 @@ public sealed record CustomerInfo(Guid Id, string Name, string Phone);
 public sealed record CashInfo(Guid Id, DateTimeOffset OpenedAt, DateTimeOffset? ClosedAt,
     long OpeningMinor, long ExpectedMinor, long? CountedMinor);
 public sealed record CashStatus(CashInfo? Session);
-public sealed record ReceivableInfo(Guid SaleId, string Number, DateOnly Date, string CustomerName, long OriginalMinor, long BalanceMinor);
+public sealed record SetupStatus(bool CashStarted, bool CatalogReady, bool Sold);
+public sealed record ReceivableInfo(Guid SaleId, string Number, DateOnly Date, string CustomerName, long OriginalMinor, long BalanceMinor,
+    bool Manual, bool Voided);
 
 public sealed record EntryInfo(Guid Id, string Number, string Kind, DateOnly Date, string? Method, string? CustomerName,
     long TotalMinor, long CashDeltaMinor, Guid? SourceId, bool Linked);

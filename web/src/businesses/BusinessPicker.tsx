@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { get } from "../api/client";
 import { Icon } from "../ui/Icon";
 import { Alert, Button, Card, EmptyState, TextField } from "../ui/Primitives";
+import { industryPhoto } from "./industryPhoto";
 import { industryTheme } from "./industryThemes";
 import { businessApi } from "./models";
 import type { BusinessCard, BusinessList, BusinessProfile, IndustryOption } from "./models";
@@ -60,6 +61,7 @@ export function BusinessPicker({ industries, last, select, create, accountId }: 
   }
 
   const previousTheme = last ? industryTheme(last.industry) : null;
+  const previousPhoto = industryPhoto(last?.industry);
 
   return <div className="business-picker">
     <div className="page-heading picker-heading">
@@ -72,6 +74,7 @@ export function BusinessPicker({ industries, last, select, create, accountId }: 
       <span className="workspace-business-icon"><Icon name={previousTheme.icon} /></span>
       <span><small>Último negocio utilizado</small><strong>{last.name}</strong>
         <span>{industries.find((option) => option.id === last.industry)?.name}</span></span>
+      {previousPhoto && <img className="picker-recent-photo" src={previousPhoto} alt="" decoding="async" />}
       <Icon name="arrow" />
     </button>}
     <Card className="picker-panel">

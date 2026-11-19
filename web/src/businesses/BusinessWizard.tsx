@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { change } from "../api/client";
 import { Icon } from "../ui/Icon";
 import { Alert, Button, Card, SelectField, TextField } from "../ui/Primitives";
+import { industryPhoto } from "./industryPhoto";
 import { industryFamilies, industryTheme } from "./industryThemes";
 import { INDUSTRY_GUIDES } from "./industryGuides";
 import type { IndustryId } from "./industryThemes";
@@ -52,6 +53,8 @@ export function BusinessWizard({ industries, onCancel, onCreated }: {
     }
   }
 
+  const photo = industryPhoto(industry?.id);
+
   return <div className="business-wizard" style={theme.style}>
     <Card>
       <ol className="wizard-steps">
@@ -86,6 +89,7 @@ export function BusinessWizard({ industries, onCancel, onCreated }: {
           </fieldset>
           <aside className="wizard-preview" aria-live="polite">
             {industry && guide ? <>
+              {photo && <img className="wizard-preview-photo" src={photo} alt="" decoding="async" />}
               <span className="workspace-business-icon"><Icon name={theme.icon} /></span>
               <h2>{industry.name}</h2><p>{industry.description}</p>
               <ul>{guide.steps.slice(0, 3).map((stepText) => <li key={stepText}><Icon name="check" />{stepText}</li>)}</ul>

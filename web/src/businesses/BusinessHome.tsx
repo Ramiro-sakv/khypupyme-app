@@ -6,6 +6,7 @@ import { ReportChart } from "../commerce/ReportChart";
 import { bob, reportResult } from "../commerce/models";
 import type { Report } from "../commerce/models";
 import type { BusinessProfile } from "./models";
+import { industryPhoto } from "./industryPhoto";
 
 type CashSummary = { state: "open" | "closed"; label: string; detail?: string };
 const today = new Intl.DateTimeFormat("es-BO", { day: "numeric", month: "short", year: "numeric", timeZone: "America/La_Paz" });
@@ -28,8 +29,9 @@ export function BusinessHome({ business, industry, icon, cash, report, cashError
   gettingStarted?: { cashStarted: boolean; catalogReady: boolean }; openHelp: () => void;
 }) {
   const totals = report?.totals;
+  const photo = industryPhoto(business.industry);
   return <div className="business-home">
-    <header className="business-hero">
+    <header className={photo ? "business-hero business-hero--photo" : "business-hero"}>
       <div className="hero-detail">
         <div className="hero-identity">
           <span className="hero-symbol"><Icon name={icon} /></span>
@@ -49,14 +51,17 @@ export function BusinessHome({ business, industry, icon, cash, report, cashError
         </div>
       </div>
       <section className="hero-cash" aria-label="Caja">
-        <strong className="status-chip" data-state={cash?.state ?? "unknown"}>{cash?.label ?? "Caja"}</strong>
-        {cashError ? <Alert tone="error">{cashError}</Alert> : <p>
-          {cash?.detail ?? (cash ? "Prepara tu fondo si usarás efectivo." : "Consultando la caja…")}
-        </p>}
+        <div className="hero-cash-state">
+          <strong className="status-chip" data-state={cash?.state ?? "unknown"}>{cash?.label ?? "Caja"}</strong>
+          {cashError ? <Alert tone="error">{cashError}</Alert> : <p>
+            {cash?.detail ?? (cash ? "Prepara tu fondo si usarás efectivo." : "Consultando la caja…")}
+          </p>}
+        </div>
         <Button variant="secondary" icon="cash" onClick={openCash} disabled={!cash && !readOnly}>
           {cash?.state === "closed" && !readOnly ? "Abrir caja" : "Ver caja"}
         </Button>
       </section>
+      {photo && <div className="hero-photo" aria-hidden="true"><img src={photo} alt="" decoding="async" /></div>}
     </header>
     {prioritizeOperations && industryPanel}
     {totals && <dl className="home-totals">

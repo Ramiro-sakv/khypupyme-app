@@ -10,7 +10,7 @@ internal static class CorrectionAudit
     public static bool Protected(CommerceCommand command) => command.Kind switch
     {
         "return" or "exchange" or "void-expense" or "void-debt" or "cash-adjust" or "stock-in" or "stock-loss" or "inspection" or "hold-lot" or "release-lot" or
-            "discard-lot" or "open-cement" => true,
+            "discard-lot" or "open-cement" or "configure-business" => true,
         "product" or "customer" => command.EntityId is not null,
         _ => false,
     };
@@ -22,6 +22,8 @@ internal static class CorrectionAudit
 
     public static async Task<object?> BeforeAsync(CommerceTransaction work)
     {
+        if (work.Command.Kind == "configure-business")
+            return (await work.SettingsAsync()).Policy();
         if (work.Command is { Kind: "product", EntityId: Guid product })
         {
             var item = await work.ProductAsync(product);

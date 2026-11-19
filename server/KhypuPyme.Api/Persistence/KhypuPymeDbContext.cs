@@ -62,13 +62,25 @@ public sealed class KhypuPymeDbContext(DbContextOptions<KhypuPymeDbContext> opti
 
         modelBuilder.Entity<BusinessSettings>(entry =>
         {
-            entry.ToTable("business_settings");
+            entry.ToTable("business_settings", table =>
+            {
+                table.HasCheckConstraint("business_settings_payment", "\"DefaultPayment\" IN ('cash', 'qr', 'transfer')");
+                table.HasCheckConstraint("business_settings_discount", "\"MaxDiscountPercent\" BETWEEN 0 AND 100");
+                table.HasCheckConstraint("business_settings_days", "\"QuoteDays\" BETWEEN 1 AND 90 AND \"LotAlertDays\" BETWEEN 1 AND 90");
+                table.HasCheckConstraint("business_settings_revision", "\"PolicyRevision\" >= 0");
+            });
             entry.HasKey(x => x.BusinessId);
             entry.HasOne<Business>().WithOne().HasPrincipalKey<Business>(x => new { x.OwnerId, x.Id })
                 .HasForeignKey<BusinessSettings>(x => new { x.OwnerId, x.BusinessId });
             entry.Property(x => x.City).HasMaxLength(80);
             entry.Property(x => x.Phone).HasMaxLength(32);
             entry.Property(x => x.TimberUnits).HasMaxLength(10);
+            entry.Property(x => x.DefaultPayment).HasMaxLength(10).HasDefaultValue(BusinessPolicy.DefaultPayment);
+            entry.Property(x => x.MaxDiscountPercent).HasDefaultValue(BusinessPolicy.MaxDiscountPercent).HasSentinel(-1);
+            entry.Property(x => x.QuoteDays).HasDefaultValue(BusinessPolicy.QuoteDays);
+            entry.Property(x => x.AllowNewCredit).HasDefaultValue(true);
+            entry.Property(x => x.LotAlertDays).HasDefaultValue(BusinessPolicy.LotAlertDays);
+            entry.Property(x => x.PolicyRevision).HasDefaultValue(0);
         });
 
         modelBuilder.Entity<AccountSelection>(entry =>

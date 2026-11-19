@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using KhypuPyme.Api.Timber;
 using KhypuPyme.Api.Retail;
 using KhypuPyme.Api.Services;
+using KhypuPyme.Api.Businesses;
 
 namespace KhypuPyme.Api.Commerce;
 
@@ -17,7 +18,8 @@ public sealed record CommerceCommand(
     ProductDetail? DetailProduct = null, PartsProfile? PartsProduct = null, PrintingProfile? PrintingProduct = null,
     FurnitureDimensions? FurnitureProduct = null, TileProfile? TileProduct = null, CementSetup? CementProduct = null, DeliveryInput? Delivery = null,
     bool? ServiceProduct = null, WorkInput? Work = null, WorkRevision? WorkLink = null, string? WorkState = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] VariantInput[]? Variants = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] VariantInput[]? Variants = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] OperatingPolicyInput? Policy = null);
 
 public sealed record VariantInput(Guid Id, string? Code, string Size, string Color, long AmountMinor);
 

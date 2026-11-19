@@ -18,6 +18,8 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
     {
         if (command.OperationId == Guid.Empty || command.Kind is null or { Length: > 30 })
             throw new CommerceFailure("La solicitud comercial no es válida.");
+        if ((command.Kind == "configure-business") != (command.Policy is not null))
+            throw new CommerceFailure("Las reglas de operación solo corresponden a la configuración del negocio.");
         if (command.Containers is not null && command.Kind is not ("sale" or "containers"))
             throw new CommerceFailure("Registra los envases en una venta o en su movimiento independiente.");
         if (command.Variants is not null && command.Kind != "variants")
@@ -65,7 +67,7 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
             : null;
         if (practiceChannel && practice?.State != "active")
             throw new CommerceFailure("Reanuda la práctica antes de registrar movimientos.", 409);
-        if (practiceChannel && command.Kind is ("stock-in" or "cash-adjust" or "manual-debt" or "void-debt"))
+        if (practiceChannel && command.Kind is ("stock-in" or "cash-adjust" or "manual-debt" or "void-debt" or "configure-business"))
             throw new CommerceFailure("Ese ajuste manual no forma parte de esta práctica.", 403);
         var work = new CommerceTransaction(db, business, command, now, ct);
         SecurityProof? approval = null;
@@ -78,6 +80,7 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
         }
         var entityId = command.Kind switch
         {
+            "configure-business" => await BusinessPolicy.UpdateAsync(work),
             "product" => await SaveProductAsync(work),
             "variants" => await SaveVariantsAsync(work),
             "customer" => await SaveCustomerAsync(work),
@@ -134,7 +137,7 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
             command.ExchangeLines?.Any(x => x?.Tile is not null) == true;
         var service = command.ServiceProduct is not null || command.Work is not null || command.WorkLink is not null || command.WorkState is not null;
         var negotiated = command.Lines?.Any(x => x?.TimberRateManual == true || x?.TimberCostUnit is not null) == true;
-        object serialized = service || negotiated || command.Variants is not null ? command : material
+        object serialized = service || negotiated || command.Variants is not null || command.Policy is not null ? command : material
             ? new
             {
                 command.OperationId, command.Kind, command.EntityId, command.CustomerId, command.SourceId, command.Name,
@@ -293,6 +296,10 @@ internal sealed class CommerceTransaction(KhypuPymeDbContext db, Business busine
     public DateOnly Today => LocalDate(now);
     public CancellationToken Ct => ct;
 
+    public async Task<BusinessSettings> SettingsAsync() =>
+        await db.BusinessSettings.FindAsync([business.Id], ct)
+        ?? throw new CommerceFailure("No se encontró la configuración del negocio.", 409);
+
     public async Task<Product> ProductAsync(Guid id) =>
         await db.Set<Product>().FindAsync([business.Id, id], ct)
         ?? throw new CommerceFailure("El producto no está disponible en este negocio.", 404);
@@ -321,7 +328,7 @@ internal sealed class CommerceTransaction(KhypuPymeDbContext db, Business busine
             Practice = business.PracticeOriginId is not null,
             Note = Text(command.Note, 240, "la referencia"),
             TimberUnits = business.Industry == "timber"
-                ? await db.BusinessSettings.Where(x => x.BusinessId == business.Id).Select(x => x.TimberUnits).SingleAsync(ct)
+                ? (await SettingsAsync()).TimberUnits
                 : null,
         };
         db.Add(entry);

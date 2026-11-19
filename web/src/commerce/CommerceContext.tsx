@@ -23,7 +23,7 @@ const Context = createContext<Workspace | null>(null);
 export function CommerceProvider({ accountId, businessId, businessName, children, showDocument, practice, onConfirmed, readOnly = false }: {
   accountId: string; businessId: string; children: ReactNode; showDocument: (id: string) => void;
   businessName: string;
-  practice?: boolean; onConfirmed?: () => void;
+  practice?: boolean; onConfirmed?: (result: CommandResult) => void;
   readOnly?: boolean;
 }) {
   const path = commercePath(businessId, practice);
@@ -64,7 +64,7 @@ export function CommerceProvider({ accountId, businessId, businessName, children
     }
     setConfirmation({ result, draft: record.draft });
     setRevision((current) => current + 1);
-    onConfirmed?.();
+    onConfirmed?.(result);
     return result;
   }
 
@@ -149,7 +149,7 @@ export function CommerceProvider({ accountId, businessId, businessName, children
   }
 
   return <Context.Provider value={{ path, scope, practice, revision, ready, busy, pending, confirmation, execute, showDocument, readOnly }}>
-    {approval && <IdentityDialog key={approval.record.command.operationId} title="Autorizar corrección"
+    {approval && <IdentityDialog key={approval.record.command.operationId} title={approval.record.command.kind === "configure-business" ? "Autorizar reglas del negocio" : "Autorizar corrección"}
       effect={correctionEffect(businessName, approval.record.command)}
       request={{ id: approval.record.command.operationId, purpose: "correction", businessId,
         command: approval.record.command, reason: approval.record.command.note }}

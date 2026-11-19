@@ -7,6 +7,7 @@ import { ReviewDock } from "../ui/ReviewDock";
 import { CustomerEditor } from "./CatalogPage";
 import { OperationHeading } from "./OperationHeading";
 import { HistoryPage } from "./Documents";
+import type { OperatingPolicy } from "../businesses/models";
 import { useCommerce, useCommerceData } from "./CommerceContext";
 import { CommerceHeading, LoadFeedback, NoRecords, Pages, PaymentField, SearchForm, useCommercialForm } from "./CommerceUi";
 import { bob, editableMoney, moneyLimit, parseMoney } from "./models";
@@ -38,23 +39,25 @@ type TradeDraft = {
   lines: Line[]; customer?: { id: string; name: string }; discount: string; note: string; method: string; quote?: string;
   containers?: ContainerDraft;
 };
-const emptyDraft: TradeDraft = { lines: [], discount: "0", method: "cash", note: "" };
+function blankDraft(method = "cash"): TradeDraft { return { lines: [], discount: "0", method, note: "" }; }
 const emptyTile: TileRequest = { area: null, waste: null, tone: null, caliber: null };
 const titles: Record<TradeKind, string> = { sale: "Venta nueva", purchase: "Compra nueva", quote: "Cotización nueva", "stock-in": "Entrada manual de inventario" };
 const label: Record<TradeKind, string> = { sale: "venta", purchase: "compra", quote: "cotización", "stock-in": "entrada" };
 
-export function TradePage({ kind, proposal, dismissProposal, onHistory, units = "imperial", industry, work, workService, onWorkBack, scan, onStockBack, onOpenCatalog, showHistory = false, setShowHistory }: {
+export function TradePage({ kind, proposal, dismissProposal, onHistory, units = "imperial", industry, work, workService, onWorkBack, scan, onStockBack, onOpenCatalog, showHistory = false, setShowHistory, policy }: {
   kind: TradeKind; proposal?: EntryDocument; dismissProposal: () => void; onHistory: () => void; units?: TimberUnits; industry?: string;
   work?: Work; workService?: Product; onWorkBack?: () => void; scan?: boolean;
   onStockBack?: () => void;
   onOpenCatalog?: () => void;
   showHistory?: boolean;
+  policy?: OperatingPolicy;
   setShowHistory?: (visible: boolean) => void;
 }) {
   const workspace = useCommerce();
+  const initialDraft = blankDraft(policy?.defaultPayment);
   const draftKey = workspace.scope + ":" + kind + (work ? ":work:" + work.id : "");
-  const { value, update: saveDraft, ready, error, flush, reload } = useDraft(draftKey, work ? { ...emptyDraft, note: work.title,
-    lines: workService ? [{ id: workService.id, name: workService.name, quantity: "1", priceMinor: workService.priceMinor, cost: "" }] : [] } : emptyDraft);
+  const { value, update: saveDraft, ready, error, flush, reload } = useDraft(draftKey, work ? { ...initialDraft, note: work.title,
+    lines: workService ? [{ id: workService.id, name: workService.name, quantity: "1", priceMinor: workService.priceMinor, cost: "" }] : [] } : initialDraft);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
@@ -150,10 +153,15 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
     timberLines.some((line) => !current.data?.[line.id]?.active || !current.data[line.id].timber) ||
     ((kind === "sale" || isPurchase) && stockBlocked);
   const customerId = work?.customerId ?? value.customer?.id;
-  const requiresCustomer = kind === "sale" && value.method === "credit" && (!customerId || total === 0);
+  const payingOnCredit = kind === "sale" && value.method === "credit";
+  const creditAllowed = policy?.allowNewCredit ?? true;
+  const requiresCustomer = payingOnCredit && creditAllowed && (!customerId || total === 0);
+  const creditBlocked = payingOnCredit && !creditAllowed;
+  const maxDiscount = policy?.maxDiscountPercent ?? 100;
+  const discountBlocked = !value.quote && discount !== null && discount * 100 > gross * maxDiscount;
   const missingService = !!work?.serviceId && !value.lines.some((line) => line.id === work.serviceId && line.quantity === "1");
   const reviewKey = JSON.stringify([value.lines, value.discount, value.method, customerId, value.quote, total, timber.commands, value.containers, work?.revision]);
-  const canSend = total !== null && !unavailable && !requiresCustomer && !missingService && !error && !containers.error &&
+  const canSend = total !== null && !unavailable && !requiresCustomer && !creditBlocked && !discountBlocked && !missingService && !error && !containers.error &&
     (!stockIn || !!value.note.trim()) && acknowledged === reviewKey;
   const totalText = total === null ? "Pendiente" : bob(total);
 
@@ -213,7 +221,7 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
       <div className="inline-actions commerce-top">
         <Button variant="secondary" onClick={dismissProposal}>Omitir</Button>
         <Button onClick={() => {
-          update(() => ({ ...emptyDraft, quote: proposal.id, note: proposal.note, discount: editableMoney(proposal.discountMinor),
+          update(() => ({ ...initialDraft, quote: proposal.id, note: proposal.note, discount: editableMoney(proposal.discountMinor),
             customer: proposal.customerId && proposal.customerName ? { id: proposal.customerId, name: proposal.customerName } : undefined,
             lines: proposal.lines.map((line) => ({ id: line.productId, name: line.name, quantity: line.details?.measure?.quantity ?? String(line.quantity),
               priceMinor: line.unitMinor, cost: "", key: line.timber ? line.lineId : undefined,
@@ -418,13 +426,16 @@ export function TradePage({ kind, proposal, dismissProposal, onHistory, units = 
         </details>}
         {!isPurchase && <TextField label="Descuento total (Bs)" inputMode="decimal" value={value.discount} disabled={frozen}
           onChange={(event) => update((draft) => ({ ...draft, discount: event.target.value }))} />}
-        {!quote && !stockIn && <PaymentField value={value.method} credit={kind === "sale"} disabled={frozen}
+        {!quote && !stockIn && <PaymentField value={creditBlocked ? "" : value.method} credit={kind === "sale" && creditAllowed} disabled={frozen}
           onChange={(method) => { if (!frozen) update((draft) => ({ ...draft, method })); }} />}
         <TextField label={stockIn ? "Motivo de la entrada" : "Referencia (opcional)"} required={stockIn} maxLength={240} value={value.note} disabled={frozen}
           onChange={(event) => update((draft) => ({ ...draft, note: event.target.value }))} />
         {total === null && <Alert>Revisa las cantidades, importes y el descuento antes de confirmar.</Alert>}
         {unavailable && <Alert>Verifica disponibilidad y precios de las líneas en el carrito.</Alert>}
         {quote && stockBlocked && <Alert>Hay existencias pendientes de verificar o con faltantes. Se revisarán al convertir la cotización en venta.</Alert>}
+        {discountBlocked && <Alert tone="error">El negocio permite un descuento máximo del {maxDiscount}%.</Alert>}
+        {creditBlocked && <Alert tone="error">Los fiados nuevos están desactivados. Elige otra forma de pago.</Alert>}
+        {quote && policy && <p className="muted">Vigencia desde la emisión · {policy.quoteDays} días</p>}
         {requiresCustomer && <Alert>El fiado requiere un cliente registrado y un importe positivo.</Alert>}
         {missingService && <Alert>Añade el servicio del trabajo antes de confirmar.</Alert>}
         {containers.error && <Alert tone="error">{containers.error}</Alert>}

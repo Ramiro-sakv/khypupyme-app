@@ -171,6 +171,61 @@ try {
   assert.equal(psql(runAs(actor, sibling) + "SELECT count(*) FROM khypupyme.commerce_audit; ROLLBACK;", true).split(/\r?\n/).at(-1), "0");
   console.log("Correcciones: autorización por contenido, motivo y titular, caducidad, consumo único y auditoría inmutable con el rol de ejecución.");
 
+  const profile = (biz) => request(businesses + "/" + biz, 200);
+  const initial = { revision: 0, defaultPayment: "cash", maxDiscountPercent: 100, quoteDays: 7, allowNewCredit: true, lotAlertDays: 30 };
+  assert.deepEqual((await profile(sibling)).policy, initial);
+  const shopProduct = (await command(sibling, { kind: "product", name: "Conserva", code: "CONS", amountMinor: 1000,
+    retailProduct: { unit: "piece", boxSize: 1, reorder: 1, trackLots: true } })).entityId;
+  const shopCustomer = (await command(sibling, { kind: "customer", name: "Cliente de almacén" })).entityId;
+  const expiry = (days) => new Intl.DateTimeFormat("sv-SE", { timeZone: "America/La_Paz" })
+    .format(Date.now() + days * 86_400_000);
+  const items = (quantity = "1", lot, expiresOn) =>
+    [{ productId: shopProduct, quantity: 1, unitMinor: 1000, measure: { quantity, unit: "piece", lot, expiresOn } }];
+  await command(sibling, { kind: "purchase", method: "qr", lines: items("8", "AL-15", expiry(15)) });
+  const oldQuote = await command(sibling, { kind: "quote", discountMinor: 500, lines: items() });
+  const previousDebt = await command(sibling, { kind: "manual-debt", customerId: shopCustomer, amountMinor: 1000, note: "Fiado previo" });
+  assert.equal((await request(commerce(sibling) + "/attention", 200)).expiring, 1);
+
+  const changePolicy = { operationId: randomUUID(), kind: "configure-business", policy: {
+    ...initial, defaultPayment: "qr", maxDiscountPercent: 10, quoteDays: 12, allowNewCredit: false, lotAlertDays: 5,
+  } };
+  await command(sibling, changePolicy, 422);
+  await proof(sibling, changePolicy);
+  await command(sibling, { ...changePolicy, policy: { ...changePolicy.policy, quoteDays: 13 } }, 422);
+  await command(first, changePolicy, 422);
+  const configured = await command(sibling, changePolicy);
+  assert.deepEqual(await command(sibling, changePolicy), configured);
+  assert.deepEqual((await profile(first)).policy, initial);
+  assert.deepEqual((await profile(sibling)).policy, { ...changePolicy.policy, revision: 1 });
+  const auditPolicy = (await request(commerce(sibling) + "/audit", 200)).items;
+  assert.equal(auditPolicy.length, 1);
+  assert.equal(auditPolicy[0].kind, "configure-business");
+  assert.equal(JSON.parse(auditPolicy[0].effect).Previous.MaxDiscountPercent, 100);
+  assert.equal(JSON.parse(auditPolicy[0].effect).Command.Policy.MaxDiscountPercent, 10);
+  const stalePolicy = { ...changePolicy, operationId: randomUUID(), policy: { ...changePolicy.policy, defaultPayment: "transfer" } };
+  await proof(sibling, stalePolicy);
+  await command(sibling, stalePolicy, 409);
+  const invalidPolicy = { ...stalePolicy, operationId: randomUUID(), policy: { ...stalePolicy.policy, revision: 1, quoteDays: 91 } };
+  await proof(sibling, invalidPolicy);
+  await command(sibling, invalidPolicy, 400);
+
+  assert.equal((await request(commerce(sibling) + "/attention", 200)).expiring, 0);
+  assert.equal((await request(commerce(sibling) + "/warehouse?attention=expiring", 200)).items.length, 0);
+  await command(sibling, { kind: "purchase", method: "qr", lines: items("1", "AL-3", expiry(3)) });
+  assert.equal((await request(commerce(sibling) + "/attention", 200)).expiring, 1);
+  assert.equal((await request(commerce(sibling) + "/products?attention=expiring", 200)).items[0].id, shopProduct);
+  await command(sibling, { kind: "manual-debt", customerId: shopCustomer, amountMinor: 100, note: "Fiado nuevo" }, 400);
+  await command(sibling, { kind: "sale", method: "credit", customerId: shopCustomer, lines: items() }, 400);
+  await command(sibling, { kind: "collect", sourceId: previousDebt.entityId, method: "qr", amountMinor: 1000 });
+  await command(sibling, { kind: "sale", discountMinor: 101, method: "qr", lines: items() }, 400);
+  await command(sibling, { kind: "quote", discountMinor: 101, lines: items() }, 400);
+  await command(sibling, { kind: "sale", sourceId: oldQuote.entityId, discountMinor: 500, method: "qr", lines: items() });
+  const newQuote = await command(sibling, { kind: "quote", discountMinor: 100, lines: items() });
+  const policyQuote = await request(commerce(sibling) + "/documents/" + newQuote.entityId, 200);
+  assert.equal((Date.parse(policyQuote.expiresOn) - Date.parse(policyQuote.date)) / 86_400_000, 12);
+  assert.equal((await request(commerce(sibling) + "/export", 200)).business.policy.allowNewCredit, false);
+  console.log("Reglas de negocio: confirmación y auditoría, revisión obsoleta rechazada, cotización histórica, fiados y aviso de lotes en PostgreSQL.");
+
   const practice = (await post(businesses + "/" + first + "/practice", { action: "start" })).session.sandboxId;
   await post(deletion(first, "code"), { id: requestId, name: fixtureName }, 204);
   const expired = codeFor(email, "delete-business");
@@ -198,6 +253,8 @@ try {
   await post(businesses + "/" + foreign + "/plan/trial", undefined, 204);
   const browserProduct = await command(foreign, { kind: "product", name: "Producto del navegador", code: "PR-1", amountMinor: 2000 });
   const otherCookies = new Map(cookies);
+  await request(businesses + "/" + sibling, 404);
+  await command(sibling, { ...changePolicy, operationId: randomUUID() }, 404);
   await request(deletion(first), 404);
   await post(deletion(first, "resume"), undefined, 404);
   assert.equal(psql(runAs(other, foreign) + "SELECT count(*) FROM khypupyme.business_deletions; ROLLBACK;", true).split(/\r?\n/).at(-1), "0");

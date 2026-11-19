@@ -63,6 +63,9 @@ internal sealed class TradeOperations(CommerceTransaction work)
         var gross = Total(rows.Select(x => x.Subtotal));
         var discount = Money(work.Command.DiscountMinor ?? 0, "un descuento");
         if (discount > gross) throw new CommerceFailure("El descuento supera el subtotal.");
+        var settings = await work.SettingsAsync();
+        if ((quote || work.Command.SourceId is null) && discount > (decimal)gross * settings.MaxDiscountPercent / 100)
+            throw new CommerceFailure($"El negocio permite un descuento máximo del {settings.MaxDiscountPercent}%.");
 
         var entry = await work.NewEntryAsync(quote ? "COT" : "VEN");
         if (work.Command.CustomerId is Guid customerId)
@@ -74,7 +77,7 @@ internal sealed class TradeOperations(CommerceTransaction work)
         else entry.CustomerName = "Cliente ocasional";
         entry.TotalMinor = gross - discount;
         entry.DiscountMinor = discount;
-        if (quote) entry.ExpiresOn = work.Today.AddDays(7);
+        if (quote) entry.ExpiresOn = work.Today.AddDays(settings.QuoteDays);
         else
         {
             entry.Method = Payment(work.Command.Method, allowCredit: true);
@@ -82,6 +85,7 @@ internal sealed class TradeOperations(CommerceTransaction work)
             if (work.Command.WorkLink is not null) await new WorkOperations(work).LinkSaleAsync(entry, work.Command.Lines!);
             if (entry.Method == "credit")
             {
+                if (!settings.AllowNewCredit) throw new CommerceFailure("El negocio tiene desactivados los fiados nuevos.");
                 if (entry.CustomerId is not Guid registered || entry.TotalMinor == 0)
                     throw new CommerceFailure("Una venta fiada requiere un cliente registrado y un importe positivo.");
                 work.Db.Add(new Receivable
@@ -153,7 +157,7 @@ internal sealed class TradeOperations(CommerceTransaction work)
         var source = await work.SourceAsync("quote", includeLines: true);
         if (source.ExpiresOn < work.Today || await work.Db.Set<Entry>().AnyAsync(x => x.Kind == "sale" && x.SourceId == source.Id, work.Ct))
             throw new CommerceFailure("La cotización venció o ya se convirtió en venta.", 409);
-        if (source.CustomerId != entry.CustomerId || source.DiscountMinor != entry.DiscountMinor ||
+        if (source.CustomerId != entry.CustomerId || source.DiscountMinor != entry.DiscountMinor || source.TotalMinor != entry.TotalMinor ||
             rows.Length != source.Lines.Count || rows.Any(row => !source.Lines.Any(line =>
                 line.ProductId == row.Product.Id && line.Quantity == row.Quantity && line.UnitMinor == row.UnitMinor &&
                 line.Timber == row.Timber && line.BaseQuantity == row.BaseQuantity &&

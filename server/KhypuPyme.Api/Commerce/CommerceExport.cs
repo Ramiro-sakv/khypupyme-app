@@ -15,7 +15,9 @@ internal static class CommerceExport
         var profile = await (from business in db.Businesses
                              join settings in db.BusinessSettings on business.Id equals settings.BusinessId
                              where business.Id == businessId
-                             select new BusinessProfile(business.Id, business.Name, business.Industry, settings.City, settings.Phone, settings.TimberUnits))
+                             select new BusinessProfile(business.Id, business.Name, business.Industry, settings.City, settings.Phone, settings.TimberUnits,
+                                 new OperatingPolicy(settings.PolicyRevision, settings.DefaultPayment, settings.MaxDiscountPercent,
+                                     settings.QuoteDays, settings.AllowNewCredit, settings.LotAlertDays)))
             .SingleAsync(ct);
 
         var data = new

@@ -289,3 +289,69 @@ Los instaladores Android y Windows del piloto se regeneraron. Todavía apuntan a
 - Almacén pagina productos y movimientos dentro del negocio. La consulta de disponibilidad usa un contrato de lectura, agrupa las cantidades por producto y medida, y distingue las series. La transacción comercial vuelve a comprobar el saldo. El historial continúa utilizando el comprobante de origen.
 - Nuevas fichas sin código reciben MAD, TIE, ROP o ELE con un consecutivo por negocio. Los códigos manuales mantienen la búsqueda por lector. Clientes usa CLI; la migración asigna códigos a las fichas existentes de los cuatro rubros. Se comprobó la concurrencia, la idempotencia y el aislamiento entre negocios.
 - La migración se aplicó a PostgreSQL de pruebas y de desarrollo. Pasaron ESLint, TypeScript, Vite, .NET y las suites 4, 5, 6 y 9, con recorridos en Edge a 360 y 1440 px y una comprobación del núcleo a 768 px. La revisión usa la web local en http://127.0.0.1:5282/.
+
+## Rendimiento, tipografía y revisión de los 21 rubros
+
+Almacén y la comprobación completa del carrito usan la misma base comercial en los 21 rubros. La vista previa suma líneas equivalentes, respeta el lote elegido, las series y las medidas, y conserva la venta bloqueada mientras falte una comprobación. Las cotizaciones permiten seguir con un aviso. La confirmación conserva la validación transaccional. El carrito también recupera sus fichas y tarifas en una petición por conjunto.
+
+La interfaz usa tipografía del sistema de peso 400 para texto, 500 para controles y 600 para títulos e importes principales. Las pantallas de operación se cargan al abrirlas. Revisar permanece compacto en la esquina inferior derecha, con espacio reservado sobre la navegación móvil. Cerrar el diálogo devuelve el foco al carrito y conserva el desplazamiento.
+
+### Medición repetible
+
+`pwsh -File scripts/Test-Block4.ps1 -Block perf` usa `khypupyme2_test`, con un negocio ficticio de madera, 60 fichas, 100 medidas y 20 grupos. Compara 15 solicitudes por caso después de una inicial. La cuenta y las operaciones de la muestra se retiran al terminar. El conteo incluye cinco comandos de autorización y contexto por petición.
+
+| Consulta | SQL antes → después | Mediana antes → después | P95 antes → después |
+|---|---:|---:|---:|
+| Inicio, tres peticiones | 23 → 19 | 18,77 → 18,14 ms | 51,12 → 41,41 ms |
+| Búsqueda | 6 → 6 | 15,69 → 17,97 ms | 19,23 → 29,57 ms |
+| Almacén | 7 → 7 | 18,28 → 19,90 ms | 20,09 → 42,18 ms |
+| Carrito | 107 → 7 | 190,02 → 17,28 ms | 227,02 → 23,86 ms |
+| Informes | 9 → 7 | 17,43 → 14,48 ms | 21,82 → 17,21 ms |
+
+PostgreSQL examinó 60 fichas para devolver 21 filas en la consulta representativa de búsqueda y leyó dos movimientos en el periodo de la muestra. La consulta por medida examinó 100 filas y devolvió una. El plan agrupado leyó una vez esas 100 filas y devolvió las 100 coincidencias exactas. Con esta muestra se conservaron los índices existentes. Búsqueda y Almacén registraron tiempos mayores en la comparación local. [PostgreSQL · Planes de ejecución](https://www.postgresql.org/docs/current/using-explain.html)
+
+El JavaScript inicial, incluidas las precargas del HTML, pasó de 479,99 a 360,23 kB, o de 145,94 a 116,59 kB comprimidos. Con cinco aperturas en frío por pantalla en Edge, Inicio pasó de 426,53 a 442,12 ms y Ventas de 355,22 a 412,75 ms. El ahorro de descarga y la mejora de la consulta del carrito se observaron de forma independiente del tiempo para abrir las pantallas. Los módulos grandes de PDF y fuentes se cargan al pedir el documento.
+
+### Recorridos y validación con comerciantes
+
+| Rubro | Recorrido y excepción comprobados con datos ficticios | Punto para revisar con comerciantes |
+|---|---|---|
+| Maderas y barraca | Tarifas por largo, compra de Bs 403,33 o Bs 550 con las medidas del ejemplo, comprobante mixto y faltante por ancho exacto. | Medidas y formatos de captura que anotan al recibir. |
+| Tienda 24/7 | Lector, compra por caja, lotes próximos primero y vencidos excluidos, peso y volumen exactos. | Nivel de reposición y unidad más usada. |
+| Ropa y accesorios | Matriz, cambio con diferencia y rechazo cuando falta la variante. | Orden de tallas y filtros usados al cambiar. |
+| Electrodomésticos | Recepción por serie, garantía, duplicado e inspección bloqueada. | Datos que anotan al recibir una garantía. |
+| Abarrotes y minimercado | Dos cajas de 24 menos cinco dejan 43 vendibles. El carrito coincide con la exclusión de vencidos. | Cómo nombran las presentaciones y capturan lotes. |
+| Bebidas y distribuidora | Cajas más sueltos convertidos antes de vender. Envases y venta atómicos, con rechazo de devoluciones superiores al saldo previo. | Cómo registran diferentes tipos de envase. |
+| Cosméticos y cuidado personal | Almacén busca por marca, presentación o tono. La duración tras apertura se guarda en la ficha y el vencimiento por lote. Apartado y baja protegidos. | Qué datos trae el envase y cómo separan los lotes. |
+| Productos para mascotas | El carrito suma dos líneas del mismo lote elegido, muestra el faltante y conserva su fecha y costo al fraccionar. | Cómo identifican la bolsa de origen en el mostrador. |
+| Calzado | Cambios con consulta actual de pares y rechazo por talla agotada. | Sistemas de talla que anotan en el local. |
+| Electrónica y accesorios | Accesorio y equipo con serie en un comprobante. Serie en inspección visible antes de vender. | Uso de marca, modelo y números de garantía. |
+| Ferretería y herramientas | Búsqueda en Almacén por referencia, medida y estante. Dos rollos de 50 m, venta de 12,5 m y devolución de 2,5 m. | Cómo declaran rollos empezados y ubicaciones. |
+| Repuestos y accesorios de vehículos | Almacén combina equivalencias y filtros por vehículo y año. Una combinación fuera del rango queda excluida. | Origen y confirmación de las compatibilidades. |
+| Librería y papelería | Artículos e impresión en un comprobante. Tres copias de cinco caras a doble cara usan 15 caras y nueve hojas. | Tarifas que usan por tamaño, color y cara. |
+| Muebles y decoración | Cotización, venta y entrega vinculada. Despachar conserva las tres piezas restantes tras la venta. | Indicaciones de retiro o dirección que necesitan. |
+| Cerámicas y revestimientos | El carrito verifica 10 cajas para 12 m² con 10 % de merma y valida tono y calibre antes de cobrar. | Cómo eligen tono y calibre cuando preparan un pedido. |
+| Cementos y aglomerantes | Abrir dos bolsas de 50 kg traslada 100 kg y Bs 100 de valor. Almacén conserva el movimiento de origen y destino. | Cuándo abren bolsas y cómo anotan la pérdida. |
+| Peluquería y belleza | Agenda, reprogramación, cruce rechazado, inasistencia y cobro único. | Duraciones que reservan entre servicios. |
+| Limpieza y mantenimiento | Orden con dirección y materiales previstos, usados, a cobrar y de consumo interno. El trabajo entregado conserva su venta. | Qué materiales cobran y cuáles descargan con un ajuste. |
+| Servicios profesionales | Entregables y compromiso, aprobación del presupuesto y cobro único. | Cómo registran la entrega y aceptación del cliente. |
+| Taller y reparación | Constancia de recepción, diagnóstico, mano de obra y repuesto, entrega y vínculo a la misma venta. | Qué accesorios y estados anotan al recibir el equipo. |
+| Artesanía y productos terminados | Venta de piezas listas y encargo con especificaciones y fecha. La entrega queda en la orden original. | Qué campos necesitan para definir el encargo. |
+
+Referencias de operación consultadas. [Loyverse · Compra por caja](https://support.loyverse.com/en/articles/3961065-how-to-purchase-items-by-boxes-and-sell-them-by-the-piece) · [Odoo · Lotes y vencimientos](https://www.odoo.com/documentation/19.0/applications/inventory_and_mrp/inventory/shipping_receiving/removal_strategies/fefo.html) · [Shopify POS · Cambios](https://help.shopify.com/en/manual/sell-in-person/shopify-pos/order-management/exchange) · [Coca-Cola Bolivia · Retornabilidad](https://www.micoca-cola.bo/retornabilidad) · [FDA · Vida útil de cosméticos](https://www.fda.gov/cosmetics/cosmetics-labeling/shelf-life-and-expiration-dating-cosmetics) · [Galba · Cable por metro](https://galba.com.bo/producto/cable-flexible-4-mm-por-metro/) · [Marazzi · Cobertura](https://www.marazzigroup.com/installation/laying-solutions/) · [Square · Agenda](https://squareup.com/help/us/en/article/5354-square-appointments-guide) · [Odoo · Órdenes de reparación](https://www.odoo.com/documentation/master/applications/inventory_and_mrp/repairs/repair_orders.html).
+
+### Verificación y paquetes
+
+- Pasaron ESLint, TypeScript y las compilaciones de Vite y .NET Release. En PostgreSQL aislado y Edge pasaron los bloques 4, 5, 6 y 7A–7D. Incluyeron carrera por la última unidad, repetición de la solicitud, rechazo de registros de otro negocio y comprobantes descargados. La revisión de teclado y tacto simulado a 360, 768 y 1440 px recuperó el foco del carrito sin mover el desplazamiento al minimizar.
+- Se restauró un respaldo anterior en PostgreSQL separado, se aplicó la migración y coincidieron las huellas de existencias, documentos y auditoría. Se guardó un respaldo legible de la sesión local antes de aplicar la migración a desarrollo. La comprobación del perfil de piloto en Production local pasó con PostgreSQL TLS, rol limitado y recuperación de claves tras reiniciar.
+- Instaladores generados en `artifacts/optimizacion-2.0`. Android usa `KhypuPyme2-Piloto-Android.apk`, con firma de desarrollo validada. Windows x64 usa `KhypuPyme2-Piloto-Windows.exe`. Ambos apuntan al origen previsto del piloto en Render. Android físico y la aceptación del entorno alojado quedan pendientes.
+
+## Reglas de operación por negocio
+
+- En Configuración se puede elegir la forma de pago inicial de compras y ventas, fijar el descuento máximo, definir la vigencia de nuevas cotizaciones y activar o desactivar los fiados nuevos. Los ocho rubros que admiten lotes también pueden elegir el plazo de aviso en Inicio e Inventario. Cada uno de los 21 rubros tiene dos accesos a sus herramientas y un enlace a su guía.
+- Cada cambio requiere confirmar identidad y registrar un motivo. La autorización corresponde al contenido, al titular, al negocio y a una solicitud. El servidor registra la configuración anterior y el cambio solicitado, rechaza revisiones obsoletas y devuelve el mismo resultado al repetir una solicitud confirmada.
+- Las cotizaciones emitidas conservan su vigencia y su descuento si se convierten en las condiciones originales. Los fiados anteriores siguen visibles y se pueden cobrar. La migración conserva el comportamiento inicial con efectivo, hasta 100 % de descuento, siete días para cotizar, fiados habilitados y 30 días de aviso.
+- Pasaron .NET Release, ESLint, TypeScript, Vite y los bloques 4, 5 y 9. En PostgreSQL se comprobaron límites de descuentos y fiados, reintento, rechazo de otra cuenta y de otro negocio, revisiones obsoletas, cotizaciones históricas y filtros de vencimiento. Edge verificó el guardado protegido, la recarga, la forma de pago inicial y el ancho disponible a 360, 768 y 1440 px.
+- Se actualizó también un respaldo anterior en PostgreSQL aislado. Las huellas de existencias, documentos y auditoría coincidieron antes y después. Después de validar una copia de desarrollo, se aplicó la migración local y se conservaron las fichas, los documentos, la auditoría y las preferencias previas.
+- Paquetes generados en `artifacts/reglas-por-negocio`. Se verificó la firma de desarrollo de Android. Los paquetes apuntan al piloto alojado y estas reglas están disponibles en la API local. La verificación de esta revisión en Android físico y Windows instalado queda pendiente, incluida la descarga del PDF y el reingreso en Windows.
+- Total de 22.112 líneas físicas. C# de la API 6.215, frontend 7.961, migraciones con C# y SQL 2.993, integración nativa 619, pruebas 4.057 y utilidades 267. Se excluyen dependencias, contratos generados, diseñadores de migraciones y archivos de compilación.

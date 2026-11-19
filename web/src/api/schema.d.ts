@@ -3762,6 +3762,7 @@ export interface components {
             city: string;
             phone: string;
             timberUnits: null | string;
+            policy: components["schemas"]["OperatingPolicy"];
         };
         CashInfo: {
             /** Format: uuid */
@@ -3879,6 +3880,7 @@ export interface components {
             workLink?: null | components["schemas"]["WorkRevision"];
             workState?: null | string;
             variants?: null | components["schemas"]["VariantInput"][];
+            policy?: null | components["schemas"]["OperatingPolicyInput"];
         };
         CommercePageOfAuditInfo: {
             items: components["schemas"]["AuditInfo"][];
@@ -4179,6 +4181,30 @@ export interface components {
             city: null | string;
             phone: null | string;
             timberUnits: null | string;
+        };
+        OperatingPolicy: {
+            /** Format: int32 */
+            revision: number;
+            defaultPayment: string;
+            /** Format: int32 */
+            maxDiscountPercent: number;
+            /** Format: int32 */
+            quoteDays: number;
+            allowNewCredit: boolean;
+            /** Format: int32 */
+            lotAlertDays: number;
+        };
+        OperatingPolicyInput: {
+            /** Format: int32 */
+            revision: number;
+            defaultPayment: string;
+            /** Format: int32 */
+            maxDiscountPercent: number;
+            /** Format: int32 */
+            quoteDays: number;
+            allowNewCredit: boolean;
+            /** Format: int32 */
+            lotAlertDays: number;
         };
         PartsProfile: {
             equivalents: string[];

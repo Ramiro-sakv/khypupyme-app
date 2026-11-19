@@ -119,6 +119,8 @@ internal sealed class CashOperations(CommerceTransaction work)
 
     private async Task<Guid> RegisterDebtAsync()
     {
+        if (!(await work.SettingsAsync()).AllowNewCredit)
+            throw new CommerceFailure("El negocio tiene desactivados los fiados nuevos.");
         if (work.Command.CustomerId is not Guid customerId)
             throw new CommerceFailure("Selecciona un cliente registrado para el fiado.");
         var customer = await work.CustomerAsync(customerId);

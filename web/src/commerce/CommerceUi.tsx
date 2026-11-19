@@ -54,6 +54,7 @@ export function PaymentField({ value, onChange, credit = false, disabled }: {
   value: string; onChange: (value: string) => void; credit?: boolean; disabled?: boolean;
 }) {
   return <SelectField label="Forma de pago" value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)}>
+    {!value && <option value="" disabled>Elige la forma de pago</option>}
     {Object.entries(methods).filter(([key]) => credit || key !== "credit")
       .map(([key, name]) => <option key={key} value={key}>{name}</option>)}
   </SelectField>;

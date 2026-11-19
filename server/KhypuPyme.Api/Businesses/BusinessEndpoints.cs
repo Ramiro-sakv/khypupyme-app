@@ -162,7 +162,7 @@ internal static class BusinessEndpoints
     }
 
     private static BusinessProfile Profile(Business business, BusinessSettings settings) =>
-        new(business.Id, business.Name, business.Industry, settings.City, settings.Phone, settings.TimberUnits);
+        new(business.Id, business.Name, business.Industry, settings.City, settings.Phone, settings.TimberUnits, settings.Policy());
 
     private static bool ValidSettings(string industry, string city, string phone, string? units) =>
         city.Length <= 80 && phone.Length <= 32 && !city.Any(char.IsControl) && !phone.Any(char.IsControl) &&

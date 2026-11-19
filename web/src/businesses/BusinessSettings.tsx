@@ -5,14 +5,18 @@ import { Alert, Button, Card, DataTable, SelectField, TextField } from "../ui/Pr
 import { businessApi } from "./models";
 import type { BusinessProfile } from "./models";
 import { BusinessProtection } from "../security/BusinessRemoval";
+import { BusinessOperatingSettings, IndustrySettings } from "./BusinessOperatingSettings";
+import type { BusinessView } from "./BusinessWorkspace";
 
-export function BusinessSettings({ profile, industry, onSave, openPlan, onRemoved, accountControls }: {
+export function BusinessSettings({ profile, industry, openPlan, onRemoved, accountControls, navigate, settingsError, refreshSettings }: {
   profile: BusinessProfile;
   industry: string;
-  onSave: (business: BusinessProfile) => void;
   openPlan: () => void;
   onRemoved: (message: string) => void;
   accountControls: ReactNode;
+  navigate: (view: BusinessView, focus?: string) => void;
+  settingsError: string;
+  refreshSettings: () => Promise<void>;
 }) {
   const [city, setCity] = useState(profile.city ?? "");
   const [phone, setPhone] = useState(profile.phone ?? "");
@@ -29,7 +33,7 @@ export function BusinessSettings({ profile, industry, onSave, openPlan, onRemove
     const settings = { city: city.trim(), phone: phone.trim(), timberUnits: profile.industry === "timber" ? units : null };
     try {
       await change(businessApi + "/" + profile.id + "/settings", "PUT", { businessId: profile.id, ...settings });
-      onSave({ ...profile, ...settings });
+      await refreshSettings();
       setMessage("Configuración guardada.");
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "No se pudo guardar la configuración.");
@@ -64,6 +68,11 @@ export function BusinessSettings({ profile, industry, onSave, openPlan, onRemove
           <Button type="submit" icon="check" disabled={busy}>{busy ? "Guardando…" : "Guardar configuración"}</Button>
         </form>
       </Card>
+    </div>
+    <div className="settings-grid">
+      {profile.policy ? <BusinessOperatingSettings key={profile.policy.revision} profile={profile} refresh={refreshSettings} error={settingsError} /> :
+        <Card><h2>Reglas de operación</h2><Alert>Esta versión del servidor aún no admite estas preferencias.</Alert></Card>}
+      <IndustrySettings industry={profile.industry} navigate={navigate} />
     </div>
     <Card>{accountControls}</Card>
     <BusinessProtection profile={profile} onRemoved={onRemoved} />

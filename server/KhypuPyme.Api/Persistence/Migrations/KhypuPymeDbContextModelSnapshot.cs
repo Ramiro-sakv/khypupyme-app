@@ -212,10 +212,32 @@ namespace KhypuPyme.Api.Persistence.Migrations
                     b.Property<Guid>("BusinessId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("AllowNewCredit")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
                     b.Property<string>("City")
                         .IsRequired()
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)");
+
+                    b.Property<string>("DefaultPayment")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasDefaultValue("cash");
+
+                    b.Property<int>("LotAlertDays")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(30);
+
+                    b.Property<int>("MaxDiscountPercent")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(100);
 
                     b.Property<Guid>("OwnerId")
                         .HasColumnType("uuid");
@@ -224,6 +246,16 @@ namespace KhypuPyme.Api.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
+
+                    b.Property<int>("PolicyRevision")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("QuoteDays")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(7);
 
                     b.Property<string>("TimberUnits")
                         .HasMaxLength(10)
@@ -234,7 +266,16 @@ namespace KhypuPyme.Api.Persistence.Migrations
                     b.HasIndex("OwnerId", "BusinessId")
                         .IsUnique();
 
-                    b.ToTable("business_settings", "khypupyme");
+                    b.ToTable("business_settings", "khypupyme", t =>
+                        {
+                            t.HasCheckConstraint("business_settings_days", "\"QuoteDays\" BETWEEN 1 AND 90 AND \"LotAlertDays\" BETWEEN 1 AND 90");
+
+                            t.HasCheckConstraint("business_settings_discount", "\"MaxDiscountPercent\" BETWEEN 0 AND 100");
+
+                            t.HasCheckConstraint("business_settings_payment", "\"DefaultPayment\" IN ('cash', 'qr', 'transfer')");
+
+                            t.HasCheckConstraint("business_settings_revision", "\"PolicyRevision\" >= 0");
+                        });
                 });
 
             modelBuilder.Entity("KhypuPyme.Api.Commerce.BusinessCodeCounter", b =>

@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
 import { Icon } from "../ui/Icon";
+import { get } from "../api/client";
+import { businessApi } from "./models";
 import type { components } from "../api/schema";
 import type { IconName } from "../ui/Icon";
 import { CommerceProvider, useCommerceData } from "../commerce/CommerceContext";
@@ -13,7 +15,7 @@ import { BusinessHome } from "./BusinessHome";
 import { INDUSTRY_GUIDES } from "./industryGuides";
 import { industryTheme, usesDeliveries } from "./industryThemes";
 import type { IndustryId } from "./industryThemes";
-import type { BusinessProfile } from "./models";
+import type { BusinessProfile, OperatingPolicy } from "./models";
 import { PracticeGuide } from "../timber/TimberPractice";
 import type { PracticeControls } from "../timber/TimberPractice";
 import { unitsOf } from "../timber/measures";
@@ -89,6 +91,7 @@ export function BusinessWorkspace({ accountId, business, industry, view, workId,
   const [historyKind, setHistoryKind] = useState("");
   const [tradeArchive, setTradeArchive] = useState<TradeKind>();
   const [focus, setFocus] = useState("");
+  const [settingsError, setSettingsError] = useState("");
   const documentId = document?.origin === view && document.work === workId ? document.id : undefined;
   const units = business.industry === "timber" ? unitsOf(business.timberUnits) : undefined;
   const works = workNavigation[business.industry];
@@ -126,6 +129,11 @@ export function BusinessWorkspace({ accountId, business, industry, view, workId,
     if (next !== "historial") setHistoryKind("");
     navigate(next, false, work);
   }
+  async function refreshSettings() {
+    setSettingsError("");
+    try { onSave(await get<BusinessProfile>(businessApi + "/" + business.id)); }
+    catch { setSettingsError("No se pudo cargar la última configuración. Vuelve a consultarla."); }
+  }
   function openDocument(id: string) {
     setDocument({ id, origin: view, work: workId });
     window.scrollTo(0, 0);
@@ -144,7 +152,7 @@ export function BusinessWorkspace({ accountId, business, industry, view, workId,
     </a>;
   }
   function trade(kind: TradeKind) {
-    return <TradePage key={kind} kind={kind} units={units} industry={business.industry} scan={focus === "scan"} proposal={kind === "sale" ? quote : undefined}
+    return <TradePage key={kind} kind={kind} units={units} industry={business.industry} policy={practice ? undefined : business.policy} scan={focus === "scan"} proposal={kind === "sale" ? quote : undefined}
       onOpenCatalog={() => go("catalogo")} showHistory={tradeArchive === kind} setShowHistory={(visible) => setTradeArchive(visible ? kind : undefined)}
       dismissProposal={() => setQuote(undefined)} onHistory={() => { setHistoryKind(kind); go("historial"); }}
       onStockBack={kind === "stock-in" ? () => go("catalogo") : undefined} />;
@@ -164,16 +172,17 @@ export function BusinessWorkspace({ accountId, business, industry, view, workId,
         openSalesHistory={() => { setHistoryKind("sale"); go("historial"); }} />;
       case "ayuda": return <BusinessHelp industry={business.industry} units={units ?? "imperial"} navigate={go} readOnly={access.readOnly} />;
       case "catalogo": return <CatalogPage key={focus} units={units} industry={business.industry} focus={focus}
+        lotAlertDays={business.policy?.lotAlertDays}
         onStockIn={!access.readOnly && !practice ? () => go("entradas") : undefined} />;
       case "entradas": return !practice ? trade("stock-in") : <Alert>Realiza la compra del ejercicio desde Compras.</Alert>;
       case "clientes": return <CustomersPage />;
-      case "ventas": return works && workId ? <WorkSale key={workId} id={workId} industry={business.industry}
+      case "ventas": return works && workId ? <WorkSale key={workId} id={workId} industry={business.industry} policy={business.policy}
         back={() => go("trabajos", "", workId)} /> : trade("sale");
       case "compras": return trade("purchase");
       case "cotizaciones": return trade("quote");
       case "caja": return <CashPage allowAdjustments={!practice} />;
       case "gastos": return <ExpensesPage />;
-      case "fiados": return <ReceivablesPage allowManual={!practice} />;
+      case "fiados": return <ReceivablesPage allowManual={!practice && (business.policy?.allowNewCredit ?? true)} />;
       case "historial": return <HistoryPage key={historyKind} initialKind={historyKind} allowExport={!practice} />;
       case "documentos": return <HistoryPage key="documents" initialKind="" documents allowExport={!practice} />;
       case "series": return equipmentIndustry(business.industry) ? <SerialHistory key={focus} initial={focus.startsWith("serial:") ? focus.slice(7) : undefined}
@@ -186,7 +195,8 @@ export function BusinessWorkspace({ accountId, business, industry, view, workId,
         <WorkList key={focus} industry={business.industry} focus={focus} open={(id) => go("trabajos", "", id)} />;
       case "informes": return <ReportsPage business={business.name} practice={!!practice} />;
       case "configuracion": return practice ? <Alert>Para cambiar la configuración, pausa la práctica y vuelve al negocio.</Alert> :
-        <BusinessSettings profile={business} industry={industry} onSave={onSave} openPlan={() => go("plan")} onRemoved={onRemoved} accountControls={accountControls} />;
+        <BusinessSettings profile={business} industry={industry} openPlan={() => go("plan")} onRemoved={onRemoved}
+          accountControls={accountControls} navigate={go} settingsError={settingsError} refreshSettings={refreshSettings} />;
       case "plan": return null;
     }
   }
@@ -241,7 +251,10 @@ export function BusinessWorkspace({ accountId, business, industry, view, workId,
       </aside>}
       {practiceEntry}
       <CommerceProvider accountId={accountId} businessId={business.id} businessName={business.name} practice={!!practice} readOnly={access.readOnly}
-        onConfirmed={practice?.refresh} showDocument={openDocument}>
+        onConfirmed={(result) => {
+          if (result.kind === "configure-business") void refreshSettings();
+          practice?.refresh();
+        }} showDocument={openDocument}>
         <Suspense fallback={<p role="status">Cargando pantalla…</p>}>
           <WorkspaceScreen focusKey={JSON.stringify([view, business.id, documentId, workId, focus])}>
             {renderView()}
@@ -261,7 +274,7 @@ function WorkspaceScreen({ focusKey, children }: { focusKey: string; children: R
   return <div ref={content}>{children}</div>;
 }
 
-function WorkSale({ id, industry, back }: { id: string; industry: string; back: () => void }) {
+function WorkSale({ id, industry, policy, back }: { id: string; industry: string; policy?: OperatingPolicy; back: () => void }) {
   const source = useCommerceData<Work>("/work/" + id);
   const serviceId = source.data?.serviceId;
   const service = useCommerceData<Product>(serviceId ? "/products/" + serviceId : null);
@@ -270,7 +283,7 @@ function WorkSale({ id, industry, back }: { id: string; industry: string; back: 
   if (!canBillWork(source.data)) return <Card><Alert>{source.data.saleId ? "Este trabajo ya tiene una venta vinculada." :
     "Marca la cita como atendida o la orden como lista antes de cobrar."}</Alert>
     <Button variant="secondary" onClick={back}>Volver al trabajo</Button></Card>;
-  return <TradePage kind="sale" industry={industry} dismissProposal={back} onHistory={back} work={source.data}
+  return <TradePage kind="sale" industry={industry} policy={policy} dismissProposal={back} onHistory={back} work={source.data}
     workService={service.data} onWorkBack={back} />;
 }
 
@@ -314,10 +327,10 @@ function CommercialHome({ business, industry, icon, navigate, openSalesHistory, 
       <h2>Bolsas y granel</h2><Button variant="secondary" onClick={() => navigate("catalogo")}>Consultar lotes y abrir bolsas</Button>
       <Button variant="secondary" onClick={() => navigate("ventas")}>Vender cemento</Button>
     </Card> : (measuredIndustry(business.industry) || equipmentIndustry(business.industry)) &&
-      <IndustryAttention industry={business.industry} navigate={navigate} />} />;
+      <IndustryAttention industry={business.industry} lotAlertDays={business.policy?.lotAlertDays} navigate={navigate} />} />;
 }
 
-function IndustryAttention({ industry, navigate }: { industry: string; navigate: (view: BusinessView, focus?: string) => void }) {
+function IndustryAttention({ industry, lotAlertDays = 30, navigate }: { industry: string; lotAlertDays?: number; navigate: (view: BusinessView, focus?: string) => void }) {
   const attention = useCommerceData<StoreAttention>("/attention");
   const store = measuredIndustry(industry);
   function count(value?: number) { return value == null ? "" : " · " + value; }
@@ -326,7 +339,7 @@ function IndustryAttention({ industry, navigate }: { industry: string; navigate:
       industry === "cosmetics" ? "Lotes de cosméticos" : store ? "Reposición y vencimientos" : "Garantías e inspecciones"}</h2>
     {store ? <>
       <Button variant="secondary" onClick={() => navigate("catalogo", "reorder")}>Reponer productos{count(attention.data?.reorder)}</Button>
-      <Button variant="secondary" onClick={() => navigate("catalogo", "expiring")}>Lotes que vencen en 30 días{count(attention.data?.expiring)}</Button>
+      <Button variant="secondary" onClick={() => navigate("catalogo", "expiring")}>Lotes que vencen en {lotAlertDays} días{count(attention.data?.expiring)}</Button>
       {industry === "beverages" && <Button variant="secondary" onClick={() => navigate("envases")}>Gestionar envases</Button>}
       {industry === "cosmetics" && <Button variant="secondary" onClick={() => navigate("catalogo", "held")}>Revisar lotes apartados</Button>}
     </> : <>

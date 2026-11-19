@@ -20,8 +20,8 @@ import { initialMaterials, MaterialFields, materialCommand } from "../retail/Mat
 import { workNavigation } from "../services/work";
 import { CompatibilityFilter, emptyVehicle, initialSpecialty, searchLabel, SpecialtyFields, specialtyCommand, SpecialtySummary, vehicleQuery } from "../retail/SpecialtyFields";
 
-export function CatalogPage({ units, industry, focus, onStockIn }: {
-  units?: TimberUnits; industry?: string; focus?: string; onStockIn?: () => void;
+export function CatalogPage({ units, industry, focus, onStockIn, lotAlertDays = 30 }: {
+  units?: TimberUnits; industry?: string; focus?: string; onStockIn?: () => void; lotAlertDays?: number;
 }) {
   const { showDocument, readOnly, practice } = useCommerce();
   const hasWarehouse = !practice;
@@ -103,7 +103,7 @@ export function CatalogPage({ units, industry, focus, onStockIn }: {
         <option value="true">Activos</option><option value="false">Archivados</option><option value="">Todos</option>
       </SelectField>
       {measuredIndustry(industry) && <SelectField label="Ver existencias" value={filter} onChange={(event) => { setFilter(event.target.value); setPage(1); }}>
-        <option value="">Todo el catálogo</option><option value="reorder">Reposición</option><option value="expiring">Lotes que vencen en 30 días</option>
+        <option value="">Todo el catálogo</option><option value="reorder">Reposición</option><option value="expiring">Lotes que vencen en {lotAlertDays} días</option>
         {industry === "cosmetics" && <option value="held">Lotes apartados</option>}
       </SelectField>}
       </div>

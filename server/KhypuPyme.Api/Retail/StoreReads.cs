@@ -119,11 +119,10 @@ internal sealed class StoreReads(KhypuPymeDbContext db, TimeProvider clock)
     public async Task<StoreAttention> AttentionAsync(CancellationToken ct)
     {
         var today = Today;
-        var end = today.AddDays(30);
         var products = db.Set<Product>().AsNoTracking().Where(x => x.Active);
         var lots = db.Set<RetailLot>().AsNoTracking().Where(x => x.Quantity > 0);
         var reorder = await products.Where(AtReorder(today, lots)).CountAsync(ct);
-        var expiring = await lots.CountAsync(x => !x.Held && x.ExpiresOn >= today && x.ExpiresOn <= end &&
+        var expiring = await ExpiringLots(lots, today).CountAsync(x =>
             products.Any(p => p.Id == x.ProductId && p.BusinessId == x.BusinessId), ct);
         var inspections = await db.Set<EquipmentUnit>().CountAsync(x => x.State == "inspection", ct);
         return new StoreAttention(reorder, expiring, inspections);
@@ -132,16 +131,23 @@ internal sealed class StoreReads(KhypuPymeDbContext db, TimeProvider clock)
     public IQueryable<Product> AttentionProducts(IQueryable<Product> products, string attention)
     {
         var today = Today;
-        var end = today.AddDays(30);
         var lots = db.Set<RetailLot>().AsNoTracking().Where(x => x.Quantity > 0);
+        var expiring = ExpiringLots(lots, today);
         return attention switch
         {
             "reorder" => products.Where(AtReorder(today, lots)),
-            "expiring" => products.Where(p => lots.Any(x => x.ProductId == p.Id && x.BusinessId == p.BusinessId && !x.Held && x.ExpiresOn >= today && x.ExpiresOn <= end)),
+            "expiring" => products.Where(p => expiring.Any(x => x.ProductId == p.Id && x.BusinessId == p.BusinessId)),
             "expired" => products.Where(p => lots.Any(x => x.ProductId == p.Id && x.BusinessId == p.BusinessId && x.ExpiresOn < today)),
             "held" => products.Where(p => lots.Any(x => x.ProductId == p.Id && x.BusinessId == p.BusinessId && x.Held)),
             _ => throw new CommerceFailure("Elige reposición o próximos vencimientos."),
         };
+    }
+
+    private IQueryable<RetailLot> ExpiringLots(IQueryable<RetailLot> lots, DateOnly today)
+    {
+        var settings = db.BusinessSettings.AsNoTracking();
+        return lots.Where(x => !x.Held && x.ExpiresOn >= today &&
+            settings.Any(s => s.BusinessId == x.BusinessId && x.ExpiresOn <= today.AddDays(s.LotAlertDays)));
     }
 
     private static Expression<Func<Product, bool>> AtReorder(DateOnly today, IQueryable<RetailLot> lots) =>

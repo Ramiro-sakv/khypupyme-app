@@ -3,7 +3,7 @@ import { bob, documentName } from "../commerce/models";
 import type { CashStatus, Command } from "../commerce/models";
 
 const protectedKinds = new Set(["return", "exchange", "void-expense", "void-debt", "cash-adjust", "stock-in", "stock-loss", "inspection",
-  "hold-lot", "release-lot", "discard-lot", "open-cement"]);
+  "hold-lot", "release-lot", "discard-lot", "open-cement", "configure-business"]);
 
 export async function needsIdentity(command: Command, path: string) {
   if (protectedKinds.has(command.kind) || ((command.kind === "product" || command.kind === "customer") && command.entityId)) return true;
@@ -15,7 +15,15 @@ export async function needsIdentity(command: Command, path: string) {
 export function correctionEffect(business: string, command: Command) {
   const label = command.kind === "product" ? "Edición de ficha de producto" : command.kind === "customer" ? "Edición de cliente" :
     command.kind === "close-cash" ? "Cierre con diferencia de efectivo" : documentName(command.kind);
-  return [business, label, command.name, command.code, command.serial,
+  const policy = command.policy;
+  const detail = policy && [
+    "Descuento máximo " + policy.maxDiscountPercent + "%",
+    "Cotizaciones de " + policy.quoteDays + " días",
+    policy.allowNewCredit ? "Fiados nuevos permitidos" : "Fiados nuevos desactivados",
+    "Forma de pago inicial " + (policy.defaultPayment === "cash" ? "Efectivo" : policy.defaultPayment === "qr" ? "QR" : "Transferencia"),
+    "Aviso de lotes de " + policy.lotAlertDays + " días",
+  ].join(" · ");
+  return [business, label, detail, command.name, command.code, command.serial,
     (command.sourceId || (command.entityId && !command.name)) && "Registro " + (command.sourceId ?? command.entityId),
     command.amountMinor != null && bob(command.amountMinor),
     command.lines?.length && command.lines.length + (command.lines.length === 1 ? " línea afectada" : " líneas afectadas")].filter(Boolean).join(" · ");

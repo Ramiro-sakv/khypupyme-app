@@ -197,3 +197,25 @@ El bloque se comprueba con `scripts/Test-Block7c.ps1`. El recorrido de Edge usa 
 | 7D | **Peluquería, Limpieza, Profesionales, Taller y Artesanía**. Se rechazaron cruces de citas y cobros duplicados, incluidos intentos simultáneos. La entrega posterior al cobro conservó el comprobante y el saldo de inventario. Se verificaron también presupuesto, constancia PDF y separación entre venta directa y encargo. |
 
 El bloque 7D se comprueba con `scripts/Test-Block7d.ps1`. El recorrido en Edge a 360 px usa la configuración opcional del bloque 5 y comprueba los cinco rubros, el borrador de venta vinculada tras recargar y la descarga de la constancia. La API también verificó los 21 identificadores únicos del selector. Pasaron lint, TypeScript y las compilaciones de React y .NET. La migración se aplicó a PostgreSQL local de pruebas y desarrollo. Vite conserva el aviso de tamaño de los módulos de PDF cargados bajo demanda.
+
+## Bloque 8 · Planes y demostración de pago
+
+- El primer negocio de una cuenta con correo verificado puede activar una prueba de 30 días. Los pases por negocio son Bs 39 por 30 días, Bs 210 por seis meses calendario y Bs 390 por un año. Renovar un negocio activo amplía su vigencia desde el fin del periodo actual. Los meses usan la hora de Bolivia y ajustan el día al final del mes cuando corresponde.
+- Al seleccionar un negocio sin acceso aparece su panel de planes. El panel muestra el importe y la fecha estimada antes del checkout. Los negocios activos abren Inicio y pueden renovar desde Configuración. El indicador «Demostración · Sin cargos» acompaña el proceso.
+- El catálogo de prueba usa tres tarjetas predefinidas. Cada intento guarda su identificador, marca, últimos cuatro dígitos y resultado previsto, además del importe y periodo del pase. Las solicitudes solo admiten los identificadores de la selección y acciones del intento. El formulario y el contrato carecen de campos de número completo y CVV.
+- Un intento pendiente dura 15 minutos y se recupera al volver a abrir el panel. Confirmar el mismo intento de nuevo devuelve el resultado original. El reembolso retira la vigencia restante de ese pase y recoloca los pases posteriores sin usar. Los pagos se registran en su propio historial y quedan fuera de la caja y los informes comerciales.
+- La licencia vencida permite consultar el historial, descargar un JSON del negocio, regenerar los PDF y cerrar la caja que quedó abierta. El servidor conserva la consulta y el resultado de solicitudes confirmadas. Las nuevas operaciones comerciales requieren vigencia.
+- Para negocios anteriores a esta migración, la primera ficha se identifica por el movimiento comercial más antiguo disponible. En ausencia de movimientos se aplica un orden estable por identificador. Esos negocios conservan sus registros y pueden pasar a modo de consulta hasta activar un acceso.
+
+### Verificación
+
+| Comprobación | Resultado |
+|---|---|
+| Prueba | Pasaron correo verificado, elegibilidad del primer negocio y activación simultánea sin extender los 30 días. |
+| Checkout | Pasaron aprobación, rechazo, cancelación, vencimiento por reloj y recuperación de un pendiente. Se rechazaron campos de número completo y CVV. |
+| Vigencia | Pasaron confirmación duplicada simultánea, acumulación de pases, fin de mes, año bisiesto y reembolsos de periodos activos o en cola. Se comprobaron el aislamiento y la ausencia de movimientos de caja o ventas por el pago. |
+| Modo de consulta | PostgreSQL permitió historial, comprobante, exportación y cierre de la caja abierta. Rechazó nuevas ventas, otra apertura y un segundo cierre. |
+| Edge a 360 px | Pasaron la selección y revisión, la recuperación tras recargar, aprobación, rechazo, reembolso, prueba gratuita y descarga de JSON y PDF con acceso vencido. |
+| Compatibilidad | Pasaron lint, TypeScript, compilación web y .NET y las regresiones de cuentas y permisos del bloque 2 y del núcleo comercial de los bloques 4 a 7D. Se aplicó la migración en PostgreSQL local de pruebas y desarrollo. Vite mantiene el aviso de tamaño de los módulos de PDF cargados bajo demanda. |
+
+El recorrido aislado se ejecuta con `scripts/Test-Block8.ps1`.

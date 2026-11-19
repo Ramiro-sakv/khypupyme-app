@@ -72,6 +72,7 @@ try {
   await request(auth + "/login", 204, "POST", { email, password });
   const business = businesses + "/" + randomUUID();
   await request(businesses, 200, "POST", { id: business.split("/").at(-1), name: "Sicomoro QA", industry: "timber", timberUnits: "imperial" });
+  await request(business + "/plan/trial", 204, "POST");
   const scope = business + "/commerce";
   await run(scope, { kind: "open-cash", amountMinor: 100_000 });
   const pine = (await run(scope, product("Tabla seca", "Pino", "PI-001"))).entityId;

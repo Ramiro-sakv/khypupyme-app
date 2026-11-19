@@ -15,10 +15,10 @@ internal static class CommerceEndpoints
     public static void MapCommerce(this WebApplication app)
     {
         MapGroup(app.MapGroup("/api/v1/businesses/{businessId:guid}/commerce"));
-        MapGroup(app.MapGroup("/api/v1/businesses/{businessId:guid}/practice-commerce").WithMetadata(new PracticeCommerce()));
+        MapGroup(app.MapGroup("/api/v1/businesses/{businessId:guid}/practice-commerce").WithMetadata(new PracticeCommerce()), practice: true);
     }
 
-    private static void MapGroup(RouteGroupBuilder group)
+    private static void MapGroup(RouteGroupBuilder group, bool practice = false)
     {
         group.WithTags("Comercio").RequireAuthorization("Account");
         var reads = group.MapGroup("").AddEndpointFilter<ReadCommerceScope>();
@@ -71,6 +71,7 @@ internal static class CommerceEndpoints
         reads.MapGet("/report", (DateOnly? from, DateOnly? to, CommerceReads service, CancellationToken ct) =>
             service.ReportAsync(from, to, ct)).Produces<CommerceReport>();
         reads.MapGet("/commands/{id:guid}", StatusAsync).Produces<CommandResult>();
+        if (!practice) reads.MapGet("/export", CommerceExport.DownloadAsync);
         group.MapPost("/commands", ExecuteAsync).AddEndpointFilter<CsrfFilter>().Produces<CommandResult>();
     }
 

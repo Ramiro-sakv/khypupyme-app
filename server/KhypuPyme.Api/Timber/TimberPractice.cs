@@ -1,6 +1,7 @@
 using System.Data;
 using KhypuPyme.Api.Accounts;
 using KhypuPyme.Api.Businesses;
+using KhypuPyme.Api.Billing;
 using KhypuPyme.Api.Commerce;
 using KhypuPyme.Api.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -48,7 +49,7 @@ internal static class PracticeSteps
     }
 }
 
-internal sealed class TimberPracticeService(KhypuPymeDbContext db, BusinessAccess access, TimeProvider clock)
+internal sealed class TimberPracticeService(KhypuPymeDbContext db, BusinessAccess access, LicenseAccess license, TimeProvider clock)
 {
     public async Task<PracticeStatus> ReadAsync(Guid owner, Guid origin, CancellationToken ct)
     {
@@ -65,6 +66,8 @@ internal sealed class TimberPracticeService(KhypuPymeDbContext db, BusinessAcces
         var source = await OriginAsync(origin, ct);
         await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({origin.ToString()}, 5))", ct);
         var current = await db.Set<TimberPractice>().FindAsync([owner, origin], ct);
+        if (request.Action is "start" or "resume" or "reports-seen")
+            await license.RequireAsync(owner, origin, now, ct);
 
         if (request.Action == "start")
         {

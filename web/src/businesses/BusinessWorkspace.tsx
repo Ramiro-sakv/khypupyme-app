@@ -10,7 +10,8 @@ import { DocumentPage, HistoryPage } from "../commerce/Documents";
 import { ReportsPage } from "../commerce/ReportsPage";
 import { TradePage } from "../commerce/TradePage";
 import type { TradeKind } from "../commerce/TradePage";
-import { bob } from "../commerce/models";
+import { bob, timestamp } from "../commerce/models";
+import type { AccessSnapshot } from "../billing/PlanGate";
 import type { CashStatus, EntryDocument, Product, Report } from "../commerce/models";
 import { BusinessHome } from "./BusinessHome";
 import { BusinessSettings } from "./BusinessSettings";
@@ -30,7 +31,7 @@ import type { Work } from "../services/work";
 import { equipmentIndustry, measuredIndustry, variantIndustry } from "../retail/ProductFields";
 
 const workspaceViews = [
-  "inicio", "ventas", "compras", "cotizaciones", "catalogo", "clientes", "caja", "fiados", "gastos", "historial", "informes", "configuracion", "series", "envases", "entregas", "trabajos",
+  "inicio", "ventas", "compras", "cotizaciones", "catalogo", "clientes", "caja", "fiados", "gastos", "historial", "informes", "configuracion", "series", "envases", "entregas", "trabajos", "plan",
 ] as const;
 export type WorkspaceView = typeof workspaceViews[number];
 export type BusinessView = WorkspaceView | "negocios" | "crear";
@@ -59,9 +60,10 @@ type WorkspaceProps = {
   accountId: string; business: BusinessProfile; industry: string; view: WorkspaceView; workId: string;
   navigate: (view: BusinessView, replace?: boolean, workId?: string) => void; onSave: (profile: BusinessProfile) => void;
   practice?: PracticeControls; practiceEntry?: ReactNode;
+  access: AccessSnapshot;
 };
 
-export function BusinessWorkspace({ accountId, business, industry, view, workId, navigate, onSave, practice, practiceEntry }: WorkspaceProps) {
+export function BusinessWorkspace({ accountId, business, industry, view, workId, navigate, onSave, practice, practiceEntry, access }: WorkspaceProps) {
   const theme = industryTheme(business.industry);
   const content = useRef<HTMLDivElement>(null);
   const more = useRef<HTMLDetailsElement>(null);
@@ -115,8 +117,12 @@ export function BusinessWorkspace({ accountId, business, industry, view, workId,
       openWork={works ? (id) => go("trabajos", "", id) : undefined}
       openSerial={equipmentIndustry(business.industry) ? (serial) => go("series", "serial:" + serial) : undefined}
       convert={(source) => { setQuote(source); go("ventas"); }} />;
+    if (access.readOnly && ["ventas", "compras", "cotizaciones"].includes(view))
+      return <Card><Alert>Activa un plan para registrar esta operación. Los borradores se conservan.</Alert>
+        <Button variant="secondary" onClick={() => go("historial")}>Ver historial</Button></Card>;
     switch (view) {
       case "inicio": return <CommercialHome business={business} industry={industry} icon={theme.icon} navigate={go}
+        readOnly={access.readOnly}
         openSalesHistory={() => { setHistoryKind("sale"); go("historial"); }} />;
       case "catalogo": return <CatalogPage key={focus} units={units} industry={business.industry} focus={focus} />;
       case "clientes": return <CustomersPage />;
@@ -127,7 +133,7 @@ export function BusinessWorkspace({ accountId, business, industry, view, workId,
       case "caja": return <CashPage />;
       case "gastos": return <ExpensesPage />;
       case "fiados": return <ReceivablesPage />;
-      case "historial": return <HistoryPage key={historyKind} initialKind={historyKind} />;
+      case "historial": return <HistoryPage key={historyKind} initialKind={historyKind} allowExport={!practice} />;
       case "series": return equipmentIndustry(business.industry) ? <SerialHistory key={focus} initial={focus.startsWith("serial:") ? focus.slice(7) : undefined}
         filter={focus === "inspection" ? focus : undefined} /> : <Alert>Esta vista pertenece al rubro de Electrodomésticos.</Alert>;
       case "envases": return business.industry === "beverages" ? <ContainersPage /> : <Alert>Esta vista pertenece al rubro de Bebidas.</Alert>;
@@ -137,7 +143,8 @@ export function BusinessWorkspace({ accountId, business, industry, view, workId,
         <WorkList key={focus} industry={business.industry} focus={focus} open={(id) => go("trabajos", "", id)} />;
       case "informes": return <ReportsPage />;
       case "configuracion": return practice ? <Alert>Para cambiar la configuración, pausa la práctica y vuelve al negocio.</Alert> :
-        <BusinessSettings profile={business} industry={industry} onSave={onSave} />;
+        <BusinessSettings profile={business} industry={industry} onSave={onSave} openPlan={() => go("plan")} />;
+      case "plan": return null;
     }
   }
 
@@ -162,8 +169,15 @@ export function BusinessWorkspace({ accountId, business, industry, view, workId,
     <div className="workspace-content" ref={content}>
       {(view !== "inicio" || documentId) && <p className="commerce-business-label">{business.name}</p>}
       {practice && <Alert>PRÁCTICA — DATOS FICTICIOS</Alert>}
+      {!practice && (access.readOnly || view === "inicio") && <Card className="license-strip">
+        <div><strong>{access.readOnly ? "Modo de consulta" : "Plan vigente"}</strong>
+          <p>{access.readOnly ? "Puedes consultar el historial, descargar tus datos y cerrar una caja abierta." :
+            access.until ? "Vence el " + timestamp(access.until) : "Acceso comercial activo."}</p></div>
+        <Button variant="secondary" onClick={() => go("plan")}>Plan del negocio</Button>
+      </Card>}
       {practiceEntry}
-      <CommerceProvider accountId={accountId} businessId={business.id} practice={!!practice} onConfirmed={practice?.refresh} showDocument={openDocument}>
+      <CommerceProvider accountId={accountId} businessId={business.id} practice={!!practice} readOnly={access.readOnly}
+        onConfirmed={practice?.refresh} showDocument={openDocument}>
         {renderView()}
       </CommerceProvider>
     </div>
@@ -184,9 +198,9 @@ function WorkSale({ id, industry, back }: { id: string; industry: string; back: 
     workService={service.data} onWorkBack={back} />;
 }
 
-function CommercialHome({ business, industry, icon, navigate, openSalesHistory }: {
+function CommercialHome({ business, industry, icon, navigate, openSalesHistory, readOnly }: {
   business: BusinessProfile; industry: string; icon: IconName; navigate: (view: BusinessView, focus?: string) => void;
-  openSalesHistory: () => void;
+  openSalesHistory: () => void; readOnly: boolean;
 }) {
   const cash = useCommerceData<CashStatus>("/cash");
   const report = useCommerceData<Report>("/report");
@@ -197,9 +211,10 @@ function CommercialHome({ business, industry, icon, navigate, openSalesHistory }
       detail: "Efectivo esperado · " + bob(session.expectedMinor) }
     : cash.data ? { state: "closed" as const, label: "Sin apertura registrada" } : null;
   return <BusinessHome business={business} industry={industry} icon={icon} cash={summary} days={report.data?.days ?? []}
+    readOnly={readOnly}
     cashError={cash.error} reportError={report.error} openCash={() => navigate("caja")}
     openSale={() => navigate("ventas")} openPurchase={() => navigate("compras")} openReports={() => navigate("informes")}
-    industryPanel={workNavigation[business.industry] ? <WorkPanel industry={business.industry} open={(focus) => navigate("trabajos", focus)} /> :
+    industryPanel={readOnly ? undefined : workNavigation[business.industry] ? <WorkPanel industry={business.industry} open={(focus) => navigate("trabajos", focus)} /> :
       variantIndustry(business.industry) ? <Card className="industry-home-card">
       <h2>Tallas, colores y cambios</h2><Button variant="secondary" onClick={() => navigate("catalogo")}>Consultar variantes</Button>
       <Button variant="secondary" onClick={openSalesHistory}>Buscar venta para un cambio</Button>

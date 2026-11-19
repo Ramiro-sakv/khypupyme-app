@@ -667,6 +667,161 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/businesses/{businessId}/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    businessId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PlanStatus"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/plan/trial": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    businessId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/plan/attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    businessId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CheckoutInput"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PaymentInfo"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/plan/attempts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    businessId: string;
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CheckoutAction"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PaymentInfo"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/businesses/{businessId}/commerce/products": {
         parameters: {
             query?: never;
@@ -1492,6 +1647,41 @@ export interface paths {
                     content: {
                         "application/json": components["schemas"]["CommandResult"];
                     };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/businesses/{businessId}/commerce/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    businessId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
                 };
             };
         };
@@ -2544,6 +2734,15 @@ export interface components {
             /** Format: int64 */
             bulkPriceMinor: null | number;
         };
+        CheckoutAction: {
+            action: string;
+        };
+        CheckoutInput: {
+            /** Format: uuid */
+            id: string;
+            planId: string;
+            cardId: string;
+        };
         CodePasswordInput: {
             email: null | string;
             code: null | string;
@@ -2728,6 +2927,12 @@ export interface components {
             day: string;
             address?: null | string;
         };
+        DemoCard: {
+            id: string;
+            brand: string;
+            lastFour: string;
+            testResult: string;
+        };
         DocumentLine: {
             /** Format: uuid */
             productId: string;
@@ -2885,6 +3090,53 @@ export interface components {
         PasswordInput: {
             email: null | string;
             password: null | string;
+        };
+        PaymentInfo: {
+            /** Format: uuid */
+            id: string;
+            planId: string;
+            planName: string;
+            /** Format: int64 */
+            amountMinor: number;
+            card: components["schemas"]["DemoCard"];
+            state: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            expiresAt: string;
+            /** Format: date-time */
+            paidAt: null | string;
+            /** Format: date-time */
+            accessFrom: null | string;
+            /** Format: date-time */
+            accessUntil: null | string;
+        };
+        PlanOption: {
+            id: string;
+            name: string;
+            /** Format: int64 */
+            amountMinor: number;
+            /** Format: int32 */
+            days: number;
+            /** Format: int32 */
+            months: number;
+            /** Format: int32 */
+            savingMinor: number;
+            /** Format: date-time */
+            estimatedEnd: string;
+        };
+        PlanStatus: {
+            active: boolean;
+            /** Format: date-time */
+            accessUntil: null | string;
+            emailVerified: boolean;
+            firstBusiness: boolean;
+            trialUsed: boolean;
+            /** Format: date-time */
+            trialUntil: null | string;
+            plans: components["schemas"]["PlanOption"][];
+            cards: components["schemas"]["DemoCard"][];
+            payments: components["schemas"]["PaymentInfo"][];
         };
         PracticeInfo: {
             /** Format: uuid */

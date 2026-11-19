@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { get } from "../api/client";
 import { Alert, Button, Card, DataTable, SelectField, TextField } from "../ui/Primitives";
 import { useCommerce, useCommerceData } from "./CommerceContext";
 import { CommerceHeading, LoadFeedback, NoRecords, OperationForm, Pages, PaymentField, useCommercialForm } from "./CommerceUi";
@@ -13,10 +14,10 @@ const historyKinds = ["sale", "purchase", "quote", "return", "expense", "void-ex
   "stock-loss", "open-cash", "close-cash", "collect", "exchange", "inspection",
   "containers", "container-stock", "hold-lot", "release-lot", "discard-lot", "open-cement", "repair-receipt"];
 
-export function HistoryPage({ initialKind }: { initialKind: string }) {
+export function HistoryPage({ initialKind, allowExport }: { initialKind: string; allowExport: boolean }) {
   const [kind, setKind] = useState(initialKind);
   return <div className="commerce-stack">
-    <CommerceHeading title="Historial" />
+    <CommerceHeading title="Historial">{allowExport && <ExportRecords />}</CommerceHeading>
     <Card className="history-filter">
       <SelectField label="Tipo de operación" value={kind} onChange={(event) => setKind(event.target.value)}>
         <option value="">Todas</option>
@@ -25,6 +26,31 @@ export function HistoryPage({ initialKind }: { initialKind: string }) {
     </Card>
     <EntryList key={kind} kind={kind} caption="Operaciones confirmadas" />
   </div>;
+}
+
+function ExportRecords() {
+  const { path } = useCommerce();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  async function save() {
+    setBusy(true);
+    setError("");
+    try {
+      const data = await get<{ business: { id: string } }>(path + "/export");
+      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "khypupyme-" + data.business.id + ".json";
+      document.body.append(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "No se pudieron exportar los registros.");
+    } finally { setBusy(false); }
+  }
+  return <div><Button variant="secondary" icon="document" disabled={busy} onClick={() => void save()}>
+    {busy ? "Preparando exportación…" : "Descargar mis datos"}</Button>{error && <Alert tone="error">{error}</Alert>}</div>;
 }
 
 export function EntryList({ kind, cashSession, caption }: { kind?: string; cashSession?: string; caption: string }) {

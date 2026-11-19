@@ -47,7 +47,7 @@ export function PaymentField({ value, onChange, credit = false, disabled }: {
   </SelectField>;
 }
 
-export function useCommercialForm() {
+export function useCommercialForm(allowReadOnly = false) {
   const workspace = useCommerce();
   const [error, setError] = useState("");
   const [processing, setProcessing] = useState(false);
@@ -62,7 +62,8 @@ export function useCommercialForm() {
     catch (failure) { setError(failure instanceof Error ? failure.message : "No se pudo completar la operación."); }
     finally { setProcessing(false); }
   }
-  return { error, submit, processing, blocked: processing || workspace.busy || !!workspace.pending || !workspace.ready };
+  return { error, submit, processing, blocked: processing || workspace.busy || !!workspace.pending || !workspace.ready ||
+    (workspace.readOnly && !allowReadOnly) };
 }
 
 export function OperationForm({ title, onClose, children, error, blocked, action = "Guardar", onSubmit }: {

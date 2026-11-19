@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { activateBusiness } from "./test-billing-fixture.mjs";
 import { readdirSync, readFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 
@@ -53,6 +54,7 @@ const sell = (scope, lines, status = 200) => post(scope, { kind: "sale", method:
 async function business(industry, name) {
   const id = randomUUID();
   await request(businesses, 200, "POST", { id, industry, name });
+  await activateBusiness(request, businesses + "/" + id);
   return businesses + "/" + id + "/commerce";
 }
 

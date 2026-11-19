@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 using KhypuPyme.Api.Accounts;
+using KhypuPyme.Api.Billing;
 using KhypuPyme.Api.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -100,6 +101,8 @@ internal static class BusinessEndpoints
         var settings = new BusinessSettings { BusinessId = input.Id, OwnerId = owner, City = city, Phone = phone, TimberUnits = units };
         db.Businesses.Add(business);
         db.BusinessSettings.Add(settings);
+        if (!await db.Set<AccountTrial>().AnyAsync(x => x.OwnerId == owner, ct))
+            db.Add(new AccountTrial { OwnerId = owner, FirstBusinessId = input.Id });
         await SetSelectionAsync(db, owner, input.Id, ct);
         try
         {

@@ -58,7 +58,7 @@ function ConfirmedChart({ days }: { days: readonly Day[] }) {
   </>;
 }
 
-export function BusinessHome({ business, industry, icon, cash, days, cashError, reportError, openCash, openSale, openPurchase, openReports, industryPanel }: {
+export function BusinessHome({ business, industry, icon, cash, days, cashError, reportError, openCash, openSale, openPurchase, openReports, industryPanel, readOnly }: {
   business: BusinessProfile;
   industry: string;
   icon: IconName;
@@ -71,6 +71,7 @@ export function BusinessHome({ business, industry, icon, cash, days, cashError, 
   openPurchase: () => void;
   openReports: () => void;
   industryPanel?: ReactNode;
+  readOnly: boolean;
 }) {
   return <>
     <div className="business-hero">
@@ -95,14 +96,14 @@ export function BusinessHome({ business, industry, icon, cash, days, cashError, 
         <Card className="home-actions">
           <h2>Acciones principales</h2>
           <Button variant={cash?.state === "open" ? "secondary" : "primary"} icon="cash" onClick={openCash}>
-            {cash?.state === "open" ? "Ver caja" : "Abrir caja"}
+            {cash?.state === "open" || readOnly ? "Ver caja" : "Abrir caja"}
           </Button>
-          <Button variant="secondary" icon="shops" onClick={openSale}>{business.industry === "convenience" ? "Venta rápida con lector" :
+          {!readOnly && <><Button variant="secondary" icon="shops" onClick={openSale}>{business.industry === "convenience" ? "Venta rápida con lector" :
             business.industry === "appliances" ? "Vender equipos" : business.industry === "electronics" ? "Vender accesorios y equipos" :
             business.industry === "footwear" ? "Vender por talla" : business.industry === "stationery" ? "Vender artículos e impresión" :
             business.industry === "beauty" ? "Atender sin cita" : business.industry === "crafts" ? "Vender piezas listas" : "Vender"}</Button>
           <Button variant="secondary" icon="parcel" onClick={openPurchase}>{business.industry === "appliances" || business.industry === "electronics" ?
-            "Recibir equipos por serie" : business.industry === "hardware" ? "Recibir piezas y rollos" : "Registrar compra"}</Button>
+            "Recibir equipos por serie" : business.industry === "hardware" ? "Recibir piezas y rollos" : "Registrar compra"}</Button></>}
         </Card>
         {industryPanel}
       </aside>

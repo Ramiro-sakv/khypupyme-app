@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 using KhypuPyme.Api.Businesses;
+using KhypuPyme.Api.Billing;
 using KhypuPyme.Api.Persistence;
 using KhypuPyme.Api.Timber;
 using KhypuPyme.Api.Retail;
@@ -10,7 +11,7 @@ using static KhypuPyme.Api.Commerce.CommerceRules;
 
 namespace KhypuPyme.Api.Commerce;
 
-internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess access, TimeProvider clock)
+internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess access, LicenseAccess license, TimeProvider clock)
 {
     public async Task<CommandResult> ExecuteAsync(Guid accountId, Guid businessId, CommerceCommand command, bool practiceChannel, CancellationToken ct)
     {
@@ -40,14 +41,16 @@ internal sealed class CommerceService(KhypuPymeDbContext db, BusinessAccess acce
             return new CommandResult(receipt.Id, receipt.Kind, receipt.EntityId);
         }
 
-        await db.Database.ExecuteSqlInterpolatedAsync(
-            $"SELECT pg_advisory_xact_lock(hashtextextended({businessId.ToString()}, 3))", ct);
+        await access.LockBusinessAsync(businessId, ct);
+        var now = clock.GetUtcNow();
+        if (command.Kind != "close-cash")
+            await license.RequireAsync(accountId, business.PracticeOriginId ?? businessId, now, ct);
         var practice = practiceChannel
             ? await db.Set<TimberPractice>().SingleOrDefaultAsync(x => x.SandboxId == businessId, ct)
             : null;
         if (practiceChannel && practice?.State != "active")
             throw new CommerceFailure("Reanuda la práctica antes de registrar movimientos.", 409);
-        var work = new CommerceTransaction(db, business, command, clock.GetUtcNow(), ct);
+        var work = new CommerceTransaction(db, business, command, now, ct);
         var entityId = command.Kind switch
         {
             "product" => await SaveProductAsync(work),

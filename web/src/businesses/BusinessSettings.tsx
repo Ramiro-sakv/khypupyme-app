@@ -5,10 +5,11 @@ import { Alert, Button, Card, DataTable, SelectField, TextField } from "../ui/Pr
 import { businessApi } from "./models";
 import type { BusinessProfile } from "./models";
 
-export function BusinessSettings({ profile, industry, onSave }: {
+export function BusinessSettings({ profile, industry, onSave, openPlan }: {
   profile: BusinessProfile;
   industry: string;
   onSave: (business: BusinessProfile) => void;
+  openPlan: () => void;
 }) {
   const [city, setCity] = useState(profile.city ?? "");
   const [phone, setPhone] = useState(profile.phone ?? "");
@@ -36,6 +37,7 @@ export function BusinessSettings({ profile, industry, onSave }: {
 
   return <div className="settings-view">
     <div className="view-heading"><h1 tabIndex={-1}>Configuración</h1><p>{profile.name}</p></div>
+    <Button variant="secondary" onClick={openPlan}>Plan del negocio</Button>
     <div className="settings-grid">
       <Card>
         <DataTable caption="Identificación del negocio" columns={["Dato", "Valor"]} rows={[

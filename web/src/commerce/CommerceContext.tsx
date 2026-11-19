@@ -10,15 +10,17 @@ import type { DraftStamp, PendingRecord } from "./storage";
 type Confirmation = { result: CommandResult; draft?: DraftStamp };
 type Workspace = {
   path: string; scope: string; revision: number; ready: boolean; busy: boolean; pending?: PendingRecord;
+  readOnly: boolean;
   confirmation?: Confirmation;
   execute: (command: CommandInput, draft?: DraftStamp) => Promise<CommandResult>;
   showDocument: (id: string) => void;
 };
 const Context = createContext<Workspace | null>(null);
 
-export function CommerceProvider({ accountId, businessId, children, showDocument, practice, onConfirmed }: {
+export function CommerceProvider({ accountId, businessId, children, showDocument, practice, onConfirmed, readOnly = false }: {
   accountId: string; businessId: string; children: ReactNode; showDocument: (id: string) => void;
   practice?: boolean; onConfirmed?: () => void;
+  readOnly?: boolean;
 }) {
   const path = commercePath(businessId, practice);
   const scope = accountId + ":" + businessId;
@@ -75,6 +77,7 @@ export function CommerceProvider({ accountId, businessId, children, showDocument
   }
 
   async function execute(input: CommandInput, draft?: DraftStamp) {
+    if (readOnly && input.kind !== "close-cash") throw new Error("Activa un plan para registrar operaciones nuevas.");
     if (!ready) throw new Error("Espera a que se abra el registro local.");
     const record = { scope, command: { ...input, operationId: crypto.randomUUID() }, draft };
     const claimed = await reserveRequest(record);
@@ -119,7 +122,7 @@ export function CommerceProvider({ accountId, businessId, children, showDocument
     finally { setBusy(false); }
   }
 
-  return <Context.Provider value={{ path, scope, revision, ready, busy, pending, confirmation, execute, showDocument }}>
+  return <Context.Provider value={{ path, scope, revision, ready, busy, pending, confirmation, execute, showDocument, readOnly }}>
     {pending && <div className="pending-box">
       <strong>{busy ? "Consultando operación…" : "Solicitud pendiente de " + documentName(pending.command.kind).toLowerCase()}</strong>
       <span>{pending.command.operationId}</span>

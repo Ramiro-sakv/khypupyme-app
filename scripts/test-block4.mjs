@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { activateBusiness } from "./test-billing-fixture.mjs";
 import { readdirSync, readFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 
@@ -43,6 +44,7 @@ function readCode() {
 async function createBusiness(name) {
   const id = randomUUID();
   await request(businesses, 200, "POST", { id, name, industry: "grocery" });
+  await activateBusiness(request, businesses + "/" + id);
   return businesses + "/" + id + "/commerce";
 }
 

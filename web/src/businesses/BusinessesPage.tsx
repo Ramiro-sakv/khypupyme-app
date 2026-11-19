@@ -10,6 +10,8 @@ import { businessApi } from "./models";
 import type { BusinessProfile, BusinessSelection, IndustryOption } from "./models";
 import { TimberPractice } from "../timber/TimberPractice";
 import type { PracticeControls } from "../timber/TimberPractice";
+import { PlanGate } from "../billing/PlanGate";
+import type { AccessSnapshot } from "../billing/PlanGate";
 
 function readRoute(): { view: BusinessView; workId: string } {
   const params = new URLSearchParams(location.search);
@@ -85,12 +87,17 @@ export function BusinessesPage({ accountId }: { accountId: string }) {
   if (view === "negocios" || !business) return <BusinessPicker industries={industries}
     lastId={business?.id} select={select} create={() => navigate("crear")} />;
 
-  const renderWorkspace = (active: BusinessProfile, practice?: PracticeControls, practiceEntry?: ReactNode) =>
+  const renderWorkspace = (access: AccessSnapshot, active: BusinessProfile, practice?: PracticeControls, practiceEntry?: ReactNode) =>
     <BusinessWorkspace key={active.id} accountId={accountId} business={active} practice={practice} practiceEntry={practiceEntry}
     industry={industries.find((option) => option.id === business.industry)?.name ?? business.industry}
-    view={view} workId={workId} navigate={navigate} onSave={(updated) => {
+    view={view} workId={workId} navigate={navigate} access={access} onSave={(updated) => {
       setBusiness((current) => current?.id === updated.id ? updated : current);
     }} />;
-  return business.industry === "timber" ? <TimberPractice key={business.id} business={business} accountId={accountId}
-    home={view === "inicio"} onExit={() => navigate("inicio", true)} render={renderWorkspace} /> : renderWorkspace(business);
+  return <PlanGate key={business.id} business={business} forced={view === "plan"}
+    back={() => navigate("negocios")} onEnter={() => navigate("inicio", true)}>
+    {(access) => business.industry === "timber" && !access.readOnly ?
+      <TimberPractice key={business.id} business={business} accountId={accountId} home={view === "inicio"}
+        onExit={() => navigate("inicio", true)} render={(active, practice, entry) => renderWorkspace(access, active, practice, entry)} /> :
+      renderWorkspace(access, business)}
+  </PlanGate>;
 }

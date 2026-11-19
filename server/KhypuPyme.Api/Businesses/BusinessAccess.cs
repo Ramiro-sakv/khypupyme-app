@@ -31,6 +31,9 @@ internal sealed class BusinessAccess(KhypuPymeDbContext db)
         db.Database.ExecuteSqlInterpolatedAsync(
             $"SELECT pg_advisory_xact_lock(hashtextextended({account.ToString()}, 2))", ct);
 
+    public Task<int> LockBusinessAsync(Guid business, CancellationToken ct) =>
+        db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({business.ToString()}, 3))", ct);
+
     public Task<int> SetAsync(Guid account, Guid? business, CancellationToken ct) =>
         db.Database.ExecuteSqlInterpolatedAsync(
             $"SELECT set_config('app.account_id', {account.ToString()}, true), set_config('app.business_id', {business?.ToString() ?? ""}, true)", ct);

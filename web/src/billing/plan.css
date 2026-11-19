@@ -1,0 +1,56 @@
+.plan-page {
+  width: min(100%, 64rem);
+  display: grid;
+  gap: 1rem;
+  margin-inline: auto;
+  padding-bottom: 1.25rem;
+}
+.plan-banner {
+  display: flex;
+  align-items: center;
+  gap: clamp(.8rem, 3vw, 1.6rem);
+  border-radius: 1.15rem;
+  background: var(--accent);
+  color: white;
+  padding: clamp(1rem, 4vw, 2.25rem);
+}
+.plan-banner h1 { line-height: 1.14; margin: .38rem 0; overflow-wrap: anywhere; }
+.plan-banner p, .plan-demo { color: inherit; margin: 0; }
+.plan-demo { font-size: .81rem; }
+.plan-business-icon { display: grid; place-items: center; border: 1px solid #ffffff66; border-radius: .9rem; width: 2.8rem; height: 2.8rem; flex: none; }
+.plan-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .85rem; }
+.plan-option { display: grid; gap: .7rem; align-content: start; grid-template-rows: auto auto minmax(2.5rem, auto) 1fr auto; }
+.plan-option h3, .plan-trial p, .plan-payment p { margin: 0; }
+.plan-option > span { grid-row: 4; font-size: .87rem; }
+.plan-option > span:nth-child(3):not(:last-of-type) { grid-row: 3; }
+.plan-choices .ui-button { grid-row: 5; width: 100%; }
+.plan-option--annual { background: var(--accent-soft); border-color: var(--accent); }
+.plan-price { font-size: clamp(1.42rem, 3vw, 1.85rem); color: var(--accent); }
+.plan-trial, .license-strip { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .8rem; }
+.license-strip { margin-bottom: 1rem; background: var(--accent-soft); }
+.license-strip p { margin: .2rem 0 0; }
+.plan-trial strong { color: var(--accent); }
+.plan-payment, .plan-checkout { display: grid; gap: 1rem; }
+.plan-note { margin: 0; }
+.demo-cards { min-inline-size: 0; display: grid; gap: .55rem; border: 0; padding: 0; margin: 0; }
+.demo-cards legend { font-weight: 700; margin-bottom: .45rem; }
+.demo-card {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  border-radius: .7rem;
+  padding: .7rem .9rem;
+  border: 1px solid #b4bab4;
+  background: white;
+  cursor: pointer;
+}
+.demo-card:has(input:checked) { background: var(--accent-soft); border-color: var(--accent); }
+.demo-card small, .plan-history small { display: block; }
+.plan-history { list-style: none; margin: 0; padding: 0; }
+.plan-history li { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .6rem; border-bottom: 1px solid #dadfd7; padding: .75rem 0; }
+.plan-history li:last-child { border-bottom: 0; padding-bottom: 0; }
+@media (max-width: 670px) {
+  .plan-choices { grid-template-columns: 1fr; }
+  .plan-option { grid-template-rows: none; }
+  .plan-option > span, .plan-option > span:nth-child(3):not(:last-of-type), .plan-choices .ui-button { grid-row: auto; }
+}

@@ -55,6 +55,109 @@ namespace KhypuPyme.Api.Persistence.Migrations
                     b.ToTable("email_challenges", "khypupyme");
                 });
 
+            modelBuilder.Entity("KhypuPyme.Api.Billing.AccountTrial", b =>
+                {
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("EndsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("FirstBusinessId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("OwnerId");
+
+                    b.HasIndex("OwnerId", "FirstBusinessId");
+
+                    b.ToTable("account_trials", "khypupyme", t =>
+                        {
+                            t.HasCheckConstraint("trial_window", " (\"StartedAt\" IS NULL AND \"EndsAt\" IS NULL) OR (\"StartedAt\" IS NOT NULL AND \"EndsAt\" IS NOT NULL AND \"EndsAt\" > \"StartedAt\") ");
+                        });
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Billing.PaymentAttempt", b =>
+                {
+                    b.Property<Guid>("BusinessId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("AccessFrom")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("AccessUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("AmountMinor")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("CardBrand")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("CardId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("CardLastFour")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Days")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Months")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("PaidAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PlanId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PlanName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("TestResult")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("BusinessId", "Id");
+
+                    b.HasIndex("BusinessId")
+                        .IsUnique()
+                        .HasFilter(" \"State\" = 'pending' ");
+
+                    b.HasIndex("OwnerId", "BusinessId", "CreatedAt");
+
+                    b.ToTable("demo_payments", "khypupyme", t =>
+                        {
+                            t.HasCheckConstraint("demo_payment_period", "\"AmountMinor\" > 0 AND ((\"Days\" > 0 AND \"Months\" = 0) OR (\"Days\" = 0 AND \"Months\" > 0))\nAND ((\"State\" IN ('approved','refunded') AND \"PaidAt\" IS NOT NULL AND \"AccessFrom\" IS NOT NULL\n      AND \"AccessUntil\" IS NOT NULL AND \"AccessUntil\" > \"AccessFrom\")\n  OR (\"State\" NOT IN ('approved','refunded') AND \"PaidAt\" IS NULL AND \"AccessFrom\" IS NULL AND \"AccessUntil\" IS NULL))");
+
+                            t.HasCheckConstraint("demo_payment_state", "\"State\" IN ('pending','approved','declined','cancelled','expired','refunded')\nAND \"TestResult\" IN ('approved','declined') AND \"CardLastFour\" ~ '^[0-9]{4}$'");
+                        });
+                });
+
             modelBuilder.Entity("KhypuPyme.Api.Businesses.AccountSelection", b =>
                 {
                     b.Property<Guid>("OwnerId")
@@ -1353,6 +1456,26 @@ namespace KhypuPyme.Api.Persistence.Migrations
                     b.HasIndex("ApplicationId", "Status", "Subject", "Type");
 
                     b.ToTable("OpenIddictTokens", "khypupyme");
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Billing.AccountTrial", b =>
+                {
+                    b.HasOne("KhypuPyme.Api.Businesses.Business", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId", "FirstBusinessId")
+                        .HasPrincipalKey("OwnerId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("KhypuPyme.Api.Billing.PaymentAttempt", b =>
+                {
+                    b.HasOne("KhypuPyme.Api.Businesses.Business", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId", "BusinessId")
+                        .HasPrincipalKey("OwnerId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("KhypuPyme.Api.Businesses.AccountSelection", b =>

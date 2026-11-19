@@ -7,6 +7,7 @@ import { bob, editableMoney, parseMoney, timestamp } from "./models";
 import type { CashStatus, Page, Receivable } from "./models";
 
 export function CashPage() {
+  const { readOnly } = useCommerce();
   const cash = useCommerceData<CashStatus>("/cash");
   if (!cash.data) return <><CommerceHeading title="Caja" /><LoadFeedback {...cash} /></>;
   const session = cash.data.session;
@@ -22,7 +23,7 @@ export function CashPage() {
           {" · Diferencia " + bob(session.countedMinor - session.expectedMinor)}</p>}
       </> : <p>Aún no hay una sesión de caja registrada.</p>}
     </Card>
-    <CashEditor key={session?.id + ":" + Boolean(opened)} session={opened ? session : null} />
+    {(opened || !readOnly) && <CashEditor key={session?.id + ":" + Boolean(opened)} session={opened ? session : null} />}
     {session && <EntryList cashSession={session.id} caption="Movimientos de la sesión" />}
   </div>;
 }
@@ -30,7 +31,7 @@ export function CashPage() {
 function CashEditor({ session }: { session: CashStatus["session"] }) {
   const [amount, setAmount] = useState(session ? editableMoney(session.expectedMinor) : "0");
   const [note, setNote] = useState("");
-  const form = useCommercialForm();
+  const form = useCommercialForm(!!session);
   const counted = parseMoney(amount);
   const difference = counted !== null && session ? counted - session.expectedMinor : 0;
 

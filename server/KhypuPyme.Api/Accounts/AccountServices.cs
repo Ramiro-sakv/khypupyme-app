@@ -4,15 +4,19 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using OpenIddict.Validation.AspNetCore;
+using KhypuPyme.Api.Hosting;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection.KeyManagement;
 
 namespace KhypuPyme.Api.Accounts;
 
 internal static class AccountServices
 {
-    public static void AddAccounts(this WebApplicationBuilder builder)
+    public static void AddAccounts(this WebApplicationBuilder builder, PilotOptions pilot)
     {
         var services = builder.Services;
         var local = builder.Environment.IsDevelopment();
+        var certificate = pilot.Enabled ? pilot.LoadCertificate() : null;
         var keyDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "KhypuPyme2.0", "keys");
         if (local)
@@ -20,6 +24,12 @@ internal static class AccountServices
             var keys = services.AddDataProtection().SetApplicationName("KhypuPyme2.Local")
                 .PersistKeysToFileSystem(new DirectoryInfo(keyDirectory));
             if (OperatingSystem.IsWindows()) keys.ProtectKeysWithDpapi();
+        }
+        if (certificate is not null)
+        {
+            services.AddDataProtection().SetApplicationName("KhypuPyme2.Pilot").ProtectKeysWithCertificate(certificate);
+            services.Configure<KeyManagementOptions>(options => options.XmlRepository =
+                new PilotKeyRing(builder.Configuration.GetConnectionString("KhypuPyme")!));
         }
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<LocalMailbox>();
@@ -103,8 +113,9 @@ internal static class AccountServices
                     .RegisterScopes("khypupyme_api")
                     .UseReferenceAccessTokens().UseReferenceRefreshTokens()
                     .SetAccessTokenLifetime(TimeSpan.FromMinutes(10))
-                    .SetRefreshTokenLifetime(TimeSpan.FromDays(14))
-                    .AddEphemeralEncryptionKey().AddEphemeralSigningKey();
+                    .SetRefreshTokenLifetime(TimeSpan.FromDays(14));
+                if (certificate is null) options.AddEphemeralEncryptionKey().AddEphemeralSigningKey();
+                else options.SetIssuer(pilot.Origin).AddEncryptionCertificate(certificate).AddSigningCertificate(certificate);
                 options.Configure(server => server.CodeChallengeMethods.Remove("plain"));
 
                 var aspNet = options.UseAspNetCore().EnableAuthorizationEndpointPassthrough().EnableTokenEndpointPassthrough();
@@ -117,8 +128,11 @@ internal static class AccountServices
                 options.EnableTokenEntryValidation();
                 options.UseAspNetCore();
             });
+        services.AddScoped<IAuthorizationHandler, PilotInviteHandler>();
         services.AddAuthorizationBuilder()
-            .AddPolicy("BrowserSession", policy => policy.RequireAuthenticatedUser().AddAuthenticationSchemes(IdentityConstants.ApplicationScheme))
-            .AddPolicy("Account", policy => policy.RequireAuthenticatedUser().AddAuthenticationSchemes("AccountSession"));
+            .AddPolicy("BrowserSession", policy => policy.RequireAuthenticatedUser().AddAuthenticationSchemes(IdentityConstants.ApplicationScheme)
+                .AddRequirements(new PilotInvite()))
+            .AddPolicy("Account", policy => policy.RequireAuthenticatedUser().AddAuthenticationSchemes("AccountSession")
+                .AddRequirements(new PilotInvite()));
     }
 }

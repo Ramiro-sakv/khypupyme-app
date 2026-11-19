@@ -1,10 +1,21 @@
-﻿param([ValidateSet('4', '5', '6', '7a', '7b', '7c', '7d', '8', '9')][string]$Block = '4')
+﻿param(
+    [ValidateSet('4', '5', '6', '7a', '7b', '7c', '7d', '8', '9')][string]$Block = '4',
+    [string]$PublishedWebDirectory
+)
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Postgres.Local.ps1')
 $root = Split-Path -Parent $PSScriptRoot
 $project = Join-Path $root 'server/KhypuPyme.Api'
 $api = Join-Path $project 'bin/Release/net10.0/KhypuPyme.Api.exe'
+$address = 'http://127.0.0.1:5183'
+if ($PublishedWebDirectory) {
+    if ($Block -ne '8') { throw 'La comprobación de la web publicada reutiliza el recorrido del bloque 8.' }
+    $project = (Resolve-Path -LiteralPath $PublishedWebDirectory).Path
+    $api = Join-Path $project 'KhypuPyme.Api.exe'
+    if (-not (Test-Path -LiteralPath (Join-Path $project 'wwwroot/index.html'))) { throw 'Falta la web publicada.' }
+    $address += ';https://localhost:7243'
+}
 if (-not (Test-Path -LiteralPath $api)) { throw 'Primero compila la solución con la configuración Release.' }
 if (Get-NetTCPConnection -State Listen -LocalPort 5183 -ErrorAction SilentlyContinue) {
     throw 'El puerto local de pruebas 5183 debe estar libre.'
@@ -23,6 +34,7 @@ $testEnvironment = @{
     Google__ClientSecret = ''
     KHYPU_TEST_PSQL = Get-PostgresTool 'psql'
 }
+if ($PublishedWebDirectory) { $testEnvironment.KHYPU_TEST_WEB_ORIGIN = 'https://localhost:7243' }
 try {
     foreach ($name in $testEnvironment.Keys) {
         $previous[$name] = [Environment]::GetEnvironmentVariable($name)
@@ -34,7 +46,7 @@ try {
     }
     $launch = @{
         FilePath = $api
-        ArgumentList = @('--urls', 'http://127.0.0.1:5183')
+        ArgumentList = @('--urls', ('"' + $address + '"'))
         WorkingDirectory = $project
         RedirectStandardOutput = Join-Path $directory 'api.log'
         RedirectStandardError = Join-Path $directory 'errors.log'

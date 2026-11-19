@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: khypupyme2-piloto
+    runtime: docker
+    plan: free
+    autoDeployTrigger: off
+    healthCheckPath: /api/v1/health/database
+    envVars:
+      - key: Pilot__Enabled
+        value: "true"
+      - key: Pilot__UseRenderProxy
+        value: "true"
+      - key: Pilot__AllowedEmails
+        sync: false
+      - key: Pilot__CertificateBase64
+        sync: false
+      - key: Pilot__CertificatePassword
+        sync: false
+      - key: ConnectionStrings__KhypuPyme
+        sync: false
+      - key: Mail__From
+        sync: false
+      - key: Mail__Token
+        sync: false

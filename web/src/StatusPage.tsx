@@ -20,7 +20,7 @@ const labels: Record<Check, string> = {
 
 async function check(path: HealthPath, signal: AbortSignal): Promise<Check> {
   try {
-    const response = await fetch(path, { signal, cache: "no-store" });
+    const response = await fetch(apiUrl(path), { signal, cache: "no-store" });
     if (!response.ok && response.status !== 503) return "unavailable";
 
     const payload: HealthResponse = await response.json();
@@ -94,3 +94,4 @@ export function StatusPage() {
     </main>
   );
 }
+import { apiUrl } from "./native/platform";

@@ -75,7 +75,7 @@ internal sealed class EmailCodes(
         }
         catch (IOException)
         {
-            return AuthErrors.Fail("No se pudo guardar el mensaje en el buzón local.", 503);
+            return AuthErrors.Fail("No se pudo entregar el código. Intenta más tarde.", 503);
         }
         return Results.NoContent();
     }

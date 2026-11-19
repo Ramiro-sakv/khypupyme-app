@@ -1,0 +1,17 @@
+**
+!global.json
+!server/
+!server/**
+!web/
+!web/**
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+web/android/
+web/src-tauri/
+**/.env*
+**/*.local.json
+**/*.pfx
+**/*.key
+**/*.pem

@@ -66,5 +66,11 @@ export async function downloadDocument(record: EntryDocument) {
     import("pdfmake/build/pdfmake"), import("pdfmake/build/vfs_fonts"),
   ]);
   const file = record.number.replace(/[^a-zA-Z0-9_-]/g, "_") + ".pdf";
-  pdfMake.createPdf(buildDocument(record), undefined, undefined, fonts as unknown as Record<string, string>).download(file);
+  const pdf = pdfMake.createPdf(buildDocument(record), undefined, undefined, fonts as unknown as Record<string, string>);
+  if (!isNative) pdf.download(file);
+  else {
+    const blob = await new Promise<Blob>((resolve) => pdf.getBlob(resolve));
+    await downloadFile(blob, file);
+  }
 }
+import { downloadFile, isNative } from "../native/platform";

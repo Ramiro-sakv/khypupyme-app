@@ -184,7 +184,7 @@ internal sealed class SecurityProofs(KhypuPymeDbContext db, BusinessAccess acces
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         try { await mailbox.DeliverAsync(mail.Email, mail.Purpose, mail.Code, ct); }
-        catch (IOException) { throw new CommerceFailure("No se pudo entregar el código al buzón local. Solicita otro.", 503); }
+        catch (IOException) { throw new CommerceFailure("No se pudo entregar el código. Solicita otro.", 503); }
     }
 
     private Task LockAsync(Guid owner, Guid id, CancellationToken ct) =>

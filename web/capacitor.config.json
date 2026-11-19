@@ -1,0 +1,6 @@
+{
+  "appId": "bo.khypupyme.piloto",
+  "appName": "KhypuPyme 2.0 Piloto",
+  "webDir": "dist",
+  "server": { "androidScheme": "https" }
+}

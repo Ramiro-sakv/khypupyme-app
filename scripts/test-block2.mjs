@@ -162,7 +162,7 @@ try {
   const verifier = randomUUID().replaceAll("-", "") + randomUUID().replaceAll("-", "");
   const challenge = createHash("sha256").update(verifier).digest("base64url");
   const redirect = "http://127.0.0.1:43823/callback";
-  const authorize = new URLSearchParams({ client_id: "khypupyme-windows", response_type: "code", redirect_uri: redirect,
+  const authorize = new URLSearchParams({ client_id: "khypupyme2-windows", response_type: "code", redirect_uri: redirect,
     scope: "khypupyme_api offline_access", state: "block-two" });
   const missing = await a.request("/connect/authorize?" + authorize, 400);
   assert.equal(missing.location, null);
@@ -170,22 +170,38 @@ try {
   authorize.set("code_challenge", challenge);
   const unauthenticated = await anon.request("/connect/authorize?" + authorize, 302);
   assert.match(unauthenticated.location, /^\/\?returnTo=/);
+  authorize.set("prompt", "login");
+  const renewal = await a.request("/connect/authorize?" + authorize, 302);
+  assert.match(renewal.location, /^\/\?returnTo=/);
+  assert.ok(!new URL(renewal.location, "http://127.0.0.1:5183").searchParams.get("returnTo").includes("prompt="));
+  await a.request(businesses, 401);
+  await a.post(auth + "/login", 204, { email: aEmail, password });
+  authorize.delete("prompt");
   const grant = await a.request("/connect/authorize?" + authorize, 302);
   const grantResult = new URL(grant.location).searchParams;
   assert.equal(grantResult.get("state"), "block-two");
   assert.ok(grantResult.get("code"));
-  const ticket = (await anon.oauth("/connect/token", 200, { grant_type: "authorization_code", client_id: "khypupyme-windows",
-    redirect_uri: redirect, code: grantResult.get("code"), code_verifier: verifier })).body;
+  const requestTicket = { grant_type: "authorization_code", client_id: "khypupyme2-windows",
+    redirect_uri: redirect, code: grantResult.get("code"), code_verifier: verifier };
+  const ticket = (await anon.oauth("/connect/token", 200, requestTicket)).body;
   assert.ok(ticket.refresh_token);
+  assert.equal((await anon.request(auth + "/native-session", 200, { bearer: ticket.access_token })).body.email, aEmail);
+  await anon.request(auth + "/native-session", 401);
+  await anon.request(businesses + "/" + b1, 404, { bearer: ticket.access_token });
   assert.equal((await anon.request(businesses, 200, { bearer: ticket.access_token })).body.items.length, 2);
   await anon.request(businesses + "/" + a1 + "/settings", 204, {
     method: "PUT", bearer: ticket.access_token, body: { businessId: a1, city: "El Alto", timberUnits: "metric" },
   });
   const android = new URLSearchParams(authorize);
-  android.set("client_id", "khypupyme-android");
-  android.set("redirect_uri", "bo.khypupyme.app:/oauth/callback");
+  android.set("client_id", "khypupyme2-android");
+  android.set("redirect_uri", "bo.khypupyme.piloto:/oauth/callback");
   const androidGrant = await a.request("/connect/authorize?" + android, 302);
-  assert.ok(new URL(androidGrant.location).searchParams.get("code"));
+  assert.match(androidGrant.location, /^bo\.khypupyme\.piloto:\/oauth\/callback\?/);
+  const requestAndroid = { grant_type: "authorization_code", client_id: "khypupyme2-android",
+    redirect_uri: android.get("redirect_uri"), code: new URL(androidGrant.location).searchParams.get("code"), code_verifier: verifier };
+  await anon.oauth("/connect/token", 400, { ...requestAndroid, code_verifier: verifier + "wrong" });
+  await anon.oauth("/connect/token", 200, requestAndroid);
+  await anon.oauth("/connect/token", 400, requestAndroid);
   console.log("Autorización instalada, retorno para Windows y Android y uso del token comprobados.");
 
   await anon.post(auth + "/recover/code", 204, { email: aEmail });
@@ -194,7 +210,7 @@ try {
   await anon.post(auth + "/recover", 400, recovery);
   await a.request(businesses, 401);
   await anon.request(businesses, 401, { bearer: ticket.access_token });
-  await anon.oauth("/connect/token", 400, { grant_type: "refresh_token", client_id: "khypupyme-windows", refresh_token: ticket.refresh_token });
+  await anon.oauth("/connect/token", 400, { grant_type: "refresh_token", client_id: "khypupyme2-windows", refresh_token: ticket.refresh_token });
   await a.post(auth + "/login", 401, { email: aEmail, password });
   await a.post(auth + "/login", 204, { email: aEmail, password: replacement });
   await a.post(auth + "/logout", 204);

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { get } from "../api/client";
+import { downloadFile } from "../native/platform";
 import { Alert, Button, Card, DataTable, SelectField, TextField } from "../ui/Primitives";
 import { useCommerce, useCommerceData } from "./CommerceContext";
 import { CommerceHeading, LoadFeedback, NoRecords, OperationForm, Pages, PaymentField, useCommercialForm } from "./CommerceUi";
@@ -37,14 +38,7 @@ export function ExportRecords() {
     setError("");
     try {
       const data = await get<{ business: { id: string } }>(path + "/export");
-      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "khypupyme-" + data.business.id + ".json";
-      document.body.append(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      await downloadFile(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }), "khypupyme-" + data.business.id + ".json");
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "No se pudieron exportar los registros.");
     } finally { setBusy(false); }

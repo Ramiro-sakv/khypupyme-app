@@ -240,3 +240,25 @@ El recorrido aislado se ejecuta con `scripts/Test-Block8.ps1`.
 | Compatibilidad | Pasaron lint, TypeScript, compilaciones web y .NET y las regresiones de API de los bloques 4 a 8. Vite conserva el aviso de tamaño de los módulos PDF cargados bajo demanda. |
 
 `scripts/Test-Block9.ps1 -RestoreBackup` ejecuta los recorridos con datos ficticios y verifica la restauración en una instancia local aislada.
+
+## Bloque 10 · Instaladores y piloto privado
+
+- El Blueprint crea un servicio independiente para React y ASP.NET Core. El perfil hospedado exige HTTPS, una lista de invitados y una conexión directa TLS a `khypupyme2_pilot` con un rol de ejecución separado. PostgreSQL conserva las claves cifradas que usan las cookies. El correo de desarrollo sigue en el buzón local y el perfil hospedado prepara la entrega con Resend por HTTPS.
+- Android y Windows usan identificadores propios y la misma API. El ingreso abre el navegador, exige PKCE y vuelve por el protocolo de Android o por loopback de Windows. Los tokens de renovación se protegen con Android Keystore y DPAPI, respectivamente. Los PDF y las exportaciones se guardan mediante el selector de archivos del dispositivo.
+- La prueba y los pases siguen siendo demostraciones. Los 21 rubros y las operaciones comerciales conservan sus contratos. La migración de claves se aplicó a las bases locales existentes de desarrollo y pruebas.
+
+| Comprobación | Resultado |
+|---|---|
+| Compilación | Pasaron .NET, ESLint, TypeScript, Vite, el APK de desarrollo y el instalador NSIS x64. Vite informa el tamaño de los módulos PDF que se cargan bajo demanda. |
+| Web con API HTTPS local | Edge a 360 px verificó ingreso, pago de demostración, venta y PDF. También verificó recuperación del pago pendiente, reembolso, rechazo, exportación y descarga con acceso vencido. |
+| PostgreSQL local aislado | Pasaron los recorridos y excepciones de los 21 rubros, las regresiones de cuentas y finanzas, el aislamiento, la repetición de solicitudes, la disputa por stock, las correcciones y el borrado protegido. |
+| Autorización instalada | La API rechazó el regreso con PKCE incorrecto y la reutilización de un código. Comprobó las dos rutas de regreso, sesión con token, revocación y rechazo de referencias cruzadas. |
+| Perfil hospedado en local | El perfil Production inició con rol limitado y PostgreSQL TLS. Se comprobaron la web HTTPS, el rechazo del registro de un correo ajeno y la recuperación de claves cifradas después de reiniciar. |
+| Windows con API HTTPS local | WebView2 abrió una sesión desde el navegador y regresó por loopback. Confirmó una venta con licencia de demostración, guardó el PDF con el diálogo nativo y conservó la sesión al reabrir. Luego cerró sesión e ingresó otra vez. El caso previo de la aplicación anterior sigue abierto hasta revisar el piloto alojado. |
+| Respaldo local | Se restauró el respaldo ficticio en `khypupyme2_restore` en una instancia distinta. Se comprobaron los registros esperados de auditoría, bajas y negocios. |
+| Android | Se verificaron la firma de desarrollo y la identidad del APK. La ejecución en un teléfono físico queda pendiente. |
+| Render, Neon y correo real | Configuración preparada. Pendientes el despliegue, la entrega real de correo, la restauración en Neon y la aceptación desde las tres plataformas con el servicio alojado. Docker tampoco se ejecutó en este equipo. |
+
+Los archivos generados se guardan en `artifacts/pilot/KhypuPyme2-Piloto-Android.apk` y `artifacts/pilot/KhypuPyme2-Piloto-Windows.exe`. Apuntan a `https://khypupyme2-piloto.onrender.com`, la dirección prevista. Si Render asigna otra, se vuelven a generar con esa dirección.
+
+[PILOTO.md](PILOTO.md) explica cómo arrancar en local, preparar las cuentas del titular y verificar los recorridos alojados. La siguiente etapa del plan es activar el piloto con autorización del titular y cerrar su aceptación. El lanzamiento público y los cargos reales se deciden después.

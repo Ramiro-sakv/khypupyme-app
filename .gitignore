@@ -3,6 +3,9 @@
 **/obj/
 **/node_modules/
 **/dist/
+artifacts/
+web/src-tauri/target/
+web/src-tauri/gen/
 .vs/
 *.user
 
@@ -14,3 +17,5 @@
 *.pfx
 *.pem
 *.key
+*.backup
+*.dump

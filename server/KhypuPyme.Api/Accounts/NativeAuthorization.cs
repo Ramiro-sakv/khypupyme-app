@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore;
+using KhypuPyme.Api.Hosting;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using OpenIddict.Abstractions;
@@ -19,17 +20,23 @@ internal static class NativeAuthorization
     }
 
     private static async Task<IResult> AuthorizeAsync(HttpContext context,
-        SignInManager<IdentityUser<Guid>> signIn, IWebHostEnvironment environment)
+        SignInManager<IdentityUser<Guid>> signIn, PilotOptions pilot)
     {
-        if (!environment.IsDevelopment()) return Results.StatusCode(503);
+        if (!pilot.Native) return Results.StatusCode(503);
 
         var user = await signIn.UserManager.GetUserAsync(context.User);
+        if (context.Request.Query["prompt"] == "login")
+        {
+            if (user is not null) await signIn.SignOutAsync();
+            var query = QueryString.Create(context.Request.Query.Where(item => item.Key != "prompt"));
+            return Results.LocalRedirect("/?returnTo=" + Uri.EscapeDataString(context.Request.Path + query));
+        }
         if (user is null)
         {
             var returnTo = context.Request.Path + context.Request.QueryString;
             return Results.LocalRedirect("/?returnTo=" + Uri.EscapeDataString(returnTo));
         }
-        if (!user.EmailConfirmed || await signIn.UserManager.IsLockedOutAsync(user))
+        if (!user.EmailConfirmed || !pilot.Allows(user.Email) || await signIn.UserManager.IsLockedOutAsync(user))
             return Denied(Errors.AccessDenied);
 
         var principal = await signIn.CreateUserPrincipalAsync(user);
@@ -40,14 +47,14 @@ internal static class NativeAuthorization
     }
 
     private static async Task<IResult> ExchangeAsync(HttpContext context,
-        SignInManager<IdentityUser<Guid>> signIn, IWebHostEnvironment environment)
+        SignInManager<IdentityUser<Guid>> signIn, PilotOptions pilot)
     {
-        if (!environment.IsDevelopment()) return Denied(Errors.InvalidGrant);
+        if (!pilot.Native) return Denied(Errors.InvalidGrant);
 
         var authenticated = await context.AuthenticateAsync(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
         var principal = authenticated.Principal;
         if (principal is null || await signIn.ValidateSecurityStampAsync(principal) is not { EmailConfirmed: true } user ||
-            await signIn.UserManager.IsLockedOutAsync(user))
+            !pilot.Allows(user.Email) || await signIn.UserManager.IsLockedOutAsync(user))
             return Denied(Errors.InvalidGrant);
 
         return Results.SignIn(principal, authenticationScheme: OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
@@ -70,8 +77,12 @@ internal static class NativeAuthorization
         {
             ("khypupyme-windows", "KhypuPyme Windows", desktop),
             ("khypupyme-android", "KhypuPyme Android", mobile),
+            ("khypupyme2-windows", "KhypuPyme 2.0 Piloto Windows", desktop),
+            ("khypupyme2-android", "KhypuPyme 2.0 Piloto Android", new Uri("bo.khypupyme.piloto:/oauth/callback")),
         })
         {
+            if (scope.ServiceProvider.GetRequiredService<PilotOptions>().Enabled && !clientId.StartsWith("khypupyme2-", StringComparison.Ordinal))
+                continue;
             var descriptor = new OpenIddictApplicationDescriptor
             {
                 ClientId = clientId, ClientType = ClientTypes.Public, ConsentType = ConsentTypes.Implicit,

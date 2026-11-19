@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
+using KhypuPyme.Api.Hosting;
 
 namespace KhypuPyme.Api.Accounts;
 
@@ -34,14 +35,14 @@ internal static class GoogleFlow
 
     private static async Task<IResult> CompleteAsync(
         HttpContext context, UserManager<IdentityUser<Guid>> users, SignInManager<IdentityUser<Guid>> signIn,
-        EmailCodes codes, CancellationToken ct)
+        EmailCodes codes, PilotOptions pilot, CancellationToken ct)
     {
         var external = await context.AuthenticateAsync(IdentityConstants.ExternalScheme);
         await context.SignOutAsync(IdentityConstants.ExternalScheme);
         var principal = external.Principal;
         var email = principal?.FindFirstValue(ClaimTypes.Email);
         var key = principal?.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!external.Succeeded || email is not { Length: > 0 and <= 256 } || string.IsNullOrEmpty(key) ||
+        if (!external.Succeeded || email is not { Length: > 0 and <= 256 } || string.IsNullOrEmpty(key) || !pilot.Allows(email) ||
             !string.Equals(principal?.FindFirstValue(VerifiedEmailClaim), "true", StringComparison.OrdinalIgnoreCase))
             return Results.LocalRedirect("/?auth=google-failed");
 

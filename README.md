@@ -4,6 +4,8 @@ Base local con ASP.NET Core sobre .NET 10, React con TypeScript y PostgreSQL 18.
 Incluye el ingreso y el selector **Mis negocios**. **Estado local** comprueba la API y PostgreSQL por separado.
 La aplicación de referencia está en el commit `5147dfd` de la rama `chore/entrega-docente`.
 
+Para los instaladores privados y la configuración de Render y Neon, consulta [PILOTO.md](PILOTO.md).
+
 ## Preparación en Windows
 
 Requiere el SDK .NET 10.0.403, Node.js 24, pnpm 11.25.0 y PostgreSQL 18

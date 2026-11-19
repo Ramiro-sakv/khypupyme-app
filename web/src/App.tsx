@@ -6,6 +6,8 @@ import { BusinessesPage } from "./businesses/BusinessesPage";
 import { StatusPage } from "./StatusPage";
 import { Alert, Button } from "./ui/Primitives";
 import { AccountProtection } from "./security/AccountProtection";
+import { isNative } from "./native/platform";
+import { nativeLogin, nativeLogout } from "./native/session";
 
 type Session = components["schemas"]["SessionInfo"];
 const auth = "/api/v1/auth";
@@ -63,7 +65,7 @@ function AccountApp() {
   return <main className="app-shell">
     <header className="app-header">
       <div className="brand"><span className="brand-mark" aria-hidden="true">K</span><strong>KhypuPyme 2.0</strong></div>
-      <a href="/?view=status">Estado local</a>
+      <a href="/?view=status">Estado del servicio</a>
     </header>
     {loading && <p role="status">Consultando sesión…</p>}
     {error && <Alert tone="error">{error}</Alert>}
@@ -77,14 +79,16 @@ function AccountApp() {
           <span>{session.email}</span>
           <div className="inline-actions">
             {session.accountId && <AccountProtection accountId={session.accountId} ended={(message) => {
+              if (isNative) void nativeLogout(false).catch(() => setError("No se pudo limpiar la sesión guardada."));
               setNotice(message);
               setSession({ ...session, email: null, accountId: null, googleLinked: false });
               history.replaceState(null, "", "/");
             }} />}
-            {session.googleConfigured && !session.googleLinked && <Button variant="secondary"
+            {!isNative && session.googleConfigured && !session.googleLinked && <Button variant="secondary"
               disabled={acting} onClick={() => void accountAction(linkGoogle)}>Vincular Google</Button>}
             <Button variant="secondary" disabled={acting} onClick={() => void accountAction(async () => {
-              await change(auth + "/logout", "POST");
+              if (isNative) await nativeLogout();
+              else await change(auth + "/logout", "POST");
               setSession({ ...session, email: null, accountId: null, googleLinked: false });
               history.replaceState(null, "", "/");
             })}>Cerrar sesión</Button>
@@ -94,6 +98,15 @@ function AccountApp() {
         {session.accountId ? <BusinessesPage key={session.accountId} accountId={session.accountId} />
           : <Alert tone="error">Reinicia la API local para cargar las operaciones comerciales.</Alert>}
       </>
+    ) : isNative ? (
+      <section className="session-bar">
+        <div><strong>Ingresar al piloto privado</strong>
+          <p>Usa tu cuenta invitada en el navegador y vuelve a KhypuPyme.</p></div>
+        <Button disabled={acting} onClick={() => void accountAction(async () => {
+          await nativeLogin();
+          await refreshSession();
+        })}>{acting ? "Esperando al navegador…" : "Ingresar con el navegador"}</Button>
+      </section>
     ) : (
       <AuthPage google={session.googleConfigured} notice={googleNotice} returnTo={returnTo} onSignIn={refreshSession} />
     ))}

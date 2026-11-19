@@ -1,0 +1,19 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "KhypuPyme 2.0 Piloto",
+  "identifier": "bo.khypupyme.piloto.windows",
+  "version": "2.0.0",
+  "build": { "frontendDist": "../dist" },
+  "app": {
+    "windows": [
+      { "title": "KhypuPyme 2.0 · Piloto privado", "width": 1280, "height": 820, "minWidth": 360, "minHeight": 500, "useHttpsScheme": true }
+    ],
+    "security": { "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ipc: https://ipc.localhost https://khypupyme2-piloto.onrender.com; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'" }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": ["icons/icon.ico"],
+    "windows": { "nsis": { "languages": ["Spanish"] } }
+  }
+}

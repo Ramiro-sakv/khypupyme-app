@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Antiforgery;
 
 using Microsoft.AspNetCore.Identity;
 using OpenIddict.Abstractions;
+using KhypuPyme.Api.Hosting;
+using KhypuPyme.Api.Businesses;
 
 namespace KhypuPyme.Api.Accounts;
 
@@ -16,6 +18,12 @@ internal static class AccountEndpoints
             return TypedResults.Ok(new CsrfToken(antiforgery.GetAndStoreTokens(context).RequestToken!));
         });
         group.MapGet("/session", SessionAsync);
+        group.MapGet("/native-session", async (HttpContext http, UserManager<IdentityUser<Guid>> users) =>
+        {
+            http.Response.Headers.CacheControl = "no-store";
+            var user = await users.FindByIdAsync(BusinessAccess.AccountId(http).ToString());
+            return TypedResults.Ok(new SessionInfo(user?.Email, false, false, user?.Id));
+        }).RequireAuthorization("Account");
         var writes = group.MapGroup("").AddEndpointFilter<CsrfFilter>().RequireRateLimiting("auth");
         writes.MapPost("/register/code", SendRegistrationAsync);
         writes.MapPost("/register", RegisterAsync);
@@ -32,10 +40,11 @@ internal static class AccountEndpoints
     }
 
     private static async Task<Microsoft.AspNetCore.Http.HttpResults.Ok<SessionInfo>> SessionAsync(
-        HttpContext context, UserManager<IdentityUser<Guid>> users)
+        HttpContext context, UserManager<IdentityUser<Guid>> users, PilotOptions pilot)
     {
         context.Response.Headers.CacheControl = "no-store";
         var user = await users.GetUserAsync(context.User);
+        if (!pilot.Allows(user?.Email)) user = null;
         var googleConfigured = GoogleFlow.IsEnabled(context.RequestServices.GetRequiredService<IConfiguration>());
         var linked = user is not null && (await users.GetLoginsAsync(user)).Any(login => login.LoginProvider == "Google");
         return TypedResults.Ok(new SessionInfo(user?.Email, googleConfigured, linked, user?.Id));
@@ -48,21 +57,23 @@ internal static class AccountEndpoints
     private static bool ValidPassword(string? password) => password is { Length: >= 12 and <= 128 };
 
     private static async Task<IResult> SendRegistrationAsync(EmailInput input, UserManager<IdentityUser<Guid>> users,
-        EmailCodes codes, CancellationToken ct)
+        EmailCodes codes, PilotOptions pilot, CancellationToken ct)
     {
         var email = input.Email?.Trim();
         if (!ValidEmail(email)) return AuthErrors.Fail("Escribe un correo válido.");
+        if (!pilot.Allows(email)) return AuthErrors.Fail("Este piloto requiere un correo invitado.", 403);
         var user = await users.FindByEmailAsync(email!);
         return await codes.SendAsync(email!, users.NormalizeEmail(email)!, EmailCodes.Registration,
             user is null, ct);
     }
 
     private static async Task<IResult> RegisterAsync(CodePasswordInput input, UserManager<IdentityUser<Guid>> users,
-        EmailCodes codes, CancellationToken ct)
+        EmailCodes codes, PilotOptions pilot, CancellationToken ct)
     {
         var email = input.Email?.Trim();
         if (!ValidEmail(email) || !ValidCode(input.Code)) return AuthErrors.Fail("Escribe un correo y el código de cinco dígitos.");
         if (!ValidPassword(input.Password)) return AuthErrors.Fail("Usa entre 12 y 128 caracteres para la contraseña.");
+        if (!pilot.Allows(email)) return AuthErrors.Fail("Este piloto requiere un correo invitado.", 403);
 
         return await codes.RedeemAsync(users.NormalizeEmail(email)!, EmailCodes.Registration, input.Code!,
             async () => await users.CreateAsync(new IdentityUser<Guid>
@@ -72,11 +83,12 @@ internal static class AccountEndpoints
     }
 
     private static async Task<IResult> LoginAsync(PasswordInput input, UserManager<IdentityUser<Guid>> users,
-        SignInManager<IdentityUser<Guid>> signIn)
+        SignInManager<IdentityUser<Guid>> signIn, PilotOptions pilot)
     {
         var email = input.Email?.Trim();
         if (!ValidEmail(email) || input.Password is not { Length: > 0 and <= 128 })
             return AuthErrors.Fail("Revisa tu correo y contraseña.", 401);
+        if (!pilot.Allows(email)) return AuthErrors.Fail("Este piloto requiere un correo invitado.", 403);
 
         var user = await users.FindByEmailAsync(email!);
         if (user is null) return AuthErrors.Fail("Revisa tu correo y contraseña.", 401);
@@ -87,21 +99,23 @@ internal static class AccountEndpoints
     }
 
     private static async Task<IResult> SendRecoveryAsync(EmailInput input, UserManager<IdentityUser<Guid>> users,
-        EmailCodes codes, CancellationToken ct)
+        EmailCodes codes, PilotOptions pilot, CancellationToken ct)
     {
         var email = input.Email?.Trim();
         if (!ValidEmail(email)) return AuthErrors.Fail("Escribe un correo válido.");
+        if (!pilot.Allows(email)) return Results.NoContent();
         var user = await users.FindByEmailAsync(email!);
         return await codes.SendAsync(email!, users.NormalizeEmail(email)!, EmailCodes.Recovery,
             user is { EmailConfirmed: true, PasswordHash: not null } && !ClosureLock(user), ct);
     }
 
     private static async Task<IResult> RecoverAsync(CodePasswordInput input, UserManager<IdentityUser<Guid>> users,
-        SignInManager<IdentityUser<Guid>> signIn, EmailCodes codes, IOpenIddictTokenManager tokens, CancellationToken ct)
+        SignInManager<IdentityUser<Guid>> signIn, EmailCodes codes, IOpenIddictTokenManager tokens, PilotOptions pilot, CancellationToken ct)
     {
         var email = input.Email?.Trim();
         if (!ValidEmail(email) || !ValidCode(input.Code)) return AuthErrors.Fail("Escribe un correo y el código de cinco dígitos.");
         if (!ValidPassword(input.Password)) return AuthErrors.Fail("Usa entre 12 y 128 caracteres para la contraseña.");
+        if (!pilot.Allows(email)) return AuthErrors.Fail("El código venció o ya se usó. Solicita otro.");
 
         var user = await users.FindByEmailAsync(email!);
         if (user is not { EmailConfirmed: true, PasswordHash: not null } || ClosureLock(user))

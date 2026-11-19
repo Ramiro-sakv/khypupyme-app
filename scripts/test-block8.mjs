@@ -97,6 +97,10 @@ try {
   const saleInput = { operationId: randomUUID(), kind: "sale", method: "cash", lines: [{ productId: product, unitMinor: 5000, quantity: 1 }] };
   const sale = await command(first, saleInput);
   assert.equal((await commercial(first, "/cash")).session.expectedMinor, 15000);
+  if (process.env.KHYPU_TEST_WINDOWS) {
+    await (await import("./test-pilot-windows.mjs")).checkWindows({ email, password, business: first });
+    await command(first, { kind: "purchase", method: "transfer", lines: [{ productId: product, unitMinor: 2500, quantity: 1 }] });
+  }
 
   const options = (await read(secondary)).plans.map(({ id, amountMinor, days, months }) => [id, amountMinor, days, months]);
   assert.deepEqual(options, [["30-days", 3900, 30, 0], ["6-months", 21000, 0, 6], ["1-year", 39000, 0, 12]]);
@@ -200,7 +204,7 @@ try {
   await commercial(first, "/export", 404);
   if (process.env.KHYPU_TEST_PLAYWRIGHT)
     await (await import("./test-block8-browser.mjs")).checkBrowser(firstCookies, { first, secondary, browserBusiness },
-      { cookies, id: ownTrial });
+      { cookies, id: ownTrial }, { email, password });
 } finally {
   const emails = " IN (upper('" + email + "'), upper('" + otherEmail + "'));";
   const sql = 'DELETE FROM khypupyme."AspNetUsers" WHERE "NormalizedEmail"' + emails +

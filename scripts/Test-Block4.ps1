@@ -1,5 +1,5 @@
-﻿param(
-    [ValidateSet('4', '5', '6', '7a', '7b', '7c', '7d', '8', '9', 'perf')][string]$Block = '4',
+param(
+    [ValidateSet('4', '5', '6', '7a', '7b', '7c', '7d', '8', '9', 'perf', 'parcial1')][string]$Block = '4',
     [string]$PublishedWebDirectory
 )
 
@@ -56,6 +56,11 @@ try {
         RedirectStandardError = Join-Path $directory 'errors.log'
         WindowStyle = 'Hidden'
         PassThru = $true
+    }
+    if ($Block -eq 'parcial1') {
+        $web = Join-Path $root 'web/dist'
+        if (-not (Test-Path -LiteralPath (Join-Path $web 'index.html'))) { throw 'Primero compila la web.' }
+        $launch.ArgumentList += @('--webroot', ('"' + $web + '"'))
     }
     $process = Start-Process @launch
     $ready = $false

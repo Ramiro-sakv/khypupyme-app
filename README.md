@@ -111,3 +111,41 @@ Para verificar el núcleo comercial en la base de pruebas, con el puerto 5183 li
 ```
 
 Alcance y referencia en [PLAN.md](PLAN.md). Resultados en [PROGRESO.md](PROGRESO.md).
+
+## Primer parcial de Práctica Interna
+
+La entrega está identificada por la etiqueta [parcial1-khypupyme2-v1](https://github.com/Ramiro-sakv/khypupyme-app/tree/parcial1-khypupyme2-v1). El [registro de verificación](docs/PARCIAL1.md) relaciona los criterios del parcial con el dossier y el código.
+
+### Abrir la demostración en una instalación local
+
+Completa la preparación de Windows de arriba. Las credenciales y el buzón se generan en tu equipo. Ejecuta en PowerShell:
+
+```powershell
+dotnet build KhypuPyme.slnx -c Release --no-restore
+pnpm --dir web build
+.\scripts\Start-Api.ps1 -Port 5284 -IncludeWeb
+```
+
+Abre [KhypuPyme 2.0 en el puerto 5284](http://127.0.0.1:5284/). Si quieres comprobar la conexión, visita [Estado de PostgreSQL](http://127.0.0.1:5284/api/v1/health/database) y busca el estado **available**. Si el puerto está ocupado, elige otro puerto libre y usa la nueva dirección. Mantén abierta la terminal mientras usas la app y pulsa Ctrl+C al terminar.
+
+### Cargar datos ficticios y repetir los casos
+
+1. Registra una cuenta nueva con un correo terminado en **@example.test**. Usa el código del buzón local, ingresa y crea **Sicomoro · Demostración** con rubro **Maderas y barraca** y medidas en pulgadas y pies. Activa la prueba desde el plan.
+2. Abre Caja con **Bs 1.000**. En Inventario → Catálogo, crea **Tabla seca**, especie **Pino**, con tarifas de **Bs 8**, **Bs 9** y **Bs 10** por pie tablar según el largo. Puedes dejar el código vacío para que se genere.
+3. En Compras, añade Tabla seca. Indica largo **10 pies**, espesor **2 pulgadas**, anchos **10x6** y costo **Bs 5 por pie tablar**. Pulsa **Revisar compra**, elige efectivo, marca la revisión del importe y confirma **Bs 500**. Quedan 10 piezas y **Bs 500** en Caja.
+4. En Ventas, elige Tabla seca y **Elegir medida disponible**. Selecciona la medida y cambia la cantidad a **2**. Revisa y confirma **Bs 200** en efectivo. Recarga, abre el historial de ventas y descarga el PDF de esa venta. Comprueba **8 piezas** en Almacén y **Bs 700** en Caja.
+5. Abre otra venta para la misma medida y solicita **9**. Verifica **Pedido 9 · Disponible 8 · Faltan 1** y abre **Revisar venta**. La confirmación debe quedar deshabilitada. Al volver a consultar Almacén, Caja e historial deben quedar ocho piezas, Bs 700 y una sola venta.
+
+### Repetir la comprobación dirigida
+
+Con Microsoft Edge instalado, la compilación web y .NET en Release completadas y el puerto 5183 libre, ejecuta:
+
+```powershell
+.\scripts\Update-Database.ps1 -Database Test -Configuration Release
+$parcialTools = Join-Path $env:TEMP 'khypupyme-parcial1-tools'
+npm install --prefix $parcialTools --no-save --no-package-lock --ignore-scripts playwright-core@1.62.1
+$env:KHYPU_TEST_PLAYWRIGHT = Join-Path $parcialTools 'node_modules/playwright-core/index.mjs'
+.\scripts\Test-Parcial1.ps1
+```
+
+El script registra una cuenta temporal, carga únicamente la ficha del ejemplo, abre Caja y registra la compra y la venta desde Edge. Verifica los saldos contra PostgreSQL, guarda el PDF desde el historial y exige un rechazo HTTP 409 al pedir más stock del disponible. Usa únicamente la base **khypupyme2_test** y retira la cuenta ficticia al final. Guarda el comprobante y el resultado en **artifacts/parcial1**.
